@@ -31,12 +31,24 @@ final class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $tenant = $request->user()?->tenant;
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
                 'user' => $request->user(),
             ],
+            'currentTenant' => $tenant?->only([
+                'id',
+                'name',
+                'code',
+                'default_currency_code',
+                'is_multibranch',
+                'multi_currency_enabled',
+                'timezone',
+                'status',
+            ]),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Foundation\CountryController;
+use App\Http\Controllers\Foundation\CurrencyController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserEmailResetNotificationController;
@@ -16,7 +19,12 @@ use Inertia\Inertia;
 Route::get('/', fn () => Inertia::render('welcome'))->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function (): void {
-    Route::get('dashboard', fn () => Inertia::render('dashboard'))->name('dashboard');
+    Route::get('dashboard', DashboardController::class)->name('dashboard');
+
+    Route::prefix('foundation')->name('foundation.')->group(function (): void {
+        Route::resource('countries', CountryController::class)->except(['show']);
+        Route::resource('currencies', CurrencyController::class)->except(['show']);
+    });
 });
 
 Route::middleware('auth')->group(function (): void {
@@ -43,12 +51,6 @@ Route::middleware('auth')->group(function (): void {
 });
 
 Route::middleware('guest')->group(function (): void {
-    // User...
-    Route::get('register', [UserController::class, 'create'])
-        ->name('register');
-    Route::post('register', [UserController::class, 'store'])
-        ->name('register.store');
-
     // User Password...
     Route::get('reset-password/{token}', [UserPasswordController::class, 'create'])
         ->name('password.reset');

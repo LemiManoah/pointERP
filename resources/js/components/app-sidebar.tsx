@@ -1,215 +1,247 @@
-import * as React from "react"
-import { ChevronRight } from "lucide-react"
-
-import { SearchForm } from "@/components/search-form"
-import { VersionSwitcher } from "@/components/version-switcher"
+import { Link, usePage } from '@inertiajs/react';
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+    BadgeDollarSign,
+    ClipboardCheck,
+    FileText,
+    FolderKanban,
+    Gauge,
+    Globe2,
+    HardHat,
+    Package,
+    ShieldCheck,
+    Users,
+    Warehouse,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import AppLogo from '@/components/app-logo';
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarRail,
-} from "@/components/ui/sidebar"
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarGroup,
+    SidebarGroupContent,
+    SidebarGroupLabel,
+    SidebarHeader,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    SidebarRail,
+} from '@/components/ui/sidebar';
+import { useCurrentUrl } from '@/hooks/use-current-url';
+import type { CurrentTenant } from '@/types';
 
-// This is sample data.
-const data = {
-  versions: ["1.0.1", "1.1.0-alpha", "2.0.0-beta1"],
-  navMain: [
+type SidebarLink = {
+    title: string;
+    href: string;
+    icon: LucideIcon;
+    status?: 'ready' | 'next' | 'later';
+};
+
+type SidebarGroupItem = {
+    title: string;
+    items: SidebarLink[];
+};
+
+const groups: SidebarGroupItem[] = [
     {
-      title: "Getting Started",
-      url: "#",
-      items: [
-        {
-          title: "Installation",
-          url: "#",
-        },
-        {
-          title: "Project Structure",
-          url: "#",
-        },
-      ],
+        title: 'Foundation',
+        items: [
+            {
+                title: 'Dashboard',
+                href: '/dashboard',
+                icon: Gauge,
+                status: 'ready',
+            },
+            {
+                title: 'Countries',
+                href: '/foundation/countries',
+                icon: Globe2,
+                status: 'ready',
+            },
+            {
+                title: 'Currencies',
+                href: '/foundation/currencies',
+                icon: BadgeDollarSign,
+                status: 'ready',
+            },
+            {
+                title: 'Access control',
+                href: '#',
+                icon: ShieldCheck,
+                status: 'next',
+            },
+        ],
     },
     {
-      title: "Build Your Application",
-      url: "#",
-      items: [
-        {
-          title: "Routing",
-          url: "#",
-        },
-        {
-          title: "Data Fetching",
-          url: "#",
-          isActive: true,
-        },
-        {
-          title: "Rendering",
-          url: "#",
-        },
-        {
-          title: "Caching",
-          url: "#",
-        },
-        {
-          title: "Styling",
-          url: "#",
-        },
-        {
-          title: "Optimizing",
-          url: "#",
-        },
-        {
-          title: "Configuring",
-          url: "#",
-        },
-        {
-          title: "Testing",
-          url: "#",
-        },
-        {
-          title: "Authentication",
-          url: "#",
-        },
-        {
-          title: "Deploying",
-          url: "#",
-        },
-        {
-          title: "Upgrading",
-          url: "#",
-        },
-        {
-          title: "Examples",
-          url: "#",
-        },
-      ],
+        title: 'Operations',
+        items: [
+            {
+                title: 'Projects & sites',
+                href: '#',
+                icon: FolderKanban,
+                status: 'later',
+            },
+            {
+                title: 'Daily reports',
+                href: '#',
+                icon: ClipboardCheck,
+                status: 'later',
+            },
+            { title: 'Documents', href: '#', icon: FileText, status: 'later' },
+        ],
     },
     {
-      title: "API Reference",
-      url: "#",
-      items: [
-        {
-          title: "Components",
-          url: "#",
-        },
-        {
-          title: "File Conventions",
-          url: "#",
-        },
-        {
-          title: "Functions",
-          url: "#",
-        },
-        {
-          title: "next.config.js Options",
-          url: "#",
-        },
-        {
-          title: "CLI",
-          url: "#",
-        },
-        {
-          title: "Edge Runtime",
-          url: "#",
-        },
-      ],
+        title: 'Resources',
+        items: [
+            { title: 'People', href: '#', icon: Users, status: 'later' },
+            { title: 'Equipment', href: '#', icon: HardHat, status: 'later' },
+            { title: 'Inventory', href: '#', icon: Warehouse, status: 'later' },
+            { title: 'Procurement', href: '#', icon: Package, status: 'later' },
+        ],
     },
-    {
-      title: "Architecture",
-      url: "#",
-      items: [
-        {
-          title: "Accessibility",
-          url: "#",
-        },
-        {
-          title: "Fast Refresh",
-          url: "#",
-        },
-        {
-          title: "Next.js Compiler",
-          url: "#",
-        },
-        {
-          title: "Supported Browsers",
-          url: "#",
-        },
-        {
-          title: "Turbopack",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Community",
-      url: "#",
-      items: [
-        {
-          title: "Contribution Guide",
-          url: "#",
-        },
-      ],
-    },
-  ],
+];
+
+function StatusLabel({ status }: { status?: SidebarLink['status'] }) {
+    if (status === 'next') {
+        return (
+            <span className="ml-auto text-[10px] text-sidebar-foreground/50 uppercase">
+                Next
+            </span>
+        );
+    }
+
+    if (status === 'later') {
+        return (
+            <span className="ml-auto text-[10px] text-sidebar-foreground/40 uppercase">
+                Later
+            </span>
+        );
+    }
+
+    return null;
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  return (
-    <Sidebar {...props}>
-      <SidebarHeader>
-        <VersionSwitcher
-          versions={data.versions}
-          defaultVersion={data.versions[0]}
-        />
-        <SearchForm />
-      </SidebarHeader>
-      <SidebarContent className="gap-0">
-        {/* We create a collapsible SidebarGroup for each parent. */}
-        {data.navMain.map((item) => (
-          <Collapsible
-            key={item.title}
-            title={item.title}
-            defaultOpen
-            className="group/collapsible"
-          >
-            <SidebarGroup>
-              <SidebarGroupLabel
-                asChild
-                className="group/label text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              >
-                <CollapsibleTrigger>
-                  {item.title}{" "}
-                  <ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
-                </CollapsibleTrigger>
-              </SidebarGroupLabel>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {item.items.map((item) => (
-                      <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton asChild isActive={item.isActive}>
-                          <a href={item.url}>{item.title}</a>
+    const { currentTenant } = usePage<{ currentTenant: CurrentTenant | null }>()
+        .props;
+    const { isCurrentUrl } = useCurrentUrl();
+
+    return (
+        <Sidebar collapsible="icon" variant="inset" {...props}>
+            <SidebarHeader>
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton size="lg" asChild>
+                            <Link href="/dashboard" prefetch>
+                                <AppLogo />
+                            </Link>
                         </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </SidebarGroup>
-          </Collapsible>
-        ))}
-      </SidebarContent>
-      <SidebarRail />
-    </Sidebar>
-  )
+                    </SidebarMenuItem>
+                </SidebarMenu>
+                <div className="mx-2 rounded-md border border-sidebar-border/70 px-3 py-2 group-data-[collapsible=icon]:hidden">
+                    <div className="truncate text-sm font-medium">
+                        {currentTenant?.name ?? 'No tenant selected'}
+                    </div>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-sidebar-foreground/60">
+                        <span>{currentTenant?.code ?? 'UNSCOPED'}</span>
+                        <span className="size-1 rounded-full bg-sidebar-border" />
+                        <span>
+                            {currentTenant?.default_currency_code ?? '---'}
+                        </span>
+                    </div>
+                </div>
+            </SidebarHeader>
+
+            <SidebarContent>
+                {groups.map((group) => (
+                    <Collapsible
+                        key={group.title}
+                        defaultOpen
+                        className="group/collapsible"
+                    >
+                        <SidebarGroup>
+                            <SidebarGroupLabel asChild>
+                                <CollapsibleTrigger>
+                                    {group.title}
+                                </CollapsibleTrigger>
+                            </SidebarGroupLabel>
+                            <CollapsibleContent>
+                                <SidebarGroupContent>
+                                    <SidebarMenu>
+                                        {group.items.map((item) => {
+                                            const Icon = item.icon;
+                                            const disabled = item.href === '#';
+
+                                            return (
+                                                <SidebarMenuItem
+                                                    key={item.title}
+                                                >
+                                                    <SidebarMenuButton
+                                                        asChild={!disabled}
+                                                        disabled={disabled}
+                                                        isActive={
+                                                            !disabled &&
+                                                            isCurrentUrl(
+                                                                item.href,
+                                                            )
+                                                        }
+                                                        tooltip={{
+                                                            children:
+                                                                item.title,
+                                                        }}
+                                                    >
+                                                        {disabled ? (
+                                                            <>
+                                                                <Icon />
+                                                                <span>
+                                                                    {item.title}
+                                                                </span>
+                                                                <StatusLabel
+                                                                    status={
+                                                                        item.status
+                                                                    }
+                                                                />
+                                                            </>
+                                                        ) : (
+                                                            <Link
+                                                                href={item.href}
+                                                                prefetch
+                                                            >
+                                                                <Icon />
+                                                                <span>
+                                                                    {item.title}
+                                                                </span>
+                                                                <StatusLabel
+                                                                    status={
+                                                                        item.status
+                                                                    }
+                                                                />
+                                                            </Link>
+                                                        )}
+                                                    </SidebarMenuButton>
+                                                </SidebarMenuItem>
+                                            );
+                                        })}
+                                    </SidebarMenu>
+                                </SidebarGroupContent>
+                            </CollapsibleContent>
+                        </SidebarGroup>
+                    </Collapsible>
+                ))}
+            </SidebarContent>
+
+            <SidebarFooter className="group-data-[collapsible=icon]:hidden">
+                <div className="rounded-md bg-sidebar-accent/50 px-3 py-2 text-xs text-sidebar-foreground/70">
+                    Tenant and branch setup is managed from the manager app.
+                    Access control comes next.
+                </div>
+            </SidebarFooter>
+            <SidebarRail />
+        </Sidebar>
+    );
 }

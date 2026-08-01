@@ -1,4 +1,4 @@
-import type { Auth } from '@/types/auth';
+import type { Auth, CurrentTenant } from '@/types/auth';
 import type { FlashToast } from '@/types/ui';
 
 declare module '@inertiajs/core' {
@@ -9,6 +9,7 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             name: string;
             auth: Auth;
+            currentTenant: CurrentTenant | null;
             sidebarOpen: boolean;
             [key: string]: unknown;
         };

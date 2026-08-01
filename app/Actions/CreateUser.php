@@ -17,8 +17,11 @@ final readonly class CreateUser
     public function handle(array $attributes, #[SensitiveParameter] string $password): User
     {
         return DB::transaction(function () use ($attributes, $password): User {
+            $tenant = resolve(EnsureDefaultTenant::class)->handle();
+
             $user = User::query()->create([
                 ...$attributes,
+                'tenant_id' => $tenant->id,
                 'password' => $password,
             ]);
 
