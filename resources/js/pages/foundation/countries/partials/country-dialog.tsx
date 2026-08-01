@@ -27,7 +27,10 @@ export function CountryDialog({ country, currencies }: Props) {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant={isEditing ? 'outline' : 'default'} size={isEditing ? 'sm' : 'default'}>
+                <Button
+                    variant={isEditing ? 'outline' : 'default'}
+                    size={isEditing ? 'sm' : 'default'}
+                >
                     {isEditing ? <Pencil /> : <Plus />}
                     {isEditing ? 'Edit' : 'New country'}
                 </Button>

@@ -7,6 +7,7 @@ namespace App\Models;
 use Carbon\CarbonInterface;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,6 +20,7 @@ use Spatie\Permission\Traits\HasRoles;
 /**
  * @property-read string $id
  * @property-read string $tenant_id
+ * @property-read string|null $staff_id
  * @property-read string $name
  * @property-read string $email
  * @property-read CarbonInterface|null $email_verified_at
@@ -33,12 +35,24 @@ use Spatie\Permission\Traits\HasRoles;
  * @property-read CarbonInterface $created_at
  * @property-read CarbonInterface $updated_at
  * @property-read Tenant $tenant
+ * @property-read Staff|null $staff
  */
 #[Hidden([
     'password',
     'remember_token',
     'two_factor_secret',
     'two_factor_recovery_codes',
+])]
+#[Fillable([
+    'tenant_id',
+    'staff_id',
+    'name',
+    'email',
+    'email_verified_at',
+    'password',
+    'is_active',
+    'is_director',
+    'last_login_at',
 ])]
 final class User extends Authenticatable implements MustVerifyEmail
 {
@@ -58,6 +72,7 @@ final class User extends Authenticatable implements MustVerifyEmail
         return [
             'id' => 'string',
             'tenant_id' => 'string',
+            'staff_id' => 'string',
             'name' => 'string',
             'email' => 'string',
             'email_verified_at' => 'datetime',
@@ -80,5 +95,13 @@ final class User extends Authenticatable implements MustVerifyEmail
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    /**
+     * @return BelongsTo<Staff, $this>
+     */
+    public function staff(): BelongsTo
+    {
+        return $this->belongsTo(Staff::class);
     }
 }

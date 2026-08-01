@@ -16,10 +16,7 @@ type Props = {
     canResetPassword: boolean;
 };
 
-export default function Login({
-    status,
-    canResetPassword,
-}: Props) {
+export default function Login({ status, canResetPassword }: Props) {
     return (
         <AuthLayout
             title="Log in to your account"
@@ -94,7 +91,6 @@ export default function Login({
                                 Log in
                             </Button>
                         </div>
-
                     </>
                 )}
             </Form>

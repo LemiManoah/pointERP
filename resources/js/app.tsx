@@ -3,6 +3,8 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import type { ComponentType } from 'react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ConfirmDialogProvider } from '@/components/confirm-dialog-provider';
+import { FlashToasts } from '@/components/flash-toasts';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
@@ -23,8 +25,11 @@ void createInertiaApp({
         root.render(
             <StrictMode>
                 <TooltipProvider delayDuration={0}>
-                    <App {...props} />
-                    <Toaster />
+                    <ConfirmDialogProvider>
+                        <App {...props} />
+                        <FlashToasts />
+                        <Toaster />
+                    </ConfirmDialogProvider>
                 </TooltipProvider>
             </StrictMode>,
         );

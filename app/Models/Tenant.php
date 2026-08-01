@@ -76,10 +76,10 @@ final class Tenant extends Model
         return $this->hasMany(User::class);
     }
 
-    #[Scope]
     /**
      * @param  Builder<Tenant>  $query
      */
+    #[Scope]
     protected function active(Builder $query): void
     {
         $query->where('status', 'active');

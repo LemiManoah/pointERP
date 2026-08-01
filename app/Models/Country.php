@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Carbon\CarbonInterface;
 use Database\Factories\CountryFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Attributes\WithoutIncrementing;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,6 +28,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @method static CountryFactory factory($count = null, $state = [])
  */
 #[WithoutIncrementing]
+#[Fillable([
+    'code',
+    'name',
+    'iso3_code',
+    'default_currency_code',
+    'is_active',
+])]
 final class Country extends Model
 {
     /** @use HasFactory<CountryFactory> */
@@ -35,17 +43,6 @@ final class Country extends Model
     protected $primaryKey = 'code';
 
     protected $keyType = 'string';
-
-    /**
-     * @var list<string>
-     */
-    protected $fillable = [
-        'code',
-        'name',
-        'iso3_code',
-        'default_currency_code',
-        'is_active',
-    ];
 
     /**
      * @return array<string, string>
@@ -71,10 +68,10 @@ final class Country extends Model
         return $this->belongsTo(Currency::class, 'default_currency_code', 'code');
     }
 
-    #[Scope]
     /**
      * @param  Builder<Country>  $query
      */
+    #[Scope]
     protected function active(Builder $query): void
     {
         $query->where('is_active', true);

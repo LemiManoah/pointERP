@@ -8,10 +8,7 @@ import {
 } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import {
-    CountryForm,
-    type CurrencyOption,
-} from './partials/country-form';
+import { CountryForm, type CurrencyOption } from './partials/country-form';
 
 type Props = {
     currencies: CurrencyOption[];

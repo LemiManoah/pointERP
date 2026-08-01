@@ -59,10 +59,7 @@ export function CurrencyForm({ currency, onCancel, onSuccess }: Props) {
                     maxLength={3}
                     disabled={Boolean(currency)}
                     onChange={(event) =>
-                        form.setData(
-                            'code',
-                            event.target.value.toUpperCase(),
-                        )
+                        form.setData('code', event.target.value.toUpperCase())
                     }
                     placeholder="UGX"
                 />

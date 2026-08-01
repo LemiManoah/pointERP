@@ -1,14 +1,11 @@
 import { useForm } from '@inertiajs/react';
 import type { FormEvent } from 'react';
 import InputError from '@/components/input-error';
+import { SearchableSelect } from '@/components/searchable-select';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    NativeSelect,
-    NativeSelectOption,
-} from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 
 export type CountryFormData = Record<string, string | boolean> & {
@@ -31,7 +28,12 @@ type Props = {
     onSuccess?: () => void;
 };
 
-export function CountryForm({ country, currencies, onCancel, onSuccess }: Props) {
+export function CountryForm({
+    country,
+    currencies,
+    onCancel,
+    onSuccess,
+}: Props) {
     const form = useForm<CountryFormData>({
         code: country?.code ?? '',
         name: country?.name ?? '',
@@ -70,10 +72,7 @@ export function CountryForm({ country, currencies, onCancel, onSuccess }: Props)
                     maxLength={2}
                     disabled={Boolean(country)}
                     onChange={(event) =>
-                        form.setData(
-                            'code',
-                            event.target.value.toUpperCase(),
-                        )
+                        form.setData('code', event.target.value.toUpperCase())
                     }
                     placeholder="UG"
                 />
@@ -111,29 +110,19 @@ export function CountryForm({ country, currencies, onCancel, onSuccess }: Props)
             </div>
 
             <div className="grid gap-2">
-                <Label htmlFor="default_currency_code">
-                    Default currency
-                </Label>
-                <NativeSelect
-                    id="default_currency_code"
+                <Label htmlFor="default_currency_code">Default currency</Label>
+                <SearchableSelect
                     value={form.data.default_currency_code}
-                    onChange={(event) =>
-                        form.setData(
-                            'default_currency_code',
-                            event.target.value,
-                        )
+                    onValueChange={(value) =>
+                        form.setData('default_currency_code', value)
                     }
-                    className="w-full"
-                >
-                    {currencies.map((currency) => (
-                        <NativeSelectOption
-                            key={currency.code}
-                            value={currency.code}
-                        >
-                            {currency.code} - {currency.name}
-                        </NativeSelectOption>
-                    ))}
-                </NativeSelect>
+                    options={currencies.map((currency) => ({
+                        value: currency.code,
+                        label: `${currency.code} - ${currency.name}`,
+                    }))}
+                    placeholder="Select currency"
+                    searchPlaceholder="Search currencies..."
+                />
                 <InputError message={form.errors.default_currency_code} />
             </div>
 

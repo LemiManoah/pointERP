@@ -1,6 +1,7 @@
 import { Head, router } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,10 +23,7 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { CountryDialog } from './partials/country-dialog';
-import type {
-    CountryFormData,
-    CurrencyOption,
-} from './partials/country-form';
+import type { CountryFormData, CurrencyOption } from './partials/country-form';
 
 type Country = {
     code: string;
@@ -47,6 +45,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function CountriesIndex({ countries, currencies }: Props) {
+    const confirm = useConfirmDialog();
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState('all');
     const debouncedSearch = useDebouncedValue(search);
@@ -81,8 +80,8 @@ export default function CountriesIndex({ countries, currencies }: Props) {
             <Head title="Countries" />
 
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="grid gap-4">
                         <h1 className="text-2xl font-semibold tracking-tight">
                             Countries
                         </h1>
@@ -90,51 +89,46 @@ export default function CountriesIndex({ countries, currencies }: Props) {
                             Global ISO country references seeded for the Point
                             ERP pilot.
                         </p>
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                            <div className="relative">
+                                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    value={search}
+                                    onChange={(event) =>
+                                        setSearch(event.target.value)
+                                    }
+                                    placeholder="Search countries"
+                                    className="w-full pl-9 sm:w-64"
+                                />
+                            </div>
+                            <Select value={status} onValueChange={setStatus}>
+                                <SelectTrigger className="w-full sm:w-36">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All</SelectItem>
+                                    <SelectItem value="active">
+                                        Active
+                                    </SelectItem>
+                                    <SelectItem value="inactive">
+                                        Inactive
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
-                    <CountryDialog currencies={currencies} />
+                    <div className="lg:ml-auto">
+                        <CountryDialog currencies={currencies} />
+                    </div>
                 </div>
 
                 <Card>
                     <CardHeader>
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                            <div>
-                                <CardTitle>Reference countries</CardTitle>
-                                <CardDescription>
-                                    Country currencies are defaults for setup,
-                                    not branch-level restrictions.
-                                </CardDescription>
-                            </div>
-                            <div className="flex flex-col gap-3 sm:flex-row">
-                                <div className="relative">
-                                    <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                                    <Input
-                                        value={search}
-                                        onChange={(event) =>
-                                            setSearch(event.target.value)
-                                        }
-                                        placeholder="Search countries"
-                                        className="w-full pl-9 sm:w-64"
-                                    />
-                                </div>
-                                <Select
-                                    value={status}
-                                    onValueChange={setStatus}
-                                >
-                                    <SelectTrigger className="w-full sm:w-36">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All</SelectItem>
-                                        <SelectItem value="active">
-                                            Active
-                                        </SelectItem>
-                                        <SelectItem value="inactive">
-                                            Inactive
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
+                        <CardTitle>Reference countries</CardTitle>
+                        <CardDescription>
+                            Country currencies are defaults for setup, not
+                            branch-level restrictions.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="overflow-x-auto">
@@ -210,13 +204,27 @@ export default function CountriesIndex({ countries, currencies }: Props) {
                                                         }
                                                         size="sm"
                                                         onClick={() =>
-                                                            router.delete(
-                                                                `/foundation/countries/${country.code}`,
-                                                                {
-                                                                    preserveScroll:
-                                                                        true,
-                                                                },
-                                                            )
+                                                            confirm({
+                                                                title: country.is_active
+                                                                    ? 'Deactivate country?'
+                                                                    : 'Activate country?',
+                                                                description: `${country.name} will ${country.is_active ? 'no longer' : 'again'} be available in setup workflows.`,
+                                                                confirmLabel:
+                                                                    country.is_active
+                                                                        ? 'Deactivate'
+                                                                        : 'Activate',
+                                                                variant:
+                                                                    country.is_active
+                                                                        ? 'destructive'
+                                                                        : 'default',
+                                                                onConfirm: () =>
+                                                                    router.delete(
+                                                                        `/foundation/countries/${country.code}`,
+                                                                        {
+                                                                            preserveScroll: true,
+                                                                        },
+                                                                    ),
+                                                            })
                                                         }
                                                     >
                                                         {country.is_active

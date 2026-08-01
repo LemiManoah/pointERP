@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Carbon\CarbonInterface;
 use Database\Factories\CurrencyFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Attributes\WithoutIncrementing;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,6 +26,13 @@ use Illuminate\Database\Eloquent\Model;
  * @method static CurrencyFactory factory($count = null, $state = [])
  */
 #[WithoutIncrementing]
+#[Fillable([
+    'code',
+    'name',
+    'symbol',
+    'decimal_places',
+    'is_active',
+])]
 final class Currency extends Model
 {
     /** @use HasFactory<CurrencyFactory> */
@@ -33,17 +41,6 @@ final class Currency extends Model
     protected $primaryKey = 'code';
 
     protected $keyType = 'string';
-
-    /**
-     * @var list<string>
-     */
-    protected $fillable = [
-        'code',
-        'name',
-        'symbol',
-        'decimal_places',
-        'is_active',
-    ];
 
     /**
      * @return array<string, string>
@@ -61,10 +58,10 @@ final class Currency extends Model
         ];
     }
 
-    #[Scope]
     /**
      * @param  Builder<Currency>  $query
      */
+    #[Scope]
     protected function active(Builder $query): void
     {
         $query->where('is_active', true);

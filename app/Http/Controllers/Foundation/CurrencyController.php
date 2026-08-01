@@ -44,6 +44,11 @@ final class CurrencyController
 
         $action->handle($data);
 
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Currency created.',
+        ]);
+
         return to_route('foundation.currencies.index');
     }
 
@@ -67,12 +72,22 @@ final class CurrencyController
 
         $action->handle($currency, $data);
 
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Currency updated.',
+        ]);
+
         return to_route('foundation.currencies.index');
     }
 
     public function destroy(Currency $currency, ToggleCurrencyStatus $action): RedirectResponse
     {
         $action->handle($currency);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $currency->is_active ? 'Currency activated.' : 'Currency deactivated.',
+        ]);
 
         return to_route('foundation.currencies.index');
     }

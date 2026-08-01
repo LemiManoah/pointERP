@@ -50,5 +50,54 @@ return new class extends Migration
                 ->on('currencies')
                 ->restrictOnDelete();
         });
+
+        Schema::create('branches', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->foreignUuid('tenant_id')->constrained()->restrictOnDelete();
+            $table->string('name');
+            $table->string('code');
+            $table->char('country_code', 2);
+            $table->char('default_currency_code', 3);
+            $table->string('status')->default('active');
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->unique(['tenant_id', 'code']);
+            $table->foreign('country_code')
+                ->references('code')
+                ->on('countries')
+                ->restrictOnDelete();
+            $table->foreign('default_currency_code')
+                ->references('code')
+                ->on('currencies')
+                ->restrictOnDelete();
+        });
+
+        Schema::create('staff_positions', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->foreignUuid('tenant_id')->constrained()->restrictOnDelete();
+            $table->string('name');
+            $table->string('code');
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+
+            $table->unique(['tenant_id', 'code']);
+        });
+
+        Schema::create('staff', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->foreignUuid('tenant_id')->constrained()->restrictOnDelete();
+            $table->foreignUuid('branch_id')->constrained()->restrictOnDelete();
+            $table->foreignUuid('staff_position_id')->constrained()->restrictOnDelete();
+            $table->string('staff_number');
+            $table->string('name');
+            $table->string('email')->unique();
+            $table->string('phone')->nullable();
+            $table->string('status')->default('active');
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->unique(['tenant_id', 'staff_number']);
+        });
     }
 };

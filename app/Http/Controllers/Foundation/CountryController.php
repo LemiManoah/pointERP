@@ -50,6 +50,11 @@ final class CountryController
 
         $action->handle($data);
 
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Country created.',
+        ]);
+
         return to_route('foundation.countries.index');
     }
 
@@ -74,12 +79,22 @@ final class CountryController
 
         $action->handle($country, $data);
 
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Country updated.',
+        ]);
+
         return to_route('foundation.countries.index');
     }
 
     public function destroy(Country $country, ToggleCountryStatus $action): RedirectResponse
     {
         $action->handle($country);
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $country->is_active ? 'Country activated.' : 'Country deactivated.',
+        ]);
 
         return to_route('foundation.countries.index');
     }

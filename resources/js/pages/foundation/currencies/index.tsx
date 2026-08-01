@@ -1,6 +1,7 @@
 import { Head, router } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,6 +43,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function CurrenciesIndex({ currencies }: Props) {
+    const confirm = useConfirmDialog();
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState('all');
     const debouncedSearch = useDebouncedValue(search);
@@ -70,8 +72,8 @@ export default function CurrenciesIndex({ currencies }: Props) {
             <Head title="Currencies" />
 
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="grid gap-4">
                         <h1 className="text-2xl font-semibold tracking-tight">
                             Currencies
                         </h1>
@@ -79,51 +81,46 @@ export default function CurrenciesIndex({ currencies }: Props) {
                             ISO currency references available to tenant and
                             branch currency settings.
                         </p>
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                            <div className="relative">
+                                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    value={search}
+                                    onChange={(event) =>
+                                        setSearch(event.target.value)
+                                    }
+                                    placeholder="Search currencies"
+                                    className="w-full pl-9 sm:w-64"
+                                />
+                            </div>
+                            <Select value={status} onValueChange={setStatus}>
+                                <SelectTrigger className="w-full sm:w-36">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All</SelectItem>
+                                    <SelectItem value="active">
+                                        Active
+                                    </SelectItem>
+                                    <SelectItem value="inactive">
+                                        Inactive
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
-                    <CurrencyDialog />
+                    <div className="lg:ml-auto">
+                        <CurrencyDialog />
+                    </div>
                 </div>
 
                 <Card>
                     <CardHeader>
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                            <div>
-                                <CardTitle>Reference currencies</CardTitle>
-                                <CardDescription>
-                                    Tenants cannot invent arbitrary currency
-                                    codes through ordinary UI.
-                                </CardDescription>
-                            </div>
-                            <div className="flex flex-col gap-3 sm:flex-row">
-                                <div className="relative">
-                                    <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                                    <Input
-                                        value={search}
-                                        onChange={(event) =>
-                                            setSearch(event.target.value)
-                                        }
-                                        placeholder="Search currencies"
-                                        className="w-full pl-9 sm:w-64"
-                                    />
-                                </div>
-                                <Select
-                                    value={status}
-                                    onValueChange={setStatus}
-                                >
-                                    <SelectTrigger className="w-full sm:w-36">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All</SelectItem>
-                                        <SelectItem value="active">
-                                            Active
-                                        </SelectItem>
-                                        <SelectItem value="inactive">
-                                            Inactive
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
+                        <CardTitle>Reference currencies</CardTitle>
+                        <CardDescription>
+                            Tenants cannot invent arbitrary currency codes
+                            through ordinary UI.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="overflow-x-auto">
@@ -196,13 +193,27 @@ export default function CurrenciesIndex({ currencies }: Props) {
                                                         }
                                                         size="sm"
                                                         onClick={() =>
-                                                            router.delete(
-                                                                `/foundation/currencies/${currency.code}`,
-                                                                {
-                                                                    preserveScroll:
-                                                                        true,
-                                                                },
-                                                            )
+                                                            confirm({
+                                                                title: currency.is_active
+                                                                    ? 'Deactivate currency?'
+                                                                    : 'Activate currency?',
+                                                                description: `${currency.code} will ${currency.is_active ? 'no longer' : 'again'} be available in setup workflows.`,
+                                                                confirmLabel:
+                                                                    currency.is_active
+                                                                        ? 'Deactivate'
+                                                                        : 'Activate',
+                                                                variant:
+                                                                    currency.is_active
+                                                                        ? 'destructive'
+                                                                        : 'default',
+                                                                onConfirm: () =>
+                                                                    router.delete(
+                                                                        `/foundation/currencies/${currency.code}`,
+                                                                        {
+                                                                            preserveScroll: true,
+                                                                        },
+                                                                    ),
+                                                            })
                                                         }
                                                     >
                                                         {currency.is_active

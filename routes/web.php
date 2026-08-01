@@ -2,9 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\AccessControl\RoleController as AccessRoleController;
+use App\Http\Controllers\AccessControl\UserController as AccessUserController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Foundation\CountryController;
 use App\Http\Controllers\Foundation\CurrencyController;
+use App\Http\Controllers\Resources\StaffController;
+use App\Http\Controllers\Resources\StaffPositionController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserEmailResetNotificationController;
@@ -24,6 +28,17 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::prefix('foundation')->name('foundation.')->group(function (): void {
         Route::resource('countries', CountryController::class)->except(['show']);
         Route::resource('currencies', CurrencyController::class)->except(['show']);
+    });
+
+    Route::redirect('access-control', 'access-control/users')->name('access-control.index');
+    Route::prefix('access-control')->name('access-control.')->group(function (): void {
+        Route::resource('users', AccessUserController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::resource('roles', AccessRoleController::class)->only(['index', 'store', 'update', 'destroy']);
+    });
+
+    Route::prefix('resources')->name('resources.')->group(function (): void {
+        Route::resource('staff', StaffController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::resource('staff-positions', StaffPositionController::class)->only(['index', 'store', 'update', 'destroy']);
     });
 });
 

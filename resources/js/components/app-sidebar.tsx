@@ -71,9 +71,9 @@ const groups: SidebarGroupItem[] = [
             },
             {
                 title: 'Access control',
-                href: '#',
+                href: '/access-control/users',
                 icon: ShieldCheck,
-                status: 'next',
+                status: 'ready',
             },
         ],
     },
@@ -98,7 +98,12 @@ const groups: SidebarGroupItem[] = [
     {
         title: 'Resources',
         items: [
-            { title: 'People', href: '#', icon: Users, status: 'later' },
+            {
+                title: 'Staff',
+                href: '/resources/staff',
+                icon: Users,
+                status: 'ready',
+            },
             { title: 'Equipment', href: '#', icon: HardHat, status: 'later' },
             { title: 'Inventory', href: '#', icon: Warehouse, status: 'later' },
             { title: 'Procurement', href: '#', icon: Package, status: 'later' },
@@ -238,7 +243,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarFooter className="group-data-[collapsible=icon]:hidden">
                 <div className="rounded-md bg-sidebar-accent/50 px-3 py-2 text-xs text-sidebar-foreground/70">
                     Tenant and branch setup is managed from the manager app.
-                    Access control comes next.
+                    Access control is active for ERP users and roles.
                 </div>
             </SidebarFooter>
             <SidebarRail />
