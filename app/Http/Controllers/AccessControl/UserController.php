@@ -13,6 +13,7 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Staff;
 use App\Models\User;
+use App\Services\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -21,9 +22,12 @@ final class UserController
 {
     public function index(): Response
     {
+        $tenantId = resolve(TenantContext::class)->id();
+
         return Inertia::render('access-control/users/index', [
             'users' => User::query()
                 ->with(['roles', 'permissions', 'staff.branch', 'staff.position'])
+                ->where('tenant_id', $tenantId)
                 ->orderBy('name')
                 ->get()
                 ->map(fn (User $user): array => [
@@ -52,6 +56,7 @@ final class UserController
                 ->all(),
             'staff' => Staff::query()
                 ->with(['branch', 'position', 'user'])
+                ->where('tenant_id', $tenantId)
                 ->where('status', 'active')
                 ->orderBy('name')
                 ->get()
@@ -85,6 +90,8 @@ final class UserController
 
     public function update(UpdateUserRequest $request, User $user, UpdateAccessUser $action): RedirectResponse
     {
+        abort_unless($user->tenant_id === resolve(TenantContext::class)->id(), 404);
+
         /** @var array{staff_id: string, password?: string|null, is_active?: bool, is_director?: bool, roles?: list<string>, permissions?: list<string>} $data */
         $data = $request->validated();
 
@@ -100,6 +107,8 @@ final class UserController
 
     public function destroy(User $user, ToggleUserStatus $action): RedirectResponse
     {
+        abort_unless($user->tenant_id === resolve(TenantContext::class)->id(), 404);
+
         $action->handle($user);
 
         Inertia::flash('toast', [

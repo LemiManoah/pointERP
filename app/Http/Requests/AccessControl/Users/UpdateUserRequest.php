@@ -8,6 +8,7 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Staff;
 use App\Models\User;
+use App\Services\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -28,7 +29,14 @@ final class UpdateUserRequest extends FormRequest
         $user = $this->route('user');
 
         return [
-            'staff_id' => ['required', 'uuid', Rule::exists((new Staff)->getTable(), 'id'), Rule::unique((new User)->getTable(), 'staff_id')->ignore($user->id)],
+            'staff_id' => [
+                'required',
+                'uuid',
+                Rule::exists((new Staff)->getTable(), 'id')
+                    ->where('tenant_id', resolve(TenantContext::class)->id())
+                    ->where('status', 'active'),
+                Rule::unique((new User)->getTable(), 'staff_id')->ignore($user->id),
+            ],
             'password' => ['nullable', 'confirmed', Password::defaults()],
             'is_active' => ['sometimes', 'boolean'],
             'is_director' => ['sometimes', 'boolean'],

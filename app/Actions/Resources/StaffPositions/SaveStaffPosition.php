@@ -4,17 +4,22 @@ declare(strict_types=1);
 
 namespace App\Actions\Resources\StaffPositions;
 
-use App\Actions\EnsureDefaultTenant;
 use App\Models\StaffPosition;
+use App\Services\TenantContext;
 
-final class SaveStaffPosition
+final readonly class SaveStaffPosition
 {
+    public function __construct(private TenantContext $tenantContext)
+    {
+        //
+    }
+
     /**
      * @param  array{name: string, code: string, is_active?: bool}  $data
      */
     public function handle(array $data, ?StaffPosition $staffPosition = null): StaffPosition
     {
-        $tenant = resolve(EnsureDefaultTenant::class)->handle();
+        $tenant = $this->tenantContext->current();
 
         $attributes = [
             'tenant_id' => $tenant->id,

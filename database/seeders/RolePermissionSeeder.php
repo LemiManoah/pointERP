@@ -7,6 +7,7 @@ namespace Database\Seeders;
 use App\Models\Permission;
 use App\Models\Role;
 use Illuminate\Database\Seeder;
+use Spatie\Permission\PermissionRegistrar;
 
 final class RolePermissionSeeder extends Seeder
 {
@@ -17,6 +18,9 @@ final class RolePermissionSeeder extends Seeder
         'Director' => [
             'access-control.users.manage',
             'access-control.roles.manage',
+            'branch-users.manage',
+            'branches.view',
+            'branches.view-all',
             'foundation.countries.manage',
             'foundation.currencies.manage',
             'operations.projects.manage',
@@ -25,11 +29,14 @@ final class RolePermissionSeeder extends Seeder
         ],
         'Administrator' => [
             'access-control.users.manage',
+            'branch-users.manage',
+            'branches.view',
             'foundation.countries.manage',
             'foundation.currencies.manage',
             'resources.staff.manage',
         ],
         'Project Manager' => [
+            'branches.view',
             'operations.projects.manage',
             'operations.reports.approve',
         ],
@@ -45,6 +52,8 @@ final class RolePermissionSeeder extends Seeder
 
     public function run(): void
     {
+        resolve(PermissionRegistrar::class)->forgetCachedPermissions();
+
         foreach ($this->permissions() as $permission) {
             Permission::query()->firstOrCreate([
                 'name' => $permission,
@@ -60,6 +69,8 @@ final class RolePermissionSeeder extends Seeder
 
             $role->givePermissionTo($permissions);
         }
+
+        resolve(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
     /**

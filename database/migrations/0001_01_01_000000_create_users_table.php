@@ -30,6 +30,16 @@ return new class extends Migration
             $table->index(['tenant_id', 'email']);
         });
 
+        Schema::create('branch_user', function (Blueprint $table): void {
+            $table->foreignUuid('branch_id')->constrained()->cascadeOnDelete();
+            $table->foreignUuid('user_id')->constrained()->cascadeOnDelete();
+            $table->boolean('is_default')->default(false);
+            $table->timestamps();
+
+            $table->primary(['branch_id', 'user_id']);
+            $table->index(['user_id', 'is_default']);
+        });
+
         Schema::create('password_reset_tokens', function (Blueprint $table): void {
             $table->string('email')->primary();
             $table->string('token');

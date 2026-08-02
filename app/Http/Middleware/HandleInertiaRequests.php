@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Models\Branch;
+use App\Models\User;
+use App\Services\BranchContext;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -31,7 +34,10 @@ final class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        $tenant = $request->user()?->tenant;
+        $user = $request->user();
+        $tenant = $user instanceof User ? $user->tenant : null;
+        $branchContext = $user instanceof User ? resolve(BranchContext::class) : null;
+        $currentBranch = $branchContext?->current($user instanceof User ? $user : null);
 
         return [
             ...parent::share($request),
@@ -49,6 +55,26 @@ final class HandleInertiaRequests extends Middleware
                 'timezone',
                 'status',
             ]),
+            'currentBranch' => $currentBranch?->only([
+                'id',
+                'name',
+                'code',
+                'country_code',
+                'default_currency_code',
+                'status',
+            ]),
+            'accessibleBranches' => $branchContext?->accessibleBranches($user instanceof User ? $user : null)
+                ->map(fn (Branch $branch): array => [
+                    'id' => $branch->id,
+                    'name' => $branch->name,
+                    'code' => $branch->code,
+                    'country_code' => $branch->country_code,
+                    'default_currency_code' => $branch->default_currency_code,
+                    'status' => $branch->status,
+                ])
+                ->values()
+                ->all() ?? [],
+            'canViewAllBranches' => $branchContext?->canViewAllBranches($user instanceof User ? $user : null) ?? false,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

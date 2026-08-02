@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AccessControl\RoleController as AccessRoleController;
 use App\Http\Controllers\AccessControl\UserController as AccessUserController;
+use App\Http\Controllers\Branches\CurrentBranchController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Foundation\CountryController;
 use App\Http\Controllers\Foundation\CurrencyController;
@@ -24,6 +25,7 @@ Route::get('/', fn () => Inertia::render('welcome'))->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::put('current-branch', [CurrentBranchController::class, 'update'])->name('current-branch.update');
 
     Route::prefix('foundation')->name('foundation.')->group(function (): void {
         Route::resource('countries', CountryController::class)->except(['show']);

@@ -78,5 +78,8 @@ final class PointInvestmentSeeder extends Seeder
         );
 
         $user->syncRoles([Role::query()->where('name', 'Director')->firstOrFail()]);
+        $user->branches()->syncWithoutDetaching([
+            $branch->id => ['is_default' => true],
+        ]);
     }
 }

@@ -29,6 +29,15 @@ export type CurrentTenant = {
     status: string;
 };
 
+export type BranchSummary = {
+    id: string;
+    name: string;
+    code: string;
+    country_code: string;
+    default_currency_code: string;
+    status: string;
+};
+
 export type TwoFactorSetupData = {
     svg: string;
     url: string;

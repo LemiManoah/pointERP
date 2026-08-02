@@ -9,6 +9,7 @@ use App\Actions\Resources\StaffPositions\ToggleStaffPositionStatus;
 use App\Http\Requests\Resources\StaffPositions\StoreStaffPositionRequest;
 use App\Http\Requests\Resources\StaffPositions\UpdateStaffPositionRequest;
 use App\Models\StaffPosition;
+use App\Services\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -17,9 +18,12 @@ final class StaffPositionController
 {
     public function index(): Response
     {
+        $tenantId = resolve(TenantContext::class)->id();
+
         return Inertia::render('resources/staff-positions/index', [
             'positions' => StaffPosition::query()
                 ->withCount('staff')
+                ->where('tenant_id', $tenantId)
                 ->orderBy('name')
                 ->get()
                 ->map(fn (StaffPosition $position): array => [
@@ -49,6 +53,8 @@ final class StaffPositionController
 
     public function update(UpdateStaffPositionRequest $request, StaffPosition $staffPosition, SaveStaffPosition $action): RedirectResponse
     {
+        abort_unless($staffPosition->tenant_id === resolve(TenantContext::class)->id(), 404);
+
         /** @var array{name: string, code: string, is_active?: bool} $data */
         $data = $request->validated();
 
@@ -64,6 +70,8 @@ final class StaffPositionController
 
     public function destroy(StaffPosition $staffPosition, ToggleStaffPositionStatus $action): RedirectResponse
     {
+        abort_unless($staffPosition->tenant_id === resolve(TenantContext::class)->id(), 404);
+
         $action->handle($staffPosition);
 
         Inertia::flash('toast', [

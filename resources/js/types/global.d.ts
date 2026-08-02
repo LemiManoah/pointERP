@@ -1,4 +1,4 @@
-import type { Auth, CurrentTenant } from '@/types/auth';
+import type { Auth, BranchSummary, CurrentTenant } from '@/types/auth';
 import type { FlashToast } from '@/types/ui';
 
 declare module '@inertiajs/core' {
@@ -10,6 +10,9 @@ declare module '@inertiajs/core' {
             name: string;
             auth: Auth;
             currentTenant: CurrentTenant | null;
+            currentBranch: BranchSummary | null;
+            accessibleBranches: BranchSummary[];
+            canViewAllBranches: boolean;
             sidebarOpen: boolean;
             [key: string]: unknown;
         };

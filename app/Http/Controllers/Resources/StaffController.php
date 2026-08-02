@@ -11,6 +11,7 @@ use App\Http\Requests\Resources\Staff\UpdateStaffRequest;
 use App\Models\Branch;
 use App\Models\Staff;
 use App\Models\StaffPosition;
+use App\Services\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,9 +20,12 @@ final class StaffController
 {
     public function index(): Response
     {
+        $tenantId = resolve(TenantContext::class)->id();
+
         return Inertia::render('resources/staff/index', [
             'staff' => Staff::query()
                 ->with(['branch', 'position', 'user'])
+                ->where('tenant_id', $tenantId)
                 ->orderBy('name')
                 ->get()
                 ->map(fn (Staff $staff): array => [
@@ -38,6 +42,7 @@ final class StaffController
                     'has_user' => $staff->user !== null,
                 ]),
             'branches' => Branch::query()
+                ->where('tenant_id', $tenantId)
                 ->orderBy('name')
                 ->get(['id', 'name'])
                 ->map(fn (Branch $branch): array => [
@@ -45,6 +50,7 @@ final class StaffController
                     'name' => $branch->name,
                 ]),
             'positions' => StaffPosition::query()
+                ->where('tenant_id', $tenantId)
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name'])
@@ -72,6 +78,8 @@ final class StaffController
 
     public function update(UpdateStaffRequest $request, Staff $staff, SaveStaff $action): RedirectResponse
     {
+        abort_unless($staff->tenant_id === resolve(TenantContext::class)->id(), 404);
+
         /** @var array{branch_id: string, staff_position_id: string, staff_number: string, name: string, email: string, phone?: string|null, status: string} $data */
         $data = $request->validated();
 
@@ -87,6 +95,8 @@ final class StaffController
 
     public function destroy(Staff $staff, ToggleStaffStatus $action): RedirectResponse
     {
+        abort_unless($staff->tenant_id === resolve(TenantContext::class)->id(), 404);
+
         $action->handle($staff);
 
         Inertia::flash('toast', [

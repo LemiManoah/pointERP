@@ -8,6 +8,7 @@ use App\Models\Branch;
 use App\Models\Staff;
 use App\Models\StaffPosition;
 use App\Rules\ValidEmail;
+use App\Services\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -25,11 +26,12 @@ final class UpdateStaffRequest extends FormRequest
     {
         /** @var Staff $staff */
         $staff = $this->route('staff');
+        $tenantId = resolve(TenantContext::class)->id();
 
         return [
-            'branch_id' => ['required', 'uuid', Rule::exists((new Branch)->getTable(), 'id')],
-            'staff_position_id' => ['required', 'uuid', Rule::exists((new StaffPosition)->getTable(), 'id')],
-            'staff_number' => ['required', 'string', 'max:60', Rule::unique((new Staff)->getTable(), 'staff_number')->ignore($staff->id)],
+            'branch_id' => ['required', 'uuid', Rule::exists((new Branch)->getTable(), 'id')->where('tenant_id', $tenantId)->where('status', 'active')],
+            'staff_position_id' => ['required', 'uuid', Rule::exists((new StaffPosition)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
+            'staff_number' => ['required', 'string', 'max:60', Rule::unique((new Staff)->getTable(), 'staff_number')->where('tenant_id', $tenantId)->ignore($staff->id)],
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', new ValidEmail, Rule::unique((new Staff)->getTable(), 'email')->ignore($staff->id)],
             'phone' => ['nullable', 'string', 'max:40'],

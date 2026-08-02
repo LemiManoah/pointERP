@@ -99,5 +99,6 @@ return new class extends Migration
 
             $table->unique(['tenant_id', 'staff_number']);
         });
+
     }
 };
