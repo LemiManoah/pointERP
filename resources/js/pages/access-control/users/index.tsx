@@ -13,12 +13,10 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+    Tabs,
+    TabsList,
+    TabsTrigger,
+} from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -46,7 +44,7 @@ export default function UsersIndex({
 }: Props) {
     const confirm = useConfirmDialog();
     const [search, setSearch] = useState('');
-    const [status, setStatus] = useState('all');
+    const [status, setStatus] = useState('active');
     const debouncedSearch = useDebouncedValue(search);
 
     const filteredUsers = useMemo(() => {
@@ -54,10 +52,8 @@ export default function UsersIndex({
 
         return users.filter((user) => {
             const matchesStatus =
-                status === 'all' ||
                 (status === 'active' && user.is_active) ||
-                (status === 'inactive' && !user.is_active) ||
-                (status === 'director' && user.is_director);
+                (status === 'inactive' && !user.is_active);
             const matchesSearch =
                 !term ||
                 [
@@ -105,23 +101,6 @@ export default function UsersIndex({
                                     className="w-full pl-9 sm:w-64"
                                 />
                             </div>
-                            <Select value={status} onValueChange={setStatus}>
-                                <SelectTrigger className="w-full sm:w-40">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All</SelectItem>
-                                    <SelectItem value="active">
-                                        Active
-                                    </SelectItem>
-                                    <SelectItem value="inactive">
-                                        Inactive
-                                    </SelectItem>
-                                    <SelectItem value="director">
-                                        Directors
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
                         </div>
                     </div>
                     <div className="lg:ml-auto">
@@ -133,13 +112,21 @@ export default function UsersIndex({
                     </div>
                 </div>
 
-                <div className="flex gap-2">
-                    <Button variant="secondary" asChild>
-                        <Link href="/access-control/users">Users</Link>
-                    </Button>
-                    <Button variant="outline" asChild>
-                        <Link href="/access-control/roles">Roles</Link>
-                    </Button>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex gap-2">
+                        <Button variant="secondary" asChild>
+                            <Link href="/access-control/users">Users</Link>
+                        </Button>
+                        <Button variant="outline" asChild>
+                            <Link href="/access-control/roles">Roles</Link>
+                        </Button>
+                    </div>
+                    <Tabs value={status} onValueChange={setStatus}>
+                        <TabsList>
+                            <TabsTrigger value="active">Active</TabsTrigger>
+                            <TabsTrigger value="inactive">Inactive</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
                 </div>
 
                 <Card>

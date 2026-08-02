@@ -23,6 +23,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string $country_code
  * @property-read string $default_currency_code
  * @property-read string $status
+ * @property-read Country $country
+ * @property-read Currency $defaultCurrency
  * @property-read CarbonInterface $created_at
  * @property-read CarbonInterface $updated_at
  */
@@ -67,6 +69,22 @@ final class Branch extends Model
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    /**
+     * @return BelongsTo<Country, $this>
+     */
+    public function country(): BelongsTo
+    {
+        return $this->belongsTo(Country::class, 'country_code', 'code');
+    }
+
+    /**
+     * @return BelongsTo<Currency, $this>
+     */
+    public function defaultCurrency(): BelongsTo
+    {
+        return $this->belongsTo(Currency::class, 'default_currency_code', 'code');
     }
 
     /**

@@ -12,6 +12,11 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+    Tabs,
+    TabsList,
+    TabsTrigger,
+} from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -32,25 +37,27 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function StaffIndex({ staff, branches, positions }: Props) {
     const confirm = useConfirmDialog();
     const [search, setSearch] = useState('');
+    const [status, setStatus] = useState('active');
     const debouncedSearch = useDebouncedValue(search);
     const filteredStaff = useMemo(() => {
         const term = debouncedSearch.trim().toLowerCase();
 
         return staff.filter(
             (staffMember) =>
-                !term ||
-                [
-                    staffMember.staff_number,
-                    staffMember.name,
-                    staffMember.email,
-                    staffMember.branch_name,
-                    staffMember.position_name,
-                ]
-                    .join(' ')
-                    .toLowerCase()
-                    .includes(term),
+                staffMember.status === status &&
+                (!term ||
+                    [
+                        staffMember.staff_number,
+                        staffMember.name,
+                        staffMember.email,
+                        staffMember.branch_name,
+                        staffMember.position_name,
+                    ]
+                        .join(' ')
+                        .toLowerCase()
+                        .includes(term)),
         );
-    }, [debouncedSearch, staff]);
+    }, [debouncedSearch, staff, status]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -82,13 +89,23 @@ export default function StaffIndex({ staff, branches, positions }: Props) {
                     <StaffDialog branches={branches} positions={positions} />
                 </div>
 
-                <div className="flex gap-2">
-                    <Button variant="secondary" asChild>
-                        <Link href="/resources/staff">Staff</Link>
-                    </Button>
-                    <Button variant="outline" asChild>
-                        <Link href="/resources/staff-positions">Positions</Link>
-                    </Button>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex gap-2">
+                        <Button variant="secondary" asChild>
+                            <Link href="/resources/staff">Staff</Link>
+                        </Button>
+                        <Button variant="outline" asChild>
+                            <Link href="/resources/staff-positions">
+                                Positions
+                            </Link>
+                        </Button>
+                    </div>
+                    <Tabs value={status} onValueChange={setStatus}>
+                        <TabsList>
+                            <TabsTrigger value="active">Active</TabsTrigger>
+                            <TabsTrigger value="inactive">Inactive</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
                 </div>
 
                 <Card>
@@ -217,6 +234,17 @@ export default function StaffIndex({ staff, branches, positions }: Props) {
                                             </td>
                                         </tr>
                                     ))}
+                                    {filteredStaff.length === 0 && (
+                                        <tr>
+                                            <td
+                                                colSpan={6}
+                                                className="py-8 text-center text-muted-foreground"
+                                            >
+                                                No staff records match the
+                                                current tab and search.
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>

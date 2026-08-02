@@ -13,12 +13,10 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+    Tabs,
+    TabsList,
+    TabsTrigger,
+} from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -47,7 +45,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function CountriesIndex({ countries, currencies }: Props) {
     const confirm = useConfirmDialog();
     const [search, setSearch] = useState('');
-    const [status, setStatus] = useState('all');
+    const [status, setStatus] = useState('active');
     const debouncedSearch = useDebouncedValue(search);
 
     const filteredCountries = useMemo(() => {
@@ -55,7 +53,6 @@ export default function CountriesIndex({ countries, currencies }: Props) {
 
         return countries.filter((country) => {
             const matchesStatus =
-                status === 'all' ||
                 (status === 'active' && country.is_active) ||
                 (status === 'inactive' && !country.is_active);
             const matchesSearch =
@@ -101,23 +98,17 @@ export default function CountriesIndex({ countries, currencies }: Props) {
                                     className="w-full pl-9 sm:w-64"
                                 />
                             </div>
-                            <Select value={status} onValueChange={setStatus}>
-                                <SelectTrigger className="w-full sm:w-36">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All</SelectItem>
-                                    <SelectItem value="active">
-                                        Active
-                                    </SelectItem>
-                                    <SelectItem value="inactive">
-                                        Inactive
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
                         </div>
                     </div>
-                    <div className="lg:ml-auto">
+                    <div className="flex flex-col gap-3 lg:ml-auto lg:items-end">
+                        <Tabs value={status} onValueChange={setStatus}>
+                            <TabsList>
+                                <TabsTrigger value="active">Active</TabsTrigger>
+                                <TabsTrigger value="inactive">
+                                    Inactive
+                                </TabsTrigger>
+                            </TabsList>
+                        </Tabs>
                         <CountryDialog currencies={currencies} />
                     </div>
                 </div>

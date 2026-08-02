@@ -12,6 +12,11 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+    Tabs,
+    TabsList,
+    TabsTrigger,
+} from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -30,19 +35,23 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function StaffPositionsIndex({ positions }: Props) {
     const confirm = useConfirmDialog();
     const [search, setSearch] = useState('');
+    const [status, setStatus] = useState('active');
     const debouncedSearch = useDebouncedValue(search);
     const filteredPositions = useMemo(() => {
         const term = debouncedSearch.trim().toLowerCase();
 
         return positions.filter(
             (position) =>
-                !term ||
-                [position.name, position.code]
-                    .join(' ')
-                    .toLowerCase()
-                    .includes(term),
+                (status === 'active'
+                    ? position.is_active
+                    : !position.is_active) &&
+                (!term ||
+                    [position.name, position.code]
+                        .join(' ')
+                        .toLowerCase()
+                        .includes(term)),
         );
-    }, [debouncedSearch, positions]);
+    }, [debouncedSearch, positions, status]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -74,13 +83,23 @@ export default function StaffPositionsIndex({ positions }: Props) {
                     <StaffPositionDialog />
                 </div>
 
-                <div className="flex gap-2">
-                    <Button variant="outline" asChild>
-                        <Link href="/resources/staff">Staff</Link>
-                    </Button>
-                    <Button variant="secondary" asChild>
-                        <Link href="/resources/staff-positions">Positions</Link>
-                    </Button>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex gap-2">
+                        <Button variant="outline" asChild>
+                            <Link href="/resources/staff">Staff</Link>
+                        </Button>
+                        <Button variant="secondary" asChild>
+                            <Link href="/resources/staff-positions">
+                                Positions
+                            </Link>
+                        </Button>
+                    </div>
+                    <Tabs value={status} onValueChange={setStatus}>
+                        <TabsList>
+                            <TabsTrigger value="active">Active</TabsTrigger>
+                            <TabsTrigger value="inactive">Inactive</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
                 </div>
 
                 <Card>
@@ -184,6 +203,17 @@ export default function StaffPositionsIndex({ positions }: Props) {
                                             </td>
                                         </tr>
                                     ))}
+                                    {filteredPositions.length === 0 && (
+                                        <tr>
+                                            <td
+                                                colSpan={5}
+                                                className="py-8 text-center text-muted-foreground"
+                                            >
+                                                No positions match the current
+                                                tab and search.
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
