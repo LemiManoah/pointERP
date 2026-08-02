@@ -20,6 +20,8 @@ export type AccessUser = {
     is_active: boolean;
     is_director: boolean;
     last_login_at: string | null;
+    branch_ids: string[];
+    default_branch_id: string | null;
     roles: string[];
     permissions: string[];
 };
@@ -35,6 +37,12 @@ export type StaffOption = {
     user_id: string | null;
 };
 
+export type BranchOption = {
+    id: string;
+    name: string;
+    code: string;
+};
+
 type UserFormData = Record<string, string | boolean | string[]> & {
     staff_id: string;
     password: string;
@@ -43,6 +51,8 @@ type UserFormData = Record<string, string | boolean | string[]> & {
     is_director: boolean;
     roles: string[];
     permissions: string[];
+    branch_ids: string[];
+    default_branch_id: string;
 };
 
 type Props = {
@@ -50,6 +60,7 @@ type Props = {
     roles: string[];
     permissions: string[];
     staff: StaffOption[];
+    branches: BranchOption[];
     onCancel?: () => void;
     onSuccess?: () => void;
 };
@@ -59,6 +70,7 @@ export function UserForm({
     roles,
     permissions,
     staff,
+    branches: branchOptionsSource,
     onCancel,
     onSuccess,
 }: Props) {
@@ -74,11 +86,13 @@ export function UserForm({
         is_director: user?.is_director ?? false,
         roles: user?.roles ?? [],
         permissions: user?.permissions ?? [],
+        branch_ids: user?.branch_ids ?? [],
+        default_branch_id: user?.default_branch_id ?? '',
     });
     const selectedStaff = staff.find(
         (staffMember) => staffMember.id === form.data.staff_id,
     );
-    const branches = useMemo(
+    const staffBranches = useMemo(
         () =>
             Array.from(
                 new Map(
@@ -105,12 +119,23 @@ export function UserForm({
     const branchOptions = useMemo(
         () => [
             { value: 'all', label: 'All branches' },
-            ...branches.map((branch) => ({
+            ...staffBranches.map((branch) => ({
                 value: branch.id,
                 label: branch.name,
             })),
         ],
-        [branches],
+        [staffBranches],
+    );
+    const defaultBranchOptions = useMemo(
+        () =>
+            branchOptionsSource
+                .filter((branch) => form.data.branch_ids.includes(branch.id))
+                .map((branch) => ({
+                    value: branch.id,
+                    label: branch.name,
+                    description: branch.code,
+                })),
+        [branchOptionsSource, form.data.branch_ids],
     );
     const staffOptions = useMemo(
         () =>
@@ -147,6 +172,41 @@ export function UserForm({
                       (currentPermission) => currentPermission !== permission,
                   ),
         );
+    }
+
+    function toggleBranch(branchId: string, checked: boolean) {
+        const nextBranchIds = checked
+            ? [...form.data.branch_ids, branchId]
+            : form.data.branch_ids.filter(
+                  (currentBranchId) => currentBranchId !== branchId,
+              );
+
+        form.setData({
+            ...form.data,
+            branch_ids: nextBranchIds,
+            default_branch_id: nextBranchIds.includes(
+                form.data.default_branch_id,
+            )
+                ? form.data.default_branch_id
+                : (nextBranchIds[0] ?? ''),
+        });
+    }
+
+    function setStaffId(staffId: string) {
+        const nextStaff = staff.find((staffMember) => staffMember.id === staffId);
+
+        const branchIds =
+            nextStaff && !form.data.branch_ids.includes(nextStaff.branch_id)
+                ? [...form.data.branch_ids, nextStaff.branch_id]
+                : form.data.branch_ids;
+
+        form.setData({
+            ...form.data,
+            staff_id: staffId,
+            branch_ids: branchIds,
+            default_branch_id:
+                form.data.default_branch_id || nextStaff?.branch_id || '',
+        });
     }
 
     function submit(event: FormEvent<HTMLFormElement>) {
@@ -188,7 +248,7 @@ export function UserForm({
                 <Label htmlFor="staff_id">Staff member</Label>
                 <SearchableSelect
                     value={form.data.staff_id}
-                    onValueChange={(value) => form.setData('staff_id', value)}
+                    onValueChange={setStaffId}
                     options={staffOptions}
                     placeholder="Select staff"
                     searchPlaceholder="Search staff..."
@@ -204,6 +264,48 @@ export function UserForm({
                         </div>
                     </div>
                 )}
+            </div>
+
+            <div className="grid gap-3">
+                <Label>Branch access</Label>
+                <div className="grid max-h-48 gap-2 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
+                    {branchOptionsSource.map((branch) => (
+                        <label
+                            key={branch.id}
+                            className="flex items-center gap-3 text-sm"
+                        >
+                            <Checkbox
+                                checked={form.data.branch_ids.includes(
+                                    branch.id,
+                                )}
+                                onCheckedChange={(checked) =>
+                                    toggleBranch(branch.id, checked === true)
+                                }
+                            />
+                            <span>
+                                {branch.name}
+                                <span className="ml-1 text-muted-foreground">
+                                    {branch.code}
+                                </span>
+                            </span>
+                        </label>
+                    ))}
+                </div>
+                <InputError message={form.errors.branch_ids} />
+            </div>
+
+            <div className="grid gap-2">
+                <Label>Default branch</Label>
+                <SearchableSelect
+                    value={form.data.default_branch_id}
+                    onValueChange={(value) =>
+                        form.setData('default_branch_id', value)
+                    }
+                    options={defaultBranchOptions}
+                    placeholder="Select default branch"
+                    searchPlaceholder="Search selected branches..."
+                />
+                <InputError message={form.errors.default_branch_id} />
             </div>
 
             <div className="grid gap-2">

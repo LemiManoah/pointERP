@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\AccessControl\Users;
 
+use App\Models\Branch;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Staff;
@@ -25,12 +26,14 @@ final class StoreUserRequest extends FormRequest
      */
     public function rules(): array
     {
+        $tenantId = resolve(TenantContext::class)->id();
+
         return [
             'staff_id' => [
                 'required',
                 'uuid',
                 Rule::exists((new Staff)->getTable(), 'id')
-                    ->where('tenant_id', resolve(TenantContext::class)->id())
+                    ->where('tenant_id', $tenantId)
                     ->where('status', 'active'),
                 Rule::unique((new User)->getTable(), 'staff_id'),
             ],
@@ -41,14 +44,32 @@ final class StoreUserRequest extends FormRequest
             'roles.*' => ['string', Rule::exists((new Role)->getTable(), 'name')],
             'permissions' => ['array'],
             'permissions.*' => ['string', Rule::exists((new Permission)->getTable(), 'name')],
+            'branch_ids' => ['required', 'array', 'min:1'],
+            'branch_ids.*' => [
+                'required',
+                'uuid',
+                'distinct',
+                Rule::exists((new Branch)->getTable(), 'id')
+                    ->where('tenant_id', $tenantId)
+                    ->where('status', 'active'),
+            ],
+            'default_branch_id' => ['required', 'uuid', Rule::in($this->input('branch_ids', []))],
         ];
     }
 
     protected function prepareForValidation(): void
     {
+        $branchIds = collect($this->input('branch_ids', []))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
         $this->merge([
             'is_active' => $this->boolean('is_active'),
             'is_director' => $this->boolean('is_director'),
+            'branch_ids' => $branchIds,
+            'default_branch_id' => $this->input('default_branch_id') ?: ($branchIds[0] ?? null),
         ]);
     }
 }

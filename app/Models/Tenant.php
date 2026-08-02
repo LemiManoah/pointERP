@@ -77,6 +77,14 @@ final class Tenant extends Model
     }
 
     /**
+     * @return HasMany<TenantCurrency, $this>
+     */
+    public function enabledCurrencies(): HasMany
+    {
+        return $this->hasMany(TenantCurrency::class);
+    }
+
+    /**
      * @param  Builder<Tenant>  $query
      */
     #[Scope]

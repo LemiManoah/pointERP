@@ -21,13 +21,18 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { UserDialog } from './partials/user-dialog';
-import type { AccessUser, StaffOption } from './partials/user-form';
+import type {
+    AccessUser,
+    BranchOption,
+    StaffOption,
+} from './partials/user-form';
 
 type Props = {
     users: AccessUser[];
     roles: string[];
     permissions: string[];
     staff: StaffOption[];
+    branches: BranchOption[];
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -41,6 +46,7 @@ export default function UsersIndex({
     roles,
     permissions,
     staff,
+    branches,
 }: Props) {
     const confirm = useConfirmDialog();
     const [search, setSearch] = useState('');
@@ -62,6 +68,11 @@ export default function UsersIndex({
                     user.staff_number ?? '',
                     user.branch_name ?? '',
                     user.position_name ?? '',
+                    ...user.branch_ids.map(
+                        (branchId) =>
+                            branches.find((branch) => branch.id === branchId)
+                                ?.name ?? '',
+                    ),
                     ...user.roles,
                     ...user.permissions,
                 ]
@@ -71,7 +82,7 @@ export default function UsersIndex({
 
             return matchesStatus && matchesSearch;
         });
-    }, [debouncedSearch, status, users]);
+    }, [branches, debouncedSearch, status, users]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -108,6 +119,7 @@ export default function UsersIndex({
                             roles={roles}
                             permissions={permissions}
                             staff={staff}
+                            branches={branches}
                         />
                     </div>
                 </div>
@@ -150,6 +162,9 @@ export default function UsersIndex({
                                         </th>
                                         <th className="py-3 pr-4 font-medium">
                                             Staff
+                                        </th>
+                                        <th className="py-3 pr-4 font-medium">
+                                            Branch access
                                         </th>
                                         <th className="py-3 pr-4 font-medium">
                                             Last login
@@ -213,6 +228,38 @@ export default function UsersIndex({
                                                 </div>
                                             </td>
                                             <td className="py-3 pr-4">
+                                                <div className="flex flex-wrap gap-2">
+                                                    {user.branch_ids.map(
+                                                        (branchId) => {
+                                                            const branch =
+                                                                branches.find(
+                                                                    (item) =>
+                                                                        item.id ===
+                                                                        branchId,
+                                                                );
+
+                                                            return (
+                                                                <Badge
+                                                                    key={
+                                                                        branchId
+                                                                    }
+                                                                    variant={
+                                                                        user.default_branch_id ===
+                                                                        branchId
+                                                                            ? 'default'
+                                                                            : 'secondary'
+                                                                    }
+                                                                >
+                                                                    {branch
+                                                                        ? `${branch.name} (${branch.code})`
+                                                                        : branchId}
+                                                                </Badge>
+                                                            );
+                                                        },
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="py-3 pr-4">
                                                 {user.last_login_at ?? '-'}
                                             </td>
                                             <td className="py-3 pr-4">
@@ -237,6 +284,7 @@ export default function UsersIndex({
                                                             permissions
                                                         }
                                                         staff={staff}
+                                                        branches={branches}
                                                     />
                                                     <Button
                                                         variant={
@@ -280,7 +328,7 @@ export default function UsersIndex({
                                     {filteredUsers.length === 0 && (
                                         <tr>
                                             <td
-                                                colSpan={6}
+                                                colSpan={7}
                                                 className="py-8 text-center text-muted-foreground"
                                             >
                                                 No users match the current

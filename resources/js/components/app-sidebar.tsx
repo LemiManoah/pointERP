@@ -8,6 +8,8 @@ import {
     Globe2,
     HardHat,
     Package,
+    RefreshCcw,
+    Settings2,
     ShieldCheck,
     Users,
     Warehouse,
@@ -67,6 +69,18 @@ const groups: SidebarGroupItem[] = [
                 title: 'Currencies',
                 href: '/foundation/currencies',
                 icon: BadgeDollarSign,
+                status: 'ready',
+            },
+            {
+                title: 'Currency settings',
+                href: '/foundation/currency-settings',
+                icon: Settings2,
+                status: 'ready',
+            },
+            {
+                title: 'Exchange rates',
+                href: '/foundation/exchange-rates',
+                icon: RefreshCcw,
                 status: 'ready',
             },
             {

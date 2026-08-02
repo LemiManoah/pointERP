@@ -10,23 +10,25 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import {
-    UserForm,
-    type AccessUser,
+    ExchangeRateForm,
     type BranchOption,
-    type StaffOption,
-} from './user-form';
+    type CurrencyOption,
+    type ExchangeRate,
+} from './exchange-rate-form';
 
 type Props = {
-    user?: AccessUser;
-    roles: string[];
-    permissions: string[];
-    staff: StaffOption[];
+    exchangeRate?: ExchangeRate;
     branches: BranchOption[];
+    currencies: CurrencyOption[];
 };
 
-export function UserDialog({ user, roles, permissions, staff, branches }: Props) {
+export function ExchangeRateDialog({
+    exchangeRate,
+    branches,
+    currencies,
+}: Props) {
     const [open, setOpen] = useState(false);
-    const isEditing = Boolean(user);
+    const isEditing = Boolean(exchangeRate);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -34,27 +36,25 @@ export function UserDialog({ user, roles, permissions, staff, branches }: Props)
                 <Button
                     variant={isEditing ? 'outline' : 'default'}
                     size={isEditing ? 'sm' : 'default'}
+                    disabled={isEditing && exchangeRate?.status !== 'draft'}
                 >
                     {isEditing ? <Pencil /> : <Plus />}
-                    {isEditing ? 'Edit' : 'New user'}
+                    {isEditing ? 'Edit' : 'New rate'}
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-3xl">
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>
-                        {isEditing ? `Edit ${user?.name}` : 'New user'}
+                        {isEditing ? 'Edit draft rate' : 'New exchange rate'}
                     </DialogTitle>
                     <DialogDescription>
-                        Admin-created users are scoped to the current ERP
-                        tenant.
+                        Store manual rates as dated drafts before approval.
                     </DialogDescription>
                 </DialogHeader>
-                <UserForm
-                    user={user}
-                    roles={roles}
-                    permissions={permissions}
-                    staff={staff}
+                <ExchangeRateForm
+                    exchangeRate={exchangeRate}
                     branches={branches}
+                    currencies={currencies}
                     onCancel={() => setOpen(false)}
                     onSuccess={() => setOpen(false)}
                 />

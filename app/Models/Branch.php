@@ -104,4 +104,12 @@ final class Branch extends Model
             ->withPivot('is_default')
             ->withTimestamps();
     }
+
+    /**
+     * @return HasMany<BranchCurrency, $this>
+     */
+    public function enabledCurrencies(): HasMany
+    {
+        return $this->hasMany(BranchCurrency::class);
+    }
 }

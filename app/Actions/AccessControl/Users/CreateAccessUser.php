@@ -17,7 +17,7 @@ final readonly class CreateAccessUser
     }
 
     /**
-     * @param  array{staff_id: string, password: string, is_active?: bool, is_director?: bool, roles?: list<string>, permissions?: list<string>}  $data
+     * @param  array{staff_id: string, password: string, is_active?: bool, is_director?: bool, roles?: list<string>, permissions?: list<string>, branch_ids?: list<string>, default_branch_id?: string|null}  $data
      */
     public function handle(array $data): User
     {
@@ -40,11 +40,26 @@ final readonly class CreateAccessUser
 
             $user->syncRoles($data['roles'] ?? []);
             $user->syncPermissions($data['permissions'] ?? []);
-            $user->branches()->syncWithoutDetaching([
-                $staff->branch_id => ['is_default' => true],
-            ]);
+            $this->syncBranches($user, $data['branch_ids'] ?? [$staff->branch_id], $data['default_branch_id'] ?? $staff->branch_id);
 
             return $user;
         });
+    }
+
+    /**
+     * @param  list<string>  $branchIds
+     */
+    private function syncBranches(User $user, array $branchIds, ?string $defaultBranchId): void
+    {
+        $branchIds = array_values(array_unique($branchIds));
+        $defaultBranchId = in_array($defaultBranchId, $branchIds, true) ? $defaultBranchId : $branchIds[0];
+
+        $user->branches()->sync(
+            collect($branchIds)
+                ->mapWithKeys(fn (string $branchId): array => [
+                    $branchId => ['is_default' => $branchId === $defaultBranchId],
+                ])
+                ->all(),
+        );
     }
 }

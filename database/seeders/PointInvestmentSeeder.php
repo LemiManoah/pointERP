@@ -6,10 +6,14 @@ namespace Database\Seeders;
 
 use App\Actions\EnsureDefaultTenant;
 use App\Models\Branch;
+use App\Models\BranchCurrency;
+use App\Models\ExchangeRate;
 use App\Models\Role;
 use App\Models\Staff;
 use App\Models\StaffPosition;
+use App\Models\TenantCurrency;
 use App\Models\User;
+use App\Services\TenantContext;
 use Illuminate\Database\Seeder;
 
 final class PointInvestmentSeeder extends Seeder
@@ -17,6 +21,7 @@ final class PointInvestmentSeeder extends Seeder
     public function run(): void
     {
         $tenant = resolve(EnsureDefaultTenant::class)->handle();
+        resolve(TenantContext::class)->set($tenant);
 
         $branch = Branch::query()->updateOrCreate(
             ['tenant_id' => $tenant->id, 'code' => 'KLA-HQ'],
@@ -81,5 +86,54 @@ final class PointInvestmentSeeder extends Seeder
         $user->branches()->syncWithoutDetaching([
             $branch->id => ['is_default' => true],
         ]);
+
+        foreach (['USD', 'UGX'] as $currencyCode) {
+            TenantCurrency::query()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'currency_code' => $currencyCode],
+                [
+                    'is_enabled' => true,
+                    'is_default' => $currencyCode === $tenant->default_currency_code,
+                ],
+            );
+        }
+
+        BranchCurrency::query()->updateOrCreate(
+            ['branch_id' => $branch->id, 'currency_code' => 'UGX'],
+            [
+                'tenant_id' => $tenant->id,
+                'is_enabled' => true,
+                'is_default_transaction_currency' => true,
+                'can_receive' => true,
+                'can_pay' => true,
+            ],
+        );
+
+        BranchCurrency::query()->updateOrCreate(
+            ['branch_id' => $branch->id, 'currency_code' => 'USD'],
+            [
+                'tenant_id' => $tenant->id,
+                'is_enabled' => true,
+                'is_default_transaction_currency' => false,
+                'can_receive' => true,
+                'can_pay' => true,
+            ],
+        );
+
+        ExchangeRate::query()->updateOrCreate(
+            [
+                'tenant_id' => $tenant->id,
+                'branch_id' => null,
+                'from_currency_code' => 'USD',
+                'to_currency_code' => 'UGX',
+                'effective_date' => now()->toDateString(),
+            ],
+            [
+                'rate' => '3700.0000000000',
+                'source' => 'manual',
+                'status' => ExchangeRate::STATUS_DRAFT,
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
+            ],
+        );
     }
 }

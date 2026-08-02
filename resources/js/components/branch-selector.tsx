@@ -33,13 +33,18 @@ export function BranchSelector() {
     ];
 
     if (options.length === 0) {
-        return null;
+        return (
+            <div className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+                <Building2 className="size-4" />
+                <span className="truncate">No branch access</span>
+            </div>
+        );
     }
 
     const value = currentBranch?.id ?? allBranchesValue;
 
     return (
-        <div className="hidden max-w-xs min-w-56 items-center gap-2 md:flex">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-xs">
             <Building2 className="size-4 text-muted-foreground" />
             <SearchableSelect
                 value={value}

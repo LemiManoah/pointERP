@@ -8,6 +8,8 @@ use App\Http\Controllers\Branches\CurrentBranchController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Foundation\CountryController;
 use App\Http\Controllers\Foundation\CurrencyController;
+use App\Http\Controllers\Foundation\CurrencySettingController;
+use App\Http\Controllers\Foundation\ExchangeRateController;
 use App\Http\Controllers\Resources\StaffController;
 use App\Http\Controllers\Resources\StaffPositionController;
 use App\Http\Controllers\SessionController;
@@ -30,6 +32,11 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::prefix('foundation')->name('foundation.')->group(function (): void {
         Route::resource('countries', CountryController::class)->except(['show']);
         Route::resource('currencies', CurrencyController::class)->except(['show']);
+        Route::get('currency-settings', [CurrencySettingController::class, 'index'])->name('currency-settings.index');
+        Route::post('currency-settings/tenant/{currency}', [CurrencySettingController::class, 'toggleTenantCurrency'])->name('currency-settings.tenant.toggle');
+        Route::post('currency-settings/branches', [CurrencySettingController::class, 'storeBranchCurrency'])->name('currency-settings.branches.store');
+        Route::resource('exchange-rates', ExchangeRateController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::post('exchange-rates/{exchangeRate}/approve', [ExchangeRateController::class, 'approve'])->name('exchange-rates.approve');
     });
 
     Route::redirect('access-control', 'access-control/users')->name('access-control.index');
