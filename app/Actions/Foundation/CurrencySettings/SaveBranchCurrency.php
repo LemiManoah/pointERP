@@ -29,13 +29,9 @@ final readonly class SaveBranchCurrency
             ->whereKey($data['branch_id'])
             ->firstOrFail();
 
-        if ($branch->default_currency_code === $data['currency_code'] && ! $data['is_enabled']) {
-            throw new InvalidArgumentException('The branch base currency cannot be disabled.');
-        }
+        throw_if($branch->default_currency_code === $data['currency_code'] && ! $data['is_enabled'], InvalidArgumentException::class, 'The branch base currency cannot be disabled.');
 
-        if (! $data['is_enabled'] && $data['is_default_transaction_currency']) {
-            throw new InvalidArgumentException('A disabled branch currency cannot be the transaction default.');
-        }
+        throw_if(! $data['is_enabled'] && $data['is_default_transaction_currency'], InvalidArgumentException::class, 'A disabled branch currency cannot be the transaction default.');
 
         $tenantCurrencyIsEnabled = TenantCurrency::query()
             ->where('tenant_id', $tenant->id)
@@ -43,9 +39,7 @@ final readonly class SaveBranchCurrency
             ->where('is_enabled', true)
             ->exists();
 
-        if (! $tenantCurrencyIsEnabled) {
-            throw new InvalidArgumentException('Enable this currency for the tenant before using it on a branch.');
-        }
+        throw_unless($tenantCurrencyIsEnabled, InvalidArgumentException::class, 'Enable this currency for the tenant before using it on a branch.');
 
         return DB::transaction(function () use ($branch, $data, $tenant): BranchCurrency {
             if ($data['is_default_transaction_currency']) {

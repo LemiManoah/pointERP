@@ -79,8 +79,8 @@ export default function ExchangeRatesIndex({
                                 Exchange rates
                             </h1>
                             <p className="mt-1 text-sm text-muted-foreground">
-                                Manual dated rates. Direction is always 1 FROM
-                                = RATE TO.
+                                Manual dated rates. Direction is always 1 FROM =
+                                RATE TO.
                             </p>
                         </div>
                         <div className="relative">
@@ -200,8 +200,7 @@ export default function ExchangeRatesIndex({
                                                                                     `/exchange-rates/${rate.id}/approve`,
                                                                                     {},
                                                                                     {
-                                                                                        preserveScroll:
-                                                                                            true,
+                                                                                        preserveScroll: true,
                                                                                     },
                                                                                 ),
                                                                     })
@@ -226,8 +225,7 @@ export default function ExchangeRatesIndex({
                                                                                 router.delete(
                                                                                     `/exchange-rates/${rate.id}`,
                                                                                     {
-                                                                                        preserveScroll:
-                                                                                            true,
+                                                                                        preserveScroll: true,
                                                                                     },
                                                                                 ),
                                                                     })

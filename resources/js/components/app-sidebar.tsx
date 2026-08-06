@@ -205,60 +205,71 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             <CollapsibleContent>
                                 <SidebarGroupContent>
                                     <SidebarMenu>
-                                        {group.items.filter((item) => can(item.permission)).map((item) => {
-                                            const Icon = item.icon;
-                                            const disabled = item.href === '#';
+                                        {group.items
+                                            .filter((item) =>
+                                                can(item.permission),
+                                            )
+                                            .map((item) => {
+                                                const Icon = item.icon;
+                                                const disabled =
+                                                    item.href === '#';
 
-                                            return (
-                                                <SidebarMenuItem
-                                                    key={item.title}
-                                                >
-                                                    <SidebarMenuButton
-                                                        asChild={!disabled}
-                                                        disabled={disabled}
-                                                        isActive={
-                                                            !disabled &&
-                                                            isCurrentUrl(
-                                                                item.href,
-                                                            )
-                                                        }
-                                                        tooltip={{
-                                                            children:
-                                                                item.title,
-                                                        }}
+                                                return (
+                                                    <SidebarMenuItem
+                                                        key={item.title}
                                                     >
-                                                        {disabled ? (
-                                                            <>
-                                                                <Icon />
-                                                                <span>
-                                                                    {item.title}
-                                                                </span>
-                                                                <StatusLabel
-                                                                    status={
-                                                                        item.status
+                                                        <SidebarMenuButton
+                                                            asChild={!disabled}
+                                                            disabled={disabled}
+                                                            isActive={
+                                                                !disabled &&
+                                                                isCurrentUrl(
+                                                                    item.href,
+                                                                )
+                                                            }
+                                                            tooltip={{
+                                                                children:
+                                                                    item.title,
+                                                            }}
+                                                        >
+                                                            {disabled ? (
+                                                                <>
+                                                                    <Icon />
+                                                                    <span>
+                                                                        {
+                                                                            item.title
+                                                                        }
+                                                                    </span>
+                                                                    <StatusLabel
+                                                                        status={
+                                                                            item.status
+                                                                        }
+                                                                    />
+                                                                </>
+                                                            ) : (
+                                                                <Link
+                                                                    href={
+                                                                        item.href
                                                                     }
-                                                                />
-                                                            </>
-                                                        ) : (
-                                                            <Link
-                                                                href={item.href}
-                                                                prefetch
-                                                            >
-                                                                <Icon />
-                                                                <span>
-                                                                    {item.title}
-                                                                </span>
-                                                                <StatusLabel
-                                                                    status={
-                                                                        item.status
-                                                                    }
-                                                                />
-                                                            </Link>
-                                                        )}
-                                                    </SidebarMenuButton>
-                                                </SidebarMenuItem>
-                                            );
-                                        })}
+                                                                    prefetch
+                                                                >
+                                                                    <Icon />
+                                                                    <span>
+                                                                        {
+                                                                            item.title
+                                                                        }
+                                                                    </span>
+                                                                    <StatusLabel
+                                                                        status={
+                                                                            item.status
+                                                                        }
+                                                                    />
+                                                                </Link>
+                                                            )}
+                                                        </SidebarMenuButton>
+                                                    </SidebarMenuItem>
+                                                );
+                                            })}
                                     </SidebarMenu>
                                 </SidebarGroupContent>
                             </CollapsibleContent>

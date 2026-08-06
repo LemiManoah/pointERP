@@ -12,11 +12,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import {
-    Tabs,
-    TabsList,
-    TabsTrigger,
-} from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -95,9 +91,7 @@ export default function StaffIndex({ staff, branches, positions }: Props) {
                             <Link href="/staff">Staff</Link>
                         </Button>
                         <Button variant="outline" asChild>
-                            <Link href="/staff-positions">
-                                Positions
-                            </Link>
+                            <Link href="/staff-positions">Positions</Link>
                         </Button>
                     </div>
                     <Tabs value={status} onValueChange={setStatus}>

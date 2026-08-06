@@ -25,13 +25,9 @@ final readonly class SaveExchangeRate
     {
         $tenant = $this->tenantContext->current();
 
-        if ($exchangeRate instanceof ExchangeRate && $exchangeRate->status !== ExchangeRate::STATUS_DRAFT) {
-            throw new InvalidArgumentException('Only draft exchange rates can be edited.');
-        }
+        throw_if($exchangeRate instanceof ExchangeRate && $exchangeRate->status !== ExchangeRate::STATUS_DRAFT, InvalidArgumentException::class, 'Only draft exchange rates can be edited.');
 
-        if (($data['branch_id'] ?? null) === null && ! $actor->can('branches.view-all')) {
-            throw new InvalidArgumentException('Only users with all-branch access can create tenant-wide exchange rates.');
-        }
+        throw_if(($data['branch_id'] ?? null) === null && ! $actor->can('branches.view-all'), InvalidArgumentException::class, 'Only users with all-branch access can create tenant-wide exchange rates.');
 
         if (($data['branch_id'] ?? null) !== null) {
             Branch::query()

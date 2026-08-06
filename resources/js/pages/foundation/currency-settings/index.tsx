@@ -152,9 +152,7 @@ export default function CurrencySettingsIndex({
                     >
                         <TabsList>
                             <TabsTrigger value="enabled">Enabled</TabsTrigger>
-                            <TabsTrigger value="disabled">
-                                Disabled
-                            </TabsTrigger>
+                            <TabsTrigger value="disabled">Disabled</TabsTrigger>
                         </TabsList>
                     </Tabs>
                 </div>
@@ -234,8 +232,7 @@ export default function CurrencySettingsIndex({
                                                                 `/currency-settings/tenant/${currency.code}`,
                                                                 {},
                                                                 {
-                                                                    preserveScroll:
-                                                                        true,
+                                                                    preserveScroll: true,
                                                                 },
                                                             )
                                                         }
@@ -324,10 +321,7 @@ export default function CurrencySettingsIndex({
                                         key={name}
                                         className="flex items-center gap-2 text-sm"
                                     >
-                                        <Checkbox
-                                            name={name}
-                                            defaultChecked
-                                        />
+                                        <Checkbox name={name} defaultChecked />
                                         {label}
                                     </label>
                                 ))}
@@ -375,9 +369,7 @@ export default function CurrencySettingsIndex({
                                                         )
                                                         .map((setting) => (
                                                             <Badge
-                                                                key={
-                                                                    setting.id
-                                                                }
+                                                                key={setting.id}
                                                                 variant={
                                                                     setting.is_default_transaction_currency
                                                                         ? 'default'
@@ -389,8 +381,8 @@ export default function CurrencySettingsIndex({
                                                                 }
                                                             </Badge>
                                                         ))}
-                                                    {branch.currencies.length ===
-                                                        0 && (
+                                                    {branch.currencies
+                                                        .length === 0 && (
                                                         <span className="text-muted-foreground">
                                                             None configured
                                                         </span>

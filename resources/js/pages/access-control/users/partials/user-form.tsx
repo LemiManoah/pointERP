@@ -193,7 +193,9 @@ export function UserForm({
     }
 
     function setStaffId(staffId: string) {
-        const nextStaff = staff.find((staffMember) => staffMember.id === staffId);
+        const nextStaff = staff.find(
+            (staffMember) => staffMember.id === staffId,
+        );
 
         const branchIds =
             nextStaff && !form.data.branch_ids.includes(nextStaff.branch_id)
@@ -259,7 +261,7 @@ export function UserForm({
                         <div className="font-medium">{selectedStaff.email}</div>
                         <div className="mt-1 text-muted-foreground">{`${selectedStaff.branch_name} - ${selectedStaff.position_name}`}</div>
                         <div className="hidden">
-                            {selectedStaff.branch_name} - 
+                            {selectedStaff.branch_name} -
                             {selectedStaff.position_name}
                         </div>
                     </div>

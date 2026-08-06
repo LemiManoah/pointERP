@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Actions\Foundation\CurrencySettings;
 
-use App\Models\Currency;
 use App\Models\Branch;
 use App\Models\BranchCurrency;
+use App\Models\Currency;
 use App\Models\TenantCurrency;
 use App\Services\TenantContext;
 use Illuminate\Support\Facades\DB;
@@ -29,17 +29,13 @@ final readonly class ToggleTenantCurrency
                 'currency_code' => $currency->code,
             ]);
 
-            if ($setting->exists && $setting->is_enabled && $setting->is_default) {
-                throw new InvalidArgumentException('The tenant default currency cannot be disabled.');
-            }
+            throw_if($setting->exists && $setting->is_enabled && $setting->is_default, InvalidArgumentException::class, 'The tenant default currency cannot be disabled.');
 
-            if ($setting->exists && $setting->is_enabled && Branch::query()
+            throw_if($setting->exists && $setting->is_enabled && Branch::query()
                 ->where('tenant_id', $tenant->id)
                 ->where('default_currency_code', $currency->code)
                 ->where('status', 'active')
-                ->exists()) {
-                throw new InvalidArgumentException('A branch base currency cannot be disabled at tenant level.');
-            }
+                ->exists(), InvalidArgumentException::class, 'A branch base currency cannot be disabled at tenant level.');
 
             $setting->tenant_id = $tenant->id;
             $setting->currency_code = $currency->code;

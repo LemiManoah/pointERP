@@ -32,7 +32,7 @@ final class StaffController
             'staff' => Staff::query()
                 ->with(['branch', 'position', 'user'])
                 ->where('tenant_id', $tenantId)
-                ->when(! $canViewAllBranches, fn ($query) => $query->whereIn('branch_id', $accessibleBranchIds))
+                ->unless($canViewAllBranches, fn ($query) => $query->whereIn('branch_id', $accessibleBranchIds))
                 ->orderBy('name')
                 ->get()
                 ->map(fn (Staff $staff): array => [
@@ -50,7 +50,7 @@ final class StaffController
                 ]),
             'branches' => Branch::query()
                 ->where('tenant_id', $tenantId)
-                ->when(! $canViewAllBranches, fn ($query) => $query->whereIn('id', $accessibleBranchIds))
+                ->unless($canViewAllBranches, fn ($query) => $query->whereIn('id', $accessibleBranchIds))
                 ->orderBy('name')
                 ->get(['id', 'name'])
                 ->map(fn (Branch $branch): array => [

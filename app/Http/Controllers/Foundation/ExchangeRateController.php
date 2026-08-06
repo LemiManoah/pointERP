@@ -16,9 +16,9 @@ use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
 use Illuminate\Http\RedirectResponse;
-use InvalidArgumentException;
 use Inertia\Inertia;
 use Inertia\Response;
+use InvalidArgumentException;
 
 final class ExchangeRateController
 {
@@ -35,8 +35,8 @@ final class ExchangeRateController
             'exchangeRates' => ExchangeRate::query()
                 ->with('branch')
                 ->where('tenant_id', $tenantId)
-                ->when(
-                    ! $canViewAllBranches,
+                ->unless(
+                    $canViewAllBranches,
                     fn ($query) => $query->where(fn ($query) => $query
                         ->whereNull('branch_id')
                         ->orWhereIn('branch_id', $accessibleBranchIds)),
@@ -58,7 +58,7 @@ final class ExchangeRateController
             'branches' => Branch::query()
                 ->where('tenant_id', $tenantId)
                 ->where('status', 'active')
-                ->when(! $canViewAllBranches, fn ($query) => $query->whereIn('id', $accessibleBranchIds))
+                ->unless($canViewAllBranches, fn ($query) => $query->whereIn('id', $accessibleBranchIds))
                 ->orderBy('name')
                 ->get(['id', 'name', 'code'])
                 ->map(fn (Branch $branch): array => [
@@ -90,8 +90,8 @@ final class ExchangeRateController
 
         try {
             $action->handle($data, $user);
-        } catch (InvalidArgumentException $exception) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => $exception->getMessage()]);
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => $invalidArgumentException->getMessage()]);
 
             return back();
         }
@@ -115,8 +115,8 @@ final class ExchangeRateController
 
         try {
             $action->handle($data, $user, $exchangeRate);
-        } catch (InvalidArgumentException $exception) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => $exception->getMessage()]);
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => $invalidArgumentException->getMessage()]);
 
             return back();
         }
@@ -138,8 +138,8 @@ final class ExchangeRateController
 
         try {
             $action->handle($exchangeRate, $user);
-        } catch (InvalidArgumentException $exception) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => $exception->getMessage()]);
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => $invalidArgumentException->getMessage()]);
 
             return back();
         }
@@ -158,8 +158,8 @@ final class ExchangeRateController
 
         try {
             $action->handle($exchangeRate);
-        } catch (InvalidArgumentException $exception) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => $exception->getMessage()]);
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => $invalidArgumentException->getMessage()]);
 
             return back();
         }

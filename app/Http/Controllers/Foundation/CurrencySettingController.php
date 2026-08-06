@@ -13,9 +13,9 @@ use App\Models\Currency;
 use App\Models\TenantCurrency;
 use App\Services\TenantContext;
 use Illuminate\Http\RedirectResponse;
-use InvalidArgumentException;
 use Inertia\Inertia;
 use Inertia\Response;
+use InvalidArgumentException;
 
 final class CurrencySettingController
 {
@@ -83,8 +83,8 @@ final class CurrencySettingController
 
         try {
             $setting = $action->handle($currency);
-        } catch (InvalidArgumentException $exception) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => $exception->getMessage()]);
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => $invalidArgumentException->getMessage()]);
 
             return back();
         }
@@ -106,8 +106,8 @@ final class CurrencySettingController
 
         try {
             $action->handle($data);
-        } catch (InvalidArgumentException $exception) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => $exception->getMessage()]);
+        } catch (InvalidArgumentException $invalidArgumentException) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => $invalidArgumentException->getMessage()]);
 
             return back();
         }

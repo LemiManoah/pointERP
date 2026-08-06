@@ -24,7 +24,13 @@ type Props = {
     branches: BranchOption[];
 };
 
-export function UserDialog({ user, roles, permissions, staff, branches }: Props) {
+export function UserDialog({
+    user,
+    roles,
+    permissions,
+    staff,
+    branches,
+}: Props) {
     const [open, setOpen] = useState(false);
     const isEditing = Boolean(user);
 

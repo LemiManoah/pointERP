@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -49,14 +50,16 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 final class ExchangeRate extends Model
 {
     use BelongsToTenant;
+    use HasFactory;
+    use HasFactory;
     use HasUuids;
     use SoftDeletes;
 
-    public const STATUS_DRAFT = 'draft';
+    public const string STATUS_DRAFT = 'draft';
 
-    public const STATUS_APPROVED = 'approved';
+    public const string STATUS_APPROVED = 'approved';
 
-    public const STATUS_SUPERSEDED = 'superseded';
+    public const string STATUS_SUPERSEDED = 'superseded';
 
     /**
      * @return array<string, string>

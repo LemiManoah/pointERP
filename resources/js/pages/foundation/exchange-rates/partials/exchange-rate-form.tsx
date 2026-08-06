@@ -62,7 +62,8 @@ export function ExchangeRateForm({
             exchangeRate?.to_currency_code ?? currencies[1]?.code ?? '',
         rate: exchangeRate?.rate ?? '',
         effective_date:
-            exchangeRate?.effective_date ?? new Date().toISOString().slice(0, 10),
+            exchangeRate?.effective_date ??
+            new Date().toISOString().slice(0, 10),
         expires_at: exchangeRate?.expires_at ?? '',
     });
 

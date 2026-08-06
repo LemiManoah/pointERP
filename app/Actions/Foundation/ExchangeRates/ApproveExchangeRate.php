@@ -13,9 +13,7 @@ final readonly class ApproveExchangeRate
 {
     public function handle(ExchangeRate $exchangeRate, User $actor): ExchangeRate
     {
-        if ($exchangeRate->status !== ExchangeRate::STATUS_DRAFT) {
-            throw new InvalidArgumentException('Only draft exchange rates can be approved.');
-        }
+        throw_if($exchangeRate->status !== ExchangeRate::STATUS_DRAFT, InvalidArgumentException::class, 'Only draft exchange rates can be approved.');
 
         return DB::transaction(function () use ($actor, $exchangeRate): ExchangeRate {
             ExchangeRate::query()

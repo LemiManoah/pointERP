@@ -31,7 +31,7 @@ it('limits a branch administrator to users in their branch', function (): void {
     $this->actingAs($administrator)
         ->get(route('access-control.users.index'))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
+        ->assertInertia(fn (Assert $page): Assert => $page
             ->component('access-control/users/index')
             ->has('users', 4)
             ->where('branches.0.code', 'KLA-HQ'));
