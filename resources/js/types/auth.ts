@@ -11,6 +11,8 @@ export type User = {
     last_login_at: string | null;
     created_at: string;
     updated_at: string;
+    permissions?: string[];
+    roles?: string[];
     [key: string]: unknown;
 };
 

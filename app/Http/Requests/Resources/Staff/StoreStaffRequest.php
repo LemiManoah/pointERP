@@ -8,6 +8,7 @@ use App\Models\Branch;
 use App\Models\Staff;
 use App\Models\StaffPosition;
 use App\Rules\ValidEmail;
+use App\Services\BranchContext;
 use App\Services\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -25,9 +26,10 @@ final class StoreStaffRequest extends FormRequest
     public function rules(): array
     {
         $tenantId = resolve(TenantContext::class)->id();
+        $accessibleBranchIds = resolve(BranchContext::class)->accessibleBranchIds();
 
         return [
-            'branch_id' => ['required', 'uuid', Rule::exists((new Branch)->getTable(), 'id')->where('tenant_id', $tenantId)->where('status', 'active')],
+            'branch_id' => ['required', 'uuid', Rule::exists((new Branch)->getTable(), 'id')->where('tenant_id', $tenantId)->where('status', 'active'), Rule::in($accessibleBranchIds)],
             'staff_position_id' => ['required', 'uuid', Rule::exists((new StaffPosition)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
             'staff_number' => ['required', 'string', 'max:60', Rule::unique((new Staff)->getTable(), 'staff_number')->where('tenant_id', $tenantId)],
             'name' => ['required', 'string', 'max:120'],

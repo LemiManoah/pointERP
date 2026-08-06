@@ -9,6 +9,7 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Staff;
 use App\Models\User;
+use App\Services\BranchContext;
 use App\Services\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -27,6 +28,7 @@ final class StoreUserRequest extends FormRequest
     public function rules(): array
     {
         $tenantId = resolve(TenantContext::class)->id();
+        $accessibleBranchIds = resolve(BranchContext::class)->accessibleBranchIds();
 
         return [
             'staff_id' => [
@@ -35,6 +37,9 @@ final class StoreUserRequest extends FormRequest
                 Rule::exists((new Staff)->getTable(), 'id')
                     ->where('tenant_id', $tenantId)
                     ->where('status', 'active'),
+                Rule::exists((new Staff)->getTable(), 'id')
+                    ->where('tenant_id', $tenantId)
+                    ->whereIn('branch_id', $accessibleBranchIds),
                 Rule::unique((new User)->getTable(), 'staff_id'),
             ],
             'password' => ['required', 'confirmed', Password::defaults()],
@@ -52,6 +57,7 @@ final class StoreUserRequest extends FormRequest
                 Rule::exists((new Branch)->getTable(), 'id')
                     ->where('tenant_id', $tenantId)
                     ->where('status', 'active'),
+                Rule::in($accessibleBranchIds),
             ],
             'default_branch_id' => ['required', 'uuid', Rule::in($this->input('branch_ids', []))],
         ];

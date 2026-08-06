@@ -69,14 +69,14 @@ export function StaffForm({
         event.preventDefault();
 
         if (staff) {
-            form.put(`/resources/staff/${staff.id}`, {
+            form.put(`/staff/${staff.id}`, {
                 onSuccess,
             });
 
             return;
         }
 
-        form.post('/resources/staff', {
+        form.post('/staff', {
             onSuccess: () => {
                 form.reset();
                 onSuccess?.();

@@ -47,14 +47,14 @@ export function CountryForm({
         event.preventDefault();
 
         if (country) {
-            form.put(`/foundation/countries/${country.code}`, {
+            form.put(`/countries/${country.code}`, {
                 onSuccess,
             });
 
             return;
         }
 
-        form.post('/foundation/countries', {
+        form.post('/countries', {
             onSuccess: () => {
                 form.reset();
                 onSuccess?.();
@@ -151,7 +151,7 @@ export function CountryForm({
                             return;
                         }
 
-                        window.location.href = '/foundation/countries';
+                        window.location.href = '/countries';
                     }}
                 >
                     Cancel

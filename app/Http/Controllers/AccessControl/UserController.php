@@ -14,6 +14,7 @@ use App\Models\Permission;
 use App\Models\Role;
 use App\Models\Staff;
 use App\Models\User;
+use App\Services\BranchContext;
 use App\Services\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -23,12 +24,21 @@ final class UserController
 {
     public function index(): Response
     {
+        abort_unless(auth()->user()?->can('access-control.users.manage'), 403);
+
         $tenantId = resolve(TenantContext::class)->id();
+        $branchContext = resolve(BranchContext::class);
+        $accessibleBranchIds = $branchContext->accessibleBranchIds();
+        $canViewAllBranches = $branchContext->canViewAllBranches();
 
         return Inertia::render('access-control/users/index', [
             'users' => User::query()
                 ->with(['branches', 'roles', 'permissions', 'staff.branch', 'staff.position'])
                 ->where('tenant_id', $tenantId)
+                ->when(
+                    ! $canViewAllBranches,
+                    fn ($query) => $query->whereHas('branches', fn ($query) => $query->whereIn('branches.id', $accessibleBranchIds)),
+                )
                 ->orderBy('name')
                 ->get()
                 ->map(fn (User $user): array => [
@@ -52,6 +62,7 @@ final class UserController
             'branches' => Branch::query()
                 ->where('tenant_id', $tenantId)
                 ->where('status', 'active')
+                ->when(! $canViewAllBranches, fn ($query) => $query->whereIn('id', $accessibleBranchIds))
                 ->orderBy('name')
                 ->get(['id', 'name', 'code'])
                 ->map(fn (Branch $branch): array => [
@@ -75,6 +86,7 @@ final class UserController
                 ->with(['branch', 'position', 'user'])
                 ->where('tenant_id', $tenantId)
                 ->where('status', 'active')
+                ->when(! $canViewAllBranches, fn ($query) => $query->whereIn('branch_id', $accessibleBranchIds))
                 ->orderBy('name')
                 ->get()
                 ->map(fn (Staff $staff): array => [
@@ -92,6 +104,8 @@ final class UserController
 
     public function store(StoreUserRequest $request, CreateAccessUser $action): RedirectResponse
     {
+        abort_unless($request->user()?->can('access-control.users.manage'), 403);
+
         /** @var array{staff_id: string, password: string, is_active?: bool, is_director?: bool, roles?: list<string>, permissions?: list<string>, branch_ids?: list<string>, default_branch_id?: string|null} $data */
         $data = $request->validated();
 
@@ -107,7 +121,13 @@ final class UserController
 
     public function update(UpdateUserRequest $request, User $user, UpdateAccessUser $action): RedirectResponse
     {
+        abort_unless($request->user()?->can('access-control.users.manage'), 403);
         abort_unless($user->tenant_id === resolve(TenantContext::class)->id(), 404);
+        $branchContext = resolve(BranchContext::class);
+        abort_unless(
+            $branchContext->canViewAllBranches() || $user->branches()->whereIn('branches.id', $branchContext->accessibleBranchIds())->exists(),
+            404,
+        );
 
         /** @var array{staff_id: string, password?: string|null, is_active?: bool, is_director?: bool, roles?: list<string>, permissions?: list<string>, branch_ids?: list<string>, default_branch_id?: string|null} $data */
         $data = $request->validated();
@@ -124,7 +144,13 @@ final class UserController
 
     public function destroy(User $user, ToggleUserStatus $action): RedirectResponse
     {
+        abort_unless(auth()->user()?->can('access-control.users.manage'), 403);
         abort_unless($user->tenant_id === resolve(TenantContext::class)->id(), 404);
+        $branchContext = resolve(BranchContext::class);
+        abort_unless(
+            $branchContext->canViewAllBranches() || $user->branches()->whereIn('branches.id', $branchContext->accessibleBranchIds())->exists(),
+            404,
+        );
 
         $action->handle($user);
 

@@ -29,26 +29,20 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::put('current-branch', [CurrentBranchController::class, 'update'])->name('current-branch.update');
 
-    Route::prefix('foundation')->name('foundation.')->group(function (): void {
-        Route::resource('countries', CountryController::class)->except(['show']);
-        Route::resource('currencies', CurrencyController::class)->except(['show']);
-        Route::get('currency-settings', [CurrencySettingController::class, 'index'])->name('currency-settings.index');
-        Route::post('currency-settings/tenant/{currency}', [CurrencySettingController::class, 'toggleTenantCurrency'])->name('currency-settings.tenant.toggle');
-        Route::post('currency-settings/branches', [CurrencySettingController::class, 'storeBranchCurrency'])->name('currency-settings.branches.store');
-        Route::resource('exchange-rates', ExchangeRateController::class)->only(['index', 'store', 'update', 'destroy']);
-        Route::post('exchange-rates/{exchangeRate}/approve', [ExchangeRateController::class, 'approve'])->name('exchange-rates.approve');
-    });
+    Route::resource('countries', CountryController::class)->except(['show'])->names('foundation.countries');
+    Route::resource('currencies', CurrencyController::class)->except(['show'])->names('foundation.currencies');
+    Route::get('currency-settings', [CurrencySettingController::class, 'index'])->name('foundation.currency-settings.index');
+    Route::post('currency-settings/tenant/{currency}', [CurrencySettingController::class, 'toggleTenantCurrency'])->name('foundation.currency-settings.tenant.toggle');
+    Route::post('currency-settings/branches', [CurrencySettingController::class, 'storeBranchCurrency'])->name('foundation.currency-settings.branches.store');
+    Route::resource('exchange-rates', ExchangeRateController::class)->only(['index', 'store', 'update', 'destroy'])->names('foundation.exchange-rates');
+    Route::post('exchange-rates/{exchangeRate}/approve', [ExchangeRateController::class, 'approve'])->name('foundation.exchange-rates.approve');
 
-    Route::redirect('access-control', 'access-control/users')->name('access-control.index');
-    Route::prefix('access-control')->name('access-control.')->group(function (): void {
-        Route::resource('users', AccessUserController::class)->only(['index', 'store', 'update', 'destroy']);
-        Route::resource('roles', AccessRoleController::class)->only(['index', 'store', 'update', 'destroy']);
-    });
+    Route::redirect('access-control', '/users')->name('access-control.index');
+    Route::resource('users', AccessUserController::class)->only(['index', 'store', 'update', 'destroy'])->names('access-control.users');
+    Route::resource('roles', AccessRoleController::class)->only(['index', 'store', 'update', 'destroy'])->names('access-control.roles');
 
-    Route::prefix('resources')->name('resources.')->group(function (): void {
-        Route::resource('staff', StaffController::class)->only(['index', 'store', 'update', 'destroy']);
-        Route::resource('staff-positions', StaffPositionController::class)->only(['index', 'store', 'update', 'destroy']);
-    });
+    Route::resource('staff', StaffController::class)->only(['index', 'store', 'update', 'destroy'])->names('resources.staff');
+    Route::resource('staff-positions', StaffPositionController::class)->only(['index', 'store', 'update', 'destroy'])->names('resources.staff-positions');
 });
 
 Route::middleware('auth')->group(function (): void {

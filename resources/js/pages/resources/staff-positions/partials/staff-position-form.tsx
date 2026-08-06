@@ -38,14 +38,14 @@ export function StaffPositionForm({ position, onCancel, onSuccess }: Props) {
         event.preventDefault();
 
         if (position) {
-            form.put(`/resources/staff-positions/${position.id}`, {
+            form.put(`/staff-positions/${position.id}`, {
                 onSuccess,
             });
 
             return;
         }
 
-        form.post('/resources/staff-positions', {
+        form.post('/staff-positions', {
             onSuccess: () => {
                 form.reset();
                 onSuccess?.();

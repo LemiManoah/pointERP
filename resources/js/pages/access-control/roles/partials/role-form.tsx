@@ -76,14 +76,14 @@ export function RoleForm({ role, permissions, onCancel, onSuccess }: Props) {
         event.preventDefault();
 
         if (role) {
-            form.put(`/access-control/roles/${role.id}`, {
+            form.put(`/roles/${role.id}`, {
                 onSuccess,
             });
 
             return;
         }
 
-        form.post('/access-control/roles', {
+        form.post('/roles', {
             onSuccess: () => {
                 form.reset();
                 onSuccess?.();

@@ -34,14 +34,14 @@ export function CurrencyForm({ currency, onCancel, onSuccess }: Props) {
         event.preventDefault();
 
         if (currency) {
-            form.put(`/foundation/currencies/${currency.code}`, {
+            form.put(`/currencies/${currency.code}`, {
                 onSuccess,
             });
 
             return;
         }
 
-        form.post('/foundation/currencies', {
+        form.post('/currencies', {
             onSuccess: () => {
                 form.reset();
                 onSuccess?.();
@@ -135,7 +135,7 @@ export function CurrencyForm({ currency, onCancel, onSuccess }: Props) {
                             return;
                         }
 
-                        window.location.href = '/foundation/currencies';
+                        window.location.href = '/currencies';
                     }}
                 >
                     Cancel

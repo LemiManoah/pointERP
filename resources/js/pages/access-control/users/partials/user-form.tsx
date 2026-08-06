@@ -213,14 +213,14 @@ export function UserForm({
         event.preventDefault();
 
         if (user) {
-            form.put(`/access-control/users/${user.id}`, {
+            form.put(`/users/${user.id}`, {
                 onSuccess,
             });
 
             return;
         }
 
-        form.post('/access-control/users', {
+        form.post('/users', {
             onSuccess: () => {
                 form.reset();
                 onSuccess?.();
@@ -259,7 +259,7 @@ export function UserForm({
                         <div className="font-medium">{selectedStaff.email}</div>
                         <div className="mt-1 text-muted-foreground">{`${selectedStaff.branch_name} - ${selectedStaff.position_name}`}</div>
                         <div className="hidden">
-                            {selectedStaff.branch_name} ·{' '}
+                            {selectedStaff.branch_name} - 
                             {selectedStaff.position_name}
                         </div>
                     </div>

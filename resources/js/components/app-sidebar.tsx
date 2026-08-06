@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
+import { NavUser } from '@/components/nav-user';
 import {
     Collapsible,
     CollapsibleContent,
@@ -35,13 +36,14 @@ import {
     SidebarRail,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
-import type { CurrentTenant } from '@/types';
+import type { Auth, CurrentTenant } from '@/types';
 
 type SidebarLink = {
     title: string;
     href: string;
     icon: LucideIcon;
     status?: 'ready' | 'next' | 'later';
+    permission?: string;
 };
 
 type SidebarGroupItem = {
@@ -61,33 +63,38 @@ const groups: SidebarGroupItem[] = [
             },
             {
                 title: 'Countries',
-                href: '/foundation/countries',
+                href: '/countries',
                 icon: Globe2,
                 status: 'ready',
+                permission: 'foundation.countries.manage',
             },
             {
                 title: 'Currencies',
-                href: '/foundation/currencies',
+                href: '/currencies',
                 icon: BadgeDollarSign,
                 status: 'ready',
+                permission: 'foundation.currencies.manage',
             },
             {
                 title: 'Currency settings',
-                href: '/foundation/currency-settings',
+                href: '/currency-settings',
                 icon: Settings2,
                 status: 'ready',
+                permission: 'currency-settings.manage',
             },
             {
                 title: 'Exchange rates',
-                href: '/foundation/exchange-rates',
+                href: '/exchange-rates',
                 icon: RefreshCcw,
                 status: 'ready',
+                permission: 'exchange-rates.view',
             },
             {
                 title: 'Access control',
-                href: '/access-control/users',
+                href: '/users',
                 icon: ShieldCheck,
                 status: 'ready',
+                permission: 'access-control.users.manage',
             },
         ],
     },
@@ -114,9 +121,10 @@ const groups: SidebarGroupItem[] = [
         items: [
             {
                 title: 'Staff',
-                href: '/resources/staff',
+                href: '/staff',
                 icon: Users,
                 status: 'ready',
+                permission: 'resources.staff.manage',
             },
             { title: 'Equipment', href: '#', icon: HardHat, status: 'later' },
             { title: 'Inventory', href: '#', icon: Warehouse, status: 'later' },
@@ -146,9 +154,14 @@ function StatusLabel({ status }: { status?: SidebarLink['status'] }) {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-    const { currentTenant } = usePage<{ currentTenant: CurrentTenant | null }>()
-        .props;
+    const { auth, currentTenant } = usePage<{
+        auth: Auth;
+        currentTenant: CurrentTenant | null;
+    }>().props;
     const { isCurrentUrl } = useCurrentUrl();
+    const permissions = auth.user.permissions ?? [];
+    const can = (permission?: string) =>
+        !permission || permissions.includes(permission);
 
     return (
         <Sidebar collapsible="icon" variant="inset" {...props}>
@@ -192,7 +205,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             <CollapsibleContent>
                                 <SidebarGroupContent>
                                     <SidebarMenu>
-                                        {group.items.map((item) => {
+                                        {group.items.filter((item) => can(item.permission)).map((item) => {
                                             const Icon = item.icon;
                                             const disabled = item.href === '#';
 
@@ -254,11 +267,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 ))}
             </SidebarContent>
 
-            <SidebarFooter className="group-data-[collapsible=icon]:hidden">
-                <div className="rounded-md bg-sidebar-accent/50 px-3 py-2 text-xs text-sidebar-foreground/70">
-                    Tenant and branch setup is managed from the manager app.
-                    Access control is active for ERP users and roles.
-                </div>
+            <SidebarFooter>
+                <NavUser />
             </SidebarFooter>
             <SidebarRail />
         </Sidebar>

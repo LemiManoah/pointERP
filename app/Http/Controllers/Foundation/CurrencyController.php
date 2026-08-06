@@ -18,6 +18,8 @@ final class CurrencyController
 {
     public function index(): Response
     {
+        abort_unless(auth()->user()?->can('foundation.currencies.manage'), 403);
+
         return Inertia::render('foundation/currencies/index', [
             'currencies' => Currency::query()
                 ->orderBy('code')
@@ -34,11 +36,15 @@ final class CurrencyController
 
     public function create(): Response
     {
+        abort_unless(auth()->user()?->can('foundation.currencies.manage'), 403);
+
         return Inertia::render('foundation/currencies/create');
     }
 
     public function store(StoreCurrencyRequest $request, CreateCurrency $action): RedirectResponse
     {
+        abort_unless($request->user()?->can('foundation.currencies.manage'), 403);
+
         /** @var array{code: string, name: string, symbol?: string|null, decimal_places: int|string, is_active?: bool} $data */
         $data = $request->validated();
 
@@ -54,6 +60,8 @@ final class CurrencyController
 
     public function edit(Currency $currency): Response
     {
+        abort_unless(auth()->user()?->can('foundation.currencies.manage'), 403);
+
         return Inertia::render('foundation/currencies/edit', [
             'currency' => [
                 'code' => $currency->code,
@@ -67,6 +75,8 @@ final class CurrencyController
 
     public function update(UpdateCurrencyRequest $request, Currency $currency, UpdateCurrency $action): RedirectResponse
     {
+        abort_unless($request->user()?->can('foundation.currencies.manage'), 403);
+
         /** @var array{code: string, name: string, symbol?: string|null, decimal_places: int|string, is_active?: bool} $data */
         $data = $request->validated();
 
@@ -82,6 +92,8 @@ final class CurrencyController
 
     public function destroy(Currency $currency, ToggleCurrencyStatus $action): RedirectResponse
     {
+        abort_unless(auth()->user()?->can('foundation.currencies.manage'), 403);
+
         $action->handle($currency);
 
         Inertia::flash('toast', [

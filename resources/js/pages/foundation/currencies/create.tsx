@@ -12,8 +12,8 @@ import { CurrencyForm } from './partials/currency-form';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Currencies', href: '/foundation/currencies' },
-    { title: 'New currency', href: '/foundation/currencies/create' },
+    { title: 'Currencies', href: '/currencies' },
+    { title: 'New currency', href: '/currencies/create' },
 ];
 
 export default function CurrenciesCreate() {

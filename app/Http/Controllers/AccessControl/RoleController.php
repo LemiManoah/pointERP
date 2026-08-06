@@ -19,6 +19,8 @@ final class RoleController
 {
     public function index(): Response
     {
+        abort_unless(auth()->user()?->can('access-control.roles.manage'), 403);
+
         return Inertia::render('access-control/roles/index', [
             'roles' => Role::query()
                 ->with('permissions')
@@ -42,6 +44,8 @@ final class RoleController
 
     public function store(StoreRoleRequest $request, CreateRole $action): RedirectResponse
     {
+        abort_unless($request->user()?->can('access-control.roles.manage'), 403);
+
         /** @var array{name: string, permissions?: list<string>} $data */
         $data = $request->validated();
 
@@ -57,6 +61,8 @@ final class RoleController
 
     public function update(UpdateRoleRequest $request, Role $role, UpdateRole $action): RedirectResponse
     {
+        abort_unless($request->user()?->can('access-control.roles.manage'), 403);
+
         /** @var array{name: string, permissions?: list<string>} $data */
         $data = $request->validated();
 
@@ -72,6 +78,8 @@ final class RoleController
 
     public function destroy(Role $role): RedirectResponse
     {
+        abort_unless(auth()->user()?->can('access-control.roles.manage'), 403);
+
         if ($role->users()->exists()) {
             throw ValidationException::withMessages([
                 'role' => 'This role is assigned to users and cannot be deleted.',

@@ -76,14 +76,14 @@ export function ExchangeRateForm({
         event.preventDefault();
 
         if (exchangeRate) {
-            form.put(`/foundation/exchange-rates/${exchangeRate.id}`, {
+            form.put(`/exchange-rates/${exchangeRate.id}`, {
                 onSuccess,
             });
 
             return;
         }
 
-        form.post('/foundation/exchange-rates', {
+        form.post('/exchange-rates', {
             onSuccess: () => {
                 form.reset();
                 onSuccess?.();

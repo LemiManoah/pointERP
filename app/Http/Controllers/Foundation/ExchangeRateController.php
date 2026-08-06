@@ -13,6 +13,7 @@ use App\Models\Branch;
 use App\Models\ExchangeRate;
 use App\Models\TenantCurrency;
 use App\Models\User;
+use App\Services\BranchContext;
 use App\Services\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use InvalidArgumentException;
@@ -26,11 +27,20 @@ final class ExchangeRateController
         abort_unless(auth()->user()?->can('exchange-rates.view'), 403);
 
         $tenantId = resolve(TenantContext::class)->id();
+        $branchContext = resolve(BranchContext::class);
+        $accessibleBranchIds = $branchContext->accessibleBranchIds();
+        $canViewAllBranches = $branchContext->canViewAllBranches();
 
         return Inertia::render('foundation/exchange-rates/index', [
             'exchangeRates' => ExchangeRate::query()
                 ->with('branch')
                 ->where('tenant_id', $tenantId)
+                ->when(
+                    ! $canViewAllBranches,
+                    fn ($query) => $query->where(fn ($query) => $query
+                        ->whereNull('branch_id')
+                        ->orWhereIn('branch_id', $accessibleBranchIds)),
+                )
                 ->latest('effective_date')
                 ->latest()
                 ->get()
@@ -48,6 +58,7 @@ final class ExchangeRateController
             'branches' => Branch::query()
                 ->where('tenant_id', $tenantId)
                 ->where('status', 'active')
+                ->when(! $canViewAllBranches, fn ($query) => $query->whereIn('id', $accessibleBranchIds))
                 ->orderBy('name')
                 ->get(['id', 'name', 'code'])
                 ->map(fn (Branch $branch): array => [
@@ -77,7 +88,13 @@ final class ExchangeRateController
         /** @var array{branch_id?: string|null, from_currency_code: string, to_currency_code: string, rate: int|float|string, effective_date: string, expires_at?: string|null} $data */
         $data = $request->validated();
 
-        $action->handle($data, $user);
+        try {
+            $action->handle($data, $user);
+        } catch (InvalidArgumentException $exception) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => $exception->getMessage()]);
+
+            return back();
+        }
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Draft exchange rate created.']);
 
@@ -88,6 +105,8 @@ final class ExchangeRateController
     {
         abort_unless($request->user()?->can('exchange-rates.update'), 403);
         abort_unless($exchangeRate->tenant_id === resolve(TenantContext::class)->id(), 404);
+        $branchContext = resolve(BranchContext::class);
+        abort_unless($exchangeRate->branch_id === null || $branchContext->canViewAllBranches() || in_array($exchangeRate->branch_id, $branchContext->accessibleBranchIds(), true), 404);
 
         /** @var User $user */
         $user = $request->user();
@@ -111,6 +130,8 @@ final class ExchangeRateController
     {
         abort_unless(auth()->user()?->can('exchange-rates.approve'), 403);
         abort_unless($exchangeRate->tenant_id === resolve(TenantContext::class)->id(), 404);
+        $branchContext = resolve(BranchContext::class);
+        abort_unless($exchangeRate->branch_id === null || $branchContext->canViewAllBranches() || in_array($exchangeRate->branch_id, $branchContext->accessibleBranchIds(), true), 404);
 
         /** @var User $user */
         $user = auth()->user();
@@ -132,6 +153,8 @@ final class ExchangeRateController
     {
         abort_unless(auth()->user()?->can('exchange-rates.update'), 403);
         abort_unless($exchangeRate->tenant_id === resolve(TenantContext::class)->id(), 404);
+        $branchContext = resolve(BranchContext::class);
+        abort_unless($exchangeRate->branch_id === null || $branchContext->canViewAllBranches() || in_array($exchangeRate->branch_id, $branchContext->accessibleBranchIds(), true), 404);
 
         try {
             $action->handle($exchangeRate);

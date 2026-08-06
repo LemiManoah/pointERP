@@ -17,10 +17,10 @@ type Props = {
 export default function CurrenciesEdit({ currency }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title: 'Currencies', href: '/foundation/currencies' },
+        { title: 'Currencies', href: '/currencies' },
         {
             title: currency.code,
-            href: `/foundation/currencies/${currency.code}/edit`,
+            href: `/currencies/${currency.code}/edit`,
         },
     ];
 

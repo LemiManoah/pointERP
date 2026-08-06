@@ -43,7 +43,11 @@ final class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user instanceof User ? [
+                    ...$user->toArray(),
+                    'permissions' => $user->getAllPermissions()->pluck('name')->values()->all(),
+                    'roles' => $user->getRoleNames()->values()->all(),
+                ] : null,
             ],
             'currentTenant' => $tenant?->only([
                 'id',

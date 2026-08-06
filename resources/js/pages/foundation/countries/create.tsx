@@ -16,8 +16,8 @@ type Props = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Countries', href: '/foundation/countries' },
-    { title: 'New country', href: '/foundation/countries/create' },
+    { title: 'Countries', href: '/countries' },
+    { title: 'New country', href: '/countries/create' },
 ];
 
 export default function CountriesCreate({ currencies }: Props) {

@@ -11,6 +11,7 @@ use App\Http\Requests\Resources\Staff\UpdateStaffRequest;
 use App\Models\Branch;
 use App\Models\Staff;
 use App\Models\StaffPosition;
+use App\Services\BranchContext;
 use App\Services\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -20,12 +21,18 @@ final class StaffController
 {
     public function index(): Response
     {
+        abort_unless(auth()->user()?->can('resources.staff.manage'), 403);
+
         $tenantId = resolve(TenantContext::class)->id();
+        $branchContext = resolve(BranchContext::class);
+        $accessibleBranchIds = $branchContext->accessibleBranchIds();
+        $canViewAllBranches = $branchContext->canViewAllBranches();
 
         return Inertia::render('resources/staff/index', [
             'staff' => Staff::query()
                 ->with(['branch', 'position', 'user'])
                 ->where('tenant_id', $tenantId)
+                ->when(! $canViewAllBranches, fn ($query) => $query->whereIn('branch_id', $accessibleBranchIds))
                 ->orderBy('name')
                 ->get()
                 ->map(fn (Staff $staff): array => [
@@ -43,6 +50,7 @@ final class StaffController
                 ]),
             'branches' => Branch::query()
                 ->where('tenant_id', $tenantId)
+                ->when(! $canViewAllBranches, fn ($query) => $query->whereIn('id', $accessibleBranchIds))
                 ->orderBy('name')
                 ->get(['id', 'name'])
                 ->map(fn (Branch $branch): array => [
@@ -63,6 +71,8 @@ final class StaffController
 
     public function store(StoreStaffRequest $request, SaveStaff $action): RedirectResponse
     {
+        abort_unless($request->user()?->can('resources.staff.manage'), 403);
+
         /** @var array{branch_id: string, staff_position_id: string, staff_number: string, name: string, email: string, phone?: string|null, status: string} $data */
         $data = $request->validated();
 
@@ -78,7 +88,10 @@ final class StaffController
 
     public function update(UpdateStaffRequest $request, Staff $staff, SaveStaff $action): RedirectResponse
     {
+        abort_unless($request->user()?->can('resources.staff.manage'), 403);
         abort_unless($staff->tenant_id === resolve(TenantContext::class)->id(), 404);
+        $branchContext = resolve(BranchContext::class);
+        abort_unless($branchContext->canViewAllBranches() || in_array($staff->branch_id, $branchContext->accessibleBranchIds(), true), 404);
 
         /** @var array{branch_id: string, staff_position_id: string, staff_number: string, name: string, email: string, phone?: string|null, status: string} $data */
         $data = $request->validated();
@@ -95,7 +108,10 @@ final class StaffController
 
     public function destroy(Staff $staff, ToggleStaffStatus $action): RedirectResponse
     {
+        abort_unless(auth()->user()?->can('resources.staff.manage'), 403);
         abort_unless($staff->tenant_id === resolve(TenantContext::class)->id(), 404);
+        $branchContext = resolve(BranchContext::class);
+        abort_unless($branchContext->canViewAllBranches() || in_array($staff->branch_id, $branchContext->accessibleBranchIds(), true), 404);
 
         $action->handle($staff);
 

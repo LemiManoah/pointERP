@@ -19,6 +19,8 @@ final class CountryController
 {
     public function index(): Response
     {
+        abort_unless(auth()->user()?->can('foundation.countries.manage'), 403);
+
         return Inertia::render('foundation/countries/index', [
             'countries' => Country::query()
                 ->with('defaultCurrency')
@@ -38,6 +40,8 @@ final class CountryController
 
     public function create(): Response
     {
+        abort_unless(auth()->user()?->can('foundation.countries.manage'), 403);
+
         return Inertia::render('foundation/countries/create', [
             'currencies' => $this->activeCurrencies(),
         ]);
@@ -45,6 +49,8 @@ final class CountryController
 
     public function store(StoreCountryRequest $request, CreateCountry $action): RedirectResponse
     {
+        abort_unless($request->user()?->can('foundation.countries.manage'), 403);
+
         /** @var array{code: string, name: string, iso3_code: string, default_currency_code: string, is_active?: bool} $data */
         $data = $request->validated();
 
@@ -60,6 +66,8 @@ final class CountryController
 
     public function edit(Country $country): Response
     {
+        abort_unless(auth()->user()?->can('foundation.countries.manage'), 403);
+
         return Inertia::render('foundation/countries/edit', [
             'country' => [
                 'code' => $country->code,
@@ -74,6 +82,8 @@ final class CountryController
 
     public function update(UpdateCountryRequest $request, Country $country, UpdateCountry $action): RedirectResponse
     {
+        abort_unless($request->user()?->can('foundation.countries.manage'), 403);
+
         /** @var array{code: string, name: string, iso3_code: string, default_currency_code: string, is_active?: bool} $data */
         $data = $request->validated();
 
@@ -89,6 +99,8 @@ final class CountryController
 
     public function destroy(Country $country, ToggleCountryStatus $action): RedirectResponse
     {
+        abort_unless(auth()->user()?->can('foundation.countries.manage'), 403);
+
         $action->handle($country);
 
         Inertia::flash('toast', [

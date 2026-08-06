@@ -31,7 +31,7 @@ type Props = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Staff', href: '/resources/staff' },
+    { title: 'Staff', href: '/staff' },
 ];
 
 export default function StaffIndex({ staff, branches, positions }: Props) {
@@ -92,10 +92,10 @@ export default function StaffIndex({ staff, branches, positions }: Props) {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex gap-2">
                         <Button variant="secondary" asChild>
-                            <Link href="/resources/staff">Staff</Link>
+                            <Link href="/staff">Staff</Link>
                         </Button>
                         <Button variant="outline" asChild>
-                            <Link href="/resources/staff-positions">
+                            <Link href="/staff-positions">
                                 Positions
                             </Link>
                         </Button>
@@ -217,7 +217,7 @@ export default function StaffIndex({ staff, branches, positions }: Props) {
                                                                         : 'default',
                                                                 onConfirm: () =>
                                                                     router.delete(
-                                                                        `/resources/staff/${staffMember.id}`,
+                                                                        `/staff/${staffMember.id}`,
                                                                         {
                                                                             preserveScroll: true,
                                                                         },

@@ -18,6 +18,8 @@ final class StaffPositionController
 {
     public function index(): Response
     {
+        abort_unless(auth()->user()?->can('resources.staff.manage'), 403);
+
         $tenantId = resolve(TenantContext::class)->id();
 
         return Inertia::render('resources/staff-positions/index', [
@@ -38,6 +40,8 @@ final class StaffPositionController
 
     public function store(StoreStaffPositionRequest $request, SaveStaffPosition $action): RedirectResponse
     {
+        abort_unless($request->user()?->can('resources.staff.manage'), 403);
+
         /** @var array{name: string, code: string, is_active?: bool} $data */
         $data = $request->validated();
 
@@ -53,6 +57,7 @@ final class StaffPositionController
 
     public function update(UpdateStaffPositionRequest $request, StaffPosition $staffPosition, SaveStaffPosition $action): RedirectResponse
     {
+        abort_unless($request->user()?->can('resources.staff.manage'), 403);
         abort_unless($staffPosition->tenant_id === resolve(TenantContext::class)->id(), 404);
 
         /** @var array{name: string, code: string, is_active?: bool} $data */
@@ -70,6 +75,7 @@ final class StaffPositionController
 
     public function destroy(StaffPosition $staffPosition, ToggleStaffPositionStatus $action): RedirectResponse
     {
+        abort_unless(auth()->user()?->can('resources.staff.manage'), 403);
         abort_unless($staffPosition->tenant_id === resolve(TenantContext::class)->id(), 404);
 
         $action->handle($staffPosition);

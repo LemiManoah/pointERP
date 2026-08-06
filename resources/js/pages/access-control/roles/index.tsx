@@ -25,8 +25,8 @@ type Props = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Access control', href: '/access-control/users' },
-    { title: 'Roles', href: '/access-control/roles' },
+    { title: 'Access control', href: '/users' },
+    { title: 'Roles', href: '/roles' },
 ];
 
 export default function RolesIndex({ roles, permissions }: Props) {
@@ -82,10 +82,10 @@ export default function RolesIndex({ roles, permissions }: Props) {
 
                 <div className="flex gap-2">
                     <Button variant="outline" asChild>
-                        <Link href="/access-control/users">Users</Link>
+                        <Link href="/users">Users</Link>
                     </Button>
                     <Button variant="secondary" asChild>
-                        <Link href="/access-control/roles">Roles</Link>
+                        <Link href="/roles">Roles</Link>
                     </Button>
                 </div>
 
@@ -166,7 +166,7 @@ export default function RolesIndex({ roles, permissions }: Props) {
                                                                     'destructive',
                                                                 onConfirm: () =>
                                                                     router.delete(
-                                                                        `/access-control/roles/${role.id}`,
+                                                                        `/roles/${role.id}`,
                                                                         {
                                                                             preserveScroll: true,
                                                                         },

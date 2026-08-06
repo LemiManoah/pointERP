@@ -59,7 +59,7 @@ type Props = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Currency settings', href: '/foundation/currency-settings' },
+    { title: 'Currency settings', href: '/currency-settings' },
 ];
 
 export default function CurrencySettingsIndex({
@@ -103,7 +103,7 @@ export default function CurrencySettingsIndex({
         const form = new FormData(event.currentTarget);
 
         router.post(
-            '/foundation/currency-settings/branches',
+            '/currency-settings/branches',
             {
                 branch_id: branchId,
                 currency_code: currencyCode,
@@ -231,7 +231,7 @@ export default function CurrencySettingsIndex({
                                                         }
                                                         onClick={() =>
                                                             router.post(
-                                                                `/foundation/currency-settings/tenant/${currency.code}`,
+                                                                `/currency-settings/tenant/${currency.code}`,
                                                                 {},
                                                                 {
                                                                     preserveScroll:

@@ -37,7 +37,7 @@ type Props = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Currencies', href: '/foundation/currencies' },
+    { title: 'Currencies', href: '/currencies' },
 ];
 
 export default function CurrenciesIndex({ currencies }: Props) {
@@ -199,7 +199,7 @@ export default function CurrenciesIndex({ currencies }: Props) {
                                                                         : 'default',
                                                                 onConfirm: () =>
                                                                     router.delete(
-                                                                        `/foundation/currencies/${currency.code}`,
+                                                                        `/currencies/${currency.code}`,
                                                                         {
                                                                             preserveScroll: true,
                                                                         },

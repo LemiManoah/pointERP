@@ -31,7 +31,7 @@ type Props = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Exchange rates', href: '/foundation/exchange-rates' },
+    { title: 'Exchange rates', href: '/exchange-rates' },
 ];
 
 export default function ExchangeRatesIndex({
@@ -197,7 +197,7 @@ export default function ExchangeRatesIndex({
                                                                         onConfirm:
                                                                             () =>
                                                                                 router.post(
-                                                                                    `/foundation/exchange-rates/${rate.id}/approve`,
+                                                                                    `/exchange-rates/${rate.id}/approve`,
                                                                                     {},
                                                                                     {
                                                                                         preserveScroll:
@@ -224,7 +224,7 @@ export default function ExchangeRatesIndex({
                                                                         onConfirm:
                                                                             () =>
                                                                                 router.delete(
-                                                                                    `/foundation/exchange-rates/${rate.id}`,
+                                                                                    `/exchange-rates/${rate.id}`,
                                                                                     {
                                                                                         preserveScroll:
                                                                                             true,
