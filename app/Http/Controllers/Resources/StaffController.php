@@ -14,6 +14,7 @@ use App\Models\StaffPosition;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -21,7 +22,7 @@ final class StaffController
 {
     public function index(): Response
     {
-        abort_unless(auth()->user()?->can('resources.staff.manage'), 403);
+        Gate::authorize('viewAny', Staff::class);
 
         $tenantId = resolve(TenantContext::class)->id();
         $branchContext = resolve(BranchContext::class);
@@ -71,7 +72,7 @@ final class StaffController
 
     public function store(StoreStaffRequest $request, SaveStaff $action): RedirectResponse
     {
-        abort_unless($request->user()?->can('resources.staff.manage'), 403);
+        Gate::authorize('create', Staff::class);
 
         /** @var array{branch_id: string, staff_position_id: string, staff_number: string, name: string, email: string, phone?: string|null, status: string} $data */
         $data = $request->validated();
@@ -88,10 +89,7 @@ final class StaffController
 
     public function update(UpdateStaffRequest $request, Staff $staff, SaveStaff $action): RedirectResponse
     {
-        abort_unless($request->user()?->can('resources.staff.manage'), 403);
-        abort_unless($staff->tenant_id === resolve(TenantContext::class)->id(), 404);
-        $branchContext = resolve(BranchContext::class);
-        abort_unless($branchContext->canViewAllBranches() || in_array($staff->branch_id, $branchContext->accessibleBranchIds(), true), 404);
+        Gate::authorize('update', $staff);
 
         /** @var array{branch_id: string, staff_position_id: string, staff_number: string, name: string, email: string, phone?: string|null, status: string} $data */
         $data = $request->validated();
@@ -108,10 +106,7 @@ final class StaffController
 
     public function destroy(Staff $staff, ToggleStaffStatus $action): RedirectResponse
     {
-        abort_unless(auth()->user()?->can('resources.staff.manage'), 403);
-        abort_unless($staff->tenant_id === resolve(TenantContext::class)->id(), 404);
-        $branchContext = resolve(BranchContext::class);
-        abort_unless($branchContext->canViewAllBranches() || in_array($staff->branch_id, $branchContext->accessibleBranchIds(), true), 404);
+        Gate::authorize('delete', $staff);
 
         $action->handle($staff);
 

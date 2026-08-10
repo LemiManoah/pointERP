@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
@@ -24,7 +25,7 @@ final class ExchangeRateController
 {
     public function index(): Response
     {
-        abort_unless(auth()->user()?->can('exchange-rates.view'), 403);
+        Gate::authorize('viewAny', ExchangeRate::class);
 
         $tenantId = resolve(TenantContext::class)->id();
         $branchContext = resolve(BranchContext::class);
@@ -81,7 +82,7 @@ final class ExchangeRateController
 
     public function store(StoreExchangeRateRequest $request, SaveExchangeRate $action): RedirectResponse
     {
-        abort_unless($request->user()?->can('exchange-rates.create'), 403);
+        Gate::authorize('create', ExchangeRate::class);
 
         /** @var User $user */
         $user = $request->user();
@@ -103,10 +104,7 @@ final class ExchangeRateController
 
     public function update(UpdateExchangeRateRequest $request, ExchangeRate $exchangeRate, SaveExchangeRate $action): RedirectResponse
     {
-        abort_unless($request->user()?->can('exchange-rates.update'), 403);
-        abort_unless($exchangeRate->tenant_id === resolve(TenantContext::class)->id(), 404);
-        $branchContext = resolve(BranchContext::class);
-        abort_unless($exchangeRate->branch_id === null || $branchContext->canViewAllBranches() || in_array($exchangeRate->branch_id, $branchContext->accessibleBranchIds(), true), 404);
+        Gate::authorize('update', $exchangeRate);
 
         /** @var User $user */
         $user = $request->user();
@@ -128,10 +126,7 @@ final class ExchangeRateController
 
     public function approve(ExchangeRate $exchangeRate, ApproveExchangeRate $action): RedirectResponse
     {
-        abort_unless(auth()->user()?->can('exchange-rates.approve'), 403);
-        abort_unless($exchangeRate->tenant_id === resolve(TenantContext::class)->id(), 404);
-        $branchContext = resolve(BranchContext::class);
-        abort_unless($exchangeRate->branch_id === null || $branchContext->canViewAllBranches() || in_array($exchangeRate->branch_id, $branchContext->accessibleBranchIds(), true), 404);
+        Gate::authorize('approve', $exchangeRate);
 
         /** @var User $user */
         $user = auth()->user();
@@ -151,10 +146,7 @@ final class ExchangeRateController
 
     public function destroy(ExchangeRate $exchangeRate, DeleteDraftExchangeRate $action): RedirectResponse
     {
-        abort_unless(auth()->user()?->can('exchange-rates.update'), 403);
-        abort_unless($exchangeRate->tenant_id === resolve(TenantContext::class)->id(), 404);
-        $branchContext = resolve(BranchContext::class);
-        abort_unless($exchangeRate->branch_id === null || $branchContext->canViewAllBranches() || in_array($exchangeRate->branch_id, $branchContext->accessibleBranchIds(), true), 404);
+        Gate::authorize('delete', $exchangeRate);
 
         try {
             $action->handle($exchangeRate);

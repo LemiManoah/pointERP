@@ -32,6 +32,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property-read CarbonInterface|null $two_factor_confirmed_at
  * @property-read bool $is_active
  * @property-read bool $is_director
+ * @property-read bool $is_support
  * @property-read CarbonInterface|null $last_login_at
  * @property-read CarbonInterface $created_at
  * @property-read CarbonInterface $updated_at
@@ -53,6 +54,7 @@ use Spatie\Permission\Traits\HasRoles;
     'password',
     'is_active',
     'is_director',
+    'is_support',
     'last_login_at',
 ])]
 final class User extends Authenticatable implements MustVerifyEmail
@@ -84,6 +86,7 @@ final class User extends Authenticatable implements MustVerifyEmail
             'two_factor_confirmed_at' => 'datetime',
             'is_active' => 'boolean',
             'is_director' => 'boolean',
+            'is_support' => 'boolean',
             'last_login_at' => 'datetime',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',

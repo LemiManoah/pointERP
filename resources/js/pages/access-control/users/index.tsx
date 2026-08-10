@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
@@ -45,6 +45,7 @@ export default function UsersIndex({
     branches,
 }: Props) {
     const confirm = useConfirmDialog();
+    const currentUserId = usePage().props.auth.user.id;
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState('active');
     const debouncedSearch = useDebouncedValue(search);
@@ -183,8 +184,7 @@ export default function UsersIndex({
                                                 <div className="font-medium">
                                                     {user.name}
                                                 </div>
-                                                <div className="text-muted-foreground">{`${user.branch_name ?? '-'} - ${user.position_name ?? '-'}`}</div>
-                                                <div className="hidden">
+                                                <div className="text-muted-foreground">
                                                     {user.email}
                                                 </div>
                                             </td>
@@ -289,6 +289,10 @@ export default function UsersIndex({
                                                                 : 'secondary'
                                                         }
                                                         size="sm"
+                                                        disabled={
+                                                            user.id ===
+                                                            currentUserId
+                                                        }
                                                         onClick={() =>
                                                             confirm({
                                                                 title: user.is_active
@@ -313,9 +317,12 @@ export default function UsersIndex({
                                                             })
                                                         }
                                                     >
-                                                        {user.is_active
-                                                            ? 'Deactivate'
-                                                            : 'Activate'}
+                                                        {user.id ===
+                                                        currentUserId
+                                                            ? 'Current user'
+                                                            : user.is_active
+                                                              ? 'Deactivate'
+                                                              : 'Activate'}
                                                     </Button>
                                                 </div>
                                             </td>

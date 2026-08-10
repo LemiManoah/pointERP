@@ -65,11 +65,13 @@ final class StoreUserRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $branchIds = collect($this->input('branch_ids', []))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+        $branchIds = [];
+
+        foreach ((array) $this->input('branch_ids', []) as $branchId) {
+            if (is_string($branchId) && $branchId !== '' && ! in_array($branchId, $branchIds, true)) {
+                $branchIds[] = $branchId;
+            }
+        }
 
         $this->merge([
             'is_active' => $this->boolean('is_active'),

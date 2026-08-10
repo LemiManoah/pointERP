@@ -1,4 +1,4 @@
-import { useForm } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import type { FormEvent } from 'react';
 import { useMemo, useState } from 'react';
 import InputError from '@/components/input-error';
@@ -74,6 +74,8 @@ export function UserForm({
     onCancel,
     onSuccess,
 }: Props) {
+    const currentUserId = usePage().props.auth.user.id;
+    const isCurrentUser = user?.id === currentUserId;
     const initialBranchId =
         staff.find((staffMember) => staffMember.id === user?.staff_id)
             ?.branch_id ?? 'all';
@@ -401,11 +403,12 @@ export function UserForm({
                 <label className="flex items-center gap-3 text-sm">
                     <Checkbox
                         checked={form.data.is_active}
+                        disabled={isCurrentUser}
                         onCheckedChange={(checked) =>
                             form.setData('is_active', checked === true)
                         }
                     />
-                    Active
+                    {isCurrentUser ? 'Active current user' : 'Active'}
                 </label>
                 <label className="flex items-center gap-3 text-sm">
                     <Checkbox

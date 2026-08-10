@@ -13,6 +13,7 @@ use App\Models\Currency;
 use App\Models\TenantCurrency;
 use App\Services\TenantContext;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
@@ -21,7 +22,7 @@ final class CurrencySettingController
 {
     public function index(): Response
     {
-        abort_unless(auth()->user()?->can('currency-settings.manage'), 403);
+        Gate::authorize('viewAny', TenantCurrency::class);
 
         $tenant = resolve(TenantContext::class)->current();
 
@@ -67,7 +68,7 @@ final class CurrencySettingController
                         ->map(fn (BranchCurrency $setting): array => [
                             'id' => $setting->id,
                             'currency_code' => $setting->currency_code,
-                            'currency_name' => $setting->currency?->name,
+                            'currency_name' => $setting->currency->name,
                             'is_enabled' => $setting->is_enabled,
                             'is_default_transaction_currency' => $setting->is_default_transaction_currency,
                             'can_receive' => $setting->can_receive,
@@ -79,7 +80,7 @@ final class CurrencySettingController
 
     public function toggleTenantCurrency(Currency $currency, ToggleTenantCurrency $action): RedirectResponse
     {
-        abort_unless(auth()->user()?->can('currency-settings.manage'), 403);
+        Gate::authorize('viewAny', TenantCurrency::class);
 
         try {
             $setting = $action->handle($currency);
@@ -99,7 +100,7 @@ final class CurrencySettingController
 
     public function storeBranchCurrency(SaveBranchCurrencyRequest $request, SaveBranchCurrency $action): RedirectResponse
     {
-        abort_unless($request->user()?->can('currency-settings.manage'), 403);
+        Gate::authorize('viewAny', BranchCurrency::class);
 
         /** @var array{branch_id: string, currency_code: string, is_enabled: bool, is_default_transaction_currency: bool, can_receive: bool, can_pay: bool} $data */
         $data = $request->validated();

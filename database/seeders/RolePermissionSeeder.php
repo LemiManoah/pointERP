@@ -31,6 +31,7 @@ final class RolePermissionSeeder extends Seeder
             'operations.projects.manage',
             'operations.reports.approve',
             'resources.staff.manage',
+            'tenants.update',
         ],
         'Administrator' => [
             'access-control.users.manage',

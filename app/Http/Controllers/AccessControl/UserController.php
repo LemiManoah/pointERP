@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -24,7 +25,7 @@ final class UserController
 {
     public function index(): Response
     {
-        abort_unless(auth()->user()?->can('access-control.users.manage'), 403);
+        Gate::authorize('viewAny', User::class);
 
         $tenantId = resolve(TenantContext::class)->id();
         $branchContext = resolve(BranchContext::class);
@@ -104,7 +105,7 @@ final class UserController
 
     public function store(StoreUserRequest $request, CreateAccessUser $action): RedirectResponse
     {
-        abort_unless($request->user()?->can('access-control.users.manage'), 403);
+        Gate::authorize('create', User::class);
 
         /** @var array{staff_id: string, password: string, is_active?: bool, is_director?: bool, roles?: list<string>, permissions?: list<string>, branch_ids?: list<string>, default_branch_id?: string|null} $data */
         $data = $request->validated();
@@ -121,16 +122,23 @@ final class UserController
 
     public function update(UpdateUserRequest $request, User $user, UpdateAccessUser $action): RedirectResponse
     {
-        abort_unless($request->user()?->can('access-control.users.manage'), 403);
-        abort_unless($user->tenant_id === resolve(TenantContext::class)->id(), 404);
-        $branchContext = resolve(BranchContext::class);
-        abort_unless(
-            $branchContext->canViewAllBranches() || $user->branches()->whereIn('branches.id', $branchContext->accessibleBranchIds())->exists(),
-            404,
-        );
+        Gate::authorize('update', $user);
 
         /** @var array{staff_id: string, password?: string|null, is_active?: bool, is_director?: bool, roles?: list<string>, permissions?: list<string>, branch_ids?: list<string>, default_branch_id?: string|null} $data */
         $data = $request->validated();
+
+        $actor = $request->user();
+
+        if ($actor instanceof User && $actor->is($user) && ($data['is_active'] ?? true) === false) {
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => 'You cannot deactivate your own account.',
+            ]);
+
+            return back()->withErrors([
+                'is_active' => 'You cannot deactivate your own account.',
+            ]);
+        }
 
         $action->handle($user, $data);
 
@@ -144,13 +152,7 @@ final class UserController
 
     public function destroy(User $user, ToggleUserStatus $action): RedirectResponse
     {
-        abort_unless(auth()->user()?->can('access-control.users.manage'), 403);
-        abort_unless($user->tenant_id === resolve(TenantContext::class)->id(), 404);
-        $branchContext = resolve(BranchContext::class);
-        abort_unless(
-            $branchContext->canViewAllBranches() || $user->branches()->whereIn('branches.id', $branchContext->accessibleBranchIds())->exists(),
-            404,
-        );
+        Gate::authorize('delete', $user);
 
         $action->handle($user);
 

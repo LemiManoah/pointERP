@@ -4,9 +4,32 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Models\Branch;
+use App\Models\BranchCurrency;
+use App\Models\Country;
+use App\Models\Currency;
+use App\Models\ExchangeRate;
+use App\Models\Role;
 use App\Models\Scopes\TenantScope;
+use App\Models\Staff;
+use App\Models\StaffPosition;
+use App\Models\Tenant;
+use App\Models\TenantCurrency;
+use App\Models\User;
+use App\Policies\BranchCurrencyPolicy;
+use App\Policies\BranchPolicy;
+use App\Policies\CountryPolicy;
+use App\Policies\CurrencyPolicy;
+use App\Policies\ExchangeRatePolicy;
+use App\Policies\RolePolicy;
+use App\Policies\StaffPolicy;
+use App\Policies\StaffPositionPolicy;
+use App\Policies\TenantCurrencyPolicy;
+use App\Policies\TenantPolicy;
+use App\Policies\UserPolicy;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 final class AppServiceProvider extends ServiceProvider
@@ -16,5 +39,20 @@ final class AppServiceProvider extends ServiceProvider
         $this->app->scoped(TenantContext::class);
         $this->app->scoped(BranchContext::class);
         $this->app->scoped(TenantScope::class);
+    }
+
+    public function boot(): void
+    {
+        Gate::policy(Branch::class, BranchPolicy::class);
+        Gate::policy(BranchCurrency::class, BranchCurrencyPolicy::class);
+        Gate::policy(Country::class, CountryPolicy::class);
+        Gate::policy(Currency::class, CurrencyPolicy::class);
+        Gate::policy(ExchangeRate::class, ExchangeRatePolicy::class);
+        Gate::policy(Role::class, RolePolicy::class);
+        Gate::policy(Staff::class, StaffPolicy::class);
+        Gate::policy(StaffPosition::class, StaffPositionPolicy::class);
+        Gate::policy(Tenant::class, TenantPolicy::class);
+        Gate::policy(TenantCurrency::class, TenantCurrencyPolicy::class);
+        Gate::policy(User::class, UserPolicy::class);
     }
 }

@@ -11,6 +11,7 @@ use App\Services\BranchContext;
 use App\Services\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 final class UpdateExchangeRateRequest extends FormRequest
 {
@@ -35,6 +36,15 @@ final class UpdateExchangeRateRequest extends FormRequest
             'effective_date' => ['required', 'date'],
             'expires_at' => ['nullable', 'date', 'after:effective_date'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($this->input('branch_id') === null && ! resolve(BranchContext::class)->canViewAllBranches()) {
+                $validator->errors()->add('branch_id', 'Only all-branch users can update a tenant-wide exchange rate.');
+            }
+        });
     }
 
     protected function prepareForValidation(): void

@@ -37,10 +37,12 @@ final readonly class ToggleTenantCurrency
                 ->where('status', 'active')
                 ->exists(), InvalidArgumentException::class, 'A branch base currency cannot be disabled at tenant level.');
 
-            $setting->tenant_id = $tenant->id;
-            $setting->currency_code = $currency->code;
-            $setting->is_enabled = ! $setting->exists || ! $setting->is_enabled;
-            $setting->is_default = $currency->code === $tenant->default_currency_code || $setting->is_default;
+            $setting->forceFill([
+                'tenant_id' => $tenant->id,
+                'currency_code' => $currency->code,
+                'is_enabled' => ! $setting->exists || ! $setting->is_enabled,
+                'is_default' => $currency->code === $tenant->default_currency_code || $setting->is_default,
+            ]);
 
             if ($setting->trashed()) {
                 $setting->restore();

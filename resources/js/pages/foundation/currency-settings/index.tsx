@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useMemo, useState } from 'react';
+import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import { SearchableSelect } from '@/components/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -67,6 +68,7 @@ export default function CurrencySettingsIndex({
     currencies,
     branches,
 }: Props) {
+    const confirm = useConfirmDialog();
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState('enabled');
     const [branchId, setBranchId] = useState(branches[0]?.id ?? '');
@@ -115,6 +117,31 @@ export default function CurrencySettingsIndex({
             },
             { preserveScroll: true },
         );
+    }
+
+    function toggleTenantCurrency(currency: Currency) {
+        const submit = () =>
+            router.post(
+                `/currency-settings/tenant/${currency.code}`,
+                {},
+                {
+                    preserveScroll: true,
+                },
+            );
+
+        if (!currency.tenant_enabled) {
+            submit();
+
+            return;
+        }
+
+        confirm({
+            title: `Disable ${currency.code}?`,
+            description: `${currency.name} will no longer be available for tenant or branch transactions unless it is enabled again.`,
+            confirmLabel: 'Disable currency',
+            variant: 'destructive',
+            onConfirm: submit,
+        });
     }
 
     return (
@@ -228,12 +255,8 @@ export default function CurrencySettingsIndex({
                                                             currency.tenant_default
                                                         }
                                                         onClick={() =>
-                                                            router.post(
-                                                                `/currency-settings/tenant/${currency.code}`,
-                                                                {},
-                                                                {
-                                                                    preserveScroll: true,
-                                                                },
+                                                            toggleTenantCurrency(
+                                                                currency,
                                                             )
                                                         }
                                                     >

@@ -31,6 +31,7 @@ final class UserFactory extends Factory
             'two_factor_confirmed_at' => now(),
             'is_active' => true,
             'is_director' => false,
+            'is_support' => false,
             'last_login_at' => null,
         ];
     }
