@@ -14,6 +14,13 @@ use App\Http\Controllers\Foundation\CurrencySettingController;
 use App\Http\Controllers\Foundation\ExchangeRateApprovalController;
 use App\Http\Controllers\Foundation\ExchangeRateController;
 use App\Http\Controllers\Foundation\TenantCurrencyController;
+use App\Http\Controllers\Operations\ContractController;
+use App\Http\Controllers\Operations\CustomerController;
+use App\Http\Controllers\Operations\ProjectActivityController;
+use App\Http\Controllers\Operations\ProjectController;
+use App\Http\Controllers\Operations\ProjectUserController;
+use App\Http\Controllers\Operations\SiteController;
+use App\Http\Controllers\Operations\SiteUserController;
 use App\Http\Controllers\Resources\StaffController;
 use App\Http\Controllers\Resources\StaffPositionController;
 use App\Http\Controllers\SessionController;
@@ -44,6 +51,14 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('currency-settings/branches', [BranchCurrencyController::class, 'store'])->name('foundation.currency-settings.branches.store');
     Route::resource('exchange-rates', ExchangeRateController::class)->only(['index', 'store', 'update', 'destroy'])->names('foundation.exchange-rates');
     Route::post('exchange-rates/{exchangeRate}/approve', [ExchangeRateApprovalController::class, 'store'])->name('foundation.exchange-rates.approve');
+
+    Route::resource('customers', CustomerController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::resource('contracts', ContractController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::resource('projects', ProjectController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
+    Route::resource('sites', SiteController::class)->only(['show', 'store', 'update', 'destroy']);
+    Route::resource('project-activities', ProjectActivityController::class)->only(['store', 'update', 'destroy']);
+    Route::post('projects/{project}/users', [ProjectUserController::class, 'store'])->name('projects.users.store');
+    Route::post('sites/{site}/users', [SiteUserController::class, 'store'])->name('sites.users.store');
 
     Route::redirect('access-control', '/users')->name('access-control.index');
     Route::resource('users', AccessUserController::class)->only(['index', 'store', 'update', 'destroy'])->names('access-control.users');

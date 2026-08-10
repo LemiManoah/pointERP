@@ -6,6 +6,12 @@ type Props = {
     status: 403 | 404;
 };
 
+type PageProps = {
+    auth?: {
+        user?: unknown;
+    };
+};
+
 const copy = {
     403: {
         title: 'Access denied',
@@ -20,7 +26,8 @@ const copy = {
 };
 
 export default function ErrorShow({ status }: Props) {
-    const { auth } = usePage().props;
+    const { auth } = usePage<PageProps>().props;
+    const isAuthenticated = Boolean(auth?.user);
     const details = copy[status] ?? copy[404];
 
     return (
@@ -50,9 +57,9 @@ export default function ErrorShow({ status }: Props) {
                         Go back
                     </Button>
                     <Button asChild>
-                        <Link href={auth.user ? '/dashboard' : '/login'}>
+                        <Link href={isAuthenticated ? '/dashboard' : '/login'}>
                             <Home />
-                            {auth.user ? 'Dashboard' : 'Login'}
+                            {isAuthenticated ? 'Dashboard' : 'Login'}
                         </Link>
                     </Button>
                 </div>

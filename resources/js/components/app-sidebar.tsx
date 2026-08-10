@@ -111,9 +111,24 @@ const groups: SidebarGroupItem[] = [
         items: [
             {
                 title: 'Projects & sites',
-                href: '#',
+                href: '/projects',
                 icon: FolderKanban,
-                status: 'later',
+                status: 'ready',
+                permission: 'projects.view',
+            },
+            {
+                title: 'Companies',
+                href: '/customers',
+                icon: Users,
+                status: 'ready',
+                permission: 'customers.view',
+            },
+            {
+                title: 'Contracts',
+                href: '/contracts',
+                icon: FileText,
+                status: 'ready',
+                permission: 'contracts.view',
             },
             {
                 title: 'Daily reports',

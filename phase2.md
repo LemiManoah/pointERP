@@ -49,7 +49,154 @@ It also prepares for later HR, equipment, inventory, finance, HSE, environmental
 
 ---
 
-## 3. Domain terminology
+## 3. Legacy spreadsheet evidence
+
+The reviewed Excel files show how Point Investment or its contractor-side teams have been handling site reporting, costing and payment support outside the ERP.
+
+Sources reviewed:
+
+```text
+Rev Daily costing 7th  DECEMBER 2024.xlsx
+BKH - IPC No. 3 Draft 2024.xlsx
+```
+
+### 3.1 Deductions from the daily costing workbook
+
+The daily costing workbook uses one sheet per reporting date plus a monthly summary. Each daily sheet combines:
+
+- Project identity and report date.
+- Work progress summary with narrative works done today.
+- Key materials used, especially diesel and petrol.
+- Key salient, operational and contractual issues.
+- Output/revenue by BOQ item.
+- Today's quantity of work done.
+- BOQ quantity, unit and site BOQ rate.
+- Today's revenue, previous cumulative revenue and cumulative revenue to date.
+- Labour and wages.
+- Plant/equipment daily cost, including individual equipment identifiers.
+- Fuel distribution and material costs.
+- Subcontractors, petty cash, allowances, overheads and other direct daily costs.
+- Mobilisation and demobilisation costs.
+- Daily profit/loss and cumulative profit/loss.
+- Prepared/checked/received sign-off roles: costing engineer, project manager, technical director and managing director.
+
+Important design implication: the company's "daily report" is partly operational and partly commercial. Phase 2 should not reduce DSRs to a text diary. It must capture structured daily work quantities and resource/cost summaries, even if final inventory, fleet, HR payroll and finance ledgers come later.
+
+### 3.2 Deductions from the IPC workbook
+
+The IPC workbook contains payment certificate and measurement logic:
+
+- Contract metadata: employer, supervisor, contractor, contract number, period, commencement/completion dates and revised contract sum.
+- Certificate summary: previous certificate, this certificate, total to date, retention, VAT, previous payments, provisional sums, claims and net amount due.
+- Grand summary grouped by bill sections.
+- Main bill lines with original quantities, rates, measured previous quantity, this-period quantity, total-to-date quantity and payment values.
+- Measurement sheets by BOQ item.
+- Measurement details include date, chainage from/to, side, description of works, hours, number of labourers/machines, total hours, litres, bar marks, dimensions, RFI/RFA references and remarks/sketches.
+- Manual approval blocks for contractor, measurement engineer, project engineer and other client-side approvers.
+- Existing formulas contain broken references in some certificate cells, which is a strong signal that ERP calculations should be normalized, auditable and protected from accidental spreadsheet formula breakage.
+
+Important design implication: Phase 2 DSR quantities should be compatible with later IPC/payment workflows. A daily work quantity should be able to reference BOQ item, chainage, side, location, date, evidence and approval state. Later IPCs should aggregate approved quantities rather than manually copy spreadsheet totals.
+
+### 3.3 Changes to keep in Phase 2
+
+Phase 2 should include these fields earlier than originally planned:
+
+- Chainage from and chainage to on DSR work/quantity lines.
+- Side/location marker, such as LHS, RHS or full width.
+- BOQ item reference on DSR work/quantity lines.
+- Unit, quantity, rate snapshot and calculated value for daily work output.
+- Separate previous cumulative and cumulative-to-date calculations in reporting views.
+- DSR cost summary groups: labour, plant, materials, subcontractors/overheads and mobilisation/demobilisation.
+- Fuel quantities split by fuel type.
+- Equipment/resource identifier on plant lines where known.
+- Prepared, reviewed, checked and approved timestamps/users mapped to real ERP users.
+- Explicit note that some DSR/cost figures may be provisional until finance/procurement/fleet modules validate them.
+
+### 3.4 Record for later phases
+
+The IPC workbook should directly inform a later commercial/finance phase:
+
+- Interim Payment Certificates.
+- BOQ measurement books.
+- Valuations and certified quantities.
+- Retention, VAT, previous payments, claims, provisional sums and net amount due.
+- Client-side approval workflows.
+- Exportable certificate packs.
+
+The daily costing workbook should also inform later resource modules:
+
+- Equipment/fleet phase: plant identifiers, day rates, utilisation hours, fuel usage and mobilisation.
+- Inventory/procurement phase: material quantities, rates, issues and supplier/subcontractor references.
+- Finance phase: daily cost capture, petty cash, allowances, overheads, profit/loss and cumulative project cost.
+- HR phase: labour categories, staff/casual counts, hours and wage costing.
+
+### 3.5 Lessons from BauMaster and civil-engineering references
+
+The BauMaster feature overview validates the product direction: construction software works best when it is organised around field capture, project control, searchable management records and collaboration. BauMaster treats photos, tasks, reports, documents, drawings, plan markers, search, costs, schedules, sharing and offline use as connected parts of the same construction memory.
+
+Civil-engineering site diary and daily report references also point to the same core fields:
+
+- Project identification, report date, author and sign-off.
+- Weather and site conditions.
+- Labour by trade/subcontractor, headcount and hours.
+- Plant/equipment, working/idle status and hours.
+- Materials delivered or used, delivery references and rejected quantities.
+- Work completed by location, activity and quantity.
+- Delays, instructions, visitors, safety observations and photos.
+- Programme/activity references where possible.
+- Contemporaneous same-day entry, because retrospective records lose evidential value.
+
+RICS interim valuation guidance confirms that later payment workflows must support valuation process, payment mechanisms, retention, contract forms and standard payment documentation. This reinforces the IPC direction: approved DSR quantities should eventually feed measurement, valuation and payment certificates.
+
+References used for design validation:
+
+```text
+https://bau-master.com/gb/features-overview/
+https://www.rics.org/profession-standards/rics-standards-and-guidance/sector-standards/construction-standards/black-book/interim-valuations-and-payment
+https://www.gatherinsights.com/en/site-diary/template
+https://www.maptrack.com/templates/daily-site-report-template
+https://www.projesttcc.com/construction-daily-report-example
+```
+
+### 3.6 Senior architect recommendations
+
+Phase 2 should be treated as a construction operations product, not an administration module.
+
+Recommended architecture principles:
+
+1. Build around the daily field record.
+   Projects, sites, BOQ items, documents, photos, tasks, drawings, quantities, resources and approvals should converge in the DSR. The DSR is the operational event stream for later equipment, inventory, HR and finance.
+
+2. Separate operational facts from commercial certification.
+   A DSR may capture provisional quantities and costs. Payment certificates, final valuations and posted finance entries are later controlled records that consume approved source data.
+
+3. Store structured data before dashboards.
+   Dashboards should be thin projections over trustworthy records. Do not hardcode dashboard numbers that cannot drill back to DSR, BOQ, document, site or approval source records.
+
+4. Design for mobile and low bandwidth from the first DSR form.
+   Field users should be able to save drafts quickly, upload evidence later, and avoid repeated typing through templates and previous-day copy.
+
+5. Make search and filters part of the data model.
+   Project, site, date, chainage, side, BOQ item, activity, status, responsible user, document type and evidence tags should be queryable, not buried in descriptions.
+
+6. Use clear state machines.
+   DSRs, documents, drawings, milestones and approvals must have explicit statuses and permitted transitions. Approved records should be corrected through controlled follow-up records, not silent edits.
+
+7. Prepare for drawings without building a full drawing engine now.
+   Store drawing/document versions cleanly in Phase 2B. Add plan markers later after project/site/DSR/document foundations are stable.
+
+8. Prepare for offline without building full offline sync now.
+   Use compact mobile forms, draft saves, upload retries, idempotent create/update actions and server-generated references so a later offline package has a stable base.
+
+9. Treat external collaborators as future users, not current scope.
+   BauMaster's contractor collaboration is useful, but PointERP should first prove internal Point Investment workflows. External planner/contractor access can be a later extension after document permissions mature.
+
+10. Do not let Phase 2 become the whole ERP.
+    Phase 2 should produce a reliable project/site/DSR/document spine. Equipment, inventory, HR, finance and HSE can attach to it in later focused slices.
+
+---
+
+## 4. Domain terminology
 
 Use these terms consistently:
 
@@ -64,6 +211,10 @@ Use these terms consistently:
 | Expected DSR | A report obligation generated from a site's reporting calendar. |
 | Missing DSR | An expected report not submitted by its configured deadline. |
 | Returned DSR | A submitted/reviewed report sent back with a required reason. |
+| Chainage | Linear road/project location marker, usually captured as from/to positions. |
+| Side | Road/work side or location marker such as LHS, RHS or full width. |
+| BOQ item | Contract bill item used for measured work, progress and later payment certification. |
+| IPC | Interim Payment Certificate, a later commercial document aggregating approved measured work and deductions. |
 | Project access | User permission to see or operate on a project. |
 | Site access | User permission to see or operate on a site. |
 
@@ -75,9 +226,9 @@ Keep Phase 1 naming:
 
 ---
 
-## 4. Scope
+## 5. Scope
 
-### 4.1 In scope
+### 5.1 In scope
 
 - Customer CRUD.
 - Contract CRUD with core fields and linked documents.
@@ -88,6 +239,8 @@ Keep Phase 1 naming:
 - Project milestones.
 - Project activities or BOQ/progress items.
 - Basic progress entry based on approved quantities/milestones.
+- Chainage/side-aware DSR work quantity lines.
+- Daily output and cost summaries for pilot reporting.
 - Document types, document records and document versions.
 - File upload storage with metadata and permission checks.
 - DSR creation, draft saving, submission, review, approval, return and missing status.
@@ -100,7 +253,7 @@ Keep Phase 1 naming:
 - Policies, requests, actions, query scopes, factories, seeders and tests.
 - Audit events for project/site/document/DSR changes and approvals.
 
-### 4.2 Explicitly out of scope
+### 5.2 Explicitly out of scope
 
 - Full HR leave and attendance workflows.
 - Full equipment register, fuel, maintenance and transfer workflows.
@@ -110,14 +263,16 @@ Keep Phase 1 naming:
 - Advanced planning, forecasting, AI progress prediction and custom report builder.
 - Electronic signatures and advanced OCR.
 - Client/community portal.
+- Full IPC/payment certificate generation.
+- Full BOQ measurement book approval and client certification.
 
 DSRs may capture labour/equipment/material summaries in this phase, but those lines must not pretend to be the final HR, fleet or stock ledgers.
 
 ---
 
-## 5. Architectural rules
+## 6. Architectural rules
 
-### 5.1 Tenancy and branch scope
+### 6.1 Tenancy and branch scope
 
 Every tenant-owned Phase 2 model must use the established tenant isolation pattern.
 
@@ -131,7 +286,7 @@ Project and site queries must check:
 
 Do not rely on hidden buttons. A user with no permission must receive 403 from the server.
 
-### 5.2 Project and site access
+### 6.2 Project and site access
 
 Branch access is necessary but not always sufficient.
 
@@ -144,7 +299,7 @@ Recommended default:
 
 Create explicit project/site access tables rather than overloading branch membership.
 
-### 5.3 Status integrity
+### 6.3 Status integrity
 
 Controlled records must use explicit statuses and transitions.
 
@@ -184,13 +339,13 @@ archived
 
 Approved records should not be silently edited. Corrections must be additive, audited and permission-controlled.
 
-### 5.4 Attachments and documents
+### 6.4 Attachments and documents
 
 Do not scatter file uploads across unrelated tables.
 
 Use a central document/version model that can link to authorised records. DSR photos and evidence should either create document records or attach through a consistent polymorphic link that still enforces document permissions.
 
-### 5.5 Audit trail
+### 6.5 Audit trail
 
 Audit these Phase 2 events:
 
@@ -206,11 +361,11 @@ Store actor, tenant, branch, event, record type, record ID, old values, new valu
 
 ---
 
-## 6. Proposed database design
+## 7. Proposed database design
 
 Adjust names only where needed to preserve repository conventions.
 
-### 6.1 `customers`
+### 7.1 `customers`
 
 ```text
 id                 uuid primary key
@@ -230,7 +385,7 @@ updated_at
 deleted_at
 ```
 
-### 6.2 `contracts`
+### 7.2 `contracts`
 
 ```text
 id                  uuid primary key
@@ -254,7 +409,7 @@ updated_at
 deleted_at
 ```
 
-### 6.3 `projects`
+### 7.3 `projects`
 
 ```text
 id                   uuid primary key
@@ -286,7 +441,7 @@ Rules:
 - Project currency must be enabled for the tenant and branch.
 - Project manager must belong to the same tenant and have access to the project branch.
 
-### 6.4 `sites`
+### 7.4 `sites`
 
 ```text
 id                  uuid primary key
@@ -313,7 +468,7 @@ Rules:
 - Site branch and project branch must agree unless an explicit cross-branch project rule is approved later.
 - A site can override the project reporting deadline.
 
-### 6.5 `project_user`
+### 7.5 `project_user`
 
 ```text
 project_id       uuid foreign key
@@ -324,7 +479,7 @@ created_at
 updated_at
 ```
 
-### 6.6 `site_user`
+### 7.6 `site_user`
 
 ```text
 site_id          uuid foreign key
@@ -341,7 +496,7 @@ Rules:
 - User, project/site and branch must belong to the same tenant.
 - Site assignment requires access to the related project or a permission-managed override.
 
-### 6.7 `project_milestones`
+### 7.7 `project_milestones`
 
 ```text
 id              uuid primary key
@@ -361,7 +516,7 @@ updated_at
 deleted_at
 ```
 
-### 6.8 `project_activities`
+### 7.8 `project_activities`
 
 ```text
 id                  uuid primary key
@@ -372,9 +527,12 @@ site_id             uuid nullable foreign key
 milestone_id        uuid nullable foreign key
 code                string nullable
 name                string
+boq_item_number     string nullable
 unit                string nullable
 planned_quantity    decimal(20, 4) nullable
 approved_quantity   decimal(20, 4) default 0
+rate_amount         decimal(20, 4) nullable
+currency_code       char(3) nullable
 status              string default active
 sort_order          unsigned integer default 0
 created_by          uuid nullable
@@ -384,7 +542,7 @@ updated_at
 deleted_at
 ```
 
-### 6.9 `document_types`
+### 7.9 `document_types`
 
 ```text
 id                    uuid primary key
@@ -400,7 +558,7 @@ updated_at
 
 Allow tenant-specific document types later, but seed global/system defaults first.
 
-### 6.10 `documents`
+### 7.10 `documents`
 
 ```text
 id                uuid primary key
@@ -422,7 +580,7 @@ updated_at
 deleted_at
 ```
 
-### 6.11 `document_versions`
+### 7.11 `document_versions`
 
 ```text
 id             uuid primary key
@@ -442,7 +600,7 @@ created_at
 updated_at
 ```
 
-### 6.12 `document_links`
+### 7.12 `document_links`
 
 ```text
 id                 uuid primary key
@@ -455,7 +613,7 @@ created_at
 updated_at
 ```
 
-### 6.13 `daily_site_reports`
+### 7.13 `daily_site_reports`
 
 ```text
 id                    uuid primary key
@@ -473,6 +631,9 @@ hse_notes             text nullable
 environment_notes     text nullable
 social_notes          text nullable
 completion_percent    decimal(8, 4) nullable
+output_value          decimal(20, 4) nullable
+input_cost            decimal(20, 4) nullable
+profit_loss           decimal(20, 4) nullable
 status                string default draft
 expected_at           timestamp nullable
 submitted_by          uuid nullable foreign key users
@@ -498,7 +659,7 @@ Rules:
 - Approved reports require correction records, not silent edits.
 - Return requires a reason.
 
-### 6.14 DSR line tables
+### 7.14 DSR line tables
 
 Create focused line tables rather than JSON blobs for pilot-critical reporting:
 
@@ -508,6 +669,7 @@ daily_site_report_equipment_lines
 daily_site_report_material_lines
 daily_site_report_work_lines
 daily_site_report_delay_lines
+daily_site_report_cost_lines
 ```
 
 Each line must include:
@@ -518,8 +680,15 @@ tenant_id
 branch_id
 daily_site_report_id
 description/name
+boq_item_number nullable where applicable
+chainage_from nullable where applicable
+chainage_to nullable where applicable
+side nullable where applicable
 quantity/count/hours where applicable
 unit where applicable
+rate_amount nullable where applicable
+amount nullable where applicable
+currency_code nullable where applicable
 notes nullable
 sort_order
 created_at
@@ -528,7 +697,7 @@ updated_at
 
 These are reporting summaries in Phase 2. Later HR, equipment and inventory modules may replace free-text fields with strict foreign keys and ledger integration.
 
-### 6.15 `expected_daily_site_reports`
+### 7.15 `expected_daily_site_reports`
 
 ```text
 id                 uuid primary key
@@ -558,7 +727,7 @@ waived
 
 ---
 
-## 7. Minimum permissions
+## 8. Minimum permissions
 
 Seed permissions idempotently so the seeder can be run again in production to add new permissions.
 
@@ -606,7 +775,7 @@ Suggested role updates:
 
 ---
 
-## 8. Backend components
+## 9. Backend components
 
 Use actions, thin controllers and form requests.
 
@@ -662,7 +831,7 @@ Each policy must check tenant first, then branch, permission, assignment and rec
 
 ---
 
-## 9. Inertia and React pages
+## 10. Inertia and React pages
 
 Follow the professional page patterns already in the app:
 
@@ -701,9 +870,9 @@ Important UI notes:
 
 ---
 
-## 10. Required workflows
+## 11. Required workflows
 
-### 10.1 Project setup
+### 11.1 Project setup
 
 1. Create customer.
 2. Create contract or upload existing contract document.
@@ -714,18 +883,18 @@ Important UI notes:
 7. Set reporting deadline and working/non-working calendar.
 8. Upload baseline documents.
 
-### 10.2 Daily site reporting
+### 11.2 Daily site reporting
 
 1. Expected DSR is generated for each active site/reporting day.
 2. Site manager opens today's expected report.
-3. User saves draft with work, labour, equipment, materials, delays, HSE, environment, social notes and evidence.
+3. User saves draft with work, chainage/side, BOQ quantities, labour, equipment, materials, fuel, delays, HSE, environment, social notes and evidence.
 4. User submits the DSR.
 5. Reviewer reviews and either approves or returns with reason.
 6. Returned report becomes editable again.
 7. Approved report locks ordinary edits.
 8. Dashboard updates compliance and outstanding approvals.
 
-### 10.3 Missing report escalation
+### 11.3 Missing report escalation
 
 1. Scheduled command checks expected reports after deadline.
 2. Unsubmitted expected reports are marked Missing.
@@ -733,7 +902,7 @@ Important UI notes:
 4. After two consecutive missing reporting days, the project manager and configured executive/HSE recipients are notified.
 5. Dashboard shows missing reports by project/site and owner.
 
-### 10.4 Document control
+### 11.4 Document control
 
 1. User uploads a document with type, date, project/site tags, confidentiality and optional expiry.
 2. Document is linked to project/site/contract/DSR or another authorised record.
@@ -743,7 +912,7 @@ Important UI notes:
 
 ---
 
-## 11. Factories and seeders
+## 12. Factories and seeders
 
 Create realistic factories for every new model.
 
@@ -765,6 +934,8 @@ Extend seeders so UI testing can show real separation:
   - approved
   - returned
   - missing expected report
+- DSR work lines with BOQ items, chainage from/to and side.
+- DSR cost summaries showing labour, plant, materials, fuel and overhead examples.
 - Seeded documents:
   - contract
   - drawing
@@ -775,30 +946,30 @@ Do not make all seeded users super admins. The UI should prove branch, project, 
 
 ---
 
-## 12. Pest test plan
+## 13. Pest test plan
 
-### 12.1 Tenant and branch isolation
+### 13.1 Tenant and branch isolation
 
 - Tenant A cannot view Tenant B projects, sites, contracts, documents or DSRs.
 - Branch-restricted users cannot access another branch's projects/sites.
 - `projects.view-all` and `sites.view-all` never cross tenant boundaries.
 - Cross-tenant UUID guesses return 403 or non-disclosing 404 according to policy convention.
 
-### 12.2 Project and site access
+### 13.2 Project and site access
 
 - Assigned project manager can manage assigned project.
 - Site manager can submit DSR only for assigned site.
 - User with branch access but no project/site assignment cannot mutate project/site records unless permission allows it.
 - Removing assignment immediately blocks access.
 
-### 12.3 Document security
+### 13.3 Document security
 
 - Unauthorised users cannot download files.
 - Confidential documents require `documents.view-confidential`.
 - Version uploads preserve history.
 - Expiry reminders are generated for expiring documents.
 
-### 12.4 DSR workflow
+### 13.4 DSR workflow
 
 - Draft can be edited by authorised submitter.
 - Submitted report cannot be edited by ordinary submitter.
@@ -807,15 +978,18 @@ Do not make all seeded users super admins. The UI should prove branch, project, 
 - Missing report command marks overdue expected reports.
 - Two consecutive missed days escalates once to the configured recipients.
 - DSR line items preserve tenant and branch IDs.
+- DSR work quantities calculate daily output from quantity and rate snapshots.
+- DSR cumulative reporting distinguishes previous, today and total-to-date values.
+- Chainage from/to and side are stored and visible on DSR work lines.
 
-### 12.5 Audit and notifications
+### 13.5 Audit and notifications
 
 - Project/site assignment changes are audited.
 - DSR submit/approve/return/missing events are audited.
 - Document upload/version/archive events are audited.
 - Notifications are created for missing reports, returned reports and pending approvals.
 
-### 12.6 UI/Inertia
+### 13.6 UI/Inertia
 
 - Pages return expected components and props.
 - Filters use URL query parameters.
@@ -824,7 +998,7 @@ Do not make all seeded users super admins. The UI should prove branch, project, 
 
 ---
 
-## 13. Implementation order
+## 14. Implementation order
 
 1. Confirm Phase 1 suite status and fix any regressions.
 2. Add customers, contracts, projects and sites models/migrations/factories.
@@ -845,7 +1019,7 @@ Do not make all seeded users super admins. The UI should prove branch, project, 
 
 ---
 
-## 14. Recommended build slices
+## 15. Recommended build slices
 
 ### Phase 2A - Project and Site Foundation
 
@@ -865,6 +1039,8 @@ Build DSR drafts, submission, review, approval, return, line items and evidence 
 
 This is the main pilot workflow and should receive careful mobile UI testing.
 
+Include chainage/side, BOQ quantity lines, fuel/material/plant/labour summaries and daily output/cost/profit reporting in this slice.
+
 ### Phase 2D - Missing Reports and Dashboards
 
 Build expected-report calendars, missing report job, escalation notifications, dashboard widgets and drill-down reports.
@@ -873,7 +1049,7 @@ This turns data entry into management control.
 
 ---
 
-## 15. Definition of done
+## 16. Definition of done
 
 Phase 2 is complete only when:
 
@@ -881,6 +1057,8 @@ Phase 2 is complete only when:
 - Users can be assigned to project/site scope.
 - Documents can be uploaded, versioned, linked, searched and permission-checked.
 - DSRs can be drafted, submitted, reviewed, approved, returned and marked missing.
+- DSRs capture daily work quantities against BOQ/activity items with chainage and side where applicable.
+- DSRs capture pilot-level output/cost summaries without pretending to replace later finance ledgers.
 - Missing DSRs are generated from expected reporting days and deadlines.
 - Notifications and dashboards show missing reports and pending approvals.
 - Approved/controlled records are not silently editable.
@@ -891,7 +1069,7 @@ Phase 2 is complete only when:
 
 ---
 
-## 16. Open decisions before implementation
+## 17. Open decisions before implementation
 
 These should be confirmed early but should not block database scaffolding where sensible defaults are safe:
 
@@ -904,11 +1082,14 @@ These should be confirmed early but should not block database scaffolding where 
 - Initial document confidentiality classes and file size limits.
 - Contract fields required for pilot acceptance.
 - Whether progress is quantity-based, milestone-based or both for the pilot.
+- Whether daily costing is required inside the DSR approval flow or reviewed separately by a costing engineer.
+- Whether BOQ rates are visible to site users or restricted to project/commercial roles.
+- Whether DSR profit/loss should be visible to project managers only, directors only or finance/commercial users.
 - Email service/domain for notifications.
 
 ---
 
-## 17. Suggested next step
+## 18. Suggested next step
 
 Start with Phase 2A: customers, contracts, projects, sites and project/site assignments.
 
