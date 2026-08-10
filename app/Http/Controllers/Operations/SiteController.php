@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\Sites\SaveSite;
+use App\Http\Controllers\Operations\Concerns\PresentsLinkedDocuments;
 use App\Http\Requests\Operations\Sites\StoreSiteRequest;
 use App\Http\Requests\Operations\Sites\UpdateSiteRequest;
 use App\Models\Project;
@@ -18,9 +19,14 @@ use Inertia\Response;
 
 final class SiteController
 {
+    use PresentsLinkedDocuments;
+
     public function show(Site $site): Response
     {
         Gate::authorize('view', $site);
+
+        $currentUser = auth()->user();
+        abort_unless($currentUser instanceof User, 403);
 
         $site->load(['branch', 'project', 'manager', 'users', 'activities']);
 
@@ -48,6 +54,7 @@ final class SiteController
                 'can_submit_dsr' => (bool) $user->pivot->can_submit_dsr,
                 'can_review_dsr' => (bool) $user->pivot->can_review_dsr,
             ]),
+            'documents' => $this->linkedDocumentsFor($site, $currentUser),
             'users' => User::query()
                 ->where('tenant_id', $site->tenant_id)
                 ->where('is_active', true)

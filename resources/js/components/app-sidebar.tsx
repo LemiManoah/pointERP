@@ -137,7 +137,20 @@ const groups: SidebarGroupItem[] = [
                 status: 'ready',
                 permission: 'daily-site-reports.view',
             },
-            { title: 'Documents', href: '#', icon: FileText, status: 'later' },
+            {
+                title: 'Documents',
+                href: '/documents',
+                icon: FileText,
+                status: 'ready',
+                permission: 'documents.view',
+            },
+            {
+                title: 'Document types',
+                href: '/document-types',
+                icon: ScrollText,
+                status: 'ready',
+                permission: 'documents.manage-types',
+            },
         ],
     },
     {

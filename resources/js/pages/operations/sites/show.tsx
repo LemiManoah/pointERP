@@ -20,6 +20,10 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+import {
+    DocumentEvidenceTable,
+    type LinkedDocumentRow,
+} from '../documents/partials/document-evidence-table';
 
 type Site = {
     id: string;
@@ -53,6 +57,7 @@ type Props = {
     site: Site;
     assignedUsers: AssignedSiteUser[];
     users: UserOption[];
+    documents: LinkedDocumentRow[];
 };
 
 type Assignment = {
@@ -62,7 +67,12 @@ type Assignment = {
     can_review_dsr: boolean;
 };
 
-export default function SiteShow({ site, assignedUsers, users }: Props) {
+export default function SiteShow({
+    site,
+    assignedUsers,
+    users,
+    documents,
+}: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Projects', href: '/projects' },
@@ -153,6 +163,11 @@ export default function SiteShow({ site, assignedUsers, users }: Props) {
                         </CardContent>
                     </Card>
                 </div>
+
+                <DocumentEvidenceTable
+                    documents={documents}
+                    emptyText="No documents linked to this site."
+                />
             </div>
         </AppLayout>
     );

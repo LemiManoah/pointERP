@@ -20,6 +20,11 @@ use App\Http\Controllers\Operations\DailySiteReportApprovalController;
 use App\Http\Controllers\Operations\DailySiteReportController;
 use App\Http\Controllers\Operations\DailySiteReportReturnController;
 use App\Http\Controllers\Operations\DailySiteReportSubmitController;
+use App\Http\Controllers\Operations\DocumentController;
+use App\Http\Controllers\Operations\DocumentDownloadController;
+use App\Http\Controllers\Operations\DocumentLinkController;
+use App\Http\Controllers\Operations\DocumentTypeController;
+use App\Http\Controllers\Operations\DocumentVersionController;
 use App\Http\Controllers\Operations\ProjectActivityController;
 use App\Http\Controllers\Operations\ProjectController;
 use App\Http\Controllers\Operations\ProjectUserController;
@@ -65,6 +70,12 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('daily-site-reports/{dailySiteReport}/submit', DailySiteReportSubmitController::class)->name('daily-site-reports.submit');
     Route::post('daily-site-reports/{dailySiteReport}/approve', DailySiteReportApprovalController::class)->name('daily-site-reports.approve');
     Route::post('daily-site-reports/{dailySiteReport}/return', DailySiteReportReturnController::class)->name('daily-site-reports.return');
+    Route::resource('documents', DocumentController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
+    Route::post('documents/{document}/versions', [DocumentVersionController::class, 'store'])->name('documents.versions.store');
+    Route::get('documents/{document}/versions/{documentVersion}/download', DocumentDownloadController::class)->name('documents.versions.download');
+    Route::post('documents/{document}/links', [DocumentLinkController::class, 'store'])->name('documents.links.store');
+    Route::delete('documents/{document}/links/{documentLink}', [DocumentLinkController::class, 'destroy'])->name('documents.links.destroy');
+    Route::resource('document-types', DocumentTypeController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::post('projects/{project}/users', [ProjectUserController::class, 'store'])->name('projects.users.store');
     Route::post('sites/{site}/users', [SiteUserController::class, 'store'])->name('sites.users.store');
 

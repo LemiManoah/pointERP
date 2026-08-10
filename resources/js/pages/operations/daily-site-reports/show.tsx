@@ -15,6 +15,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+import {
+    DocumentEvidenceTable,
+    type LinkedDocumentRow,
+} from '../documents/partials/document-evidence-table';
 
 type Line = Record<string, string | null>;
 
@@ -55,6 +59,7 @@ type Props = {
         approve: boolean;
         return: boolean;
     };
+    documents: LinkedDocumentRow[];
 };
 
 type FormData = Record<string, string | Line[]> & {
@@ -77,7 +82,7 @@ type FormData = Record<string, string | Line[]> & {
     delay_lines: Line[];
 };
 
-export default function DailySiteReportShow({ report, can }: Props) {
+export default function DailySiteReportShow({ report, can, documents }: Props) {
     const form = useForm<FormData>({
         site_id: report.site_id,
         report_date: report.report_date,
@@ -204,6 +209,13 @@ export default function DailySiteReportShow({ report, can }: Props) {
                     <Metric label="Input cost" value={report.input_cost} />
                     <Metric label="Profit/loss" value={report.profit_loss} />
                 </div>
+
+                <DocumentEvidenceTable
+                    documents={documents}
+                    emptyText="No documents linked to this report."
+                    title="Linked evidence"
+                    description="Drawings, sketches, permits, photos and other files tied to this daily report."
+                />
 
                 <form onSubmit={submit} className="grid gap-6">
                     <Card>

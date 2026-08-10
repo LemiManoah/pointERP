@@ -16,6 +16,10 @@ use App\Models\DailySiteReportEquipmentLine;
 use App\Models\DailySiteReportLabourLine;
 use App\Models\DailySiteReportMaterialLine;
 use App\Models\DailySiteReportWorkLine;
+use App\Models\Document;
+use App\Models\DocumentLink;
+use App\Models\DocumentType;
+use App\Models\DocumentVersion;
 use App\Models\ExchangeRate;
 use App\Models\ExpectedDailySiteReport;
 use App\Models\Project;
@@ -28,6 +32,7 @@ use App\Models\TenantCurrency;
 use App\Models\User;
 use App\Services\TenantContext;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Storage;
 
 final class PointInvestmentSeeder extends Seeder
 {
@@ -80,6 +85,8 @@ final class PointInvestmentSeeder extends Seeder
             defaultBranch: $branches['KLA-HQ'],
             isDirector: true,
         );
+
+        $this->documentTypes($director);
 
         $this->user(
             staffNumber: 'POINT-002',
@@ -408,6 +415,7 @@ final class PointInvestmentSeeder extends Seeder
         }
 
         $this->dailySiteReports($director, $ugandaProjectManager, $ugandaSiteEngineer, $roadProject, $busunjuSite, $kibogaSite);
+        $this->seedProjectDocuments($director, $roadProject, $contract, $busunjuSite, $kibogaSite);
 
         $southSudanCustomer = Customer::query()->updateOrCreate(
             ['tenant_id' => $southSudanBranch->tenant_id, 'code' => 'SSRA'],
@@ -445,6 +453,56 @@ final class PointInvestmentSeeder extends Seeder
         ]);
         $jubaSite = $this->site($southSudanProject, $southSudanSiteManager, 'JUBA-MAIN', 'Juba Main Site', 'Juba access works');
         $this->dailySiteReports($director, $southSudanSiteManager, $southSudanSiteManager, $southSudanProject, $jubaSite, $jubaSite, 'USD');
+        $this->seedDocument(
+            actor: $director,
+            typeCode: 'METHOD_STATEMENT',
+            branch: $southSudanBranch,
+            title: 'Juba Access Road Method Statement',
+            reference: 'JUBA-MS-001',
+            content: 'Demo method statement for South Sudan branch isolation.',
+            links: [[$southSudanProject::class, $southSudanProject->id]],
+        );
+    }
+
+    private function documentTypes(User $actor): void
+    {
+        $types = [
+            ['CONTRACT', 'Contract', false, true],
+            ['CONTRACT_ADDENDUM', 'Contract addendum', false, true],
+            ['DRAWING', 'Drawing', false, false],
+            ['REVISED_DRAWING', 'Revised drawing', false, false],
+            ['METHOD_STATEMENT', 'Method statement', false, false],
+            ['PERMIT', 'Permit', true, false],
+            ['TEST_RESULT', 'Test result', false, false],
+            ['INSPECTION_RECORD', 'Inspection record', false, false],
+            ['SITE_INSTRUCTION', 'Site instruction', false, false],
+            ['RFI', 'Request for information', false, false],
+            ['RFA', 'Request for approval', false, false],
+            ['DSR_EVIDENCE', 'DSR evidence', false, false],
+            ['PHOTO', 'Photo', false, false],
+            ['SKETCH', 'Sketch', false, false],
+            ['HSE_RECORD', 'HSE record', false, false],
+            ['ENVIRONMENT_RECORD', 'Environment record', false, false],
+            ['SOCIAL_RECORD', 'Social record', false, false],
+            ['IPC_SUPPORT', 'IPC support', false, true],
+            ['CORRESPONDENCE', 'Correspondence', false, false],
+        ];
+
+        foreach ($types as [$code, $name, $requiresExpiry, $isConfidential]) {
+            DocumentType::query()->updateOrCreate(
+                ['tenant_id' => null, 'code' => $code],
+                [
+                    'name' => $name,
+                    'description' => $name.' records for project document control.',
+                    'requires_expiry_date' => $requiresExpiry,
+                    'is_confidential' => $isConfidential,
+                    'is_system' => true,
+                    'is_active' => true,
+                    'created_by' => $actor->id,
+                    'updated_by' => $actor->id,
+                ],
+            );
+        }
     }
 
     private function site(Project $project, User $manager, string $reference, string $name, string $location): Site
@@ -802,5 +860,164 @@ final class PointInvestmentSeeder extends Seeder
             'input_cost' => $currencyCode === 'UGX' ? '6072000.0000' : '1668.0000',
             'profit_loss' => $currencyCode === 'UGX' ? '-2502000.0000' : '-702.0000',
         ])->save();
+    }
+
+    private function seedProjectDocuments(User $director, Project $project, Contract $contract, Site $busunjuSite, Site $kibogaSite): void
+    {
+        $this->seedDocument(
+            actor: $director,
+            typeCode: 'CONTRACT',
+            branch: $project->branch,
+            title: 'Signed UNRA road rehabilitation contract',
+            reference: 'UNRA/WORKS/2021-2022/00369',
+            content: 'Demo signed contract evidence for the Busunju - Kiboga - Hoima road project.',
+            links: [[$contract::class, $contract->id], [$project::class, $project->id]],
+            confidentiality: Document::CONFIDENTIALITY_COMMERCIAL,
+        );
+
+        $drawing = $this->seedDocument(
+            actor: $director,
+            typeCode: 'DRAWING',
+            branch: $project->branch,
+            title: 'BKH Road general alignment drawing',
+            reference: 'BKH-ROAD-GA-001',
+            content: 'Revision A general alignment drawing placeholder.',
+            links: [[$project::class, $project->id], [$busunjuSite::class, $busunjuSite->id]],
+        );
+        $this->seedDocumentVersion($director, $drawing, 2, 'Revision B drawing update placeholder.');
+
+        $this->seedDocument(
+            actor: $director,
+            typeCode: 'PERMIT',
+            branch: $project->branch,
+            title: 'Traffic management permit',
+            reference: 'BKH-TMP-2024',
+            content: 'Traffic management permit expiring soon for dashboard testing.',
+            links: [[$project::class, $project->id], [$busunjuSite::class, $busunjuSite->id]],
+            expiresOn: now()->addDays(21)->toDateString(),
+        );
+
+        $this->seedDocument(
+            actor: $director,
+            typeCode: 'METHOD_STATEMENT',
+            branch: $project->branch,
+            title: 'Topsoil removal method statement',
+            reference: 'BKH-MS-TOPSOIL',
+            content: 'Method statement for topsoil removal, haulage and environmental controls.',
+            links: [[$project::class, $project->id], [$busunjuSite::class, $busunjuSite->id]],
+        );
+
+        $report = DailySiteReport::query()->where('reference', 'DSR-BUSUNJU-20241207')->first();
+
+        if ($report instanceof DailySiteReport) {
+            $this->seedDocument(
+                actor: $director,
+                typeCode: 'DSR_EVIDENCE',
+                branch: $project->branch,
+                title: 'Photo evidence for topsoil removal',
+                reference: 'DSR-BUSUNJU-20241207-PHOTO-001',
+                content: 'Photo placeholder: topsoil removal at Km 10+000 to Km 11+500 LHS.',
+                links: [[$report::class, $report->id], [$busunjuSite::class, $busunjuSite->id]],
+            );
+            $this->seedDocument(
+                actor: $director,
+                typeCode: 'SKETCH',
+                branch: $project->branch,
+                title: 'Measurement sketch for DSR-BUSUNJU-20241207',
+                reference: 'DSR-BUSUNJU-20241207-SK-001',
+                content: 'Sketch placeholder supporting measured quantity and chainage.',
+                links: [[$report::class, $report->id], [$busunjuSite::class, $busunjuSite->id]],
+            );
+        }
+
+        $this->seedDocument(
+            actor: $director,
+            typeCode: 'TEST_RESULT',
+            branch: $project->branch,
+            title: 'Subbase material test certificate',
+            reference: 'BKH-LAB-SUBBASE-001',
+            content: 'Lab certificate placeholder for natural material subbase compliance.',
+            links: [[$project::class, $project->id], [$kibogaSite::class, $kibogaSite->id]],
+        );
+    }
+
+    /**
+     * @param  list<array{0: class-string, 1: string}>  $links
+     */
+    private function seedDocument(
+        User $actor,
+        string $typeCode,
+        Branch $branch,
+        string $title,
+        string $reference,
+        string $content,
+        array $links,
+        string $confidentiality = Document::CONFIDENTIALITY_NORMAL,
+        ?string $expiresOn = null,
+    ): Document {
+        $type = DocumentType::query()->where('code', $typeCode)->firstOrFail();
+
+        $document = Document::query()->updateOrCreate(
+            ['tenant_id' => $branch->tenant_id, 'reference' => $reference],
+            [
+                'branch_id' => $branch->id,
+                'document_type_id' => $type->id,
+                'owner_id' => $actor->id,
+                'title' => $title,
+                'description' => $content,
+                'document_date' => now()->toDateString(),
+                'expires_on' => $expiresOn,
+                'confidentiality' => $confidentiality,
+                'status' => Document::STATUS_ACTIVE,
+                'created_by' => $actor->id,
+                'updated_by' => $actor->id,
+            ],
+        );
+
+        $version = $this->seedDocumentVersion($actor, $document, 1, $content);
+        $document->forceFill(['current_version_id' => $version->id])->save();
+
+        foreach ($links as [$linkableType, $id]) {
+            DocumentLink::query()->updateOrCreate(
+                [
+                    'document_id' => $document->id,
+                    'linkable_type' => $linkableType,
+                    'linkable_id' => $id,
+                ],
+                [
+                    'tenant_id' => $document->tenant_id,
+                    'created_by' => $actor->id,
+                ],
+            );
+        }
+
+        return $document;
+    }
+
+    private function seedDocumentVersion(User $actor, Document $document, int $versionNumber, string $content): DocumentVersion
+    {
+        $path = sprintf('documents/%s/%s/v%d/seeded.txt', $document->tenant_id, $document->id, $versionNumber);
+
+        Storage::disk('local')->put($path, $content);
+
+        $version = DocumentVersion::query()->updateOrCreate(
+            ['document_id' => $document->id, 'version_number' => $versionNumber],
+            [
+                'tenant_id' => $document->tenant_id,
+                'disk' => 'local',
+                'path' => $path,
+                'original_name' => sprintf('seeded-%s-v%d.txt', $document->reference, $versionNumber),
+                'mime_type' => 'text/plain',
+                'size_bytes' => mb_strlen($content),
+                'checksum' => hash('sha256', $content),
+                'notes' => 'Seeded version '.$versionNumber,
+                'uploaded_by' => $actor->id,
+                'uploaded_at' => now(),
+            ],
+        );
+
+        $document->forceFill(['current_version_id' => $version->id])->save();
+
+        return $version;
     }
 }

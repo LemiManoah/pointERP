@@ -8,6 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import {
+    DocumentEvidenceTable,
+    type LinkedDocumentRow,
+} from '../documents/partials/document-evidence-table';
+import {
     ProjectAccessDialog,
     type AssignedProjectUser,
 } from './partials/access-dialog';
@@ -27,6 +31,7 @@ type Props = {
     sites: Site[];
     activities: ProjectActivity[];
     assignedUsers: AssignedProjectUser[];
+    documents: LinkedDocumentRow[];
     branches: Option[];
     customers: Option[];
     contracts: Option[];
@@ -40,6 +45,7 @@ export default function ProjectShow({
     sites,
     activities,
     assignedUsers,
+    documents,
     branches,
     customers,
     contracts,
@@ -108,6 +114,7 @@ export default function ProjectShow({
                             Activities / BOQ
                         </TabsTrigger>
                         <TabsTrigger value="access">Access</TabsTrigger>
+                        <TabsTrigger value="documents">Documents</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="sites" className="mt-6 grid gap-6">
@@ -211,6 +218,13 @@ export default function ProjectShow({
                                 </div>
                             </CardContent>
                         </Card>
+                    </TabsContent>
+
+                    <TabsContent value="documents" className="mt-6">
+                        <DocumentEvidenceTable
+                            documents={documents}
+                            emptyText="No documents linked to this project."
+                        />
                     </TabsContent>
                 </Tabs>
             </div>

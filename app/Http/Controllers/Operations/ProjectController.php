@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\Projects\SaveProject;
+use App\Http\Controllers\Operations\Concerns\PresentsLinkedDocuments;
 use App\Http\Requests\Operations\Projects\StoreProjectRequest;
 use App\Http\Requests\Operations\Projects\UpdateProjectRequest;
 use App\Models\Branch;
@@ -25,6 +26,8 @@ use Inertia\Response;
 
 final class ProjectController
 {
+    use PresentsLinkedDocuments;
+
     public function index(): Response
     {
         Gate::authorize('viewAny', Project::class);
@@ -81,6 +84,7 @@ final class ProjectController
                     'role' => $assignedUser->pivot->role,
                     'can_manage' => (bool) $assignedUser->pivot->can_manage,
                 ]),
+            'documents' => $this->linkedDocumentsFor($project, $user),
             'canViewRates' => $this->canViewRates($user),
             ...$this->formOptions($user),
         ]);

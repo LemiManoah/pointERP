@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\DailySiteReports\SaveDailySiteReport;
+use App\Http\Controllers\Operations\Concerns\PresentsLinkedDocuments;
 use App\Http\Requests\Operations\DailySiteReports\StoreDailySiteReportRequest;
 use App\Http\Requests\Operations\DailySiteReports\UpdateDailySiteReportRequest;
 use App\Models\Currency;
@@ -21,6 +22,8 @@ use Inertia\Response;
 
 final class DailySiteReportController
 {
+    use PresentsLinkedDocuments;
+
     public function index(): Response
     {
         Gate::authorize('viewAny', DailySiteReport::class);
@@ -89,6 +92,7 @@ final class DailySiteReportController
                 'approve' => Gate::forUser($user)->allows('approve', $dailySiteReport),
                 'return' => Gate::forUser($user)->allows('return', $dailySiteReport),
             ],
+            'documents' => $this->linkedDocumentsFor($dailySiteReport, $user),
             ...$this->formOptions($user),
         ]);
     }
