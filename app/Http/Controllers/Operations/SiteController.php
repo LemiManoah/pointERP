@@ -54,7 +54,7 @@ final class SiteController
                 ->whereHas('branches', fn ($query) => $query->whereKey($site->branch_id))
                 ->orderBy('name')
                 ->get(['id', 'name', 'email'])
-                ->map(fn (User $user): array => ['id' => $user->id, 'name' => "{$user->name} ({$user->email})", 'email' => $user->email]),
+                ->map(fn (User $user): array => ['id' => $user->id, 'name' => sprintf('%s (%s)', $user->name, $user->email), 'email' => $user->email]),
         ]);
     }
 

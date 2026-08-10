@@ -166,7 +166,7 @@ final class ProjectController
                 ->visibleTo($user)
                 ->orderBy('reference')
                 ->get(['id', 'reference', 'title', 'branch_id', 'customer_id'])
-                ->map(fn (Contract $contract): array => ['id' => $contract->id, 'name' => "{$contract->reference} - {$contract->title}", 'branch_id' => $contract->branch_id, 'customer_id' => $contract->customer_id]),
+                ->map(fn (Contract $contract): array => ['id' => $contract->id, 'name' => sprintf('%s - %s', $contract->reference, $contract->title), 'branch_id' => $contract->branch_id, 'customer_id' => $contract->customer_id]),
             'users' => User::query()
                 ->with('staff')
                 ->where('tenant_id', $tenantId)
@@ -174,12 +174,12 @@ final class ProjectController
                 ->whereHas('branches', fn ($query) => $query->whereIn('branches.id', $branchIds))
                 ->orderBy('name')
                 ->get(['id', 'staff_id', 'name', 'email'])
-                ->map(fn (User $optionUser): array => ['id' => $optionUser->id, 'name' => "{$optionUser->name} ({$optionUser->email})", 'email' => $optionUser->email]),
+                ->map(fn (User $optionUser): array => ['id' => $optionUser->id, 'name' => sprintf('%s (%s)', $optionUser->name, $optionUser->email), 'email' => $optionUser->email]),
             'currencies' => Currency::query()
                 ->where('is_active', true)
                 ->orderBy('code')
                 ->get(['code', 'name'])
-                ->map(fn (Currency $currency): array => ['id' => $currency->code, 'name' => "{$currency->code} - {$currency->name}"]),
+                ->map(fn (Currency $currency): array => ['id' => $currency->code, 'name' => sprintf('%s - %s', $currency->code, $currency->name)]),
         ];
     }
 
@@ -237,9 +237,18 @@ final class ProjectController
 
     private function canViewRates(User $user): bool
     {
-        return $user->can('project-activities.manage')
-            || $user->can('projects.update')
-            || $user->can('projects.view-all')
-            || $user->can('finance.reports.view');
+        if ($user->can('project-activities.manage')) {
+            return true;
+        }
+
+        if ($user->can('projects.update')) {
+            return true;
+        }
+
+        if ($user->can('projects.view-all')) {
+            return true;
+        }
+
+        return $user->can('finance.reports.view');
     }
 }

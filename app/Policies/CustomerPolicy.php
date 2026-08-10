@@ -14,7 +14,11 @@ final class CustomerPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->can('customers.view') || $user->can('customers.manage');
+        if ($user->can('customers.view')) {
+            return true;
+        }
+
+        return $user->can('customers.manage');
     }
 
     public function view(User $user, Customer $customer): bool

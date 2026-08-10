@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Models\AuditActivity;
 use App\Models\Role;
 use App\Models\Tenant;
-use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\TenantContext;
 

@@ -9,7 +9,15 @@ use App\Models\Branch;
 use App\Models\BranchCurrency;
 use App\Models\Contract;
 use App\Models\Customer;
+use App\Models\DailySiteReport;
+use App\Models\DailySiteReportCostLine;
+use App\Models\DailySiteReportDelayLine;
+use App\Models\DailySiteReportEquipmentLine;
+use App\Models\DailySiteReportLabourLine;
+use App\Models\DailySiteReportMaterialLine;
+use App\Models\DailySiteReportWorkLine;
 use App\Models\ExchangeRate;
+use App\Models\ExpectedDailySiteReport;
 use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\Role;
@@ -399,6 +407,8 @@ final class PointInvestmentSeeder extends Seeder
             );
         }
 
+        $this->dailySiteReports($director, $ugandaProjectManager, $ugandaSiteEngineer, $roadProject, $busunjuSite, $kibogaSite);
+
         $southSudanCustomer = Customer::query()->updateOrCreate(
             ['tenant_id' => $southSudanBranch->tenant_id, 'code' => 'SSRA'],
             [
@@ -433,7 +443,8 @@ final class PointInvestmentSeeder extends Seeder
         $southSudanProject->users()->syncWithoutDetaching([
             $southSudanSiteManager->id => ['role' => 'Site Manager', 'can_manage' => true],
         ]);
-        $this->site($southSudanProject, $southSudanSiteManager, 'JUBA-MAIN', 'Juba Main Site', 'Juba access works');
+        $jubaSite = $this->site($southSudanProject, $southSudanSiteManager, 'JUBA-MAIN', 'Juba Main Site', 'Juba access works');
+        $this->dailySiteReports($director, $southSudanSiteManager, $southSudanSiteManager, $southSudanProject, $jubaSite, $jubaSite, 'USD');
     }
 
     private function site(Project $project, User $manager, string $reference, string $name, string $location): Site
@@ -545,5 +556,251 @@ final class PointInvestmentSeeder extends Seeder
                 'sort_order' => 60,
             ],
         ];
+    }
+
+    private function dailySiteReports(
+        User $director,
+        User $reviewer,
+        User $submitter,
+        Project $project,
+        Site $primarySite,
+        Site $secondarySite,
+        string $currencyCode = 'UGX',
+    ): void {
+        $submittedReport = $this->dailySiteReport(
+            project: $project,
+            site: $primarySite,
+            actor: $submitter,
+            reference: 'DSR-'.$primarySite->reference.'-20241207',
+            reportDate: '2024-12-07',
+            status: DailySiteReport::STATUS_SUBMITTED,
+            currencyCode: $currencyCode,
+            submittedBy: $submitter,
+        );
+        $this->seedReportLines($submittedReport, $currencyCode);
+
+        $approvedReport = $this->dailySiteReport(
+            project: $project,
+            site: $primarySite,
+            actor: $submitter,
+            reference: 'DSR-'.$primarySite->reference.'-20241206',
+            reportDate: '2024-12-06',
+            status: DailySiteReport::STATUS_APPROVED,
+            currencyCode: $currencyCode,
+            submittedBy: $submitter,
+            approvedBy: $reviewer,
+        );
+        $this->seedReportLines($approvedReport, $currencyCode, 'Km 12+400', 'Km 13+200');
+
+        $returnedReport = $this->dailySiteReport(
+            project: $project,
+            site: $secondarySite,
+            actor: $submitter,
+            reference: 'DSR-'.$secondarySite->reference.'-20241208',
+            reportDate: '2024-12-08',
+            status: DailySiteReport::STATUS_RETURNED,
+            currencyCode: $currencyCode,
+            submittedBy: $submitter,
+            returnedBy: $reviewer,
+            returnReason: 'Clarify excavator hours and attach the measurement sketch before resubmission.',
+        );
+        $this->seedReportLines($returnedReport, $currencyCode, 'Km 88+000', 'Km 89+500');
+
+        $this->dailySiteReport(
+            project: $project,
+            site: $secondarySite,
+            actor: $submitter,
+            reference: 'DSR-'.$secondarySite->reference.'-'.now()->toDateString(),
+            reportDate: now()->toDateString(),
+            status: DailySiteReport::STATUS_DRAFT,
+            currencyCode: $currencyCode,
+        );
+
+        ExpectedDailySiteReport::query()->updateOrCreate(
+            [
+                'tenant_id' => $project->tenant_id,
+                'site_id' => $primarySite->id,
+                'report_date' => now()->subDay()->toDateString(),
+            ],
+            [
+                'branch_id' => $project->branch_id,
+                'project_id' => $project->id,
+                'deadline_at' => now()->subDay()->setTime(18, 0),
+                'status' => 'missing',
+                'daily_site_report_id' => null,
+                'notified_at' => now(),
+                'escalated_at' => null,
+            ],
+        );
+
+        ExpectedDailySiteReport::query()->updateOrCreate(
+            [
+                'tenant_id' => $project->tenant_id,
+                'site_id' => $primarySite->id,
+                'report_date' => $submittedReport->report_date,
+            ],
+            [
+                'branch_id' => $project->branch_id,
+                'project_id' => $project->id,
+                'deadline_at' => $submittedReport->report_date->setTime(18, 0),
+                'status' => 'submitted',
+                'daily_site_report_id' => $submittedReport->id,
+                'notified_at' => null,
+                'escalated_at' => null,
+            ],
+        );
+
+        unset($director);
+    }
+
+    private function dailySiteReport(
+        Project $project,
+        Site $site,
+        User $actor,
+        string $reference,
+        string $reportDate,
+        string $status,
+        string $currencyCode,
+        ?User $submittedBy = null,
+        ?User $approvedBy = null,
+        ?User $returnedBy = null,
+        ?string $returnReason = null,
+    ): DailySiteReport {
+        return DailySiteReport::query()->updateOrCreate(
+            ['tenant_id' => $project->tenant_id, 'reference' => $reference],
+            [
+                'branch_id' => $project->branch_id,
+                'project_id' => $project->id,
+                'site_id' => $site->id,
+                'report_date' => $reportDate,
+                'weather' => 'Partly cloudy',
+                'site_conditions' => 'Traffic managed with usable diversion.',
+                'work_summary' => 'Road maintenance, earthworks and material handling continued.',
+                'delay_summary' => 'Intermittent rain slowed haulage in the afternoon.',
+                'visitor_summary' => 'Client representative visited the chainage section.',
+                'hse_notes' => 'Toolbox talk completed before works commenced.',
+                'environment_notes' => 'Dust suppression maintained through water bowser trips.',
+                'social_notes' => 'No community grievances recorded.',
+                'completion_percent' => '38.5000',
+                'output_value' => '0.0000',
+                'input_cost' => '0.0000',
+                'profit_loss' => '0.0000',
+                'status' => $status,
+                'submitted_by' => $submittedBy?->id,
+                'submitted_at' => $submittedBy instanceof User ? now()->subHours(4) : null,
+                'reviewed_by' => $approvedBy?->id,
+                'reviewed_at' => $approvedBy instanceof User ? now()->subHours(2) : null,
+                'approved_by' => $approvedBy?->id,
+                'approved_at' => $approvedBy instanceof User ? now()->subHour() : null,
+                'returned_by' => $returnedBy?->id,
+                'returned_at' => $returnedBy instanceof User ? now()->subHours(2) : null,
+                'return_reason' => $returnReason,
+                'created_by' => $actor->id,
+                'updated_by' => $actor->id,
+            ],
+        );
+    }
+
+    private function seedReportLines(DailySiteReport $report, string $currencyCode, string $chainageFrom = 'Km 10+000', string $chainageTo = 'Km 11+500'): void
+    {
+        foreach ([DailySiteReportWorkLine::class, DailySiteReportLabourLine::class, DailySiteReportEquipmentLine::class, DailySiteReportMaterialLine::class, DailySiteReportCostLine::class, DailySiteReportDelayLine::class] as $modelClass) {
+            $modelClass::query()->where('daily_site_report_id', $report->id)->delete();
+        }
+
+        DailySiteReportWorkLine::query()->create([
+            'tenant_id' => $report->tenant_id,
+            'branch_id' => $report->branch_id,
+            'daily_site_report_id' => $report->id,
+            'site_id' => $report->site_id,
+            'boq_item_number' => '31.01(b)(i)',
+            'description' => 'Removal of top soil',
+            'chainage_from' => $chainageFrom,
+            'chainage_to' => $chainageTo,
+            'side' => 'LHS',
+            'quantity' => '420.0000',
+            'unit' => 'm3',
+            'rate_amount' => $currencyCode === 'UGX' ? '8500.0000' : '2.3000',
+            'amount' => $currencyCode === 'UGX' ? '3570000.0000' : '966.0000',
+            'currency_code' => $currencyCode,
+            'notes' => 'Quantity subject to PM approval.',
+            'sort_order' => 1,
+        ]);
+
+        DailySiteReportLabourLine::query()->create([
+            'tenant_id' => $report->tenant_id,
+            'branch_id' => $report->branch_id,
+            'daily_site_report_id' => $report->id,
+            'trade_or_role' => 'General labour',
+            'subcontractor_name' => 'Abubaker Technical Services and General Supplies Limited',
+            'headcount' => 18,
+            'hours' => '8.0000',
+            'rate_amount' => $currencyCode === 'UGX' ? '25000.0000' : '7.0000',
+            'amount' => $currencyCode === 'UGX' ? '3600000.0000' : '1008.0000',
+            'currency_code' => $currencyCode,
+            'sort_order' => 1,
+        ]);
+
+        DailySiteReportEquipmentLine::query()->create([
+            'tenant_id' => $report->tenant_id,
+            'branch_id' => $report->branch_id,
+            'daily_site_report_id' => $report->id,
+            'equipment_name' => 'Excavator',
+            'equipment_identifier' => 'EXC-03',
+            'status' => 'working',
+            'working_hours' => '7.5000',
+            'idle_hours' => '0.5000',
+            'fuel_type' => 'diesel',
+            'fuel_quantity' => '95.0000',
+            'rate_amount' => $currencyCode === 'UGX' ? '180000.0000' : '48.0000',
+            'amount' => $currencyCode === 'UGX' ? '1350000.0000' : '360.0000',
+            'currency_code' => $currencyCode,
+            'sort_order' => 1,
+        ]);
+
+        DailySiteReportMaterialLine::query()->create([
+            'tenant_id' => $report->tenant_id,
+            'branch_id' => $report->branch_id,
+            'daily_site_report_id' => $report->id,
+            'material_name' => 'Petrol',
+            'material_type' => 'fuel',
+            'quantity' => '120.0000',
+            'unit' => 'litre',
+            'rate_amount' => $currencyCode === 'UGX' ? '5600.0000' : '1.5000',
+            'amount' => $currencyCode === 'UGX' ? '672000.0000' : '180.0000',
+            'currency_code' => $currencyCode,
+            'delivery_reference' => 'FUEL-DSR-DEMO',
+            'sort_order' => 1,
+        ]);
+
+        DailySiteReportCostLine::query()->create([
+            'tenant_id' => $report->tenant_id,
+            'branch_id' => $report->branch_id,
+            'daily_site_report_id' => $report->id,
+            'category' => 'allowances',
+            'description' => 'Field team allowances',
+            'quantity' => '1.0000',
+            'unit' => 'day',
+            'rate_amount' => $currencyCode === 'UGX' ? '450000.0000' : '120.0000',
+            'amount' => $currencyCode === 'UGX' ? '450000.0000' : '120.0000',
+            'currency_code' => $currencyCode,
+            'sort_order' => 1,
+        ]);
+
+        DailySiteReportDelayLine::query()->create([
+            'tenant_id' => $report->tenant_id,
+            'branch_id' => $report->branch_id,
+            'daily_site_report_id' => $report->id,
+            'delay_type' => 'weather',
+            'description' => 'Afternoon rain slowed haulage.',
+            'hours_lost' => '1.5000',
+            'action_taken' => 'Rescheduled haulage balance to following day.',
+            'sort_order' => 1,
+        ]);
+
+        $report->forceFill([
+            'output_value' => $currencyCode === 'UGX' ? '3570000.0000' : '966.0000',
+            'input_cost' => $currencyCode === 'UGX' ? '6072000.0000' : '1668.0000',
+            'profit_loss' => $currencyCode === 'UGX' ? '-2502000.0000' : '-702.0000',
+        ])->save();
     }
 }

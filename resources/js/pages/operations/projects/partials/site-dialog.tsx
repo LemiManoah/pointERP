@@ -31,7 +31,13 @@ export type Site = {
     manager_id: string | null;
     manager_name: string | null;
     reporting_deadline: string | null;
-    status: 'planned' | 'active' | 'suspended' | 'completed' | 'closed' | 'archived';
+    status:
+        | 'planned'
+        | 'active'
+        | 'suspended'
+        | 'completed'
+        | 'closed'
+        | 'archived';
 };
 
 type SiteFormData = Record<string, string> & {
@@ -141,7 +147,10 @@ export function SiteDialog({ projectId, site, users }: Props) {
                             id="location_name"
                             value={form.data.location_name}
                             onChange={(event) =>
-                                form.setData('location_name', event.target.value)
+                                form.setData(
+                                    'location_name',
+                                    event.target.value,
+                                )
                             }
                         />
                         <InputError message={form.errors.location_name} />
@@ -167,7 +176,9 @@ export function SiteDialog({ projectId, site, users }: Props) {
                             <InputError message={form.errors.manager_id} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="reporting_deadline">DSR deadline</Label>
+                            <Label htmlFor="reporting_deadline">
+                                DSR deadline
+                            </Label>
                             <Input
                                 id="reporting_deadline"
                                 type="time"

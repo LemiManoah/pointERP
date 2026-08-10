@@ -132,9 +132,10 @@ const groups: SidebarGroupItem[] = [
             },
             {
                 title: 'Daily reports',
-                href: '#',
+                href: '/daily-site-reports',
                 icon: ClipboardCheck,
-                status: 'later',
+                status: 'ready',
+                permission: 'daily-site-reports.view',
             },
             { title: 'Documents', href: '#', icon: FileText, status: 'later' },
         ],

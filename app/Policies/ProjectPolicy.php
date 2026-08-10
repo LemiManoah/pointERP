@@ -14,10 +14,19 @@ final class ProjectPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->can('projects.view')
-            || $user->can('projects.create')
-            || $user->can('projects.update')
-            || $user->can('projects.view-all');
+        if ($user->can('projects.view')) {
+            return true;
+        }
+
+        if ($user->can('projects.create')) {
+            return true;
+        }
+
+        if ($user->can('projects.update')) {
+            return true;
+        }
+
+        return $user->can('projects.view-all');
     }
 
     public function view(User $user, Project $project): bool
@@ -30,6 +39,7 @@ final class ProjectPolicy
                 || $user->can('branches.view-all')
                 || $project->manager_id === $user->id
                 || $project->users()->whereKey($user->id)->exists()
+                || $project->sites()->whereHas('users', fn ($query) => $query->whereKey($user->id))->exists()
             );
     }
 

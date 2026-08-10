@@ -47,7 +47,13 @@ export type Project = {
     starts_on: string | null;
     ends_on: string | null;
     reporting_deadline: string | null;
-    status: 'planned' | 'active' | 'on_hold' | 'completed' | 'closed' | 'archived';
+    status:
+        | 'planned'
+        | 'active'
+        | 'on_hold'
+        | 'completed'
+        | 'closed'
+        | 'archived';
     sites_count: number;
     activities_count: number;
 };
@@ -144,7 +150,9 @@ export function ProjectDialog({
             <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-4xl">
                 <DialogHeader>
                     <DialogTitle>
-                        {isEditing ? `Edit ${project?.reference}` : 'New project'}
+                        {isEditing
+                            ? `Edit ${project?.reference}`
+                            : 'New project'}
                     </DialogTitle>
                     <DialogDescription>
                         Projects are the operational scope for sites, DSRs,
@@ -306,7 +314,9 @@ export function ProjectDialog({
                             <InputError message={form.errors.budget_amount} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="reporting_deadline">DSR deadline</Label>
+                            <Label htmlFor="reporting_deadline">
+                                DSR deadline
+                            </Label>
                             <Input
                                 id="reporting_deadline"
                                 type="time"
@@ -361,7 +371,10 @@ export function ProjectDialog({
                                 type="date"
                                 value={form.data.starts_on}
                                 onChange={(event) =>
-                                    form.setData('starts_on', event.target.value)
+                                    form.setData(
+                                        'starts_on',
+                                        event.target.value,
+                                    )
                                 }
                             />
                             <InputError message={form.errors.starts_on} />

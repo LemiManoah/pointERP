@@ -16,6 +16,10 @@ use App\Http\Controllers\Foundation\ExchangeRateController;
 use App\Http\Controllers\Foundation\TenantCurrencyController;
 use App\Http\Controllers\Operations\ContractController;
 use App\Http\Controllers\Operations\CustomerController;
+use App\Http\Controllers\Operations\DailySiteReportApprovalController;
+use App\Http\Controllers\Operations\DailySiteReportController;
+use App\Http\Controllers\Operations\DailySiteReportReturnController;
+use App\Http\Controllers\Operations\DailySiteReportSubmitController;
 use App\Http\Controllers\Operations\ProjectActivityController;
 use App\Http\Controllers\Operations\ProjectController;
 use App\Http\Controllers\Operations\ProjectUserController;
@@ -57,6 +61,10 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::resource('projects', ProjectController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
     Route::resource('sites', SiteController::class)->only(['show', 'store', 'update', 'destroy']);
     Route::resource('project-activities', ProjectActivityController::class)->only(['store', 'update', 'destroy']);
+    Route::resource('daily-site-reports', DailySiteReportController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
+    Route::post('daily-site-reports/{dailySiteReport}/submit', DailySiteReportSubmitController::class)->name('daily-site-reports.submit');
+    Route::post('daily-site-reports/{dailySiteReport}/approve', DailySiteReportApprovalController::class)->name('daily-site-reports.approve');
+    Route::post('daily-site-reports/{dailySiteReport}/return', DailySiteReportReturnController::class)->name('daily-site-reports.return');
     Route::post('projects/{project}/users', [ProjectUserController::class, 'store'])->name('projects.users.store');
     Route::post('sites/{site}/users', [SiteUserController::class, 'store'])->name('sites.users.store');
 

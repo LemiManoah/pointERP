@@ -14,7 +14,11 @@ final class ContractPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->can('contracts.view') || $user->can('contracts.manage');
+        if ($user->can('contracts.view')) {
+            return true;
+        }
+
+        return $user->can('contracts.manage');
     }
 
     public function view(User $user, Contract $contract): bool

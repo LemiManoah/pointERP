@@ -8,13 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import {
-    ActivityDialog,
-    type ProjectActivity,
-} from './partials/activity-dialog';
-import {
     ProjectAccessDialog,
     type AssignedProjectUser,
 } from './partials/access-dialog';
+import {
+    ActivityDialog,
+    type ProjectActivity,
+} from './partials/activity-dialog';
 import {
     ProjectDialog,
     type Option,
@@ -144,10 +144,7 @@ export default function ProjectShow({
                         )}
                     </TabsContent>
 
-                    <TabsContent
-                        value="activities"
-                        className="mt-6 grid gap-6"
-                    >
+                    <TabsContent value="activities" className="mt-6 grid gap-6">
                         <div className="flex justify-end">
                             <ActivityDialog
                                 projectId={project.id}
@@ -195,7 +192,9 @@ export default function ProjectShow({
                                                 </div>
                                             </div>
                                             <div className="text-right text-muted-foreground">
-                                                <div>{user.role ?? 'Member'}</div>
+                                                <div>
+                                                    {user.role ?? 'Member'}
+                                                </div>
                                                 <div>
                                                     {user.can_manage
                                                         ? 'Can manage'

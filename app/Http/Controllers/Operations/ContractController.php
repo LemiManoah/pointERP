@@ -74,7 +74,7 @@ final class ContractController
                 ->where('is_active', true)
                 ->orderBy('code')
                 ->get(['code', 'name'])
-                ->map(fn (Currency $currency): array => ['id' => $currency->code, 'name' => "{$currency->code} - {$currency->name}"]),
+                ->map(fn (Currency $currency): array => ['id' => $currency->code, 'name' => sprintf('%s - %s', $currency->code, $currency->name)]),
         ]);
     }
 

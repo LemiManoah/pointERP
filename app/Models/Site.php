@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
-use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -34,10 +33,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 ])]
 final class Site extends Model
 {
+    use BelongsToTenant;
+
     /** @use HasFactory<Factory<Site>> */
     use HasFactory;
 
-    use BelongsToTenant;
     use HasUuids;
     use SoftDeletes;
 
@@ -101,7 +101,7 @@ final class Site extends Model
      * @param  Builder<Site>  $query
      * @return Builder<Site>
      */
-    public function scopeVisibleTo(Builder $query, User $user): Builder
+    protected function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->can('sites.view-all') || $user->can('projects.view-all') || $user->can('branches.view-all')) {
             return $query;

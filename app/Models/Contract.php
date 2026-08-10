@@ -55,10 +55,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 ])]
 final class Contract extends Model
 {
+    use BelongsToTenant;
+
     /** @use HasFactory<Factory<Contract>> */
     use HasFactory;
 
-    use BelongsToTenant;
     use HasUuids;
     use SoftDeletes;
 
@@ -118,7 +119,7 @@ final class Contract extends Model
      * @param  Builder<Contract>  $query
      * @return Builder<Contract>
      */
-    public function scopeVisibleTo(Builder $query, User $user): Builder
+    protected function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->can('branches.view-all')) {
             return $query;

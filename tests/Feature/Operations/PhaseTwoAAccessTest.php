@@ -29,7 +29,7 @@ it('lets a project manager see the seeded road project with commercial rates', f
             ->component('operations/projects/show')
             ->where('project.reference', 'BKH-ROAD')
             ->where('canViewRates', true)
-            ->where('activities.0.rate_amount', '420000.0000'));
+            ->where('activities.0.rate_amount', '4000000.0000'));
 });
 
 it('hides activity rates from site managers', function (): void {
@@ -74,7 +74,7 @@ it('lets project managers assign site users', function (): void {
         ->post(route('sites.users.store', $site), [
             'users' => [
                 [
-                    'id' => $siteUser->id,
+                    'user_id' => $siteUser->id,
                     'role' => 'site_engineer',
                     'can_submit_dsr' => true,
                     'can_review_dsr' => false,

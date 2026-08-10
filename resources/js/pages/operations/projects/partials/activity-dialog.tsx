@@ -160,9 +160,7 @@ export function ActivityDialog({
                                     )
                                 }
                             />
-                            <InputError
-                                message={form.errors.boq_item_number}
-                            />
+                            <InputError message={form.errors.boq_item_number} />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="code">Code</Label>
@@ -202,7 +200,9 @@ export function ActivityDialog({
                             <InputError message={form.errors.unit} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="planned_quantity">Planned qty</Label>
+                            <Label htmlFor="planned_quantity">
+                                Planned qty
+                            </Label>
                             <Input
                                 id="planned_quantity"
                                 value={form.data.planned_quantity}

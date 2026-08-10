@@ -156,7 +156,11 @@ export function ProjectAccessDialog({
                         <InputError message={form.errors.users} />
                     </div>
                     <div className="flex justify-between gap-3">
-                        <Button type="button" variant="outline" onClick={addUser}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={addUser}
+                        >
                             Add user
                         </Button>
                         <div className="flex gap-3">

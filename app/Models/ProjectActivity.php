@@ -34,10 +34,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 ])]
 final class ProjectActivity extends Model
 {
+    use BelongsToTenant;
+
     /** @use HasFactory<Factory<ProjectActivity>> */
     use HasFactory;
 
-    use BelongsToTenant;
     use HasUuids;
     use SoftDeletes;
 
@@ -86,7 +87,7 @@ final class ProjectActivity extends Model
      * @param  Builder<ProjectActivity>  $query
      * @return Builder<ProjectActivity>
      */
-    public function scopeVisibleTo(Builder $query, User $user): Builder
+    protected function scopeVisibleTo(Builder $query, User $user): Builder
     {
         return $query->whereHas('project', fn (Builder $query) => $query->visibleTo($user));
     }

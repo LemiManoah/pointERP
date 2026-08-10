@@ -7,22 +7,52 @@ namespace App\Policies;
 use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\User;
+use App\Policies\Concerns\ChecksTenantAccess;
 
 final class ProjectActivityPolicy
 {
+    use ChecksTenantAccess;
+
     public function viewAny(User $user): bool
     {
-        return $user->can('projects.view')
-            || $user->can('project-activities.manage')
-            || $user->can('projects.view-all');
+        if ($user->can('projects.view')) {
+            return true;
+        }
+
+        if ($user->can('project-activities.manage')) {
+            return true;
+        }
+
+        return $user->can('projects.view-all');
     }
 
     public function view(User $user, ProjectActivity $projectActivity): bool
     {
-        return $user->can('project-activities.manage')
-            || $user->can('projects.view-all')
-            || $projectActivity->project->users()->whereKey($user->id)->exists()
-            || $projectActivity->project->manager_id === $user->id;
+        if ($projectActivity->tenant_id !== $user->tenant_id || ! $this->canAccessBranch($user, $projectActivity->branch_id)) {
+            return false;
+        }
+
+        if ($user->can('project-activities.manage')) {
+            return true;
+        }
+
+        if ($user->can('projects.view-all')) {
+            return true;
+        }
+
+        if ($projectActivity->project->users()->whereKey($user->id)->exists()) {
+            return true;
+        }
+
+        if ($projectActivity->project->manager_id === $user->id) {
+            return true;
+        }
+
+        if ($projectActivity->site?->users()->whereKey($user->id)->exists()) {
+            return true;
+        }
+
+        return (bool) $projectActivity->project->sites()->whereHas('users', fn ($query) => $query->whereKey($user->id))->exists();
     }
 
     public function create(User $user, ?Project $project = null): bool

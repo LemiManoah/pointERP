@@ -15,10 +15,19 @@ final class SitePolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->can('sites.view')
-            || $user->can('sites.create')
-            || $user->can('sites.update')
-            || $user->can('sites.view-all');
+        if ($user->can('sites.view')) {
+            return true;
+        }
+
+        if ($user->can('sites.create')) {
+            return true;
+        }
+
+        if ($user->can('sites.update')) {
+            return true;
+        }
+
+        return $user->can('sites.view-all');
     }
 
     public function view(User $user, Site $site): bool

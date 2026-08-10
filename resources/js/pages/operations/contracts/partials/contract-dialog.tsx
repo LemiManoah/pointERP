@@ -128,7 +128,9 @@ export function ContractDialog({
             <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>
-                        {isEditing ? `Edit ${contract?.reference}` : 'New contract'}
+                        {isEditing
+                            ? `Edit ${contract?.reference}`
+                            : 'New contract'}
                     </DialogTitle>
                     <DialogDescription>
                         Store commercial scope used by projects and later IPCs.
@@ -205,7 +207,10 @@ export function ContractDialog({
                             id="scope_summary"
                             value={form.data.scope_summary}
                             onChange={(event) =>
-                                form.setData('scope_summary', event.target.value)
+                                form.setData(
+                                    'scope_summary',
+                                    event.target.value,
+                                )
                             }
                         />
                         <InputError message={form.errors.scope_summary} />
@@ -243,7 +248,9 @@ export function ContractDialog({
                             <InputError message={form.errors.currency_code} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="retention_percent">Retention %</Label>
+                            <Label htmlFor="retention_percent">
+                                Retention %
+                            </Label>
                             <Input
                                 id="retention_percent"
                                 value={form.data.retention_percent}
@@ -254,7 +261,9 @@ export function ContractDialog({
                                     )
                                 }
                             />
-                            <InputError message={form.errors.retention_percent} />
+                            <InputError
+                                message={form.errors.retention_percent}
+                            />
                         </div>
                     </div>
 
@@ -266,7 +275,10 @@ export function ContractDialog({
                                 type="date"
                                 value={form.data.starts_on}
                                 onChange={(event) =>
-                                    form.setData('starts_on', event.target.value)
+                                    form.setData(
+                                        'starts_on',
+                                        event.target.value,
+                                    )
                                 }
                             />
                             <InputError message={form.errors.starts_on} />
@@ -291,7 +303,8 @@ export function ContractDialog({
                                 onChange={(event) =>
                                     form.setData(
                                         'status',
-                                        event.target.value as Contract['status'],
+                                        event.target
+                                            .value as Contract['status'],
                                     )
                                 }
                             >
@@ -320,7 +333,10 @@ export function ContractDialog({
                             id="payment_terms"
                             value={form.data.payment_terms}
                             onChange={(event) =>
-                                form.setData('payment_terms', event.target.value)
+                                form.setData(
+                                    'payment_terms',
+                                    event.target.value,
+                                )
                             }
                         />
                         <InputError message={form.errors.payment_terms} />
