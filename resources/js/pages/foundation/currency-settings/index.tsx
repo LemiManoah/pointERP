@@ -121,7 +121,7 @@ export default function CurrencySettingsIndex({
 
     function toggleTenantCurrency(currency: Currency) {
         const submit = () =>
-            router.post(
+            router.put(
                 `/currency-settings/tenant/${currency.code}`,
                 {},
                 {

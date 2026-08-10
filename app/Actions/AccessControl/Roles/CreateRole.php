@@ -5,9 +5,15 @@ declare(strict_types=1);
 namespace App\Actions\AccessControl\Roles;
 
 use App\Models\Role;
+use App\Services\AuditLogger;
 
-final class CreateRole
+final readonly class CreateRole
 {
+    public function __construct(private AuditLogger $auditLogger)
+    {
+        //
+    }
+
     /**
      * @param  array{name: string, permissions?: list<string>}  $data
      */
@@ -19,6 +25,16 @@ final class CreateRole
         ]);
 
         $role->syncPermissions($data['permissions'] ?? []);
+        $role->load('permissions');
+
+        $this->auditLogger->record(
+            event: 'access.role.created',
+            subject: $role,
+            newValues: [
+                'name' => $role->name,
+                'permissions' => $role->permissions->pluck('name')->values()->all(),
+            ],
+        );
 
         return $role;
     }

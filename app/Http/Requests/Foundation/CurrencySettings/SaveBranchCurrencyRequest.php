@@ -34,7 +34,7 @@ final class SaveBranchCurrencyRequest extends FormRequest
         ];
     }
 
-    protected function prepareForValidation(): void
+    public function prepareForValidation(): void
     {
         $this->merge([
             'currency_code' => mb_strtoupper((string) $this->input('currency_code')),

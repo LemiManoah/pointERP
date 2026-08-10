@@ -6,10 +6,13 @@ use App\Http\Controllers\AccessControl\RoleController as AccessRoleController;
 use App\Http\Controllers\AccessControl\UserController as AccessUserController;
 use App\Http\Controllers\Branches\CurrentBranchController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Foundation\BranchCurrencyController;
 use App\Http\Controllers\Foundation\CountryController;
 use App\Http\Controllers\Foundation\CurrencyController;
 use App\Http\Controllers\Foundation\CurrencySettingController;
+use App\Http\Controllers\Foundation\ExchangeRateApprovalController;
 use App\Http\Controllers\Foundation\ExchangeRateController;
+use App\Http\Controllers\Foundation\TenantCurrencyController;
 use App\Http\Controllers\Resources\StaffController;
 use App\Http\Controllers\Resources\StaffPositionController;
 use App\Http\Controllers\SessionController;
@@ -20,10 +23,13 @@ use App\Http\Controllers\UserEmailVerificationNotificationController;
 use App\Http\Controllers\UserPasswordController;
 use App\Http\Controllers\UserProfileController;
 use App\Http\Controllers\UserTwoFactorAuthenticationController;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', fn () => Inertia::render('welcome'))->name('home');
+Route::get('/', fn (): RedirectResponse => auth()->check()
+    ? to_route('dashboard')
+    : to_route('login'))->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
@@ -32,10 +38,10 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::resource('countries', CountryController::class)->except(['show'])->names('foundation.countries');
     Route::resource('currencies', CurrencyController::class)->except(['show'])->names('foundation.currencies');
     Route::get('currency-settings', [CurrencySettingController::class, 'index'])->name('foundation.currency-settings.index');
-    Route::post('currency-settings/tenant/{currency}', [CurrencySettingController::class, 'toggleTenantCurrency'])->name('foundation.currency-settings.tenant.toggle');
-    Route::post('currency-settings/branches', [CurrencySettingController::class, 'storeBranchCurrency'])->name('foundation.currency-settings.branches.store');
+    Route::put('currency-settings/tenant/{currency}', [TenantCurrencyController::class, 'update'])->name('foundation.currency-settings.tenant.toggle');
+    Route::post('currency-settings/branches', [BranchCurrencyController::class, 'store'])->name('foundation.currency-settings.branches.store');
     Route::resource('exchange-rates', ExchangeRateController::class)->only(['index', 'store', 'update', 'destroy'])->names('foundation.exchange-rates');
-    Route::post('exchange-rates/{exchangeRate}/approve', [ExchangeRateController::class, 'approve'])->name('foundation.exchange-rates.approve');
+    Route::post('exchange-rates/{exchangeRate}/approve', [ExchangeRateApprovalController::class, 'store'])->name('foundation.exchange-rates.approve');
 
     Route::redirect('access-control', '/users')->name('access-control.index');
     Route::resource('users', AccessUserController::class)->only(['index', 'store', 'update', 'destroy'])->names('access-control.users');

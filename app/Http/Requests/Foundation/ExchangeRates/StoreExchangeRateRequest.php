@@ -47,7 +47,7 @@ final class StoreExchangeRateRequest extends FormRequest
         });
     }
 
-    protected function prepareForValidation(): void
+    public function prepareForValidation(): void
     {
         $this->merge([
             'branch_id' => $this->input('branch_id') === '__tenant__' ? null : $this->input('branch_id'),

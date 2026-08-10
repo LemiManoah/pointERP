@@ -32,7 +32,7 @@ final class UpdateCurrencyRequest extends FormRequest
         ];
     }
 
-    protected function prepareForValidation(): void
+    public function prepareForValidation(): void
     {
         $this->merge([
             'code' => mb_strtoupper((string) $this->input('code')),

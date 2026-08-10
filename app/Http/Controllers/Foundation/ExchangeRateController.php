@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Foundation;
 
-use App\Actions\Foundation\ExchangeRates\ApproveExchangeRate;
 use App\Actions\Foundation\ExchangeRates\DeleteDraftExchangeRate;
 use App\Actions\Foundation\ExchangeRates\SaveExchangeRate;
 use App\Http\Requests\Foundation\ExchangeRates\StoreExchangeRateRequest;
@@ -122,26 +121,6 @@ final class ExchangeRateController
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Draft exchange rate updated.']);
 
         return to_route('foundation.exchange-rates.index');
-    }
-
-    public function approve(ExchangeRate $exchangeRate, ApproveExchangeRate $action): RedirectResponse
-    {
-        Gate::authorize('approve', $exchangeRate);
-
-        /** @var User $user */
-        $user = auth()->user();
-
-        try {
-            $action->handle($exchangeRate, $user);
-        } catch (InvalidArgumentException $invalidArgumentException) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => $invalidArgumentException->getMessage()]);
-
-            return back();
-        }
-
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Exchange rate approved.']);
-
-        return back();
     }
 
     public function destroy(ExchangeRate $exchangeRate, DeleteDraftExchangeRate $action): RedirectResponse

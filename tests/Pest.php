@@ -14,6 +14,12 @@ pest()->extend(TestCase::class)
     ->beforeEach(function (): void {
         Str::createRandomStringsNormally();
         Str::createUuidsNormally();
+        Http::fake([
+            '*__inertia_ssr' => Http::response([
+                'head' => [],
+                'body' => '',
+            ]),
+        ]);
         Http::preventStrayRequests();
         Process::preventStrayProcesses();
         Sleep::fake();

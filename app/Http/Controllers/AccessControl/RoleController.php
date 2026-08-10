@@ -10,6 +10,7 @@ use App\Http\Requests\AccessControl\Roles\StoreRoleRequest;
 use App\Http\Requests\AccessControl\Roles\UpdateRoleRequest;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -76,7 +77,7 @@ final class RoleController
         return to_route('access-control.roles.index');
     }
 
-    public function destroy(Role $role): RedirectResponse
+    public function destroy(Role $role, AuditLogger $auditLogger): RedirectResponse
     {
         abort_unless(auth()->user()?->can('access-control.roles.manage'), 403);
 
@@ -86,7 +87,19 @@ final class RoleController
             ]);
         }
 
+        $role->load('permissions');
+        $oldValues = [
+            'name' => $role->name,
+            'permissions' => $role->permissions->pluck('name')->values()->all(),
+        ];
+
         $role->delete();
+
+        $auditLogger->record(
+            event: 'access.role.deleted',
+            subject: $role,
+            oldValues: $oldValues,
+        );
 
         Inertia::flash('toast', [
             'type' => 'success',

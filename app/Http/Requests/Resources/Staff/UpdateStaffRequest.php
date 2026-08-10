@@ -41,7 +41,7 @@ final class UpdateStaffRequest extends FormRequest
         ];
     }
 
-    protected function prepareForValidation(): void
+    public function prepareForValidation(): void
     {
         $this->merge([
             'staff_number' => mb_strtoupper((string) $this->input('staff_number')),

@@ -8,16 +8,17 @@ use App\Models\Branch;
 use App\Models\BranchCurrency;
 use App\Models\Currency;
 use App\Models\TenantCurrency;
+use App\Services\AuditLogger;
 use App\Services\TenantContext;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 final readonly class ToggleTenantCurrency
 {
-    public function __construct(private TenantContext $tenantContext)
-    {
-        //
-    }
+    public function __construct(
+        private TenantContext $tenantContext,
+        private AuditLogger $auditLogger,
+    ) {}
 
     public function handle(Currency $currency): TenantCurrency
     {
@@ -28,6 +29,7 @@ final readonly class ToggleTenantCurrency
                 'tenant_id' => $tenant->id,
                 'currency_code' => $currency->code,
             ]);
+            $oldValues = $setting->exists ? $this->snapshot($setting) : [];
 
             throw_if($setting->exists && $setting->is_enabled && $setting->is_default, InvalidArgumentException::class, 'The tenant default currency cannot be disabled.');
 
@@ -60,7 +62,27 @@ final readonly class ToggleTenantCurrency
                     ]);
             }
 
+            $this->auditLogger->record(
+                event: $setting->is_enabled ? 'currency.tenant_currency.enabled' : 'currency.tenant_currency.disabled',
+                subject: $setting,
+                oldValues: $oldValues,
+                newValues: $this->snapshot($setting),
+            );
+
             return $setting;
         });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function snapshot(TenantCurrency $setting): array
+    {
+        return [
+            'tenant_id' => $setting->tenant_id,
+            'currency_code' => $setting->currency_code,
+            'is_enabled' => $setting->is_enabled,
+            'is_default' => $setting->is_default,
+        ];
     }
 }

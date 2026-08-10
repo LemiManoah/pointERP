@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
+use App\Services\TenantContext;
 use Illuminate\Http\Request;
 
 it('shares app name from config', function (): void {
@@ -34,6 +35,8 @@ it('shares authenticated user data', function (): void {
         'name' => 'Test User',
         'email' => 'test@example.com',
     ]);
+
+    resolve(TenantContext::class)->set($user->tenant);
 
     $middleware = new HandleInertiaRequests();
 

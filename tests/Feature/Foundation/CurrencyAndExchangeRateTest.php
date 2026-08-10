@@ -110,7 +110,7 @@ it('does not disable a tenant currency used as a branch base currency', function
     resolve(TenantContext::class)->set($tenant);
 
     $this->actingAs($user)
-        ->post(route('foundation.currency-settings.tenant.toggle', 'UGX'))
+        ->put(route('foundation.currency-settings.tenant.toggle', 'UGX'))
         ->assertRedirect();
 
     expect(

@@ -17,9 +17,17 @@ return new class extends Migration
             $table->nullableUuidMorphs('subject', 'subject');
             $table->string('event')->nullable();
             $table->nullableUuidMorphs('causer', 'causer');
+            $table->foreignUuid('tenant_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignUuid('branch_id')->nullable()->constrained()->nullOnDelete();
             $table->json('attribute_changes')->nullable();
             $table->json('properties')->nullable();
+            $table->string('reason')->nullable();
+            $table->ipAddress('ip_address')->nullable();
+            $table->text('user_agent')->nullable();
             $table->timestamps();
+
+            $table->index(['tenant_id', 'event']);
+            $table->index(['tenant_id', 'branch_id', 'created_at']);
         });
     }
 };

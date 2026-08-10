@@ -65,7 +65,7 @@ final class UpdateUserRequest extends FormRequest
         ];
     }
 
-    protected function prepareForValidation(): void
+    public function prepareForValidation(): void
     {
         $branchIds = [];
 

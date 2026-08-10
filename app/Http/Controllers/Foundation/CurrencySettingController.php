@@ -4,19 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Foundation;
 
-use App\Actions\Foundation\CurrencySettings\SaveBranchCurrency;
-use App\Actions\Foundation\CurrencySettings\ToggleTenantCurrency;
-use App\Http\Requests\Foundation\CurrencySettings\SaveBranchCurrencyRequest;
 use App\Models\Branch;
 use App\Models\BranchCurrency;
 use App\Models\Currency;
 use App\Models\TenantCurrency;
 use App\Services\TenantContext;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
-use InvalidArgumentException;
 
 final class CurrencySettingController
 {
@@ -76,45 +71,5 @@ final class CurrencySettingController
                         ]),
                 ]),
         ]);
-    }
-
-    public function toggleTenantCurrency(Currency $currency, ToggleTenantCurrency $action): RedirectResponse
-    {
-        Gate::authorize('viewAny', TenantCurrency::class);
-
-        try {
-            $setting = $action->handle($currency);
-        } catch (InvalidArgumentException $invalidArgumentException) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => $invalidArgumentException->getMessage()]);
-
-            return back();
-        }
-
-        Inertia::flash('toast', [
-            'type' => 'success',
-            'message' => $setting->is_enabled ? 'Tenant currency enabled.' : 'Tenant currency disabled.',
-        ]);
-
-        return back();
-    }
-
-    public function storeBranchCurrency(SaveBranchCurrencyRequest $request, SaveBranchCurrency $action): RedirectResponse
-    {
-        Gate::authorize('viewAny', BranchCurrency::class);
-
-        /** @var array{branch_id: string, currency_code: string, is_enabled: bool, is_default_transaction_currency: bool, can_receive: bool, can_pay: bool} $data */
-        $data = $request->validated();
-
-        try {
-            $action->handle($data);
-        } catch (InvalidArgumentException $invalidArgumentException) {
-            Inertia::flash('toast', ['type' => 'error', 'message' => $invalidArgumentException->getMessage()]);
-
-            return back();
-        }
-
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Branch currency setting saved.']);
-
-        return back();
     }
 }
