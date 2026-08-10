@@ -93,7 +93,8 @@ final readonly class AuditLogger
             return $subject->id;
         }
 
-        $tenantId = $subject->getAttribute('tenant_id');
+        $attributes = $subject->getAttributes();
+        $tenantId = $attributes['tenant_id'] ?? null;
 
         if (is_string($tenantId)) {
             return $tenantId;
@@ -112,7 +113,8 @@ final readonly class AuditLogger
 
     private function branchId(Model $subject): ?string
     {
-        $branchId = $subject->getAttribute('branch_id');
+        $attributes = $subject->getAttributes();
+        $branchId = $attributes['branch_id'] ?? null;
 
         return is_string($branchId) ? $branchId : null;
     }

@@ -18,6 +18,7 @@ final class RolePermissionSeeder extends Seeder
         'Director' => [
             'access-control.users.manage',
             'access-control.roles.manage',
+            'audit-trail.view',
             'branch-users.manage',
             'branches.view',
             'branches.view-all',

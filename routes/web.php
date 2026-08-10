@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\AccessControl\RoleController as AccessRoleController;
 use App\Http\Controllers\AccessControl\UserController as AccessUserController;
+use App\Http\Controllers\AuditTrailController;
 use App\Http\Controllers\Branches\CurrentBranchController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Foundation\BranchCurrencyController;
@@ -34,6 +35,7 @@ Route::get('/', fn (): RedirectResponse => auth()->check()
 Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::put('current-branch', [CurrentBranchController::class, 'update'])->name('current-branch.update');
+    Route::get('audit-trail', [AuditTrailController::class, 'index'])->name('audit-trail.index');
 
     Route::resource('countries', CountryController::class)->except(['show'])->names('foundation.countries');
     Route::resource('currencies', CurrencyController::class)->except(['show'])->names('foundation.currencies');
