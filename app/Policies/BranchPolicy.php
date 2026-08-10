@@ -14,7 +14,11 @@ final class BranchPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->can('branches.view') || $user->can('branches.view-all');
+        if ($user->can('branches.view')) {
+            return true;
+        }
+
+        return $user->can('branches.view-all');
     }
 
     public function view(User $user, Branch $branch): bool
@@ -23,17 +27,17 @@ final class BranchPolicy
             && ($user->can('branches.view') || $user->can('branches.view-all'));
     }
 
-    public function create(User $user): bool
+    public function create(): bool
     {
         return false;
     }
 
-    public function update(User $user, Branch $branch): bool
+    public function update(): bool
     {
         return false;
     }
 
-    public function delete(User $user, Branch $branch): bool
+    public function delete(): bool
     {
         return false;
     }

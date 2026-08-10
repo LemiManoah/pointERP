@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
-use App\Models\Role;
 use App\Models\User;
 
 final class RolePolicy
@@ -14,7 +13,7 @@ final class RolePolicy
         return $user->can('access-control.roles.manage');
     }
 
-    public function view(User $user, Role $role): bool
+    public function view(User $user): bool
     {
         return $user->can('access-control.roles.manage');
     }
@@ -24,12 +23,12 @@ final class RolePolicy
         return $user->can('access-control.roles.manage');
     }
 
-    public function update(User $user, Role $role): bool
+    public function update(User $user): bool
     {
         return $user->can('access-control.roles.manage');
     }
 
-    public function delete(User $user, Role $role): bool
+    public function delete(User $user): bool
     {
         return $user->can('access-control.roles.manage');
     }

@@ -23,7 +23,7 @@ final class TenantPolicy
             && $user->can('tenants.update');
     }
 
-    public function delete(User $user, Tenant $tenant): bool
+    public function delete(): bool
     {
         return false;
     }
