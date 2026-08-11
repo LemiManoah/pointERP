@@ -1,6 +1,8 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { CheckCircle2, RotateCcw, Send } from 'lucide-react';
 import type { FormEvent } from 'react';
+import { useState } from 'react';
+import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,6 +12,15 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -69,6 +80,23 @@ type Report = {
     material_lines: Line[];
     cost_lines: Line[];
     delay_lines: Line[];
+    evidence_count: number;
+};
+
+type Review = {
+    id: string;
+    action: string;
+    remarks: string | null;
+    reviewed_by: string | null;
+    created_at: string;
+};
+
+type Correction = {
+    id: string;
+    status: string;
+    reason: string;
+    requested_by: string | null;
+    created_at: string;
 };
 
 type Props = {
@@ -78,7 +106,11 @@ type Props = {
         submit: boolean;
         approve: boolean;
         return: boolean;
+        correct: boolean;
     };
+    reviews: Review[];
+    corrections: Correction[];
+    canViewCosts: boolean;
     documents: LinkedDocumentRow[];
     documentTypes: DocumentTypeOption[];
     documentBranches: Option[];
@@ -109,12 +141,16 @@ type FormData = Record<string, string | Line[]> & {
 export default function DailySiteReportShow({
     report,
     can,
+    reviews,
+    corrections,
+    canViewCosts,
     documents,
     documentTypes,
     documentBranches,
     documentLinkOptions,
     canUploadDocuments,
 }: Props) {
+    const confirm = useConfirmDialog();
     const form = useForm<FormData>({
         site_id: report.site_id,
         report_date: report.report_date,
@@ -161,7 +197,15 @@ export default function DailySiteReportShow({
 
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        form.put(`/daily-site-reports/${report.id}`, {
+        form.transform((data) => ({
+            ...data,
+            work_lines: cleanLines(data.work_lines),
+            labour_lines: cleanLines(data.labour_lines),
+            equipment_lines: cleanLines(data.equipment_lines),
+            material_lines: cleanLines(data.material_lines),
+            cost_lines: cleanLines(data.cost_lines),
+            delay_lines: cleanLines(data.delay_lines),
+        })).put(`/daily-site-reports/${report.id}`, {
             preserveScroll: true,
         });
     }
@@ -188,45 +232,21 @@ export default function DailySiteReportShow({
                         )}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        {can.submit && (
-                            <Button
-                                variant="outline"
-                                onClick={() =>
-                                    router.post(
-                                        `/daily-site-reports/${report.id}/submit`,
-                                    )
-                                }
-                            >
-                                <Send />
-                                Submit
-                            </Button>
-                        )}
-                        {can.return && (
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    const reason = window.prompt(
-                                        'Why is this DSR being returned?',
-                                    );
-
-                                    if (reason) {
-                                        router.post(
-                                            `/daily-site-reports/${report.id}/return`,
-                                            { reason },
-                                        );
-                                    }
-                                }}
-                            >
-                                <RotateCcw />
-                                Return
-                            </Button>
-                        )}
+                        {can.submit && <SubmitReportButton report={report} />}
+                        {can.return && <ReturnReportDialog report={report} />}
+                        {can.correct && <CorrectionDialog report={report} />}
                         {can.approve && (
                             <Button
                                 onClick={() =>
-                                    router.post(
-                                        `/daily-site-reports/${report.id}/approve`,
-                                    )
+                                    confirm({
+                                        title: 'Approve report?',
+                                        description: `${report.reference} will be locked from direct editing.`,
+                                        confirmLabel: 'Approve',
+                                        onConfirm: () =>
+                                            router.post(
+                                                `/daily-site-reports/${report.id}/approve`,
+                                            ),
+                                    })
                                 }
                             >
                                 <CheckCircle2 />
@@ -236,11 +256,92 @@ export default function DailySiteReportShow({
                     </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-4">
                     <Metric label="Output" value={report.output_value} />
-                    <Metric label="Input cost" value={report.input_cost} />
-                    <Metric label="Profit/loss" value={report.profit_loss} />
+                    {canViewCosts && (
+                        <>
+                            <Metric
+                                label="Input cost"
+                                value={report.input_cost}
+                            />
+                            <Metric
+                                label="Profit/loss"
+                                value={report.profit_loss}
+                            />
+                        </>
+                    )}
+                    <Metric
+                        label="Evidence"
+                        value={String(report.evidence_count)}
+                    />
                 </div>
+
+                {can.submit &&
+                    report.work_lines.length > 0 &&
+                    report.evidence_count === 0 && (
+                        <Card className="border-amber-200 bg-amber-50 text-amber-950">
+                            <CardContent className="pt-6 text-sm">
+                                Work quantities have been entered without linked
+                                evidence. Upload evidence or submit with an
+                                override reason.
+                            </CardContent>
+                        </Card>
+                    )}
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Workflow trail</CardTitle>
+                        <CardDescription>
+                            Submit, return, approval and correction events for
+                            this report.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-3">
+                        {[...corrections, ...reviews].length === 0 && (
+                            <div className="text-sm text-muted-foreground">
+                                No workflow events recorded yet.
+                            </div>
+                        )}
+                        {reviews.map((review) => (
+                            <div
+                                key={review.id}
+                                className="rounded-md border px-3 py-2 text-sm"
+                            >
+                                <div className="flex flex-wrap justify-between gap-2">
+                                    <span className="font-medium">
+                                        {review.action}
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                        {review.created_at}
+                                    </span>
+                                </div>
+                                <div className="mt-1 text-muted-foreground">
+                                    {review.reviewed_by ?? 'Unknown user'}
+                                </div>
+                                {review.remarks && (
+                                    <div className="mt-2">{review.remarks}</div>
+                                )}
+                            </div>
+                        ))}
+                        {corrections.map((correction) => (
+                            <div
+                                key={correction.id}
+                                className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-950"
+                            >
+                                <div className="flex flex-wrap justify-between gap-2">
+                                    <span className="font-medium">
+                                        Correction {correction.status}
+                                    </span>
+                                    <span>{correction.created_at}</span>
+                                </div>
+                                <div className="mt-1">
+                                    {correction.requested_by ?? 'Unknown user'}
+                                </div>
+                                <div className="mt-2">{correction.reason}</div>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
 
                 <DocumentEvidenceTable
                     documents={documents}
@@ -371,7 +472,7 @@ export default function DailySiteReportShow({
                             'side',
                             'quantity',
                             'unit',
-                            'rate_amount',
+                            ...(canViewCosts ? ['rate_amount'] : []),
                         ]}
                         onAdd={() =>
                             form.setData('work_lines', [
@@ -391,7 +492,7 @@ export default function DailySiteReportShow({
                             'subcontractor_name',
                             'headcount',
                             'hours',
-                            'rate_amount',
+                            ...(canViewCosts ? ['rate_amount'] : []),
                         ]}
                         onAdd={() =>
                             form.setData('labour_lines', [
@@ -416,7 +517,7 @@ export default function DailySiteReportShow({
                             'idle_hours',
                             'fuel_type',
                             'fuel_quantity',
-                            'rate_amount',
+                            ...(canViewCosts ? ['rate_amount'] : []),
                         ]}
                         onAdd={() =>
                             form.setData('equipment_lines', [
@@ -438,8 +539,8 @@ export default function DailySiteReportShow({
                             'material_type',
                             'quantity',
                             'unit',
-                            'rate_amount',
                             'delivery_reference',
+                            ...(canViewCosts ? ['rate_amount'] : []),
                         ]}
                         onAdd={() =>
                             form.setData('material_lines', [
@@ -451,26 +552,30 @@ export default function DailySiteReportShow({
                             form.setData('material_lines', lines)
                         }
                     />
-                    <LineCard
-                        title="Other costs"
-                        description="Petty cash, allowances, overheads and mobilisation."
-                        disabled={!can.update}
-                        lines={form.data.cost_lines}
-                        fields={[
-                            'category',
-                            'description',
-                            'quantity',
-                            'unit',
-                            'rate_amount',
-                        ]}
-                        onAdd={() =>
-                            form.setData('cost_lines', [
-                                ...form.data.cost_lines,
-                                emptyCostLine(),
-                            ])
-                        }
-                        onChange={(lines) => form.setData('cost_lines', lines)}
-                    />
+                    {canViewCosts && (
+                        <LineCard
+                            title="Other costs"
+                            description="Petty cash, allowances, overheads and mobilisation."
+                            disabled={!can.update}
+                            lines={form.data.cost_lines}
+                            fields={[
+                                'category',
+                                'description',
+                                'quantity',
+                                'unit',
+                                'rate_amount',
+                            ]}
+                            onAdd={() =>
+                                form.setData('cost_lines', [
+                                    ...form.data.cost_lines,
+                                    emptyCostLine(),
+                                ])
+                            }
+                            onChange={(lines) =>
+                                form.setData('cost_lines', lines)
+                            }
+                        />
+                    )}
                     <LineCard
                         title="Delay details"
                         description="Causes, time lost and action taken."
@@ -494,9 +599,235 @@ export default function DailySiteReportShow({
                         </div>
                     )}
                     <InputError message={form.errors.site_id} />
+                    <InputError
+                        message={
+                            (form.errors as Record<string, string | undefined>)
+                                .report
+                        }
+                    />
                 </form>
             </div>
         </AppLayout>
+    );
+}
+
+function SubmitReportButton({ report }: { report: Report }) {
+    const [open, setOpen] = useState(false);
+    const form = useForm<{ evidence_override_reason: string }>({
+        evidence_override_reason: '',
+    });
+    const needsOverride =
+        report.work_lines.length > 0 && report.evidence_count === 0;
+
+    function submit() {
+        form.post(`/daily-site-reports/${report.id}/submit`, {
+            preserveScroll: true,
+            onSuccess: () => setOpen(false),
+        });
+    }
+
+    if (!needsOverride) {
+        return (
+            <Button variant="outline" onClick={submit}>
+                <Send />
+                Submit
+            </Button>
+        );
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline">
+                    <Send />
+                    Submit
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Submit without evidence?</DialogTitle>
+                    <DialogDescription>
+                        This report has work quantities but no linked evidence.
+                        Record the reason before submitting.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-2">
+                    <Label htmlFor="evidence_override_reason">
+                        Override reason
+                    </Label>
+                    <Textarea
+                        id="evidence_override_reason"
+                        value={form.data.evidence_override_reason}
+                        onChange={(event) =>
+                            form.setData(
+                                'evidence_override_reason',
+                                event.target.value,
+                            )
+                        }
+                    />
+                    <InputError
+                        message={form.errors.evidence_override_reason}
+                    />
+                </div>
+                <DialogFooter>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setOpen(false)}
+                    >
+                        Cancel
+                    </Button>
+                    <Button type="button" onClick={submit}>
+                        Submit report
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function ReturnReportDialog({ report }: { report: Report }) {
+    const [open, setOpen] = useState(false);
+    const form = useForm<{ reason: string }>({ reason: '' });
+
+    function submit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        form.post(`/daily-site-reports/${report.id}/return`, {
+            preserveScroll: true,
+            onSuccess: () => setOpen(false),
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline">
+                    <RotateCcw />
+                    Return
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <form onSubmit={submit} className="grid gap-4">
+                    <DialogHeader>
+                        <DialogTitle>Return report</DialogTitle>
+                        <DialogDescription>
+                            Tell the site team what must be corrected before
+                            resubmission.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-2">
+                        <Label htmlFor="reason">Reason</Label>
+                        <Textarea
+                            id="reason"
+                            value={form.data.reason}
+                            onChange={(event) =>
+                                form.setData('reason', event.target.value)
+                            }
+                        />
+                        <InputError message={form.errors.reason} />
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={form.processing}>
+                            Return report
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function CorrectionDialog({ report }: { report: Report }) {
+    const [open, setOpen] = useState(false);
+    const form = useForm({
+        reason: '',
+        changes: {
+            weather: report.weather ?? '',
+            site_conditions: report.site_conditions ?? '',
+            work_summary: report.work_summary ?? '',
+            delay_summary: report.delay_summary ?? '',
+            visitor_summary: report.visitor_summary ?? '',
+            hse_notes: report.hse_notes ?? '',
+            environment_notes: report.environment_notes ?? '',
+            social_notes: report.social_notes ?? '',
+            completion_percent: report.completion_percent ?? '',
+        },
+    });
+
+    function submit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        form.post(`/daily-site-reports/${report.id}/corrections`, {
+            preserveScroll: true,
+            onSuccess: () => setOpen(false),
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline">Request correction</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-3xl">
+                <form onSubmit={submit} className="grid gap-4">
+                    <DialogHeader>
+                        <DialogTitle>Request correction</DialogTitle>
+                        <DialogDescription>
+                            Approved reports are locked. This records proposed
+                            changes for controlled review.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-2">
+                        <Label htmlFor="correction_reason">Reason</Label>
+                        <Textarea
+                            id="correction_reason"
+                            value={form.data.reason}
+                            onChange={(event) =>
+                                form.setData('reason', event.target.value)
+                            }
+                        />
+                        <InputError message={form.errors.reason} />
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                        {Object.entries(form.data.changes).map(
+                            ([field, value]) => (
+                                <div key={field} className="grid gap-2">
+                                    <Label>{field.replaceAll('_', ' ')}</Label>
+                                    <Textarea
+                                        value={value}
+                                        onChange={(event) =>
+                                            form.setData('changes', {
+                                                ...form.data.changes,
+                                                [field]: event.target.value,
+                                            })
+                                        }
+                                    />
+                                </div>
+                            ),
+                        )}
+                    </div>
+                    <InputError message={form.errors.changes} />
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={form.processing}>
+                            Record correction
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -632,6 +963,12 @@ function lineValue(line: Line, field: string, disabled: boolean): string {
     }
 
     return String(value ?? '');
+}
+
+function cleanLines(lines: Line[]): Line[] {
+    return lines.filter((line) =>
+        Object.values(line).some((value) => value !== null && value !== ''),
+    );
 }
 
 function emptyWorkLine(): Line {

@@ -8,6 +8,7 @@ use App\Actions\Operations\Sites\SaveSite;
 use App\Http\Controllers\Operations\Concerns\PresentsLinkedDocuments;
 use App\Http\Requests\Operations\Sites\StoreSiteRequest;
 use App\Http\Requests\Operations\Sites\UpdateSiteRequest;
+use App\Models\DailySiteReport;
 use App\Models\Document;
 use App\Models\Project;
 use App\Models\Site;
@@ -57,6 +58,7 @@ final class SiteController
                 'can_submit_dsr' => (bool) $user->pivot->getAttribute('can_submit_dsr'),
                 'can_review_dsr' => (bool) $user->pivot->getAttribute('can_review_dsr'),
             ]),
+            'dsrSummary' => $this->dailySiteReportSummary($site),
             'documents' => $this->linkedDocumentsFor($site, $currentUser),
             'canUploadDocuments' => Gate::forUser($currentUser)->allows('create', Document::class),
             'users' => User::query()
@@ -122,5 +124,29 @@ final class SiteController
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Site archive status changed.']);
 
         return to_route('projects.show', $site->project_id);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function dailySiteReportSummary(Site $site): array
+    {
+        $reports = DailySiteReport::query()
+            ->where('tenant_id', $site->tenant_id)
+            ->where('site_id', $site->id)
+            ->get();
+        $latestReport = $reports->sortByDesc('report_date')->first();
+
+        return [
+            'last_report_date' => $latestReport?->report_date->toDateString(),
+            'pending' => $reports->whereIn('status', [DailySiteReport::STATUS_SUBMITTED, DailySiteReport::STATUS_REVIEWED])->count(),
+            'returned' => $reports->where('status', DailySiteReport::STATUS_RETURNED)->count(),
+            'missing' => $reports->where('status', DailySiteReport::STATUS_MISSING)->count(),
+            'approved' => $reports->where('status', DailySiteReport::STATUS_APPROVED)->count(),
+            'latest_approved_output' => $reports
+                ->where('status', DailySiteReport::STATUS_APPROVED)
+                ->sortByDesc('report_date')
+                ->first()?->output_value,
+        ];
     }
 }

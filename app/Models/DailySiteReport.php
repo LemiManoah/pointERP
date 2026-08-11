@@ -57,6 +57,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read Site|null $site
  * @property-read User|null $submittedBy
  * @property-read User|null $approvedBy
+ * @property-read ExpectedDailySiteReport|null $expectedReport
  */
 #[Fillable([
     'tenant_id',
@@ -230,14 +231,43 @@ final class DailySiteReport extends Model
         return $this->hasMany(DailySiteReportDelayLine::class);
     }
 
+    /**
+     * @return HasMany<DailySiteReportReview, $this>
+     */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(DailySiteReportReview::class);
+    }
+
+    /**
+     * @return HasMany<DailySiteReportCorrection, $this>
+     */
+    public function corrections(): HasMany
+    {
+        return $this->hasMany(DailySiteReportCorrection::class);
+    }
+
+    /**
+     * @return HasMany<ExpectedDailySiteReport, $this>
+     */
+    public function expectedReports(): HasMany
+    {
+        return $this->hasMany(ExpectedDailySiteReport::class);
+    }
+
     public function isEditable(): bool
     {
-        return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_RETURNED], true);
+        return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_RETURNED, self::STATUS_MISSING], true);
     }
 
     public function isSubmitted(): bool
     {
         return in_array($this->status, [self::STATUS_SUBMITTED, self::STATUS_REVIEWED], true);
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status === self::STATUS_APPROVED;
     }
 
     /**

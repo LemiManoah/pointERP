@@ -18,6 +18,7 @@ use App\Http\Controllers\Operations\ContractController;
 use App\Http\Controllers\Operations\CustomerController;
 use App\Http\Controllers\Operations\DailySiteReportApprovalController;
 use App\Http\Controllers\Operations\DailySiteReportController;
+use App\Http\Controllers\Operations\DailySiteReportCorrectionController;
 use App\Http\Controllers\Operations\DailySiteReportReturnController;
 use App\Http\Controllers\Operations\DailySiteReportSubmitController;
 use App\Http\Controllers\Operations\DocumentController;
@@ -70,6 +71,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('daily-site-reports/{dailySiteReport}/submit', DailySiteReportSubmitController::class)->name('daily-site-reports.submit');
     Route::post('daily-site-reports/{dailySiteReport}/approve', DailySiteReportApprovalController::class)->name('daily-site-reports.approve');
     Route::post('daily-site-reports/{dailySiteReport}/return', DailySiteReportReturnController::class)->name('daily-site-reports.return');
+    Route::post('daily-site-reports/{dailySiteReport}/corrections', [DailySiteReportCorrectionController::class, 'store'])->name('daily-site-reports.corrections.store');
     Route::resource('documents', DocumentController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
     Route::post('documents/{document}/versions', [DocumentVersionController::class, 'store'])->name('documents.versions.store');
     Route::get('documents/{document}/versions/{documentVersion}/download', DocumentDownloadController::class)->name('documents.versions.download');

@@ -23,13 +23,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read CarbonInterface|null $deadline_at
  * @property-read string $status
  * @property-read string|null $daily_site_report_id
+ * @property-read CarbonInterface|null $submitted_at
  * @property-read CarbonInterface|null $notified_at
  * @property-read CarbonInterface|null $escalated_at
+ * @property-read string|null $excuse_reason
+ * @property-read string|null $marked_by
+ * @property-read CarbonInterface|null $marked_at
  * @property-read CarbonInterface $created_at
  * @property-read CarbonInterface $updated_at
  * @property-read DailySiteReport|null $report
  */
-#[Fillable(['tenant_id', 'branch_id', 'project_id', 'site_id', 'report_date', 'deadline_at', 'status', 'daily_site_report_id', 'notified_at', 'escalated_at'])]
+#[Fillable(['tenant_id', 'branch_id', 'project_id', 'site_id', 'report_date', 'deadline_at', 'status', 'daily_site_report_id', 'submitted_at', 'notified_at', 'escalated_at', 'excuse_reason', 'marked_by', 'marked_at'])]
 final class ExpectedDailySiteReport extends Model
 {
     use BelongsToTenant;
@@ -39,6 +43,16 @@ final class ExpectedDailySiteReport extends Model
 
     use HasUuids;
 
+    public const string STATUS_EXPECTED = 'expected';
+
+    public const string STATUS_SUBMITTED = 'submitted';
+
+    public const string STATUS_LATE = 'late';
+
+    public const string STATUS_MISSING = 'missing';
+
+    public const string STATUS_EXCUSED = 'excused';
+
     /**
      * @return array<string, string>
      */
@@ -47,8 +61,10 @@ final class ExpectedDailySiteReport extends Model
         return [
             'report_date' => 'date',
             'deadline_at' => 'datetime',
+            'submitted_at' => 'datetime',
             'notified_at' => 'datetime',
             'escalated_at' => 'datetime',
+            'marked_at' => 'datetime',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];

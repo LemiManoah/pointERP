@@ -3,7 +3,13 @@ import { useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyAmount, formatNumber } from '@/lib/utils';
@@ -42,6 +48,7 @@ type Props = {
     documentBranches: Option[];
     documentLinkOptions: LinkOptions;
     canUploadDocuments: boolean;
+    dsrSummary: Record<string, number | string | null>;
     branches: Option[];
     customers: Option[];
     contracts: Option[];
@@ -60,6 +67,7 @@ export default function ProjectShow({
     documentBranches,
     documentLinkOptions,
     canUploadDocuments,
+    dsrSummary,
     branches,
     customers,
     contracts,
@@ -120,6 +128,42 @@ export default function ProjectShow({
                         />
                     </div>
                 </div>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Daily reporting control</CardTitle>
+                        <CardDescription>
+                            Current DSR exceptions and operational totals for
+                            this project.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+                        <SummaryMetric
+                            label="Pending"
+                            value={dsrSummary.pending}
+                        />
+                        <SummaryMetric
+                            label="Returned"
+                            value={dsrSummary.returned}
+                        />
+                        <SummaryMetric
+                            label="Missing"
+                            value={dsrSummary.missing}
+                        />
+                        <SummaryMetric
+                            label="Approved"
+                            value={dsrSummary.approved}
+                        />
+                        <SummaryMetric
+                            label="Output"
+                            value={dsrSummary.output_value}
+                        />
+                        <SummaryMetric
+                            label="Profit/loss"
+                            value={dsrSummary.profit_loss}
+                        />
+                    </CardContent>
+                </Card>
 
                 <Tabs value={tab} onValueChange={setTab}>
                     <TabsList>
@@ -258,6 +302,25 @@ export default function ProjectShow({
                 </Tabs>
             </div>
         </AppLayout>
+    );
+}
+
+function SummaryMetric({
+    label,
+    value,
+}: {
+    label: string;
+    value: number | string | null | undefined;
+}) {
+    return (
+        <div className="rounded-md border px-3 py-2">
+            <div className="text-xs text-muted-foreground">{label}</div>
+            <div className="mt-1 font-semibold">
+                {value === null || value === undefined
+                    ? 'None'
+                    : formatNumber(value)}
+            </div>
+        </div>
     );
 }
 

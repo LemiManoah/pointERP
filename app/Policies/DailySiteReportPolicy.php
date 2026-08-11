@@ -91,6 +91,7 @@ final class DailySiteReportPolicy
                 $dailySiteReport->site->users()->whereKey($user->id)->wherePivot('can_review_dsr', true)->exists()
                 || $dailySiteReport->project->manager_id === $user->id
                 || $dailySiteReport->project->users()->whereKey($user->id)->wherePivot('can_manage', true)->exists()
+                || $user->can('projects.view-all')
             );
     }
 
@@ -99,6 +100,10 @@ final class DailySiteReportPolicy
         return in_array($dailySiteReport->status, [DailySiteReport::STATUS_SUBMITTED, DailySiteReport::STATUS_REVIEWED], true)
             && $user->can('daily-site-reports.approve')
             && $this->view($user, $dailySiteReport)
+            && (
+                $dailySiteReport->submitted_by !== $user->id
+                || $user->can('daily-site-reports.override-self-approval')
+            )
             && $dailySiteReport->project instanceof Project
             && (
                 $dailySiteReport->project->manager_id === $user->id
@@ -111,7 +116,21 @@ final class DailySiteReportPolicy
     {
         return $dailySiteReport->isSubmitted()
             && $user->can('daily-site-reports.return')
-            && $this->approve($user, $dailySiteReport);
+            && $this->review($user, $dailySiteReport);
+    }
+
+    public function correct(User $user, DailySiteReport $dailySiteReport): bool
+    {
+        return $dailySiteReport->isApproved()
+            && $user->can('daily-site-reports.correct')
+            && $this->view($user, $dailySiteReport);
+    }
+
+    public function archive(User $user, DailySiteReport $dailySiteReport): bool
+    {
+        return $dailySiteReport->status !== DailySiteReport::STATUS_ARCHIVED
+            && $user->can('daily-site-reports.archive')
+            && $this->view($user, $dailySiteReport);
     }
 
     private function canAccessSite(User $user, Site $site): bool

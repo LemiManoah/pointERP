@@ -11,11 +11,15 @@ use App\Models\DailySiteReportEquipmentLine;
 use App\Models\DailySiteReportLabourLine;
 use App\Models\DailySiteReportMaterialLine;
 use App\Models\DailySiteReportWorkLine;
+use App\Models\ExpectedDailySiteReport;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\TenantContext;
+use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 final readonly class SaveDailySiteReport
 {
@@ -36,6 +40,12 @@ final readonly class SaveDailySiteReport
             $oldValues = $report?->fresh()?->toArray() ?? [];
             $report ??= new DailySiteReport();
 
+            if ($report->exists && $report->isApproved()) {
+                throw ValidationException::withMessages([
+                    'report' => 'Approved daily site reports are locked. Create a correction instead.',
+                ]);
+            }
+
             $report->fill([
                 'tenant_id' => $this->tenantContext->id(),
                 'branch_id' => $site->branch_id,
@@ -52,7 +62,9 @@ final readonly class SaveDailySiteReport
                 'environment_notes' => $data['environment_notes'] ?? null,
                 'social_notes' => $data['social_notes'] ?? null,
                 'completion_percent' => $data['completion_percent'] ?? null,
-                'status' => $report->exists ? $report->status : DailySiteReport::STATUS_DRAFT,
+                'status' => $report->status === DailySiteReport::STATUS_MISSING || ! $report->exists
+                    ? DailySiteReport::STATUS_DRAFT
+                    : $report->status,
                 'created_by' => $report->exists ? $report->created_by : $actor->id,
                 'updated_by' => $actor->id,
             ]);
@@ -78,10 +90,45 @@ final readonly class SaveDailySiteReport
                 ? 'operations.daily_site_report.created'
                 : 'operations.daily_site_report.updated';
 
+            $this->syncExpectedReport($report, $actor);
+
             $this->auditLogger->record($event, $report, $actor, $oldValues, $report->fresh()?->toArray() ?? []);
 
             return $report;
         });
+    }
+
+    private function syncExpectedReport(DailySiteReport $report, User $actor): void
+    {
+        $site = $report->site;
+
+        if (! $site instanceof Site) {
+            return;
+        }
+
+        $expected = ExpectedDailySiteReport::query()->firstOrNew([
+            'tenant_id' => $report->tenant_id,
+            'site_id' => $report->site_id,
+            'report_date' => $report->report_date->toDateString(),
+        ]);
+
+        $expected->fill([
+            'branch_id' => $report->branch_id,
+            'project_id' => $report->project_id,
+            'deadline_at' => $expected->deadline_at ?? $this->deadlineAt($site, $report),
+            'status' => ExpectedDailySiteReport::STATUS_EXPECTED,
+            'daily_site_report_id' => $report->id,
+            'marked_by' => $actor->id,
+            'marked_at' => now(),
+        ])->save();
+    }
+
+    private function deadlineAt(Site $site, DailySiteReport $report): CarbonInterface
+    {
+        $deadline = $site->reporting_deadline ?? $site->project?->reporting_deadline ?? '18:00';
+        [$hour, $minute] = array_pad(explode(':', (string) $deadline), 2, '0');
+
+        return $report->report_date->copy()->setTime((int) $hour, (int) $minute);
     }
 
     /**
@@ -89,6 +136,11 @@ final readonly class SaveDailySiteReport
      */
     private function syncLines(DailySiteReport $report, string $modelClass, mixed $lines): float
     {
+        $existingLines = $modelClass::query()
+            ->where('daily_site_report_id', $report->id)
+            ->get()
+            ->keyBy('id');
+
         $modelClass::query()
             ->where('daily_site_report_id', $report->id)
             ->delete();
@@ -102,6 +154,14 @@ final readonly class SaveDailySiteReport
         foreach (array_values($lines) as $index => $line) {
             if (! is_array($line)) {
                 continue;
+            }
+
+            $existingLine = isset($line['id']) ? $existingLines->get($line['id']) : null;
+
+            foreach (['rate_amount', 'amount', 'currency_code'] as $preservedField) {
+                if (! array_key_exists($preservedField, $line) && $existingLine instanceof Model) {
+                    $line[$preservedField] = $existingLine->getAttribute($preservedField);
+                }
             }
 
             $amount = $this->amount($line);

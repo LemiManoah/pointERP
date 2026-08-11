@@ -10,11 +10,13 @@ use App\Models\BranchCurrency;
 use App\Models\Contract;
 use App\Models\Customer;
 use App\Models\DailySiteReport;
+use App\Models\DailySiteReportCorrection;
 use App\Models\DailySiteReportCostLine;
 use App\Models\DailySiteReportDelayLine;
 use App\Models\DailySiteReportEquipmentLine;
 use App\Models\DailySiteReportLabourLine;
 use App\Models\DailySiteReportMaterialLine;
+use App\Models\DailySiteReportReview;
 use App\Models\DailySiteReportWorkLine;
 use App\Models\Document;
 use App\Models\DocumentLink;
@@ -87,6 +89,18 @@ final class PointInvestmentSeeder extends Seeder
         );
 
         $this->documentTypes($director);
+
+        $this->user(
+            staffNumber: 'POINT-SUPPORT-001',
+            name: 'Point Support Admin',
+            email: 'support@pointmanager.test',
+            branch: $branches['KLA-HQ'],
+            position: $positions['ADMINISTRATOR'],
+            roleName: 'Administrator',
+            branchAccess: [$branches['KLA-HQ'], $branches['GUL-SITE'], $branches['JUB-HQ']],
+            defaultBranch: $branches['KLA-HQ'],
+            isSupport: true,
+        );
 
         $this->user(
             staffNumber: 'POINT-002',
@@ -252,6 +266,7 @@ final class PointInvestmentSeeder extends Seeder
         array $branchAccess,
         Branch $defaultBranch,
         bool $isDirector = false,
+        bool $isSupport = false,
     ): User {
         $staff = $this->staff($staffNumber, $name, $email, $branch, $position);
 
@@ -265,6 +280,7 @@ final class PointInvestmentSeeder extends Seeder
                 'email_verified_at' => now(),
                 'is_active' => true,
                 'is_director' => $isDirector,
+                'is_support' => $isSupport,
             ],
         );
 
@@ -636,6 +652,7 @@ final class PointInvestmentSeeder extends Seeder
             submittedBy: $submitter,
         );
         $this->seedReportLines($submittedReport, $currencyCode);
+        $this->reviewEvent($submittedReport, $submitter, DailySiteReportReview::ACTION_SUBMITTED);
 
         $approvedReport = $this->dailySiteReport(
             project: $project,
@@ -649,6 +666,9 @@ final class PointInvestmentSeeder extends Seeder
             approvedBy: $reviewer,
         );
         $this->seedReportLines($approvedReport, $currencyCode, 'Km 12+400', 'Km 13+200');
+        $this->reviewEvent($approvedReport, $submitter, DailySiteReportReview::ACTION_SUBMITTED);
+        $this->reviewEvent($approvedReport, $reviewer, DailySiteReportReview::ACTION_APPROVED);
+        $this->correctionRequest($approvedReport, $director);
 
         $returnedReport = $this->dailySiteReport(
             project: $project,
@@ -663,8 +683,10 @@ final class PointInvestmentSeeder extends Seeder
             returnReason: 'Clarify excavator hours and attach the measurement sketch before resubmission.',
         );
         $this->seedReportLines($returnedReport, $currencyCode, 'Km 88+000', 'Km 89+500');
+        $this->reviewEvent($returnedReport, $submitter, DailySiteReportReview::ACTION_SUBMITTED);
+        $this->reviewEvent($returnedReport, $reviewer, DailySiteReportReview::ACTION_RETURNED, 'Clarify excavator hours and attach the measurement sketch before resubmission.');
 
-        $this->dailySiteReport(
+        $draftReport = $this->dailySiteReport(
             project: $project,
             site: $secondarySite,
             actor: $submitter,
@@ -674,41 +696,91 @@ final class PointInvestmentSeeder extends Seeder
             currencyCode: $currencyCode,
         );
 
-        ExpectedDailySiteReport::query()->updateOrCreate(
-            [
-                'tenant_id' => $project->tenant_id,
-                'site_id' => $primarySite->id,
-                'report_date' => now()->subDay()->toDateString(),
-            ],
-            [
-                'branch_id' => $project->branch_id,
-                'project_id' => $project->id,
-                'deadline_at' => now()->subDay()->setTime(18, 0),
-                'status' => 'missing',
-                'daily_site_report_id' => null,
-                'notified_at' => now(),
-                'escalated_at' => null,
-            ],
+        $missingReport = $this->dailySiteReport(
+            project: $project,
+            site: $primarySite,
+            actor: $submitter,
+            reference: 'DSR-'.$primarySite->reference.'-'.now()->subDay()->format('Ymd'),
+            reportDate: now()->subDay()->toDateString(),
+            status: DailySiteReport::STATUS_MISSING,
+            currencyCode: $currencyCode,
         );
+
+        foreach ([$submittedReport, $approvedReport, $returnedReport, $draftReport, $missingReport] as $report) {
+            ExpectedDailySiteReport::query()->updateOrCreate(
+                [
+                    'tenant_id' => $project->tenant_id,
+                    'site_id' => $report->site_id,
+                    'report_date' => $report->report_date->toDateString(),
+                ],
+                [
+                    'branch_id' => $project->branch_id,
+                    'project_id' => $project->id,
+                    'deadline_at' => $report->report_date->setTime(18, 0),
+                    'status' => match ($report->status) {
+                        DailySiteReport::STATUS_SUBMITTED, DailySiteReport::STATUS_APPROVED => ExpectedDailySiteReport::STATUS_SUBMITTED,
+                        DailySiteReport::STATUS_MISSING => ExpectedDailySiteReport::STATUS_MISSING,
+                        default => ExpectedDailySiteReport::STATUS_EXPECTED,
+                    },
+                    'daily_site_report_id' => $report->id,
+                    'submitted_at' => $report->submitted_at,
+                    'notified_at' => $report->status === DailySiteReport::STATUS_MISSING ? now() : null,
+                    'escalated_at' => null,
+                ],
+            );
+        }
 
         ExpectedDailySiteReport::query()->updateOrCreate(
             [
                 'tenant_id' => $project->tenant_id,
-                'site_id' => $primarySite->id,
-                'report_date' => $submittedReport->report_date,
+                'site_id' => $secondarySite->id,
+                'report_date' => now()->addDay()->toDateString(),
             ],
             [
                 'branch_id' => $project->branch_id,
                 'project_id' => $project->id,
-                'deadline_at' => $submittedReport->report_date->setTime(18, 0),
-                'status' => 'submitted',
-                'daily_site_report_id' => $submittedReport->id,
+                'deadline_at' => now()->addDay()->setTime(18, 0),
+                'status' => ExpectedDailySiteReport::STATUS_EXPECTED,
+                'daily_site_report_id' => null,
+                'submitted_at' => null,
                 'notified_at' => null,
                 'escalated_at' => null,
             ],
         );
+    }
 
-        unset($director);
+    private function reviewEvent(DailySiteReport $report, User $actor, string $action, ?string $remarks = null): void
+    {
+        DailySiteReportReview::query()->updateOrCreate(
+            [
+                'daily_site_report_id' => $report->id,
+                'reviewed_by' => $actor->id,
+                'action' => $action,
+            ],
+            [
+                'tenant_id' => $report->tenant_id,
+                'branch_id' => $report->branch_id,
+                'remarks' => $remarks,
+            ],
+        );
+    }
+
+    private function correctionRequest(DailySiteReport $report, User $actor): void
+    {
+        DailySiteReportCorrection::query()->updateOrCreate(
+            [
+                'daily_site_report_id' => $report->id,
+                'requested_by' => $actor->id,
+                'status' => DailySiteReportCorrection::STATUS_SUBMITTED,
+            ],
+            [
+                'tenant_id' => $report->tenant_id,
+                'branch_id' => $report->branch_id,
+                'reason' => 'Correct completion percentage after QS verification.',
+                'old_values' => ['completion_percent' => $report->completion_percent],
+                'new_values' => ['completion_percent' => '39.2500'],
+            ],
+        );
     }
 
     private function dailySiteReport(

@@ -42,6 +42,14 @@ final class CreateSessionRequest extends FormRequest
             ]);
         }
 
+        if ($user->is_support) {
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'email' => 'Support users should access the manager app, not the client ERP.',
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
 
         return $user;

@@ -10,6 +10,8 @@ use App\Http\Requests\Operations\DailySiteReports\StoreDailySiteReportRequest;
 use App\Http\Requests\Operations\DailySiteReports\UpdateDailySiteReportRequest;
 use App\Models\Currency;
 use App\Models\DailySiteReport;
+use App\Models\DailySiteReportCorrection;
+use App\Models\DailySiteReportReview;
 use App\Models\Document;
 use App\Models\ProjectActivity;
 use App\Models\Site;
@@ -40,8 +42,19 @@ final class DailySiteReportController
             ->filter(fn (DailySiteReport $report): bool => Gate::forUser($user)->allows('view', $report))
             ->values();
 
+        $canViewCosts = $this->canViewRates($user);
+        $rows = $reports->map(fn (DailySiteReport $report): array => $this->reportRow($report, $canViewCosts));
+
         return Inertia::render('operations/daily-site-reports/index', [
-            'reports' => $reports->map(fn (DailySiteReport $report): array => $this->reportRow($report)),
+            'reports' => $rows,
+            'summary' => [
+                'open' => $reports->whereIn('status', [DailySiteReport::STATUS_DRAFT])->count(),
+                'pending' => $reports->whereIn('status', [DailySiteReport::STATUS_SUBMITTED, DailySiteReport::STATUS_REVIEWED])->count(),
+                'returned' => $reports->where('status', DailySiteReport::STATUS_RETURNED)->count(),
+                'missing' => $reports->where('status', DailySiteReport::STATUS_MISSING)->count(),
+                'approved' => $reports->where('status', DailySiteReport::STATUS_APPROVED)->count(),
+                'archived' => $reports->where('status', DailySiteReport::STATUS_ARCHIVED)->count(),
+            ],
             ...$this->formOptions($user),
         ]);
     }
@@ -58,6 +71,8 @@ final class DailySiteReportController
             'site',
             'submittedBy',
             'approvedBy',
+            'reviews.reviewer',
+            'corrections.requester',
             'workLines',
             'labourLines',
             'equipmentLines',
@@ -65,10 +80,14 @@ final class DailySiteReportController
             'costLines',
             'delayLines',
         ]);
+        $canViewCosts = $this->canViewRates($user);
+        $linkedDocuments = $this->linkedDocumentsFor($dailySiteReport, $user);
 
         return Inertia::render('operations/daily-site-reports/show', [
             'report' => [
-                ...$this->reportRow($dailySiteReport),
+                ...$this->reportRow($dailySiteReport, $canViewCosts),
+                'input_cost' => $canViewCosts ? $dailySiteReport->input_cost : null,
+                'profit_loss' => $canViewCosts ? $dailySiteReport->profit_loss : null,
                 'site_id' => $dailySiteReport->site_id,
                 'branch_id' => $dailySiteReport->site?->branch_id,
                 'weather' => $dailySiteReport->weather,
@@ -81,20 +100,43 @@ final class DailySiteReportController
                 'social_notes' => $dailySiteReport->social_notes,
                 'completion_percent' => $dailySiteReport->completion_percent,
                 'return_reason' => $dailySiteReport->return_reason,
-                'work_lines' => $dailySiteReport->workLines->values(),
-                'labour_lines' => $dailySiteReport->labourLines->values(),
-                'equipment_lines' => $dailySiteReport->equipmentLines->values(),
-                'material_lines' => $dailySiteReport->materialLines->values(),
-                'cost_lines' => $dailySiteReport->costLines->values(),
+                'work_lines' => $this->lineRows($dailySiteReport->workLines->values()->all(), $canViewCosts),
+                'labour_lines' => $this->lineRows($dailySiteReport->labourLines->values()->all(), $canViewCosts),
+                'equipment_lines' => $this->lineRows($dailySiteReport->equipmentLines->values()->all(), $canViewCosts),
+                'material_lines' => $this->lineRows($dailySiteReport->materialLines->values()->all(), $canViewCosts),
+                'cost_lines' => $canViewCosts ? $this->lineRows($dailySiteReport->costLines->values()->all(), true) : [],
                 'delay_lines' => $dailySiteReport->delayLines->values(),
+                'evidence_count' => count($linkedDocuments),
             ],
             'can' => [
                 'update' => Gate::forUser($user)->allows('update', $dailySiteReport),
                 'submit' => Gate::forUser($user)->allows('submit', $dailySiteReport),
                 'approve' => Gate::forUser($user)->allows('approve', $dailySiteReport),
                 'return' => Gate::forUser($user)->allows('return', $dailySiteReport),
+                'correct' => Gate::forUser($user)->allows('correct', $dailySiteReport),
             ],
-            'documents' => $this->linkedDocumentsFor($dailySiteReport, $user),
+            'canViewCosts' => $canViewCosts,
+            'reviews' => $dailySiteReport->reviews
+                ->sortByDesc('created_at')
+                ->values()
+                ->map(fn (DailySiteReportReview $review): array => [
+                    'id' => $review->id,
+                    'action' => $review->action,
+                    'remarks' => $review->remarks,
+                    'reviewed_by' => $review->reviewer?->name,
+                    'created_at' => $review->created_at->toDateTimeString(),
+                ]),
+            'corrections' => $dailySiteReport->corrections
+                ->sortByDesc('created_at')
+                ->values()
+                ->map(fn (DailySiteReportCorrection $correction): array => [
+                    'id' => $correction->id,
+                    'status' => $correction->status,
+                    'reason' => $correction->reason,
+                    'requested_by' => $correction->requester?->name,
+                    'created_at' => $correction->created_at->toDateTimeString(),
+                ]),
+            'documents' => $linkedDocuments,
             'canUploadDocuments' => Gate::forUser($user)->allows('create', Document::class),
             ...$this->formOptions($user),
             ...$this->documentFormOptions($user),
@@ -146,7 +188,7 @@ final class DailySiteReportController
 
     public function destroy(DailySiteReport $dailySiteReport): RedirectResponse
     {
-        Gate::authorize('update', $dailySiteReport);
+        Gate::authorize('archive', $dailySiteReport);
 
         $dailySiteReport->update(['status' => DailySiteReport::STATUS_ARCHIVED]);
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Daily site report archived.']);
@@ -207,7 +249,7 @@ final class DailySiteReportController
     /**
      * @return array<string, mixed>
      */
-    private function reportRow(DailySiteReport $report): array
+    private function reportRow(DailySiteReport $report, bool $canViewCosts): array
     {
         return [
             'id' => $report->id,
@@ -217,8 +259,8 @@ final class DailySiteReportController
             'report_date' => $report->report_date->toDateString(),
             'status' => $report->status,
             'output_value' => $report->output_value,
-            'input_cost' => $report->input_cost,
-            'profit_loss' => $report->profit_loss,
+            'input_cost' => $canViewCosts ? $report->input_cost : null,
+            'profit_loss' => $canViewCosts ? $report->profit_loss : null,
             'submitted_by' => $report->submittedBy?->name,
             'approved_by' => $report->approvedBy?->name,
         ];
@@ -227,6 +269,10 @@ final class DailySiteReportController
     private function canViewRates(User $user): bool
     {
         if ($user->can('project-activities.manage')) {
+            return true;
+        }
+
+        if ($user->can('daily-site-reports.view-costs')) {
             return true;
         }
 
@@ -239,5 +285,26 @@ final class DailySiteReportController
         }
 
         return $user->can('finance.reports.view');
+    }
+
+    /**
+     * @param  list<object>  $lines
+     * @return list<array<string, mixed>>
+     */
+    private function lineRows(array $lines, bool $canViewCosts): array
+    {
+        return collect($lines)
+            ->map(function (object $line) use ($canViewCosts): array {
+                /** @var array<string, mixed> $row */
+                $row = method_exists($line, 'toArray') ? $line->toArray() : (array) $line;
+
+                if (! $canViewCosts) {
+                    unset($row['rate_amount'], $row['amount'], $row['currency_code']);
+                }
+
+                return $row;
+            })
+            ->values()
+            ->all();
     }
 }

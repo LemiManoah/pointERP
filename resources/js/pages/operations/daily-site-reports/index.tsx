@@ -2,6 +2,7 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ClipboardCheck, Plus, Search } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useMemo, useState } from 'react';
+import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import { SearchableSelect } from '@/components/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,7 @@ type SiteOption = {
 type Props = {
     reports: Report[];
     sites: SiteOption[];
+    summary: Record<string, number>;
 };
 
 type FormData = Record<string, string> & {
@@ -55,7 +57,21 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Daily reports', href: '/daily-site-reports' },
 ];
 
-export default function DailySiteReportsIndex({ reports, sites }: Props) {
+const tabStatuses: Record<string, string[]> = {
+    open: ['draft'],
+    pending: ['submitted', 'reviewed'],
+    returned: ['returned'],
+    missing: ['missing', 'late'],
+    approved: ['approved'],
+    archived: ['archived'],
+};
+
+export default function DailySiteReportsIndex({
+    reports,
+    sites,
+    summary,
+}: Props) {
+    const confirm = useConfirmDialog();
     const [search, setSearch] = useState('');
     const [tab, setTab] = useState('open');
     const debouncedSearch = useDebouncedValue(search);
@@ -66,19 +82,10 @@ export default function DailySiteReportsIndex({ reports, sites }: Props) {
 
     const filteredReports = useMemo(() => {
         const term = debouncedSearch.trim().toLowerCase();
-        const openStatuses = [
-            'draft',
-            'submitted',
-            'reviewed',
-            'returned',
-            'missing',
-        ];
+        const statuses = tabStatuses[tab] ?? tabStatuses.open;
 
         return reports.filter((report) => {
-            const matchesTab =
-                tab === 'open'
-                    ? openStatuses.includes(report.status)
-                    : !openStatuses.includes(report.status);
+            const matchesTab = statuses.includes(report.status);
             const matchesSearch =
                 !term ||
                 [
@@ -177,8 +184,24 @@ export default function DailySiteReportsIndex({ reports, sites }: Props) {
                 <div className="flex justify-end">
                     <Tabs value={tab} onValueChange={setTab}>
                         <TabsList>
-                            <TabsTrigger value="open">Open</TabsTrigger>
-                            <TabsTrigger value="closed">Closed</TabsTrigger>
+                            <TabsTrigger value="open">
+                                Open ({formatNumber(summary.open)})
+                            </TabsTrigger>
+                            <TabsTrigger value="pending">
+                                Pending ({formatNumber(summary.pending)})
+                            </TabsTrigger>
+                            <TabsTrigger value="returned">
+                                Returned ({formatNumber(summary.returned)})
+                            </TabsTrigger>
+                            <TabsTrigger value="missing">
+                                Missing/late ({formatNumber(summary.missing)})
+                            </TabsTrigger>
+                            <TabsTrigger value="approved">
+                                Approved ({formatNumber(summary.approved)})
+                            </TabsTrigger>
+                            <TabsTrigger value="archived">
+                                Archived ({formatNumber(summary.archived)})
+                            </TabsTrigger>
                         </TabsList>
                     </Tabs>
                 </div>
@@ -187,8 +210,9 @@ export default function DailySiteReportsIndex({ reports, sites }: Props) {
                     <CardHeader>
                         <CardTitle>Reports</CardTitle>
                         <CardDescription>
-                            Open reports include drafts, submitted, returned and
-                            missing records.
+                            Reports are separated by workflow state so missing,
+                            approved and archived records do not mix with active
+                            drafts.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -257,17 +281,27 @@ export default function DailySiteReportsIndex({ reports, sites }: Props) {
                                                         </Link>
                                                     </Button>
                                                     {report.status !==
-                                                        'approved' && (
+                                                        'archived' && (
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={() =>
-                                                                router.delete(
-                                                                    `/daily-site-reports/${report.id}`,
-                                                                    {
-                                                                        preserveScroll: true,
-                                                                    },
-                                                                )
+                                                                confirm({
+                                                                    title: 'Archive report?',
+                                                                    description: `${report.reference} will move to the archived tab.`,
+                                                                    confirmLabel:
+                                                                        'Archive',
+                                                                    variant:
+                                                                        'destructive',
+                                                                    onConfirm:
+                                                                        () =>
+                                                                            router.delete(
+                                                                                `/daily-site-reports/${report.id}`,
+                                                                                {
+                                                                                    preserveScroll: true,
+                                                                                },
+                                                                            ),
+                                                                })
                                                             }
                                                         >
                                                             Archive

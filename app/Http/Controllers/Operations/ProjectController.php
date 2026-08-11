@@ -12,6 +12,7 @@ use App\Models\Branch;
 use App\Models\Contract;
 use App\Models\Currency;
 use App\Models\Customer;
+use App\Models\DailySiteReport;
 use App\Models\Document;
 use App\Models\Project;
 use App\Models\ProjectActivity;
@@ -87,6 +88,7 @@ final class ProjectController
                     'can_manage' => (bool) $assignedUser->pivot->getAttribute('can_manage'),
                 ]),
             'documents' => $this->linkedDocumentsFor($project, $user),
+            'dsrSummary' => $this->dailySiteReportSummary($project, $this->canViewRates($user)),
             'canUploadDocuments' => Gate::forUser($user)->allows('create', Document::class),
             'canViewRates' => $this->canViewRates($user),
             ...$this->formOptions($user),
@@ -249,6 +251,10 @@ final class ProjectController
             return true;
         }
 
+        if ($user->can('daily-site-reports.view-costs')) {
+            return true;
+        }
+
         if ($user->can('projects.update')) {
             return true;
         }
@@ -258,5 +264,27 @@ final class ProjectController
         }
 
         return $user->can('finance.reports.view');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function dailySiteReportSummary(Project $project, bool $canViewCosts): array
+    {
+        $reports = DailySiteReport::query()
+            ->where('tenant_id', $project->tenant_id)
+            ->where('project_id', $project->id)
+            ->get();
+
+        return [
+            'draft' => $reports->where('status', DailySiteReport::STATUS_DRAFT)->count(),
+            'pending' => $reports->whereIn('status', [DailySiteReport::STATUS_SUBMITTED, DailySiteReport::STATUS_REVIEWED])->count(),
+            'returned' => $reports->where('status', DailySiteReport::STATUS_RETURNED)->count(),
+            'missing' => $reports->where('status', DailySiteReport::STATUS_MISSING)->count(),
+            'approved' => $reports->where('status', DailySiteReport::STATUS_APPROVED)->count(),
+            'output_value' => $canViewCosts ? $reports->sum(fn (DailySiteReport $report): float => (float) $report->output_value) : null,
+            'input_cost' => $canViewCosts ? $reports->sum(fn (DailySiteReport $report): float => (float) $report->input_cost) : null,
+            'profit_loss' => $canViewCosts ? $reports->sum(fn (DailySiteReport $report): float => (float) $report->profit_loss) : null,
+        ];
     }
 }

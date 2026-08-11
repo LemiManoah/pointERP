@@ -5,7 +5,13 @@ import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { SearchableSelect } from '@/components/searchable-select';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
@@ -19,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import AppLayout from '@/layouts/app-layout';
+import { formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import {
     DocumentDialog,
@@ -64,6 +71,7 @@ type Props = {
     site: Site;
     assignedUsers: AssignedSiteUser[];
     users: UserOption[];
+    dsrSummary: Record<string, number | string | null>;
     documents: LinkedDocumentRow[];
     documentTypes: DocumentTypeOption[];
     documentBranches: Option[];
@@ -82,6 +90,7 @@ export default function SiteShow({
     site,
     assignedUsers,
     users,
+    dsrSummary,
     documents,
     documentTypes,
     documentBranches,
@@ -115,6 +124,38 @@ export default function SiteShow({
                         assignedUsers={assignedUsers}
                     />
                 </div>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Daily reporting status</CardTitle>
+                        <CardDescription>
+                            Site-level DSR exceptions and latest approved
+                            output.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                        <SummaryMetric
+                            label="Last report"
+                            value={dsrSummary.last_report_date}
+                        />
+                        <SummaryMetric
+                            label="Pending"
+                            value={dsrSummary.pending}
+                        />
+                        <SummaryMetric
+                            label="Returned"
+                            value={dsrSummary.returned}
+                        />
+                        <SummaryMetric
+                            label="Missing"
+                            value={dsrSummary.missing}
+                        />
+                        <SummaryMetric
+                            label="Approved output"
+                            value={dsrSummary.latest_approved_output}
+                        />
+                    </CardContent>
+                </Card>
 
                 <div className="grid gap-6 lg:grid-cols-2">
                     <Card>
@@ -197,6 +238,27 @@ export default function SiteShow({
                 />
             </div>
         </AppLayout>
+    );
+}
+
+function SummaryMetric({
+    label,
+    value,
+}: {
+    label: string;
+    value: number | string | null | undefined;
+}) {
+    return (
+        <div className="rounded-md border px-3 py-2">
+            <div className="text-xs text-muted-foreground">{label}</div>
+            <div className="mt-1 font-semibold">
+                {value === null || value === undefined
+                    ? 'None'
+                    : typeof value === 'string' && value.includes('-')
+                      ? value
+                      : formatNumber(value)}
+            </div>
+        </div>
     );
 }
 
