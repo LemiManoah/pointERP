@@ -1,5 +1,26 @@
 # Construction ERP - Phase 2B Detailed Implementation Plan
 
+## Implementation Status
+
+Implemented in PointERP:
+
+- Central document register, document types, versions and polymorphic links.
+- Private file uploads, downloads and version history.
+- Context upload from project, site and daily site report pages.
+- Document metadata for document number, revision, discipline, issuer and received date.
+- Expiry filtering and summary counts for permits/controlled records.
+- Confidential document permission checks.
+- Tenant, branch and linked-record access checks.
+- Audit events for create, update, upload/version, link, unlink, archive, supersession and download.
+- Demo road-project documents, including a superseded drawing and a revised drawing.
+- Feature tests for document visibility, confidential downloads and drawing supersession.
+
+Deferred deliberately to later phases:
+
+- Full document approval/transmittal workflow.
+- PDF/CAD preview, OCR, e-signatures and external client/subcontractor portals.
+- Advanced drawing comparison and markup.
+
 ## 1. Purpose
 
 Phase 2B builds the document control and evidence foundation for PointERP.

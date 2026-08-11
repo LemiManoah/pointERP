@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { Download } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,6 +15,10 @@ export type LinkedDocumentRow = {
     id: string;
     title: string;
     reference: string | null;
+    document_number?: string | null;
+    revision?: string | null;
+    discipline?: string | null;
+    issuer?: string | null;
     type_name: string;
     confidentiality: string;
     status: string;
@@ -31,19 +36,24 @@ export function DocumentEvidenceTable({
     emptyText,
     title = 'Linked documents',
     description,
+    actions,
 }: {
     documents: LinkedDocumentRow[];
     emptyText: string;
     title?: string;
     description?: string;
+    actions?: ReactNode;
 }) {
     return (
         <Card>
-            <CardHeader>
-                <CardTitle>{title}</CardTitle>
-                {description && (
-                    <CardDescription>{description}</CardDescription>
-                )}
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <CardTitle>{title}</CardTitle>
+                    {description && (
+                        <CardDescription>{description}</CardDescription>
+                    )}
+                </div>
+                {actions}
             </CardHeader>
             <CardContent>
                 <div className="overflow-x-auto">
@@ -77,9 +87,12 @@ export function DocumentEvidenceTable({
                                         </Link>
                                         <div className="text-muted-foreground">
                                             {document.reference ??
+                                                document.document_number ??
                                                 document.current_version
                                                     ?.original_name ??
                                                 'No reference'}
+                                            {document.revision &&
+                                                ` · Rev ${document.revision}`}
                                         </div>
                                     </td>
                                     <td className="py-3 pr-4">

@@ -12,6 +12,11 @@ import {
     type LinkedDocumentRow,
 } from '../documents/partials/document-evidence-table';
 import {
+    DocumentDialog,
+    type DocumentTypeOption,
+    type LinkOptions,
+} from '../documents/partials/document-dialog';
+import {
     ProjectAccessDialog,
     type AssignedProjectUser,
 } from './partials/access-dialog';
@@ -32,6 +37,10 @@ type Props = {
     activities: ProjectActivity[];
     assignedUsers: AssignedProjectUser[];
     documents: LinkedDocumentRow[];
+    documentTypes: DocumentTypeOption[];
+    documentBranches: Option[];
+    documentLinkOptions: LinkOptions;
+    canUploadDocuments: boolean;
     branches: Option[];
     customers: Option[];
     contracts: Option[];
@@ -46,6 +55,10 @@ export default function ProjectShow({
     activities,
     assignedUsers,
     documents,
+    documentTypes,
+    documentBranches,
+    documentLinkOptions,
+    canUploadDocuments,
     branches,
     customers,
     contracts,
@@ -224,6 +237,21 @@ export default function ProjectShow({
                         <DocumentEvidenceTable
                             documents={documents}
                             emptyText="No documents linked to this project."
+                            actions={
+                                canUploadDocuments && (
+                                <DocumentDialog
+                                    documentTypes={documentTypes}
+                                    branches={documentBranches}
+                                    linkOptions={documentLinkOptions}
+                                    defaultBranchId={project.branch_id}
+                                    defaultLink={{
+                                        type: 'project',
+                                        id: project.id,
+                                    }}
+                                    buttonLabel="Upload document"
+                                />
+                                )
+                            }
                         />
                     </TabsContent>
                 </Tabs>

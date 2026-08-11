@@ -873,9 +873,13 @@ final class PointInvestmentSeeder extends Seeder
             content: 'Demo signed contract evidence for the Busunju - Kiboga - Hoima road project.',
             links: [[$contract::class, $contract->id], [$project::class, $project->id]],
             confidentiality: Document::CONFIDENTIALITY_COMMERCIAL,
+            documentNumber: 'UNRA/WORKS/2021-2022/00369',
+            revision: 'Signed',
+            discipline: 'Commercial',
+            issuer: 'UNRA',
         );
 
-        $drawing = $this->seedDocument(
+        $this->seedDocument(
             actor: $director,
             typeCode: 'DRAWING',
             branch: $project->branch,
@@ -883,8 +887,26 @@ final class PointInvestmentSeeder extends Seeder
             reference: 'BKH-ROAD-GA-001',
             content: 'Revision A general alignment drawing placeholder.',
             links: [[$project::class, $project->id], [$busunjuSite::class, $busunjuSite->id]],
+            documentNumber: 'BKH-ROAD-GA-001',
+            revision: 'A',
+            discipline: 'Roadworks',
+            issuer: 'Point Design Office',
+            status: Document::STATUS_SUPERSEDED,
         );
-        $this->seedDocumentVersion($director, $drawing, 2, 'Revision B drawing update placeholder.');
+
+        $this->seedDocument(
+            actor: $director,
+            typeCode: 'REVISED_DRAWING',
+            branch: $project->branch,
+            title: 'BKH Road general alignment drawing revision B',
+            reference: 'BKH-ROAD-GA-001-REV-B',
+            content: 'Revision B general alignment drawing placeholder.',
+            links: [[$project::class, $project->id], [$busunjuSite::class, $busunjuSite->id]],
+            documentNumber: 'BKH-ROAD-GA-001',
+            revision: 'B',
+            discipline: 'Roadworks',
+            issuer: 'Point Design Office',
+        );
 
         $this->seedDocument(
             actor: $director,
@@ -895,6 +917,10 @@ final class PointInvestmentSeeder extends Seeder
             content: 'Traffic management permit expiring soon for dashboard testing.',
             links: [[$project::class, $project->id], [$busunjuSite::class, $busunjuSite->id]],
             expiresOn: now()->addDays(21)->toDateString(),
+            documentNumber: 'BKH-TMP-2024',
+            revision: 'Approved',
+            discipline: 'Traffic',
+            issuer: 'Traffic Police',
         );
 
         $this->seedDocument(
@@ -905,6 +931,10 @@ final class PointInvestmentSeeder extends Seeder
             reference: 'BKH-MS-TOPSOIL',
             content: 'Method statement for topsoil removal, haulage and environmental controls.',
             links: [[$project::class, $project->id], [$busunjuSite::class, $busunjuSite->id]],
+            documentNumber: 'BKH-MS-TOPSOIL',
+            revision: '0',
+            discipline: 'Earthworks',
+            issuer: 'Point Engineering',
         );
 
         $report = DailySiteReport::query()->where('reference', 'DSR-BUSUNJU-20241207')->first();
@@ -918,6 +948,9 @@ final class PointInvestmentSeeder extends Seeder
                 reference: 'DSR-BUSUNJU-20241207-PHOTO-001',
                 content: 'Photo placeholder: topsoil removal at Km 10+000 to Km 11+500 LHS.',
                 links: [[$report::class, $report->id], [$busunjuSite::class, $busunjuSite->id]],
+                documentNumber: 'DSR-BUSUNJU-20241207-PHOTO-001',
+                discipline: 'Field Evidence',
+                issuer: 'Site Team',
             );
             $this->seedDocument(
                 actor: $director,
@@ -927,6 +960,10 @@ final class PointInvestmentSeeder extends Seeder
                 reference: 'DSR-BUSUNJU-20241207-SK-001',
                 content: 'Sketch placeholder supporting measured quantity and chainage.',
                 links: [[$report::class, $report->id], [$busunjuSite::class, $busunjuSite->id]],
+                documentNumber: 'DSR-BUSUNJU-20241207-SK-001',
+                revision: '0',
+                discipline: 'Measurement',
+                issuer: 'Site Team',
             );
         }
 
@@ -938,6 +975,10 @@ final class PointInvestmentSeeder extends Seeder
             reference: 'BKH-LAB-SUBBASE-001',
             content: 'Lab certificate placeholder for natural material subbase compliance.',
             links: [[$project::class, $project->id], [$kibogaSite::class, $kibogaSite->id]],
+            documentNumber: 'BKH-LAB-SUBBASE-001',
+            revision: '0',
+            discipline: 'Quality',
+            issuer: 'Materials Laboratory',
         );
     }
 
@@ -954,6 +995,11 @@ final class PointInvestmentSeeder extends Seeder
         array $links,
         string $confidentiality = Document::CONFIDENTIALITY_NORMAL,
         ?string $expiresOn = null,
+        ?string $documentNumber = null,
+        ?string $revision = null,
+        ?string $discipline = null,
+        ?string $issuer = null,
+        string $status = Document::STATUS_ACTIVE,
     ): Document {
         $type = DocumentType::query()->where('code', $typeCode)->firstOrFail();
 
@@ -965,10 +1011,15 @@ final class PointInvestmentSeeder extends Seeder
                 'owner_id' => $actor->id,
                 'title' => $title,
                 'description' => $content,
+                'document_number' => $documentNumber,
+                'revision' => $revision,
+                'discipline' => $discipline,
+                'issuer' => $issuer,
                 'document_date' => now()->toDateString(),
+                'received_on' => now()->toDateString(),
                 'expires_on' => $expiresOn,
                 'confidentiality' => $confidentiality,
-                'status' => Document::STATUS_ACTIVE,
+                'status' => $status,
                 'created_by' => $actor->id,
                 'updated_by' => $actor->id,
             ],

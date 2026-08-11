@@ -44,6 +44,10 @@ export type DocumentRecord = {
     id: string;
     title: string;
     reference: string | null;
+    document_number?: string | null;
+    revision?: string | null;
+    discipline?: string | null;
+    issuer?: string | null;
     type_name: string;
     type_code: string;
     branch_id?: string | null;
@@ -51,6 +55,7 @@ export type DocumentRecord = {
     document_type_id?: string;
     description?: string | null;
     document_date?: string | null;
+    received_on?: string | null;
     expires_on: string | null;
     confidentiality: string;
     status: string;
@@ -64,8 +69,13 @@ type FormData = Record<
     document_type_id: string;
     title: string;
     reference: string;
+    document_number: string;
+    revision: string;
+    discipline: string;
+    issuer: string;
     description: string;
     document_date: string;
+    received_on: string;
     expires_on: string;
     confidentiality: string;
     status: string;
@@ -79,6 +89,9 @@ type Props = {
     documentTypes: DocumentTypeOption[];
     branches: Option[];
     linkOptions: LinkOptions;
+    defaultLink?: { type: string; id: string };
+    defaultBranchId?: string | null;
+    buttonLabel?: string;
 };
 
 export function DocumentDialog({
@@ -86,23 +99,31 @@ export function DocumentDialog({
     documentTypes,
     branches,
     linkOptions,
+    defaultLink,
+    defaultBranchId,
+    buttonLabel,
 }: Props) {
     const [open, setOpen] = useState(false);
     const isEditing = Boolean(document);
     const form = useForm<FormData>({
-        branch_id: document?.branch_id ?? '',
+        branch_id: document?.branch_id ?? defaultBranchId ?? '',
         document_type_id:
             document?.document_type_id ?? documentTypes[0]?.id ?? '',
         title: document?.title ?? '',
         reference: document?.reference ?? '',
+        document_number: document?.document_number ?? '',
+        revision: document?.revision ?? '',
+        discipline: document?.discipline ?? '',
+        issuer: document?.issuer ?? '',
         description: document?.description ?? '',
         document_date: document?.document_date ?? '',
+        received_on: document?.received_on ?? '',
         expires_on: document?.expires_on ?? '',
         confidentiality: document?.confidentiality ?? 'normal',
         status: document?.status ?? 'active',
         file: null,
         version_notes: '',
-        links: [{ type: 'project', id: '' }],
+        links: [defaultLink ?? { type: 'project', id: '' }],
     });
 
     function submit(event: FormEvent<HTMLFormElement>) {
@@ -130,7 +151,7 @@ export function DocumentDialog({
                     size={isEditing ? 'sm' : 'default'}
                 >
                     {isEditing ? <Pencil /> : <Plus />}
-                    {isEditing ? 'Edit' : 'Upload document'}
+                    {isEditing ? 'Edit' : buttonLabel ?? 'Upload document'}
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-4xl">
@@ -237,6 +258,63 @@ export function DocumentDialog({
                         </div>
                     </div>
 
+                    <div className="grid gap-4 md:grid-cols-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="document_number">
+                                Document no.
+                            </Label>
+                            <Input
+                                id="document_number"
+                                value={form.data.document_number}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'document_number',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                            <InputError
+                                message={form.errors.document_number}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="revision">Revision</Label>
+                            <Input
+                                id="revision"
+                                value={form.data.revision}
+                                onChange={(event) =>
+                                    form.setData('revision', event.target.value)
+                                }
+                            />
+                            <InputError message={form.errors.revision} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="discipline">Discipline</Label>
+                            <Input
+                                id="discipline"
+                                value={form.data.discipline}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'discipline',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                            <InputError message={form.errors.discipline} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="issuer">Issuer</Label>
+                            <Input
+                                id="issuer"
+                                value={form.data.issuer}
+                                onChange={(event) =>
+                                    form.setData('issuer', event.target.value)
+                                }
+                            />
+                            <InputError message={form.errors.issuer} />
+                        </div>
+                    </div>
+
                     <div className="grid gap-4 md:grid-cols-3">
                         <div className="grid gap-2">
                             <Label htmlFor="document_date">Document date</Label>
@@ -253,6 +331,24 @@ export function DocumentDialog({
                             />
                             <InputError message={form.errors.document_date} />
                         </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="received_on">Received on</Label>
+                            <Input
+                                id="received_on"
+                                type="date"
+                                value={form.data.received_on}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'received_on',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                            <InputError message={form.errors.received_on} />
+                        </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
                         <div className="grid gap-2">
                             <Label htmlFor="expires_on">Expires on</Label>
                             <Input

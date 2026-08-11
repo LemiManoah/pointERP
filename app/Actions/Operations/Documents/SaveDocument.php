@@ -40,8 +40,13 @@ final readonly class SaveDocument
                 'owner_id' => $data['owner_id'] ?? $actor->id,
                 'title' => $data['title'],
                 'reference' => $data['reference'] ?? null,
+                'document_number' => $data['document_number'] ?? null,
+                'revision' => $data['revision'] ?? null,
+                'discipline' => $data['discipline'] ?? null,
+                'issuer' => $data['issuer'] ?? null,
                 'description' => $data['description'] ?? null,
                 'document_date' => $data['document_date'] ?? null,
+                'received_on' => $data['received_on'] ?? null,
                 'expires_on' => $data['expires_on'] ?? null,
                 'confidentiality' => $data['confidentiality'],
                 'status' => $data['status'] ?? Document::STATUS_ACTIVE,
@@ -73,6 +78,8 @@ final readonly class SaveDocument
                 ], $actor);
             }
 
+            $this->supersedeOlderDrawingRevisions($document, $actor);
+
             $event = $oldValues === []
                 ? 'operations.document.created'
                 : 'operations.document.updated';
@@ -81,5 +88,30 @@ final readonly class SaveDocument
 
             return $document->refresh();
         });
+    }
+
+    private function supersedeOlderDrawingRevisions(Document $document, User $actor): void
+    {
+        if (! $document->isDrawing() || ! is_string($document->document_number) || $document->document_number === '') {
+            return;
+        }
+
+        Document::query()
+            ->where('tenant_id', $document->tenant_id)
+            ->where('document_number', $document->document_number)
+            ->whereKeyNot($document->id)
+            ->where('status', Document::STATUS_ACTIVE)
+            ->each(function (Document $olderDocument) use ($actor): void {
+                $olderDocument->forceFill([
+                    'status' => Document::STATUS_SUPERSEDED,
+                    'updated_by' => $actor->id,
+                ])->save();
+
+                $this->auditLogger->record('operations.document.superseded', $olderDocument, $actor, [
+                    'status' => Document::STATUS_ACTIVE,
+                ], [
+                    'status' => Document::STATUS_SUPERSEDED,
+                ]);
+            });
     }
 }

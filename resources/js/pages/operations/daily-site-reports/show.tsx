@@ -19,6 +19,12 @@ import {
     DocumentEvidenceTable,
     type LinkedDocumentRow,
 } from '../documents/partials/document-evidence-table';
+import {
+    DocumentDialog,
+    type DocumentTypeOption,
+    type LinkOptions,
+    type Option,
+} from '../documents/partials/document-dialog';
 
 type Line = Record<string, string | null>;
 
@@ -28,6 +34,7 @@ type Report = {
     project_name: string;
     site_name: string;
     site_id: string;
+    branch_id: string;
     report_date: string;
     status: string;
     weather: string | null;
@@ -60,6 +67,10 @@ type Props = {
         return: boolean;
     };
     documents: LinkedDocumentRow[];
+    documentTypes: DocumentTypeOption[];
+    documentBranches: Option[];
+    documentLinkOptions: LinkOptions;
+    canUploadDocuments: boolean;
 };
 
 type FormData = Record<string, string | Line[]> & {
@@ -82,7 +93,15 @@ type FormData = Record<string, string | Line[]> & {
     delay_lines: Line[];
 };
 
-export default function DailySiteReportShow({ report, can, documents }: Props) {
+export default function DailySiteReportShow({
+    report,
+    can,
+    documents,
+    documentTypes,
+    documentBranches,
+    documentLinkOptions,
+    canUploadDocuments,
+}: Props) {
     const form = useForm<FormData>({
         site_id: report.site_id,
         report_date: report.report_date,
@@ -215,6 +234,21 @@ export default function DailySiteReportShow({ report, can, documents }: Props) {
                     emptyText="No documents linked to this report."
                     title="Linked evidence"
                     description="Drawings, sketches, permits, photos and other files tied to this daily report."
+                    actions={
+                        canUploadDocuments && (
+                        <DocumentDialog
+                            documentTypes={documentTypes}
+                            branches={documentBranches}
+                            linkOptions={documentLinkOptions}
+                            defaultBranchId={report.branch_id}
+                            defaultLink={{
+                                type: 'daily_site_report',
+                                id: report.id,
+                            }}
+                            buttonLabel="Upload evidence"
+                        />
+                        )
+                    }
                 />
 
                 <form onSubmit={submit} className="grid gap-6">

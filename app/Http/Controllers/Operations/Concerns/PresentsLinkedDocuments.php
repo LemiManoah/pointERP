@@ -5,18 +5,59 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Operations\Concerns;
 
 use App\Models\Contract;
+use App\Models\Branch;
 use App\Models\DailySiteReport;
 use App\Models\Document;
 use App\Models\DocumentLink;
+use App\Models\DocumentType;
 use App\Models\DocumentVersion;
 use App\Models\Project;
 use App\Models\Site;
 use App\Models\User;
+use App\Services\BranchContext;
+use App\Services\TenantContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 
 trait PresentsLinkedDocuments
 {
+    /**
+     * @return array<string, mixed>
+     */
+    private function documentFormOptions(User $user): array
+    {
+        $tenantId = resolve(TenantContext::class)->id();
+        $branchIds = resolve(BranchContext::class)->accessibleBranchIds($user);
+
+        return [
+            'documentTypes' => DocumentType::query()
+                ->availableToTenant($tenantId)
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get()
+                ->map(fn (DocumentType $type): array => [
+                    'id' => $type->id,
+                    'name' => $type->name,
+                    'code' => $type->code,
+                    'requires_expiry_date' => $type->requires_expiry_date,
+                    'is_confidential' => $type->is_confidential,
+                ]),
+            'documentBranches' => Branch::query()
+                ->where('tenant_id', $tenantId)
+                ->where('status', 'active')
+                ->whereIn('id', $branchIds)
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn (Branch $branch): array => ['id' => $branch->id, 'name' => $branch->name]),
+            'documentLinkOptions' => [
+                'contracts' => $this->documentContractOptions($user, $tenantId),
+                'projects' => $this->documentProjectOptions($user, $tenantId),
+                'sites' => $this->documentSiteOptions($user, $tenantId),
+                'dailySiteReports' => $this->documentDailySiteReportOptions($user, $tenantId),
+            ],
+        ];
+    }
+
     /**
      * @return list<array<string, mixed>>
      */
@@ -44,11 +85,17 @@ trait PresentsLinkedDocuments
             'id' => $document->id,
             'title' => $document->title,
             'reference' => $document->reference,
+            'document_number' => $document->document_number,
+            'revision' => $document->revision,
+            'discipline' => $document->discipline,
+            'issuer' => $document->issuer,
             'type_name' => $document->type->name,
             'type_code' => $document->type->code,
             'branch_name' => $document->branch?->name,
             'confidentiality' => $document->confidentiality,
             'status' => $document->status,
+            'document_date' => $document->document_date?->toDateString(),
+            'received_on' => $document->received_on?->toDateString(),
             'expires_on' => $document->expires_on?->toDateString(),
             'is_expired' => $document->isExpired(),
             'current_version' => $document->currentVersion instanceof DocumentVersion ? [
@@ -76,5 +123,67 @@ trait PresentsLinkedDocuments
             $target instanceof DailySiteReport => $target->reference,
             default => 'Unknown record',
         };
+    }
+
+    /**
+     * @return list<array<string, string>>
+     */
+    private function documentContractOptions(User $user, string $tenantId): array
+    {
+        return Contract::query()
+            ->where('tenant_id', $tenantId)
+            ->orderBy('reference')
+            ->get()
+            ->filter(fn (Contract $contract): bool => Gate::forUser($user)->allows('view', $contract))
+            ->map(fn (Contract $contract): array => ['id' => $contract->id, 'name' => sprintf('%s - %s', $contract->reference, $contract->title)])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array<string, string>>
+     */
+    private function documentProjectOptions(User $user, string $tenantId): array
+    {
+        return Project::query()
+            ->where('tenant_id', $tenantId)
+            ->orderBy('reference')
+            ->get()
+            ->filter(fn (Project $project): bool => Gate::forUser($user)->allows('view', $project))
+            ->map(fn (Project $project): array => ['id' => $project->id, 'name' => sprintf('%s - %s', $project->reference, $project->name)])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array<string, string>>
+     */
+    private function documentSiteOptions(User $user, string $tenantId): array
+    {
+        return Site::query()
+            ->with('project')
+            ->where('tenant_id', $tenantId)
+            ->orderBy('name')
+            ->get()
+            ->filter(fn (Site $site): bool => Gate::forUser($user)->allows('view', $site))
+            ->map(fn (Site $site): array => ['id' => $site->id, 'name' => sprintf('%s (%s)', $site->name, $site->project->reference)])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array<string, string>>
+     */
+    private function documentDailySiteReportOptions(User $user, string $tenantId): array
+    {
+        return DailySiteReport::query()
+            ->with('site')
+            ->where('tenant_id', $tenantId)
+            ->latest('report_date')
+            ->get()
+            ->filter(fn (DailySiteReport $report): bool => Gate::forUser($user)->allows('view', $report))
+            ->map(fn (DailySiteReport $report): array => ['id' => $report->id, 'name' => sprintf('%s - %s', $report->reference, $report->site->name)])
+            ->values()
+            ->all();
     }
 }

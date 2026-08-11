@@ -56,13 +56,26 @@ export default function DocumentsIndex({
     const [tab, setTab] = useState('active');
     const [expiry, setExpiry] = useState('all');
     const debouncedSearch = useDebouncedValue(search);
+    const today = new Date().toISOString().slice(0, 10);
+    const soon = new Date();
+    soon.setDate(soon.getDate() + 30);
+    const soonDate = soon.toISOString().slice(0, 10);
+    const activeCount = documents.filter(
+        (document) => document.status !== 'archived',
+    ).length;
+    const expiringCount = documents.filter(
+        (document) =>
+            document.expires_on !== null &&
+            document.expires_on >= today &&
+            document.expires_on <= soonDate,
+    ).length;
+    const expiredCount = documents.filter(
+        (document) =>
+            document.expires_on !== null && document.expires_on < today,
+    ).length;
 
     const filteredDocuments = useMemo(() => {
         const term = debouncedSearch.trim().toLowerCase();
-        const today = new Date().toISOString().slice(0, 10);
-        const soon = new Date();
-        soon.setDate(soon.getDate() + 30);
-        const soonDate = soon.toISOString().slice(0, 10);
 
         return documents.filter((document) => {
             const matchesTab =
@@ -74,6 +87,10 @@ export default function DocumentsIndex({
                 [
                     document.title,
                     document.reference ?? '',
+                    document.document_number ?? '',
+                    document.revision ?? '',
+                    document.discipline ?? '',
+                    document.issuer ?? '',
                     document.type_name,
                     document.branch_name ?? '',
                     document.current_version?.original_name ?? '',
@@ -161,6 +178,15 @@ export default function DocumentsIndex({
                     </Tabs>
                 </div>
 
+                <div className="grid gap-4 md:grid-cols-3">
+                    <SummaryCard label="Active documents" value={activeCount} />
+                    <SummaryCard
+                        label="Expiring within 30 days"
+                        value={expiringCount}
+                    />
+                    <SummaryCard label="Expired" value={expiredCount} />
+                </div>
+
                 <Card>
                     <CardContent className="pt-6">
                         <div className="overflow-x-auto">
@@ -199,9 +225,12 @@ export default function DocumentsIndex({
                                                 </div>
                                                 <div className="text-muted-foreground">
                                                     {document.reference ??
+                                                        document.document_number ??
                                                         document.current_version
                                                             ?.original_name ??
                                                         'No reference'}
+                                                    {document.revision &&
+                                                        ` · Rev ${document.revision}`}
                                                 </div>
                                             </td>
                                             <td className="py-3 pr-4">
@@ -304,5 +333,16 @@ export default function DocumentsIndex({
                 </Card>
             </div>
         </AppLayout>
+    );
+}
+
+function SummaryCard({ label, value }: { label: string; value: number }) {
+    return (
+        <Card>
+            <CardContent className="pt-6">
+                <div className="text-sm text-muted-foreground">{label}</div>
+                <div className="mt-2 text-2xl font-semibold">{value}</div>
+            </CardContent>
+        </Card>
     );
 }

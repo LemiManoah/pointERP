@@ -9,6 +9,7 @@ use App\Http\Controllers\Operations\Concerns\PresentsLinkedDocuments;
 use App\Http\Requests\Operations\Sites\StoreSiteRequest;
 use App\Http\Requests\Operations\Sites\UpdateSiteRequest;
 use App\Models\Project;
+use App\Models\Document;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\AuditLogger;
@@ -35,6 +36,7 @@ final class SiteController
                 'id' => $site->id,
                 'project_id' => $site->project_id,
                 'project_name' => $site->project->name,
+                'branch_id' => $site->branch_id,
                 'branch_name' => $site->branch->name,
                 'reference' => $site->reference,
                 'name' => $site->name,
@@ -55,6 +57,7 @@ final class SiteController
                 'can_review_dsr' => (bool) $user->pivot->can_review_dsr,
             ]),
             'documents' => $this->linkedDocumentsFor($site, $currentUser),
+            'canUploadDocuments' => Gate::forUser($currentUser)->allows('create', Document::class),
             'users' => User::query()
                 ->where('tenant_id', $site->tenant_id)
                 ->where('is_active', true)
@@ -62,6 +65,7 @@ final class SiteController
                 ->orderBy('name')
                 ->get(['id', 'name', 'email'])
                 ->map(fn (User $user): array => ['id' => $user->id, 'name' => sprintf('%s (%s)', $user->name, $user->email), 'email' => $user->email]),
+            ...$this->documentFormOptions($currentUser),
         ]);
     }
 

@@ -24,11 +24,18 @@ import {
     DocumentEvidenceTable,
     type LinkedDocumentRow,
 } from '../documents/partials/document-evidence-table';
+import {
+    DocumentDialog,
+    type DocumentTypeOption,
+    type LinkOptions,
+    type Option,
+} from '../documents/partials/document-dialog';
 
 type Site = {
     id: string;
     project_id: string;
     project_name: string;
+    branch_id: string;
     branch_name: string;
     reference: string;
     name: string;
@@ -58,6 +65,10 @@ type Props = {
     assignedUsers: AssignedSiteUser[];
     users: UserOption[];
     documents: LinkedDocumentRow[];
+    documentTypes: DocumentTypeOption[];
+    documentBranches: Option[];
+    documentLinkOptions: LinkOptions;
+    canUploadDocuments: boolean;
 };
 
 type Assignment = {
@@ -72,6 +83,10 @@ export default function SiteShow({
     assignedUsers,
     users,
     documents,
+    documentTypes,
+    documentBranches,
+    documentLinkOptions,
+    canUploadDocuments,
 }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -167,6 +182,18 @@ export default function SiteShow({
                 <DocumentEvidenceTable
                     documents={documents}
                     emptyText="No documents linked to this site."
+                    actions={
+                        canUploadDocuments && (
+                        <DocumentDialog
+                            documentTypes={documentTypes}
+                            branches={documentBranches}
+                            linkOptions={documentLinkOptions}
+                            defaultBranchId={site.branch_id}
+                            defaultLink={{ type: 'site', id: site.id }}
+                            buttonLabel="Upload evidence"
+                        />
+                        )
+                    }
                 />
             </div>
         </AppLayout>

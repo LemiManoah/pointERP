@@ -12,6 +12,7 @@ use App\Models\Branch;
 use App\Models\Contract;
 use App\Models\Currency;
 use App\Models\Customer;
+use App\Models\Document;
 use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\Site;
@@ -85,8 +86,10 @@ final class ProjectController
                     'can_manage' => (bool) $assignedUser->pivot->can_manage,
                 ]),
             'documents' => $this->linkedDocumentsFor($project, $user),
+            'canUploadDocuments' => Gate::forUser($user)->allows('create', Document::class),
             'canViewRates' => $this->canViewRates($user),
             ...$this->formOptions($user),
+            ...$this->documentFormOptions($user),
         ]);
     }
 

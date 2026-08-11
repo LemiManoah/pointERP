@@ -23,8 +23,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'owner_id',
     'title',
     'reference',
+    'document_number',
+    'revision',
+    'discipline',
+    'issuer',
     'description',
     'document_date',
+    'received_on',
     'expires_on',
     'confidentiality',
     'status',
@@ -69,6 +74,7 @@ final class Document extends Model
             'document_type_id' => 'string',
             'owner_id' => 'string',
             'document_date' => 'date',
+            'received_on' => 'date',
             'expires_on' => 'date',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
@@ -124,6 +130,11 @@ final class Document extends Model
     public function isExpired(): bool
     {
         return $this->expires_on instanceof CarbonInterface && $this->expires_on->isPast();
+    }
+
+    public function isDrawing(): bool
+    {
+        return in_array($this->type?->code, ['DRAWING', 'REVISED_DRAWING'], true);
     }
 
     /**

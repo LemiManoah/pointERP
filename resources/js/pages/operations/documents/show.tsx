@@ -155,6 +155,10 @@ export default function DocumentShow({
                         value={document.document_date ?? 'None'}
                     />
                     <InfoCard
+                        label="Received"
+                        value={document.received_on ?? 'None'}
+                    />
+                    <InfoCard
                         label="Expiry"
                         value={document.expires_on ?? 'None'}
                     />
@@ -165,6 +169,25 @@ export default function DocumentShow({
                                 ? `v${document.current_version.version_number}`
                                 : 'None'
                         }
+                    />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-4">
+                    <InfoCard
+                        label="Document no."
+                        value={document.document_number ?? 'None'}
+                    />
+                    <InfoCard
+                        label="Revision"
+                        value={document.revision ?? 'None'}
+                    />
+                    <InfoCard
+                        label="Discipline"
+                        value={document.discipline ?? 'None'}
+                    />
+                    <InfoCard
+                        label="Issuer"
+                        value={document.issuer ?? 'None'}
                     />
                 </div>
 

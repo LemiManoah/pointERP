@@ -10,6 +10,7 @@ use App\Http\Requests\Operations\DailySiteReports\StoreDailySiteReportRequest;
 use App\Http\Requests\Operations\DailySiteReports\UpdateDailySiteReportRequest;
 use App\Models\Currency;
 use App\Models\DailySiteReport;
+use App\Models\Document;
 use App\Models\ProjectActivity;
 use App\Models\Site;
 use App\Models\User;
@@ -69,6 +70,7 @@ final class DailySiteReportController
             'report' => [
                 ...$this->reportRow($dailySiteReport),
                 'site_id' => $dailySiteReport->site_id,
+                'branch_id' => $dailySiteReport->site->branch_id,
                 'weather' => $dailySiteReport->weather,
                 'site_conditions' => $dailySiteReport->site_conditions,
                 'work_summary' => $dailySiteReport->work_summary,
@@ -93,7 +95,9 @@ final class DailySiteReportController
                 'return' => Gate::forUser($user)->allows('return', $dailySiteReport),
             ],
             'documents' => $this->linkedDocumentsFor($dailySiteReport, $user),
+            'canUploadDocuments' => Gate::forUser($user)->allows('create', Document::class),
             ...$this->formOptions($user),
+            ...$this->documentFormOptions($user),
         ]);
     }
 

@@ -65,6 +65,7 @@ final class DocumentController
                 'document_type_id' => $document->document_type_id,
                 'description' => $document->description,
                 'document_date' => $document->document_date?->toDateString(),
+                'received_on' => $document->received_on?->toDateString(),
                 'expires_on' => $document->expires_on?->toDateString(),
                 'versions' => $document->versions
                     ->sortByDesc('version_number')
@@ -246,11 +247,17 @@ final class DocumentController
             'id' => $document->id,
             'title' => $document->title,
             'reference' => $document->reference,
+            'document_number' => $document->document_number,
+            'revision' => $document->revision,
+            'discipline' => $document->discipline,
+            'issuer' => $document->issuer,
             'type_name' => $document->type->name,
             'type_code' => $document->type->code,
             'branch_name' => $document->branch?->name,
             'confidentiality' => $document->confidentiality,
             'status' => $document->status,
+            'document_date' => $document->document_date?->toDateString(),
+            'received_on' => $document->received_on?->toDateString(),
             'expires_on' => $document->expires_on?->toDateString(),
             'is_expired' => $document->isExpired(),
             'current_version' => $document->currentVersion instanceof DocumentVersion ? [
