@@ -11,6 +11,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
+import { formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import {
     DocumentDialog,
@@ -149,7 +150,7 @@ export default function DocumentShow({
                     </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-4">
                     <InfoCard
                         label="Document date"
                         value={document.document_date ?? 'None'}
@@ -288,7 +289,11 @@ export default function DocumentShow({
                                                     {version.original_name}
                                                 </div>
                                                 <div className="text-muted-foreground">
-                                                    {version.mime_type}
+                                                    {version.mime_type} ·{' '}
+                                                    {formatNumber(
+                                                        version.size_bytes,
+                                                    )}{' '}
+                                                    bytes
                                                 </div>
                                             </td>
                                             <td className="py-3 pr-4">

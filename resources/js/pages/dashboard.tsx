@@ -17,6 +17,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
+import { formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem, CurrentTenant } from '@/types';
 
 type DashboardProps = {
@@ -204,7 +205,9 @@ function MetricCard({
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <div>
                     <CardDescription>{title}</CardDescription>
-                    <CardTitle className="mt-2 text-3xl">{value}</CardTitle>
+                    <CardTitle className="mt-2 text-3xl">
+                        {formatNumber(value)}
+                    </CardTitle>
                 </div>
                 <div className="flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary">
                     <Icon className="size-5" />

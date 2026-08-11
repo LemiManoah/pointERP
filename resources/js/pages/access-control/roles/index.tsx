@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
+import { formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import { RoleDialog } from './partials/role-dialog';
 import type { AccessRole } from './partials/role-form';
@@ -126,7 +127,7 @@ export default function RolesIndex({ roles, permissions }: Props) {
                                                 {role.name}
                                             </td>
                                             <td className="py-3 pr-4">
-                                                {role.users_count}
+                                                {formatNumber(role.users_count)}
                                             </td>
                                             <td className="py-3 pr-4">
                                                 <div className="flex flex-wrap gap-2">

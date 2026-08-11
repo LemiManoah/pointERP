@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
+import { formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import {
     ProjectDialog,
@@ -165,8 +166,13 @@ export default function ProjectsIndex({
                                                     'Unassigned'}
                                             </td>
                                             <td className="py-3 pr-4 text-muted-foreground">
-                                                {project.sites_count} sites,{' '}
-                                                {project.activities_count}{' '}
+                                                {formatNumber(
+                                                    project.sites_count,
+                                                )}{' '}
+                                                sites,{' '}
+                                                {formatNumber(
+                                                    project.activities_count,
+                                                )}{' '}
                                                 activities
                                             </td>
                                             <td className="py-3 pr-4">

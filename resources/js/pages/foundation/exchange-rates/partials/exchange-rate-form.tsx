@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { formatNumber } from '@/lib/utils';
 
 export type ExchangeRate = {
     id: string;
@@ -145,7 +146,8 @@ export function ExchangeRateForm({
 
             <div className="rounded-md border bg-muted/30 p-3 text-sm">
                 1 {form.data.from_currency_code || 'FROM'} ={' '}
-                {form.data.rate || 'rate'} {form.data.to_currency_code || 'TO'}
+                {form.data.rate ? formatNumber(form.data.rate) : 'rate'}{' '}
+                {form.data.to_currency_code || 'TO'}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">

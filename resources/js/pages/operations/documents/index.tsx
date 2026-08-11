@@ -13,6 +13,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
+import { formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import {
     DocumentDialog,
@@ -347,7 +348,9 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
         <Card>
             <CardContent className="pt-6">
                 <div className="text-sm text-muted-foreground">{label}</div>
-                <div className="mt-2 text-2xl font-semibold">{value}</div>
+                <div className="mt-2 text-2xl font-semibold">
+                    {formatNumber(value)}
+                </div>
             </CardContent>
         </Card>
     );

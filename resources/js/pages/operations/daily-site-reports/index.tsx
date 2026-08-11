@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
+import { formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
 type Report = {
@@ -238,8 +239,9 @@ export default function DailySiteReportsIndex({ reports, sites }: Props) {
                                                 </Badge>
                                             </td>
                                             <td className="py-3 pr-4 text-muted-foreground">
-                                                {report.output_value ??
-                                                    '0.0000'}
+                                                {formatNumber(
+                                                    report.output_value,
+                                                )}
                                             </td>
                                             <td className="py-3">
                                                 <div className="flex justify-end gap-2">

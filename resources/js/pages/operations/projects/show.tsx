@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
+import { formatCurrencyAmount, formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import {
     DocumentDialog,
@@ -418,15 +419,23 @@ function ActivityTable({
                                         {activity.site_name ?? 'Project-wide'}
                                     </td>
                                     <td className="py-3 pr-4">
-                                        {activity.approved_quantity} /{' '}
-                                        {activity.planned_quantity ?? '-'}{' '}
+                                        {formatNumber(
+                                            activity.approved_quantity,
+                                        )}{' '}
+                                        /{' '}
+                                        {activity.planned_quantity
+                                            ? formatNumber(
+                                                  activity.planned_quantity,
+                                              )
+                                            : '-'}{' '}
                                         {activity.unit ?? ''}
                                     </td>
                                     {canViewRates && (
                                         <td className="py-3 pr-4">
-                                            {activity.rate_amount
-                                                ? `${activity.currency_code} ${activity.rate_amount}`
-                                                : 'Not set'}
+                                            {formatCurrencyAmount(
+                                                activity.currency_code,
+                                                activity.rate_amount,
+                                            )}
                                         </td>
                                     )}
                                     <td className="py-3">

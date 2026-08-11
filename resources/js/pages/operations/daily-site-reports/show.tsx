@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
+import { formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import {
     DocumentDialog,
@@ -27,6 +28,18 @@ import {
 } from '../documents/partials/document-evidence-table';
 
 type Line = Record<string, string | null>;
+
+const numericLineFields = new Set([
+    'quantity',
+    'rate_amount',
+    'amount',
+    'headcount',
+    'hours',
+    'working_hours',
+    'idle_hours',
+    'fuel_quantity',
+    'hours_lost',
+]);
 
 type Report = {
     id: string;
@@ -492,7 +505,7 @@ function Metric({ label, value }: { label: string; value: string | null }) {
         <Card>
             <CardHeader className="pb-2">
                 <CardDescription>{label}</CardDescription>
-                <CardTitle className="text-xl">{value ?? '0.0000'}</CardTitle>
+                <CardTitle className="text-xl">{formatNumber(value)}</CardTitle>
             </CardHeader>
         </Card>
     );
@@ -592,7 +605,7 @@ function LineCard({
                             <div key={field} className="grid gap-2">
                                 <Label>{field.replaceAll('_', ' ')}</Label>
                                 <Input
-                                    value={String(line[field] ?? '')}
+                                    value={lineValue(line, field, disabled)}
                                     disabled={disabled}
                                     onChange={(event) =>
                                         updateLine(
@@ -609,6 +622,16 @@ function LineCard({
             </CardContent>
         </Card>
     );
+}
+
+function lineValue(line: Line, field: string, disabled: boolean): string {
+    const value = line[field];
+
+    if (disabled && numericLineFields.has(field)) {
+        return value ? formatNumber(value) : '';
+    }
+
+    return String(value ?? '');
 }
 
 function emptyWorkLine(): Line {

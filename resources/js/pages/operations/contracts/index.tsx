@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
+import { formatCurrencyAmount } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import {
     ContractDialog,
@@ -147,9 +148,10 @@ export default function ContractsIndex({
                                                 {contract.customer_name}
                                             </td>
                                             <td className="py-3 pr-4">
-                                                {contract.contract_value
-                                                    ? `${contract.currency_code} ${contract.contract_value}`
-                                                    : 'Not set'}
+                                                {formatCurrencyAmount(
+                                                    contract.currency_code,
+                                                    contract.contract_value,
+                                                )}
                                             </td>
                                             <td className="py-3 pr-4">
                                                 <Badge variant="secondary">

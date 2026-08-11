@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
+import { formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import { StaffPositionDialog } from './partials/staff-position-dialog';
 import type { StaffPosition } from './partials/staff-position-form';
@@ -138,7 +139,9 @@ export default function StaffPositionsIndex({ positions }: Props) {
                                                 {position.name}
                                             </td>
                                             <td className="py-3 pr-4">
-                                                {position.staff_count}
+                                                {formatNumber(
+                                                    position.staff_count,
+                                                )}
                                             </td>
                                             <td className="py-3 pr-4">
                                                 <Badge
