@@ -13,6 +13,7 @@ use App\Models\Staff;
 use App\Models\StaffPosition;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -33,7 +34,7 @@ final class StaffController
             'staff' => Staff::query()
                 ->with(['branch', 'position', 'user'])
                 ->where('tenant_id', $tenantId)
-                ->unless($canViewAllBranches, fn ($query) => $query->whereIn('branch_id', $accessibleBranchIds))
+                ->unless($canViewAllBranches, fn (Builder $query) => $query->whereIn('branch_id', $accessibleBranchIds))
                 ->orderBy('name')
                 ->get()
                 ->map(fn (Staff $staff): array => [
@@ -51,7 +52,7 @@ final class StaffController
                 ]),
             'branches' => Branch::query()
                 ->where('tenant_id', $tenantId)
-                ->unless($canViewAllBranches, fn ($query) => $query->whereIn('id', $accessibleBranchIds))
+                ->unless($canViewAllBranches, fn (Builder $query) => $query->whereIn('id', $accessibleBranchIds))
                 ->orderBy('name')
                 ->get(['id', 'name'])
                 ->map(fn (Branch $branch): array => [

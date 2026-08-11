@@ -16,6 +16,7 @@ use App\Models\Staff;
 use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -38,7 +39,7 @@ final class UserController
                 ->where('tenant_id', $tenantId)
                 ->unless(
                     $canViewAllBranches,
-                    fn ($query) => $query->whereHas('branches', fn ($query) => $query->whereIn('branches.id', $accessibleBranchIds)),
+                    fn (Builder $query) => $query->whereHas('branches', fn (Builder $query) => $query->whereIn('branches.id', $accessibleBranchIds)),
                 )
                 ->orderBy('name')
                 ->get()
@@ -63,7 +64,7 @@ final class UserController
             'branches' => Branch::query()
                 ->where('tenant_id', $tenantId)
                 ->where('status', 'active')
-                ->unless($canViewAllBranches, fn ($query) => $query->whereIn('id', $accessibleBranchIds))
+                ->unless($canViewAllBranches, fn (Builder $query) => $query->whereIn('id', $accessibleBranchIds))
                 ->orderBy('name')
                 ->get(['id', 'name', 'code'])
                 ->map(fn (Branch $branch): array => [
@@ -87,7 +88,7 @@ final class UserController
                 ->with(['branch', 'position', 'user'])
                 ->where('tenant_id', $tenantId)
                 ->where('status', 'active')
-                ->unless($canViewAllBranches, fn ($query) => $query->whereIn('branch_id', $accessibleBranchIds))
+                ->unless($canViewAllBranches, fn (Builder $query) => $query->whereIn('branch_id', $accessibleBranchIds))
                 ->orderBy('name')
                 ->get()
                 ->map(fn (Staff $staff): array => [

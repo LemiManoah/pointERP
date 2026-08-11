@@ -97,21 +97,33 @@ final class Project extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<Branch, $this>
+     */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
+    /**
+     * @return BelongsTo<Customer, $this>
+     */
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
     }
 
+    /**
+     * @return BelongsTo<Contract, $this>
+     */
     public function contract(): BelongsTo
     {
         return $this->belongsTo(Contract::class);
     }
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function manager(): BelongsTo
     {
         return $this->belongsTo(User::class, 'manager_id');

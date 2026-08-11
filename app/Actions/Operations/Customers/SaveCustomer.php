@@ -30,7 +30,7 @@ final readonly class SaveCustomer
             'type' => $data['type'],
             'name' => $data['name'],
             'code' => Str::upper($data['code']),
-            'email' => isset($data['email']) && $data['email'] !== null ? Str::lower($data['email']) : null,
+            'email' => isset($data['email']) ? Str::lower($data['email']) : null,
             'phone' => $data['phone'] ?? null,
             'tax_number' => $data['tax_number'] ?? null,
             'address' => $data['address'] ?? null,

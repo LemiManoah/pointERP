@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\User;
 use App\Policies\Concerns\ChecksTenantAccess;
+use Illuminate\Database\Eloquent\Builder;
 
 final class ProjectActivityPolicy
 {
@@ -52,7 +53,7 @@ final class ProjectActivityPolicy
             return true;
         }
 
-        return (bool) $projectActivity->project->sites()->whereHas('users', fn ($query) => $query->whereKey($user->id))->exists();
+        return (bool) $projectActivity->project->sites()->whereHas('users', fn (Builder $query) => $query->whereKey($user->id))->exists();
     }
 
     public function create(User $user, ?Project $project = null): bool

@@ -8,14 +8,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import {
-    DocumentEvidenceTable,
-    type LinkedDocumentRow,
-} from '../documents/partials/document-evidence-table';
-import {
     DocumentDialog,
     type DocumentTypeOption,
     type LinkOptions,
 } from '../documents/partials/document-dialog';
+import {
+    DocumentEvidenceTable,
+    type LinkedDocumentRow,
+} from '../documents/partials/document-evidence-table';
 import {
     ProjectAccessDialog,
     type AssignedProjectUser,
@@ -239,17 +239,17 @@ export default function ProjectShow({
                             emptyText="No documents linked to this project."
                             actions={
                                 canUploadDocuments && (
-                                <DocumentDialog
-                                    documentTypes={documentTypes}
-                                    branches={documentBranches}
-                                    linkOptions={documentLinkOptions}
-                                    defaultBranchId={project.branch_id}
-                                    defaultLink={{
-                                        type: 'project',
-                                        id: project.id,
-                                    }}
-                                    buttonLabel="Upload document"
-                                />
+                                    <DocumentDialog
+                                        documentTypes={documentTypes}
+                                        branches={documentBranches}
+                                        linkOptions={documentLinkOptions}
+                                        defaultBranchId={project.branch_id}
+                                        defaultLink={{
+                                            type: 'project',
+                                            id: project.id,
+                                        }}
+                                        buttonLabel="Upload document"
+                                    />
                                 )
                             }
                         />

@@ -10,7 +10,6 @@ use App\Models\Branch;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Http\Request;
 use Spatie\Activitylog\Contracts\Activity;
 
 final readonly class AuditLogger
@@ -37,10 +36,10 @@ final readonly class AuditLogger
     ): void {
         $actor ??= $this->actor();
         $tenantId = $this->tenantId($subject, $actor);
-        $branchId = $branch?->id ?? $this->branchId($subject);
+        $branchId = $branch->id ?? $this->branchId($subject);
         $request = request();
-        $ipAddress = $request instanceof Request ? $request->ip() : null;
-        $userAgent = $request instanceof Request ? $request->userAgent() : null;
+        $ipAddress = $request->ip();
+        $userAgent = $request->userAgent();
 
         $logger = activity('audit')
             ->event($event)

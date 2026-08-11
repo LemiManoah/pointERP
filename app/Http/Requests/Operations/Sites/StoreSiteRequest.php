@@ -19,6 +19,9 @@ final class StoreSiteRequest extends FormRequest
         return true;
     }
 
+    /**
+     * @return array<string, list<mixed>>
+     */
     public function rules(): array
     {
         $tenantId = resolve(TenantContext::class)->id();
@@ -38,7 +41,7 @@ final class StoreSiteRequest extends FormRequest
 
     public function withValidator(Validator $validator): void
     {
-        $validator->after(function ($validator): void {
+        $validator->after(function (Validator $validator): void {
             $projectId = $this->input('project_id');
 
             if (! is_string($projectId)) {

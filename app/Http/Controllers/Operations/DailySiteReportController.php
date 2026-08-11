@@ -70,7 +70,7 @@ final class DailySiteReportController
             'report' => [
                 ...$this->reportRow($dailySiteReport),
                 'site_id' => $dailySiteReport->site_id,
-                'branch_id' => $dailySiteReport->site->branch_id,
+                'branch_id' => $dailySiteReport->site?->branch_id,
                 'weather' => $dailySiteReport->weather,
                 'site_conditions' => $dailySiteReport->site_conditions,
                 'work_summary' => $dailySiteReport->work_summary,
@@ -174,7 +174,7 @@ final class DailySiteReportController
         return [
             'sites' => $sites->map(fn (Site $site): array => [
                 'id' => $site->id,
-                'name' => sprintf('%s (%s)', $site->name, $site->project->reference),
+                'name' => sprintf('%s (%s)', $site->name, $site->project?->reference),
                 'project_id' => $site->project_id,
             ]),
             'activities' => ProjectActivity::query()
@@ -212,9 +212,9 @@ final class DailySiteReportController
         return [
             'id' => $report->id,
             'reference' => $report->reference,
-            'project_name' => $report->project->name,
-            'site_name' => $report->site->name,
-            'report_date' => $report->report_date?->toDateString(),
+            'project_name' => $report->project?->name,
+            'site_name' => $report->site?->name,
+            'report_date' => $report->report_date->toDateString(),
             'status' => $report->status,
             'output_value' => $report->output_value,
             'input_cost' => $report->input_cost,

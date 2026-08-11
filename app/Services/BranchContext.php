@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\Branch;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Factory as AuthFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Session\SessionManager;
 use Illuminate\Validation\ValidationException;
@@ -46,7 +47,7 @@ final readonly class BranchContext
         }
 
         return $query
-            ->whereHas('users', fn ($query) => $query->whereKey($user->id))
+            ->whereHas('users', fn (Builder $query) => $query->whereKey($user->id))
             ->get();
     }
 

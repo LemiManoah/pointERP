@@ -10,6 +10,8 @@ use App\Models\DocumentType;
 use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
+use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -29,6 +31,9 @@ final class UpdateDocumentRequest extends FormRequest
         return $this->metadataRules();
     }
 
+    /**
+     * @return array<int, Closure(Validator): void>
+     */
     public function after(): array
     {
         return [
@@ -57,8 +62,8 @@ final class UpdateDocumentRequest extends FormRequest
         $branchIds = resolve(BranchContext::class)->accessibleBranchIds($user instanceof User ? $user : null);
 
         return [
-            'branch_id' => ['nullable', 'uuid', Rule::exists((new Branch)->getTable(), 'id')->where(fn ($query) => $query->where('tenant_id', $tenantId)->whereIn('id', $branchIds))],
-            'document_type_id' => ['required', 'uuid', Rule::exists((new DocumentType)->getTable(), 'id')->where(fn ($query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenantId))],
+            'branch_id' => ['nullable', 'uuid', Rule::exists((new Branch)->getTable(), 'id')->where(fn (Builder $query) => $query->where('tenant_id', $tenantId)->whereIn('id', $branchIds))],
+            'document_type_id' => ['required', 'uuid', Rule::exists((new DocumentType)->getTable(), 'id')->where(fn (Builder $query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenantId))],
             'owner_id' => ['nullable', 'uuid', Rule::exists((new User)->getTable(), 'id')->where('tenant_id', $tenantId)],
             'title' => ['required', 'string', 'max:255'],
             'reference' => ['nullable', 'string', 'max:255'],

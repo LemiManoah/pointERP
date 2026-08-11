@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -15,6 +16,48 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property-read string $id
+ * @property-read string $tenant_id
+ * @property-read string $branch_id
+ * @property-read string $project_id
+ * @property-read string $site_id
+ * @property-read CarbonInterface $report_date
+ * @property-read string $reference
+ * @property-read string|null $weather
+ * @property-read string|null $site_conditions
+ * @property-read string|null $work_summary
+ * @property-read string|null $delay_summary
+ * @property-read string|null $visitor_summary
+ * @property-read string|null $hse_notes
+ * @property-read string|null $environment_notes
+ * @property-read string|null $social_notes
+ * @property-read string|null $completion_percent
+ * @property-read string|null $output_value
+ * @property-read string|null $input_cost
+ * @property-read string|null $profit_loss
+ * @property-read string $status
+ * @property-read CarbonInterface|null $expected_at
+ * @property-read string|null $submitted_by
+ * @property-read CarbonInterface|null $submitted_at
+ * @property-read string|null $reviewed_by
+ * @property-read CarbonInterface|null $reviewed_at
+ * @property-read string|null $approved_by
+ * @property-read CarbonInterface|null $approved_at
+ * @property-read string|null $returned_by
+ * @property-read CarbonInterface|null $returned_at
+ * @property-read string|null $return_reason
+ * @property-read string $created_by
+ * @property-read string|null $updated_by
+ * @property-read CarbonInterface $created_at
+ * @property-read CarbonInterface $updated_at
+ * @property-read CarbonInterface|null $deleted_at
+ * @property-read Branch|null $branch
+ * @property-read Project|null $project
+ * @property-read Site|null $site
+ * @property-read User|null $submittedBy
+ * @property-read User|null $approvedBy
+ */
 #[Fillable([
     'tenant_id',
     'branch_id',
@@ -99,26 +142,41 @@ final class DailySiteReport extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<Branch, $this>
+     */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
+    /**
+     * @return BelongsTo<Project, $this>
+     */
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
     }
 
+    /**
+     * @return BelongsTo<Site, $this>
+     */
     public function site(): BelongsTo
     {
         return $this->belongsTo(Site::class);
     }
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function submittedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'submitted_by');
     }
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Models\Document;
+use App\Models\DocumentLink;
 use App\Models\User;
 use App\Policies\Concerns\ChecksTenantAccess;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,7 @@ final class DocumentPolicy
         if ($user->can('documents.view')) {
             return true;
         }
+
         if ($user->can('documents.upload')) {
             return true;
         }
@@ -91,7 +93,7 @@ final class DocumentPolicy
             return true;
         }
 
-        return $document->links->contains(function ($link) use ($user): bool {
+        return $document->links->contains(function (DocumentLink $link) use ($user): bool {
             $target = $link->linkable;
 
             return $target instanceof Model

@@ -8,11 +8,12 @@ use App\Actions\Operations\Sites\SaveSite;
 use App\Http\Controllers\Operations\Concerns\PresentsLinkedDocuments;
 use App\Http\Requests\Operations\Sites\StoreSiteRequest;
 use App\Http\Requests\Operations\Sites\UpdateSiteRequest;
-use App\Models\Project;
 use App\Models\Document;
+use App\Models\Project;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\AuditLogger;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -52,16 +53,16 @@ final class SiteController
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
-                'role' => $user->pivot->role,
-                'can_submit_dsr' => (bool) $user->pivot->can_submit_dsr,
-                'can_review_dsr' => (bool) $user->pivot->can_review_dsr,
+                'role' => $user->pivot->getAttribute('role'),
+                'can_submit_dsr' => (bool) $user->pivot->getAttribute('can_submit_dsr'),
+                'can_review_dsr' => (bool) $user->pivot->getAttribute('can_review_dsr'),
             ]),
             'documents' => $this->linkedDocumentsFor($site, $currentUser),
             'canUploadDocuments' => Gate::forUser($currentUser)->allows('create', Document::class),
             'users' => User::query()
                 ->where('tenant_id', $site->tenant_id)
                 ->where('is_active', true)
-                ->whereHas('branches', fn ($query) => $query->whereKey($site->branch_id))
+                ->whereHas('branches', fn (Builder $query) => $query->whereKey($site->branch_id))
                 ->orderBy('name')
                 ->get(['id', 'name', 'email'])
                 ->map(fn (User $user): array => ['id' => $user->id, 'name' => sprintf('%s (%s)', $user->name, $user->email), 'email' => $user->email]),

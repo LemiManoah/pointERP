@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,7 +14,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['tenant_id', 'branch_id', 'daily_site_report_id', 'delay_type', 'description', 'hours_lost', 'action_taken', 'sort_order'])]
 final class DailySiteReportDelayLine extends Model
 {
+    /** @use HasFactory<Factory<DailySiteReportDelayLine>> */
     use HasFactory;
+
     use HasUuids;
 
     /**
@@ -28,6 +31,9 @@ final class DailySiteReportDelayLine extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<DailySiteReport, $this>
+     */
     public function report(): BelongsTo
     {
         return $this->belongsTo(DailySiteReport::class, 'daily_site_report_id');

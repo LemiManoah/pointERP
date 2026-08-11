@@ -69,7 +69,7 @@ final readonly class SaveProject
     }
 
     /**
-     * @param  array{branch_id: string, customer_id?: string|null, contract_id?: string|null, manager_id?: string|null}  $data
+     * @param  array{branch_id: string, customer_id?: string|null, contract_id?: string|null, reference: string, name: string, description?: string|null, manager_id?: string|null, base_currency_code: string, budget_amount?: string|null, starts_on?: string|null, ends_on?: string|null, reporting_deadline?: string|null, status: string}  $data
      */
     private function validateOptionalRelations(array $data): void
     {

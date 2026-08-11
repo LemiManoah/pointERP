@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -82,8 +83,8 @@ final class ProjectController
                     'id' => $assignedUser->id,
                     'name' => $assignedUser->name,
                     'email' => $assignedUser->email,
-                    'role' => $assignedUser->pivot->role,
-                    'can_manage' => (bool) $assignedUser->pivot->can_manage,
+                    'role' => $assignedUser->pivot->getAttribute('role'),
+                    'can_manage' => (bool) $assignedUser->pivot->getAttribute('can_manage'),
                 ]),
             'documents' => $this->linkedDocumentsFor($project, $user),
             'canUploadDocuments' => Gate::forUser($user)->allows('create', Document::class),
@@ -178,7 +179,7 @@ final class ProjectController
                 ->with('staff')
                 ->where('tenant_id', $tenantId)
                 ->where('is_active', true)
-                ->whereHas('branches', fn ($query) => $query->whereIn('branches.id', $branchIds))
+                ->whereHas('branches', fn (Builder $query) => $query->whereIn('branches.id', $branchIds))
                 ->orderBy('name')
                 ->get(['id', 'staff_id', 'name', 'email'])
                 ->map(fn (User $optionUser): array => ['id' => $optionUser->id, 'name' => sprintf('%s (%s)', $optionUser->name, $optionUser->email), 'email' => $optionUser->email]),

@@ -56,10 +56,16 @@ export default function DocumentsIndex({
     const [tab, setTab] = useState('active');
     const [expiry, setExpiry] = useState('all');
     const debouncedSearch = useDebouncedValue(search);
-    const today = new Date().toISOString().slice(0, 10);
-    const soon = new Date();
-    soon.setDate(soon.getDate() + 30);
-    const soonDate = soon.toISOString().slice(0, 10);
+    const { soonDate, today } = useMemo(() => {
+        const currentDate = new Date().toISOString().slice(0, 10);
+        const soon = new Date();
+        soon.setDate(soon.getDate() + 30);
+
+        return {
+            today: currentDate,
+            soonDate: soon.toISOString().slice(0, 10),
+        };
+    }, []);
     const activeCount = documents.filter(
         (document) => document.status !== 'archived',
     ).length;
@@ -112,7 +118,7 @@ export default function DocumentsIndex({
 
             return matchesTab && matchesSearch && matchesExpiry;
         });
-    }, [debouncedSearch, documents, expiry, tab]);
+    }, [debouncedSearch, documents, expiry, soonDate, tab, today]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>

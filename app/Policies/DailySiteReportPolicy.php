@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Models\DailySiteReport;
+use App\Models\Project;
 use App\Models\Site;
 use App\Models\User;
 use App\Policies\Concerns\ChecksTenantAccess;
@@ -35,6 +36,7 @@ final class DailySiteReportPolicy
         return $this->belongsToSameTenant($user, $dailySiteReport->tenant_id)
             && $this->canAccessBranch($user, $dailySiteReport->branch_id)
             && $this->viewAny($user)
+            && $dailySiteReport->site instanceof Site
             && $this->canAccessSite($user, $dailySiteReport->site);
     }
 
@@ -58,6 +60,8 @@ final class DailySiteReportPolicy
         return $dailySiteReport->isEditable()
             && $user->can('daily-site-reports.update')
             && $this->view($user, $dailySiteReport)
+            && $dailySiteReport->site instanceof Site
+            && $dailySiteReport->project instanceof Project
             && (
                 $dailySiteReport->created_by === $user->id
                 || $dailySiteReport->submitted_by === $user->id
@@ -72,6 +76,7 @@ final class DailySiteReportPolicy
         return $dailySiteReport->isEditable()
             && $user->can('daily-site-reports.submit')
             && $this->view($user, $dailySiteReport)
+            && $dailySiteReport->site instanceof Site
             && $dailySiteReport->site->users()->whereKey($user->id)->wherePivot('can_submit_dsr', true)->exists();
     }
 
@@ -80,6 +85,8 @@ final class DailySiteReportPolicy
         return $dailySiteReport->status === DailySiteReport::STATUS_SUBMITTED
             && $user->can('daily-site-reports.review')
             && $this->view($user, $dailySiteReport)
+            && $dailySiteReport->site instanceof Site
+            && $dailySiteReport->project instanceof Project
             && (
                 $dailySiteReport->site->users()->whereKey($user->id)->wherePivot('can_review_dsr', true)->exists()
                 || $dailySiteReport->project->manager_id === $user->id
@@ -92,6 +99,7 @@ final class DailySiteReportPolicy
         return in_array($dailySiteReport->status, [DailySiteReport::STATUS_SUBMITTED, DailySiteReport::STATUS_REVIEWED], true)
             && $user->can('daily-site-reports.approve')
             && $this->view($user, $dailySiteReport)
+            && $dailySiteReport->project instanceof Project
             && (
                 $dailySiteReport->project->manager_id === $user->id
                 || $dailySiteReport->project->users()->whereKey($user->id)->wherePivot('can_manage', true)->exists()

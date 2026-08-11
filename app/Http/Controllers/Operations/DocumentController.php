@@ -78,7 +78,7 @@ final class DocumentController
                         'size_bytes' => $version->size_bytes,
                         'checksum' => $version->checksum,
                         'notes' => $version->notes,
-                        'uploaded_by' => $version->uploadedBy->name,
+                        'uploaded_by' => $version->uploadedBy?->name,
                         'uploaded_at' => $version->uploaded_at?->toDateTimeString(),
                     ]),
             ],
@@ -217,7 +217,7 @@ final class DocumentController
             ->orderBy('name')
             ->get()
             ->filter(fn (Site $site): bool => Gate::forUser($user)->allows('view', $site))
-            ->map(fn (Site $site): array => ['id' => $site->id, 'name' => sprintf('%s (%s)', $site->name, $site->project->reference)])
+            ->map(fn (Site $site): array => ['id' => $site->id, 'name' => sprintf('%s (%s)', $site->name, $site->project?->reference)])
             ->values()
             ->all();
     }
@@ -233,7 +233,7 @@ final class DocumentController
             ->latest('report_date')
             ->get()
             ->filter(fn (DailySiteReport $report): bool => Gate::forUser($user)->allows('view', $report))
-            ->map(fn (DailySiteReport $report): array => ['id' => $report->id, 'name' => sprintf('%s - %s', $report->reference, $report->site->name)])
+            ->map(fn (DailySiteReport $report): array => ['id' => $report->id, 'name' => sprintf('%s - %s', $report->reference, $report->site?->name)])
             ->values()
             ->all();
     }

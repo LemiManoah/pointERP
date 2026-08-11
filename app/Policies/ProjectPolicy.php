@@ -7,6 +7,7 @@ namespace App\Policies;
 use App\Models\Project;
 use App\Models\User;
 use App\Policies\Concerns\ChecksTenantAccess;
+use Illuminate\Database\Eloquent\Builder;
 
 final class ProjectPolicy
 {
@@ -39,7 +40,7 @@ final class ProjectPolicy
                 || $user->can('branches.view-all')
                 || $project->manager_id === $user->id
                 || $project->users()->whereKey($user->id)->exists()
-                || $project->sites()->whereHas('users', fn ($query) => $query->whereKey($user->id))->exists()
+                || $project->sites()->whereHas('users', fn (Builder $query) => $query->whereKey($user->id))->exists()
             );
     }
 

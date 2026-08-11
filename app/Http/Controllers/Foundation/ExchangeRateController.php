@@ -14,6 +14,7 @@ use App\Models\TenantCurrency;
 use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -36,10 +37,7 @@ final class ExchangeRateController
                 ->with('branch')
                 ->where('tenant_id', $tenantId)
                 ->unless(
-                    $canViewAllBranches,
-                    fn ($query) => $query->where(fn ($query) => $query
-                        ->whereNull('branch_id')
-                        ->orWhereIn('branch_id', $accessibleBranchIds)),
+                    $canViewAllBranches, fn (Builder $query) => $query->where(fn (Builder $query) => $query->whereNull('branch_id')->orWhereIn('branch_id', $accessibleBranchIds)),
                 )
                 ->latest('effective_date')
                 ->latest()
@@ -58,7 +56,7 @@ final class ExchangeRateController
             'branches' => Branch::query()
                 ->where('tenant_id', $tenantId)
                 ->where('status', 'active')
-                ->unless($canViewAllBranches, fn ($query) => $query->whereIn('id', $accessibleBranchIds))
+                ->unless($canViewAllBranches, fn (Builder $query) => $query->whereIn('id', $accessibleBranchIds))
                 ->orderBy('name')
                 ->get(['id', 'name', 'code'])
                 ->map(fn (Branch $branch): array => [

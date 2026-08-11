@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Models\Activity;
@@ -23,6 +24,7 @@ use Spatie\Activitylog\Models\Activity;
  */
 final class AuditActivity extends Activity
 {
+    /** @use HasFactory<Factory<AuditActivity>> */
     use HasFactory;
 
     /**

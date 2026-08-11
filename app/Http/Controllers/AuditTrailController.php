@@ -61,7 +61,7 @@ final class AuditTrailController
                 'reason' => $activity->reason,
                 'ip_address' => $activity->ip_address,
                 'user_agent' => $activity->user_agent,
-                'created_at' => $activity->created_at?->toDateTimeString(),
+                'created_at' => $activity->created_at->toDateTimeString(),
             ]);
 
         return Inertia::render('audit-trail/index', [

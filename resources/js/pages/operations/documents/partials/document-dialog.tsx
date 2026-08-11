@@ -151,7 +151,7 @@ export function DocumentDialog({
                     size={isEditing ? 'sm' : 'default'}
                 >
                     {isEditing ? <Pencil /> : <Plus />}
-                    {isEditing ? 'Edit' : buttonLabel ?? 'Upload document'}
+                    {isEditing ? 'Edit' : (buttonLabel ?? 'Upload document')}
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-4xl">
@@ -273,9 +273,7 @@ export function DocumentDialog({
                                     )
                                 }
                             />
-                            <InputError
-                                message={form.errors.document_number}
-                            />
+                            <InputError message={form.errors.document_number} />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="revision">Revision</Label>

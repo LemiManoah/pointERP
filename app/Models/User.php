@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
@@ -38,6 +39,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property-read CarbonInterface $updated_at
  * @property-read Tenant $tenant
  * @property-read Staff|null $staff
+ * @property-read Pivot $pivot
  */
 #[Hidden([
     'password',

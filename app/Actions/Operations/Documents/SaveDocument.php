@@ -59,15 +59,19 @@ final readonly class SaveDocument
                 if (! is_array($link)) {
                     continue;
                 }
+
                 if (! is_string($link['type'] ?? null)) {
                     continue;
                 }
+
                 if (! is_string($link['id'] ?? null)) {
                     continue;
                 }
+
                 if ($link['id'] === '') {
                     continue;
                 }
+
                 $this->linkDocumentToRecord->handle($document, $link['type'], $link['id'], $actor);
             }
 

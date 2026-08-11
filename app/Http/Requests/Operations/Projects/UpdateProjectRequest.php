@@ -22,6 +22,9 @@ final class UpdateProjectRequest extends FormRequest
         return true;
     }
 
+    /**
+     * @return array<string, list<mixed>>
+     */
     public function rules(): array
     {
         $tenantId = resolve(TenantContext::class)->id();

@@ -16,15 +16,15 @@ import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import {
-    DocumentEvidenceTable,
-    type LinkedDocumentRow,
-} from '../documents/partials/document-evidence-table';
-import {
     DocumentDialog,
     type DocumentTypeOption,
     type LinkOptions,
     type Option,
 } from '../documents/partials/document-dialog';
+import {
+    DocumentEvidenceTable,
+    type LinkedDocumentRow,
+} from '../documents/partials/document-evidence-table';
 
 type Line = Record<string, string | null>;
 
@@ -236,17 +236,17 @@ export default function DailySiteReportShow({
                     description="Drawings, sketches, permits, photos and other files tied to this daily report."
                     actions={
                         canUploadDocuments && (
-                        <DocumentDialog
-                            documentTypes={documentTypes}
-                            branches={documentBranches}
-                            linkOptions={documentLinkOptions}
-                            defaultBranchId={report.branch_id}
-                            defaultLink={{
-                                type: 'daily_site_report',
-                                id: report.id,
-                            }}
-                            buttonLabel="Upload evidence"
-                        />
+                            <DocumentDialog
+                                documentTypes={documentTypes}
+                                branches={documentBranches}
+                                linkOptions={documentLinkOptions}
+                                defaultBranchId={report.branch_id}
+                                defaultLink={{
+                                    type: 'daily_site_report',
+                                    id: report.id,
+                                }}
+                                buttonLabel="Upload evidence"
+                            />
                         )
                     }
                 />

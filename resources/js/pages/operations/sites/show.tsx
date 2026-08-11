@@ -21,15 +21,15 @@ import { Spinner } from '@/components/ui/spinner';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import {
-    DocumentEvidenceTable,
-    type LinkedDocumentRow,
-} from '../documents/partials/document-evidence-table';
-import {
     DocumentDialog,
     type DocumentTypeOption,
     type LinkOptions,
     type Option,
 } from '../documents/partials/document-dialog';
+import {
+    DocumentEvidenceTable,
+    type LinkedDocumentRow,
+} from '../documents/partials/document-evidence-table';
 
 type Site = {
     id: string;
@@ -184,14 +184,14 @@ export default function SiteShow({
                     emptyText="No documents linked to this site."
                     actions={
                         canUploadDocuments && (
-                        <DocumentDialog
-                            documentTypes={documentTypes}
-                            branches={documentBranches}
-                            linkOptions={documentLinkOptions}
-                            defaultBranchId={site.branch_id}
-                            defaultLink={{ type: 'site', id: site.id }}
-                            buttonLabel="Upload evidence"
-                        />
+                            <DocumentDialog
+                                documentTypes={documentTypes}
+                                branches={documentBranches}
+                                linkOptions={documentLinkOptions}
+                                defaultBranchId={site.branch_id}
+                                defaultLink={{ type: 'site', id: site.id }}
+                                buttonLabel="Upload evidence"
+                            />
                         )
                     }
                 />

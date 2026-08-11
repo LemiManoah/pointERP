@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -16,6 +17,28 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property-read string $id
+ * @property-read string $tenant_id
+ * @property-read string $branch_id
+ * @property-read string $project_id
+ * @property-read string $reference
+ * @property-read string $name
+ * @property-read string|null $location_name
+ * @property-read string|null $latitude
+ * @property-read string|null $longitude
+ * @property-read string|null $manager_id
+ * @property-read string|null $reporting_deadline
+ * @property-read string $status
+ * @property-read string $created_by
+ * @property-read string|null $updated_by
+ * @property-read CarbonInterface $created_at
+ * @property-read CarbonInterface $updated_at
+ * @property-read CarbonInterface|null $deleted_at
+ * @property-read Branch|null $branch
+ * @property-read Project|null $project
+ * @property-read User|null $manager
+ */
 #[Fillable([
     'tenant_id',
     'branch_id',
@@ -64,16 +87,25 @@ final class Site extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<Branch, $this>
+     */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
+    /**
+     * @return BelongsTo<Project, $this>
+     */
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
     }
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function manager(): BelongsTo
     {
         return $this->belongsTo(User::class, 'manager_id');

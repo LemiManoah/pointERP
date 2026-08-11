@@ -16,6 +16,35 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property-read string $id
+ * @property-read string $tenant_id
+ * @property-read string|null $branch_id
+ * @property-read string $document_type_id
+ * @property-read string|null $owner_id
+ * @property-read string $title
+ * @property-read string|null $reference
+ * @property-read string|null $document_number
+ * @property-read string|null $revision
+ * @property-read string|null $discipline
+ * @property-read string|null $issuer
+ * @property-read string|null $description
+ * @property-read CarbonInterface|null $document_date
+ * @property-read CarbonInterface|null $received_on
+ * @property-read CarbonInterface|null $expires_on
+ * @property-read string $confidentiality
+ * @property-read string $status
+ * @property-read string|null $current_version_id
+ * @property-read string $created_by
+ * @property-read string|null $updated_by
+ * @property-read CarbonInterface $created_at
+ * @property-read CarbonInterface $updated_at
+ * @property-read CarbonInterface|null $deleted_at
+ * @property-read Branch|null $branch
+ * @property-read DocumentType|null $type
+ * @property-read User|null $owner
+ * @property-read DocumentVersion|null $currentVersion
+ */
 #[Fillable([
     'tenant_id',
     'branch_id',
@@ -43,6 +72,7 @@ final class Document extends Model
 
     /** @use HasFactory<Factory<Document>> */
     use HasFactory;
+
     use HasUuids;
     use SoftDeletes;
 
@@ -82,21 +112,33 @@ final class Document extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<Branch, $this>
+     */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
+    /**
+     * @return BelongsTo<DocumentType, $this>
+     */
     public function type(): BelongsTo
     {
         return $this->belongsTo(DocumentType::class, 'document_type_id');
     }
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_id');
     }
 
+    /**
+     * @return BelongsTo<DocumentVersion, $this>
+     */
     public function currentVersion(): BelongsTo
     {
         return $this->belongsTo(DocumentVersion::class, 'current_version_id');

@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -19,6 +20,9 @@ final class UpdateSiteRequest extends FormRequest
         return true;
     }
 
+    /**
+     * @return array<string, list<mixed>>
+     */
     public function rules(): array
     {
         $tenantId = resolve(TenantContext::class)->id();
@@ -38,7 +42,7 @@ final class UpdateSiteRequest extends FormRequest
 
     public function withValidator(Validator $validator): void
     {
-        $validator->after(function ($validator): void {
+        $validator->after(function (Validator $validator): void {
             $projectId = $this->input('project_id');
             $site = $this->route('site');
 
@@ -49,7 +53,7 @@ final class UpdateSiteRequest extends FormRequest
             $exists = Site::query()
                 ->where('project_id', $projectId)
                 ->where('reference', mb_strtoupper((string) $this->input('reference')))
-                ->when($site instanceof Site, fn ($query) => $query->whereKeyNot($site->id))
+                ->when($site instanceof Site, fn (Builder $query) => $query->whereKeyNot($site->id))
                 ->exists();
 
             if ($exists) {

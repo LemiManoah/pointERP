@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Operations\Concerns;
 
-use App\Models\Contract;
 use App\Models\Branch;
+use App\Models\Contract;
 use App\Models\DailySiteReport;
 use App\Models\Document;
 use App\Models\DocumentLink;
@@ -16,6 +16,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 
@@ -65,7 +66,7 @@ trait PresentsLinkedDocuments
     {
         return Document::query()
             ->with(['type', 'branch', 'currentVersion', 'links.linkable'])
-            ->whereHas('links', fn ($query) => $query
+            ->whereHas('links', fn (Builder $query) => $query
                 ->where('linkable_type', $target::class)
                 ->where('linkable_id', $target->getKey()))
             ->latest()
@@ -89,8 +90,8 @@ trait PresentsLinkedDocuments
             'revision' => $document->revision,
             'discipline' => $document->discipline,
             'issuer' => $document->issuer,
-            'type_name' => $document->type->name,
-            'type_code' => $document->type->code,
+            'type_name' => $document->type?->name,
+            'type_code' => $document->type?->code,
             'branch_name' => $document->branch?->name,
             'confidentiality' => $document->confidentiality,
             'status' => $document->status,
@@ -166,7 +167,7 @@ trait PresentsLinkedDocuments
             ->orderBy('name')
             ->get()
             ->filter(fn (Site $site): bool => Gate::forUser($user)->allows('view', $site))
-            ->map(fn (Site $site): array => ['id' => $site->id, 'name' => sprintf('%s (%s)', $site->name, $site->project->reference)])
+            ->map(fn (Site $site): array => ['id' => $site->id, 'name' => sprintf('%s (%s)', $site->name, $site->project?->reference)])
             ->values()
             ->all();
     }
@@ -182,7 +183,7 @@ trait PresentsLinkedDocuments
             ->latest('report_date')
             ->get()
             ->filter(fn (DailySiteReport $report): bool => Gate::forUser($user)->allows('view', $report))
-            ->map(fn (DailySiteReport $report): array => ['id' => $report->id, 'name' => sprintf('%s - %s', $report->reference, $report->site->name)])
+            ->map(fn (DailySiteReport $report): array => ['id' => $report->id, 'name' => sprintf('%s - %s', $report->reference, $report->site?->name)])
             ->values()
             ->all();
     }
