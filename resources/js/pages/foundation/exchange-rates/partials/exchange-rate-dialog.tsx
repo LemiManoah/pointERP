@@ -20,12 +20,14 @@ type Props = {
     exchangeRate?: ExchangeRate;
     branches: BranchOption[];
     currencies: CurrencyOption[];
+    isMultiBranch: boolean;
 };
 
 export function ExchangeRateDialog({
     exchangeRate,
     branches,
     currencies,
+    isMultiBranch,
 }: Props) {
     const [open, setOpen] = useState(false);
     const isEditing = Boolean(exchangeRate);
@@ -55,6 +57,7 @@ export function ExchangeRateDialog({
                     exchangeRate={exchangeRate}
                     branches={branches}
                     currencies={currencies}
+                    isMultiBranch={isMultiBranch}
                     onCancel={() => setOpen(false)}
                     onSuccess={() => setOpen(false)}
                 />

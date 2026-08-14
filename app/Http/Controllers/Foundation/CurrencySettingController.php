@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Foundation;
 
 use App\Models\Branch;
-use App\Models\BranchCurrency;
 use App\Models\Currency;
+use App\Models\ExchangeRate;
+use App\Models\Tenant;
 use App\Models\TenantCurrency;
+use App\Services\BranchContext;
 use App\Services\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -20,10 +23,16 @@ final class CurrencySettingController
         Gate::authorize('viewAny', TenantCurrency::class);
 
         $tenant = resolve(TenantContext::class)->current();
+        $tenantId = $tenant->id;
+        $branchContext = resolve(BranchContext::class);
+        $accessibleBranchIds = $branchContext->accessibleBranchIds();
+        $canViewAllBranches = $branchContext->canViewAllBranches();
+
+        $this->ensureDefaultTenantCurrency($tenant);
 
         $tenantCurrencies = TenantCurrency::query()
             ->with('currency')
-            ->where('tenant_id', $tenant->id)
+            ->where('tenant_id', $tenantId)
             ->orderBy('currency_code')
             ->get()
             ->keyBy('currency_code');
@@ -33,6 +42,7 @@ final class CurrencySettingController
                 'id' => $tenant->id,
                 'name' => $tenant->name,
                 'default_currency_code' => $tenant->default_currency_code,
+                'is_multibranch' => $tenant->is_multibranch,
                 'multi_currency_enabled' => $tenant->multi_currency_enabled,
             ],
             'currencies' => Currency::query()
@@ -43,33 +53,68 @@ final class CurrencySettingController
                     'code' => $currency->code,
                     'name' => $currency->name,
                     'symbol' => $currency->symbol,
-                    'tenant_enabled' => (bool) $tenantCurrencies->get($currency->code)?->is_enabled,
+                    'tenant_enabled' => $currency->code === $tenant->default_currency_code || (bool) $tenantCurrencies->get($currency->code)?->is_enabled,
                     'tenant_default' => $currency->code === $tenant->default_currency_code,
                 ]),
-            'branches' => Branch::query()
-                ->with('enabledCurrencies.currency')
-                ->where('tenant_id', $tenant->id)
-                ->where('status', 'active')
-                ->orderBy('name')
+            'referenceCurrencies' => Currency::query()
+                ->orderBy('code')
                 ->get()
+                ->map(fn (Currency $currency): array => [
+                    'code' => $currency->code,
+                    'name' => $currency->name,
+                    'symbol' => $currency->symbol ?? '',
+                    'decimal_places' => $currency->decimal_places,
+                    'is_active' => $currency->is_active,
+                ]),
+            'branches' => Branch::query()
+                ->where('tenant_id', $tenantId)
+                ->where('status', 'active')
+                ->unless($canViewAllBranches, fn (Builder $query) => $query->whereIn('id', $accessibleBranchIds))
+                ->orderBy('name')
+                ->get(['id', 'name', 'code'])
                 ->map(fn (Branch $branch): array => [
                     'id' => $branch->id,
                     'name' => $branch->name,
                     'code' => $branch->code,
-                    'default_currency_code' => $branch->default_currency_code,
-                    'currencies' => $branch->enabledCurrencies
-                        ->sortBy('currency_code')
-                        ->values()
-                        ->map(fn (BranchCurrency $setting): array => [
-                            'id' => $setting->id,
-                            'currency_code' => $setting->currency_code,
-                            'currency_name' => $setting->currency->name,
-                            'is_enabled' => $setting->is_enabled,
-                            'is_default_transaction_currency' => $setting->is_default_transaction_currency,
-                            'can_receive' => $setting->can_receive,
-                            'can_pay' => $setting->can_pay,
-                        ]),
+                ]),
+            'exchangeRates' => ExchangeRate::query()
+                ->with('branch')
+                ->where('tenant_id', $tenantId)
+                ->unless(
+                    $canViewAllBranches,
+                    fn (Builder $query) => $query->where(fn (Builder $query) => $query->whereNull('branch_id')->orWhereIn('branch_id', $accessibleBranchIds)),
+                )
+                ->latest('effective_date')
+                ->latest()
+                ->get()
+                ->map(fn (ExchangeRate $rate): array => [
+                    'id' => $rate->id,
+                    'branch_id' => $rate->branch_id,
+                    'branch_name' => $rate->branch?->name,
+                    'from_currency_code' => $rate->from_currency_code,
+                    'to_currency_code' => $rate->to_currency_code,
+                    'rate' => $rate->rate,
+                    'effective_date' => $rate->effective_date->toDateString(),
+                    'expires_at' => $rate->expires_at?->toDateTimeString(),
+                    'status' => $rate->status,
                 ]),
         ]);
+    }
+
+    private function ensureDefaultTenantCurrency(Tenant $tenant): void
+    {
+        $setting = TenantCurrency::withTrashed()->firstOrNew([
+            'tenant_id' => $tenant->id,
+            'currency_code' => $tenant->default_currency_code,
+        ]);
+
+        if ($setting->trashed()) {
+            $setting->restore();
+        }
+
+        $setting->forceFill([
+            'is_enabled' => true,
+            'is_default' => true,
+        ])->save();
     }
 }

@@ -55,7 +55,7 @@ final class CurrencyController
             'message' => 'Currency created.',
         ]);
 
-        return to_route('foundation.currencies.index');
+        return back();
     }
 
     public function edit(Currency $currency): Response
@@ -87,7 +87,7 @@ final class CurrencyController
             'message' => 'Currency updated.',
         ]);
 
-        return to_route('foundation.currencies.index');
+        return back();
     }
 
     public function destroy(Currency $currency, ToggleCurrencyStatus $action): RedirectResponse
@@ -101,6 +101,6 @@ final class CurrencyController
             'message' => $currency->is_active ? 'Currency activated.' : 'Currency deactivated.',
         ]);
 
-        return to_route('foundation.currencies.index');
+        return back();
     }
 }

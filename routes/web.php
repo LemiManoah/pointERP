@@ -14,6 +14,7 @@ use App\Http\Controllers\Foundation\CurrencySettingController;
 use App\Http\Controllers\Foundation\ExchangeRateApprovalController;
 use App\Http\Controllers\Foundation\ExchangeRateController;
 use App\Http\Controllers\Foundation\TenantCurrencyController;
+use App\Http\Controllers\Foundation\TenantMultiCurrencyController;
 use App\Http\Controllers\Operations\ContractController;
 use App\Http\Controllers\Operations\CustomerController;
 use App\Http\Controllers\Operations\DailySiteReportApprovalController;
@@ -57,6 +58,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::resource('countries', CountryController::class)->except(['show'])->names('foundation.countries');
     Route::resource('currencies', CurrencyController::class)->except(['show'])->names('foundation.currencies');
     Route::get('currency-settings', [CurrencySettingController::class, 'index'])->name('foundation.currency-settings.index');
+    Route::put('currency-settings/multi-currency', [TenantMultiCurrencyController::class, 'update'])->name('foundation.currency-settings.multi-currency.toggle');
     Route::put('currency-settings/tenant/{currency}', [TenantCurrencyController::class, 'update'])->name('foundation.currency-settings.tenant.toggle');
     Route::post('currency-settings/branches', [BranchCurrencyController::class, 'store'])->name('foundation.currency-settings.branches.store');
     Route::resource('exchange-rates', ExchangeRateController::class)->only(['index', 'store', 'update', 'destroy'])->names('foundation.exchange-rates');

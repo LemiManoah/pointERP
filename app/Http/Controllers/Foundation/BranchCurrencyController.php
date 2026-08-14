@@ -18,7 +18,7 @@ final class BranchCurrencyController
     {
         Gate::authorize('viewAny', BranchCurrency::class);
 
-        /** @var array{branch_id: string, currency_code: string, is_enabled: bool, is_default_transaction_currency: bool, can_receive: bool, can_pay: bool} $data */
+        /** @var array{branch_id: string, currency_code: string, is_enabled: bool} $data */
         $data = $request->validated();
 
         try {

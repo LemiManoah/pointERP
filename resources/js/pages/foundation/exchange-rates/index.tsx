@@ -25,6 +25,9 @@ import type {
 } from './partials/exchange-rate-form';
 
 type Props = {
+    tenant: {
+        is_multibranch: boolean;
+    };
     exchangeRates: ExchangeRate[];
     branches: BranchOption[];
     currencies: CurrencyOption[];
@@ -36,6 +39,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function ExchangeRatesIndex({
+    tenant,
     exchangeRates,
     branches,
     currencies,
@@ -53,7 +57,7 @@ export default function ExchangeRatesIndex({
             const matchesSearch =
                 !term ||
                 [
-                    rate.branch_name ?? 'tenant-wide',
+                    rate.branch_name ?? 'facility-wide',
                     rate.from_currency_code,
                     rate.to_currency_code,
                     rate.rate,
@@ -104,13 +108,14 @@ export default function ExchangeRatesIndex({
                                     Approved
                                 </TabsTrigger>
                                 <TabsTrigger value="superseded">
-                                    Superseded
+                                    Old rates
                                 </TabsTrigger>
                             </TabsList>
                         </Tabs>
                         <ExchangeRateDialog
                             branches={branches}
                             currencies={currencies}
+                            isMultiBranch={tenant.is_multibranch}
                         />
                     </div>
                 </div>
@@ -120,7 +125,7 @@ export default function ExchangeRatesIndex({
                         <CardTitle>Rates</CardTitle>
                         <CardDescription>
                             Approved rates are preserved; new periods supersede
-                            earlier approved rates.
+                            earlier approved rates by moving them to Old rates.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -153,7 +158,7 @@ export default function ExchangeRatesIndex({
                                         >
                                             <td className="py-3 pr-4">
                                                 {rate.branch_name ??
-                                                    'Tenant-wide'}
+                                                    'Facility-wide'}
                                             </td>
                                             <td className="py-3 pr-4">
                                                 1 {rate.from_currency_code} ={' '}
@@ -181,6 +186,9 @@ export default function ExchangeRatesIndex({
                                                         exchangeRate={rate}
                                                         branches={branches}
                                                         currencies={currencies}
+                                                        isMultiBranch={
+                                                            tenant.is_multibranch
+                                                        }
                                                     />
                                                     {rate.status ===
                                                         'draft' && (

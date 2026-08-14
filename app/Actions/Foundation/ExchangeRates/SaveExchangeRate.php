@@ -28,7 +28,13 @@ final readonly class SaveExchangeRate
 
         throw_if($exchangeRate instanceof ExchangeRate && $exchangeRate->status !== ExchangeRate::STATUS_DRAFT, InvalidArgumentException::class, 'Only draft exchange rates can be edited.');
 
-        throw_if(($data['branch_id'] ?? null) === null && ! $actor->can('branches.view-all'), InvalidArgumentException::class, 'Only users with all-branch access can create tenant-wide exchange rates.');
+        throw_if(
+            $tenant->is_multibranch
+            && ($data['branch_id'] ?? null) === null
+            && ! $actor->can('branches.view-all'),
+            InvalidArgumentException::class,
+            'Only users with all-branch access can create facility-wide exchange rates.',
+        );
 
         if (($data['branch_id'] ?? null) !== null) {
             Branch::query()

@@ -44,6 +44,7 @@ type Props = {
     exchangeRate?: ExchangeRate;
     branches: BranchOption[];
     currencies: CurrencyOption[];
+    isMultiBranch: boolean;
     onCancel?: () => void;
     onSuccess?: () => void;
 };
@@ -52,6 +53,7 @@ export function ExchangeRateForm({
     exchangeRate,
     branches,
     currencies,
+    isMultiBranch,
     onCancel,
     onSuccess,
 }: Props) {
@@ -95,27 +97,32 @@ export function ExchangeRateForm({
 
     return (
         <form onSubmit={submit} className="grid gap-5">
-            <div className="grid gap-2">
-                <Label>Scope</Label>
-                <SearchableSelect
-                    value={form.data.branch_id}
-                    onValueChange={(value) => form.setData('branch_id', value)}
-                    options={[
-                        {
-                            value: '__tenant__',
-                            label: 'Tenant-wide',
-                            description: 'Applies unless a branch rate exists',
-                        },
-                        ...branches.map((branch) => ({
-                            value: branch.id,
-                            label: branch.name,
-                            description: branch.code,
-                        })),
-                    ]}
-                    placeholder="Select scope"
-                />
-                <InputError message={form.errors.branch_id} />
-            </div>
+            {isMultiBranch && (
+                <div className="grid gap-2">
+                    <Label>Scope</Label>
+                    <SearchableSelect
+                        value={form.data.branch_id}
+                        onValueChange={(value) =>
+                            form.setData('branch_id', value)
+                        }
+                        options={[
+                            {
+                                value: '__tenant__',
+                                label: 'Facility-wide',
+                                description:
+                                    'Applies unless a branch rate exists',
+                            },
+                            ...branches.map((branch) => ({
+                                value: branch.id,
+                                label: branch.name,
+                                description: branch.code,
+                            })),
+                        ]}
+                        placeholder="Select scope"
+                    />
+                    <InputError message={form.errors.branch_id} />
+                </div>
+            )}
 
             <div className="grid gap-4 sm:grid-cols-2">
                 <div className="grid gap-2">

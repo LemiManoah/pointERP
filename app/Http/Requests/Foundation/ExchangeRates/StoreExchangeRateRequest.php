@@ -41,8 +41,10 @@ final class StoreExchangeRateRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            if ($this->input('branch_id') === null && ! resolve(BranchContext::class)->canViewAllBranches()) {
-                $validator->errors()->add('branch_id', 'Only all-branch users can create a tenant-wide exchange rate.');
+            $tenant = resolve(TenantContext::class)->current();
+
+            if ($tenant->is_multibranch && $this->input('branch_id') === null && ! resolve(BranchContext::class)->canViewAllBranches()) {
+                $validator->errors()->add('branch_id', 'Only all-branch users can create a facility-wide exchange rate.');
             }
         });
     }

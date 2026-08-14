@@ -10,6 +10,7 @@ use App\Http\Requests\Foundation\ExchangeRates\StoreExchangeRateRequest;
 use App\Http\Requests\Foundation\ExchangeRates\UpdateExchangeRateRequest;
 use App\Models\Branch;
 use App\Models\ExchangeRate;
+use App\Models\Tenant;
 use App\Models\TenantCurrency;
 use App\Models\User;
 use App\Services\BranchContext;
@@ -27,12 +28,18 @@ final class ExchangeRateController
     {
         Gate::authorize('viewAny', ExchangeRate::class);
 
-        $tenantId = resolve(TenantContext::class)->id();
+        $tenant = resolve(TenantContext::class)->current();
+        $tenantId = $tenant->id;
         $branchContext = resolve(BranchContext::class);
         $accessibleBranchIds = $branchContext->accessibleBranchIds();
         $canViewAllBranches = $branchContext->canViewAllBranches();
 
+        $this->ensureDefaultTenantCurrency($tenant);
+
         return Inertia::render('foundation/exchange-rates/index', [
+            'tenant' => [
+                'is_multibranch' => $tenant->is_multibranch,
+            ],
             'exchangeRates' => ExchangeRate::query()
                 ->with('branch')
                 ->where('tenant_id', $tenantId)
@@ -96,7 +103,7 @@ final class ExchangeRateController
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Draft exchange rate created.']);
 
-        return to_route('foundation.exchange-rates.index');
+        return back();
     }
 
     public function update(UpdateExchangeRateRequest $request, ExchangeRate $exchangeRate, SaveExchangeRate $action): RedirectResponse
@@ -118,7 +125,7 @@ final class ExchangeRateController
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Draft exchange rate updated.']);
 
-        return to_route('foundation.exchange-rates.index');
+        return back();
     }
 
     public function destroy(ExchangeRate $exchangeRate, DeleteDraftExchangeRate $action): RedirectResponse
@@ -136,5 +143,22 @@ final class ExchangeRateController
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Draft exchange rate deleted.']);
 
         return back();
+    }
+
+    private function ensureDefaultTenantCurrency(Tenant $tenant): void
+    {
+        $setting = TenantCurrency::withTrashed()->firstOrNew([
+            'tenant_id' => $tenant->id,
+            'currency_code' => $tenant->default_currency_code,
+        ]);
+
+        if ($setting->trashed()) {
+            $setting->restore();
+        }
+
+        $setting->forceFill([
+            'is_enabled' => true,
+            'is_default' => true,
+        ])->save();
     }
 }

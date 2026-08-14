@@ -20,7 +20,7 @@ final readonly class SaveBranchCurrency
     ) {}
 
     /**
-     * @param  array{branch_id: string, currency_code: string, is_enabled: bool, is_default_transaction_currency: bool, can_receive: bool, can_pay: bool}  $data
+     * @param  array{branch_id: string, currency_code: string, is_enabled: bool}  $data
      */
     public function handle(array $data): BranchCurrency
     {
@@ -32,8 +32,6 @@ final readonly class SaveBranchCurrency
 
         throw_if($branch->default_currency_code === $data['currency_code'] && ! $data['is_enabled'], InvalidArgumentException::class, 'The branch base currency cannot be disabled.');
 
-        throw_if(! $data['is_enabled'] && $data['is_default_transaction_currency'], InvalidArgumentException::class, 'A disabled branch currency cannot be the transaction default.');
-
         $tenantCurrencyIsEnabled = TenantCurrency::query()
             ->where('tenant_id', $tenant->id)
             ->where('currency_code', $data['currency_code'])
@@ -43,13 +41,6 @@ final readonly class SaveBranchCurrency
         throw_unless($tenantCurrencyIsEnabled, InvalidArgumentException::class, 'Enable this currency for the tenant before using it on a branch.');
 
         return DB::transaction(function () use ($branch, $data, $tenant): BranchCurrency {
-            if ($data['is_default_transaction_currency']) {
-                BranchCurrency::query()
-                    ->where('branch_id', $branch->id)
-                    ->where('currency_code', '!=', $data['currency_code'])
-                    ->update(['is_default_transaction_currency' => false]);
-            }
-
             $setting = BranchCurrency::withTrashed()->firstOrNew([
                 'branch_id' => $branch->id,
                 'currency_code' => $data['currency_code'],
@@ -63,9 +54,9 @@ final readonly class SaveBranchCurrency
             $setting->fill([
                 'tenant_id' => $tenant->id,
                 'is_enabled' => $data['is_enabled'],
-                'is_default_transaction_currency' => $data['is_default_transaction_currency'],
-                'can_receive' => $data['can_receive'],
-                'can_pay' => $data['can_pay'],
+                'is_default_transaction_currency' => $branch->default_currency_code === $data['currency_code'],
+                'can_receive' => $data['is_enabled'],
+                'can_pay' => $data['is_enabled'],
             ]);
             $setting->save();
 

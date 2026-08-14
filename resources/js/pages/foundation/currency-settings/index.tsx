@@ -1,9 +1,7 @@
 import { Head, router } from '@inertiajs/react';
 import { Search } from 'lucide-react';
-import type { FormEvent } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
-import { SearchableSelect } from '@/components/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,15 +11,22 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
+import { formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
+import { CurrencyDialog } from '../currencies/partials/currency-dialog';
+import type { CurrencyFormData } from '../currencies/partials/currency-form';
+import { ExchangeRateDialog } from '../exchange-rates/partials/exchange-rate-dialog';
+import type {
+    BranchOption,
+    CurrencyOption,
+    ExchangeRate,
+} from '../exchange-rates/partials/exchange-rate-form';
 
-type Currency = {
+type TenantCurrency = {
     code: string;
     name: string;
     symbol: string | null;
@@ -29,22 +34,8 @@ type Currency = {
     tenant_default: boolean;
 };
 
-type BranchCurrency = {
-    id: string;
-    currency_code: string;
-    currency_name: string | null;
-    is_enabled: boolean;
-    is_default_transaction_currency: boolean;
-    can_receive: boolean;
-    can_pay: boolean;
-};
-
-type Branch = {
-    id: string;
-    name: string;
-    code: string;
-    default_currency_code: string;
-    currencies: BranchCurrency[];
+type ReferenceCurrency = CurrencyFormData & {
+    is_active: boolean;
 };
 
 type Props = {
@@ -52,38 +43,57 @@ type Props = {
         id: string;
         name: string;
         default_currency_code: string;
+        is_multibranch: boolean;
         multi_currency_enabled: boolean;
     };
-    currencies: Currency[];
-    branches: Branch[];
+    currencies: TenantCurrency[];
+    referenceCurrencies: ReferenceCurrency[];
+    branches: BranchOption[];
+    exchangeRates: ExchangeRate[];
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Currency settings', href: '/currency-settings' },
+    { title: 'Currency', href: '/currency-settings' },
 ];
 
 export default function CurrencySettingsIndex({
     tenant,
     currencies,
+    referenceCurrencies,
     branches,
+    exchangeRates,
 }: Props) {
     const confirm = useConfirmDialog();
-    const [search, setSearch] = useState('');
-    const [status, setStatus] = useState('enabled');
-    const [branchId, setBranchId] = useState(branches[0]?.id ?? '');
-    const [currencyCode, setCurrencyCode] = useState(
-        currencies.find((currency) => currency.tenant_enabled)?.code ?? '',
-    );
-    const debouncedSearch = useDebouncedValue(search);
+    const [activeTab, setActiveTab] = useState('settings');
+    const [currencySearch, setCurrencySearch] = useState('');
+    const [currencyStatus, setCurrencyStatus] = useState('enabled');
+    const [rateSearch, setRateSearch] = useState('');
+    const [rateStatus, setRateStatus] = useState('draft');
+    const [referenceSearch, setReferenceSearch] = useState('');
+    const [referenceStatus, setReferenceStatus] = useState('active');
+    const debouncedCurrencySearch = useDebouncedValue(currencySearch);
+    const debouncedRateSearch = useDebouncedValue(rateSearch);
+    const debouncedReferenceSearch = useDebouncedValue(referenceSearch);
 
-    const filteredCurrencies = useMemo(() => {
-        const term = debouncedSearch.trim().toLowerCase();
+    useEffect(() => {
+        if (!tenant.multi_currency_enabled && activeTab !== 'settings') {
+            setActiveTab('settings');
+        }
+    }, [activeTab, tenant.multi_currency_enabled]);
+
+    const tenantEnabledCurrencies = useMemo(
+        () => currencies.filter((currency) => currency.tenant_enabled),
+        [currencies],
+    );
+
+    const filteredTenantCurrencies = useMemo(() => {
+        const term = debouncedCurrencySearch.trim().toLowerCase();
 
         return currencies.filter((currency) => {
             const matchesStatus =
-                (status === 'enabled' && currency.tenant_enabled) ||
-                (status === 'disabled' && !currency.tenant_enabled);
+                (currencyStatus === 'enabled' && currency.tenant_enabled) ||
+                (currencyStatus === 'disabled' && !currency.tenant_enabled);
             const matchesSearch =
                 !term ||
                 [currency.code, currency.name, currency.symbol ?? '']
@@ -93,40 +103,85 @@ export default function CurrencySettingsIndex({
 
             return matchesStatus && matchesSearch;
         });
-    }, [currencies, debouncedSearch, status]);
+    }, [currencies, currencyStatus, debouncedCurrencySearch]);
 
-    const tenantEnabledCurrencies = currencies.filter(
-        (currency) => currency.tenant_enabled,
-    );
+    const filteredExchangeRates = useMemo(() => {
+        const term = debouncedRateSearch.trim().toLowerCase();
 
-    function saveBranchCurrency(event: FormEvent<HTMLFormElement>) {
-        event.preventDefault();
+        return exchangeRates.filter((rate) => {
+            const matchesStatus = rate.status === rateStatus;
+            const matchesSearch =
+                !term ||
+                [
+                    rate.branch_name ?? 'facility-wide',
+                    rate.from_currency_code,
+                    rate.to_currency_code,
+                    rate.rate,
+                    rate.effective_date,
+                    rate.status,
+                ]
+                    .join(' ')
+                    .toLowerCase()
+                    .includes(term);
 
-        const form = new FormData(event.currentTarget);
+            return matchesStatus && matchesSearch;
+        });
+    }, [debouncedRateSearch, exchangeRates, rateStatus]);
 
-        router.post(
-            '/currency-settings/branches',
-            {
-                branch_id: branchId,
-                currency_code: currencyCode,
-                is_enabled: form.get('is_enabled') === 'on',
-                is_default_transaction_currency:
-                    form.get('is_default_transaction_currency') === 'on',
-                can_receive: form.get('can_receive') === 'on',
-                can_pay: form.get('can_pay') === 'on',
-            },
-            { preserveScroll: true },
-        );
+    const filteredReferenceCurrencies = useMemo(() => {
+        const term = debouncedReferenceSearch.trim().toLowerCase();
+
+        return referenceCurrencies.filter((currency) => {
+            const matchesStatus =
+                (referenceStatus === 'active' && currency.is_active) ||
+                (referenceStatus === 'inactive' && !currency.is_active);
+            const matchesSearch =
+                !term ||
+                [currency.code, currency.name, currency.symbol ?? '']
+                    .join(' ')
+                    .toLowerCase()
+                    .includes(term);
+
+            return matchesStatus && matchesSearch;
+        });
+    }, [debouncedReferenceSearch, referenceCurrencies, referenceStatus]);
+
+    const exchangeCurrencyOptions: CurrencyOption[] =
+        tenantEnabledCurrencies.map((currency) => ({
+            code: currency.code,
+            name: currency.name,
+        }));
+
+    function toggleMultiCurrency() {
+        const submit = () =>
+            router.put(
+                '/currency-settings/multi-currency',
+                {},
+                { preserveScroll: true },
+            );
+
+        if (!tenant.multi_currency_enabled) {
+            submit();
+
+            return;
+        }
+
+        confirm({
+            title: 'Turn off multi-currency?',
+            description:
+                'The facility will keep its existing currency records, but users will only work in the default currency until multi-currency is turned on again.',
+            confirmLabel: 'Turn off',
+            variant: 'destructive',
+            onConfirm: submit,
+        });
     }
 
-    function toggleTenantCurrency(currency: Currency) {
+    function toggleTenantCurrency(currency: TenantCurrency) {
         const submit = () =>
             router.put(
                 `/currency-settings/tenant/${currency.code}`,
                 {},
-                {
-                    preserveScroll: true,
-                },
+                { preserveScroll: true },
             );
 
         if (!currency.tenant_enabled) {
@@ -136,301 +191,592 @@ export default function CurrencySettingsIndex({
         }
 
         confirm({
-            title: `Disable ${currency.code}?`,
-            description: `${currency.name} will no longer be available for tenant or branch transactions unless it is enabled again.`,
-            confirmLabel: 'Disable currency',
+            title: `Remove ${currency.code} from facility currencies?`,
+            description: `${currency.name} will no longer be available for new transactions or exchange rates unless it is added again.`,
+            confirmLabel: 'Remove currency',
             variant: 'destructive',
             onConfirm: submit,
         });
     }
 
+    function toggleReferenceCurrency(currency: ReferenceCurrency) {
+        confirm({
+            title: currency.is_active
+                ? 'Deactivate reference currency?'
+                : 'Activate reference currency?',
+            description: `${currency.code} will ${currency.is_active ? 'no longer' : 'again'} be available in setup workflows.`,
+            confirmLabel: currency.is_active ? 'Deactivate' : 'Activate',
+            variant: currency.is_active ? 'destructive' : 'default',
+            onConfirm: () =>
+                router.delete(`/currencies/${currency.code}`, {
+                    preserveScroll: true,
+                }),
+        });
+    }
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Currency settings" />
+            <Head title="Currency" />
 
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="grid gap-4">
-                        <div>
-                            <h1 className="text-2xl font-semibold tracking-tight">
-                                Currency settings
-                            </h1>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                Enable ISO currencies for the tenant and its
-                                existing manager-created branches.
-                            </p>
-                        </div>
-                        <div className="relative">
-                            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                value={search}
-                                onChange={(event) =>
-                                    setSearch(event.target.value)
-                                }
-                                placeholder="Search tenant currencies"
-                                className="w-full pl-9 sm:w-72"
-                            />
-                        </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold tracking-tight">
+                            Currency
+                        </h1>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Turn multi-currency on, choose facility currencies,
+                            then maintain exchange rates between them.
+                        </p>
                     </div>
-                    <Tabs
-                        value={status}
-                        onValueChange={setStatus}
-                        className="lg:ml-auto"
+                    <Button
+                        variant={
+                            tenant.multi_currency_enabled
+                                ? 'destructive'
+                                : 'default'
+                        }
+                        onClick={toggleMultiCurrency}
                     >
-                        <TabsList>
-                            <TabsTrigger value="enabled">Enabled</TabsTrigger>
-                            <TabsTrigger value="disabled">Disabled</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
+                        {tenant.multi_currency_enabled
+                            ? 'Turn off multi-currency'
+                            : 'Turn on multi-currency'}
+                    </Button>
                 </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Tenant currencies</CardTitle>
-                        <CardDescription>
-                            The default currency {tenant.default_currency_code}{' '}
-                            is protected from disablement.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b text-left text-muted-foreground">
-                                        <th className="py-3 pr-4 font-medium">
-                                            Currency
-                                        </th>
-                                        <th className="py-3 pr-4 font-medium">
-                                            Status
-                                        </th>
-                                        <th className="py-3 text-right font-medium">
-                                            Actions
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredCurrencies.map((currency) => (
-                                        <tr
-                                            key={currency.code}
-                                            className="border-b last:border-0"
-                                        >
-                                            <td className="py-3 pr-4">
-                                                <div className="font-medium">
-                                                    {currency.code}
-                                                </div>
-                                                <div className="text-muted-foreground">
-                                                    {currency.name}
-                                                </div>
-                                            </td>
-                                            <td className="py-3 pr-4">
-                                                <div className="flex flex-wrap gap-2">
-                                                    <Badge
-                                                        variant={
-                                                            currency.tenant_enabled
-                                                                ? 'default'
-                                                                : 'secondary'
-                                                        }
-                                                    >
-                                                        {currency.tenant_enabled
-                                                            ? 'Enabled'
-                                                            : 'Disabled'}
-                                                    </Badge>
-                                                    {currency.tenant_default && (
-                                                        <Badge variant="outline">
-                                                            Default
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="py-3">
-                                                <div className="flex justify-end">
-                                                    <Button
-                                                        size="sm"
-                                                        variant={
-                                                            currency.tenant_enabled
-                                                                ? 'destructive'
-                                                                : 'secondary'
-                                                        }
-                                                        disabled={
-                                                            currency.tenant_default
-                                                        }
-                                                        onClick={() =>
-                                                            toggleTenantCurrency(
-                                                                currency,
-                                                            )
-                                                        }
-                                                    >
-                                                        {currency.tenant_enabled
-                                                            ? 'Disable'
-                                                            : 'Enable'}
-                                                    </Button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {filteredCurrencies.length === 0 && (
-                                        <tr>
-                                            <td
-                                                colSpan={3}
-                                                className="py-8 text-center text-muted-foreground"
-                                            >
-                                                No currencies match the current
-                                                filters.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </CardContent>
-                </Card>
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                    <TabsList>
+                        <TabsTrigger value="settings">Settings</TabsTrigger>
+                        {tenant.multi_currency_enabled && (
+                            <>
+                                <TabsTrigger value="exchange-rates">
+                                    Exchange rates
+                                </TabsTrigger>
+                                <TabsTrigger value="currencies">
+                                    Currencies
+                                </TabsTrigger>
+                            </>
+                        )}
+                    </TabsList>
+                </Tabs>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Branch currencies</CardTitle>
-                        <CardDescription>
-                            Branches come from the manager app. This page only
-                            controls which enabled tenant currencies they may
-                            transact in.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <form
-                            onSubmit={saveBranchCurrency}
-                            className="grid gap-4 md:grid-cols-[1fr_1fr_auto]"
-                        >
-                            <div className="grid gap-2">
-                                <Label>Branch</Label>
-                                <SearchableSelect
-                                    value={branchId}
-                                    onValueChange={setBranchId}
-                                    options={branches.map((branch) => ({
-                                        value: branch.id,
-                                        label: branch.name,
-                                        description: branch.code,
-                                    }))}
-                                    placeholder="Select branch"
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label>Currency</Label>
-                                <SearchableSelect
-                                    value={currencyCode}
-                                    onValueChange={setCurrencyCode}
-                                    options={tenantEnabledCurrencies.map(
-                                        (currency) => ({
-                                            value: currency.code,
-                                            label: currency.code,
-                                            description: currency.name,
-                                        }),
-                                    )}
-                                    placeholder="Select currency"
-                                />
-                            </div>
-                            <div className="flex items-end">
-                                <Button type="submit">Save setting</Button>
-                            </div>
-                            <div className="flex flex-wrap gap-4 md:col-span-3">
-                                {[
-                                    ['is_enabled', 'Enabled'],
-                                    [
-                                        'is_default_transaction_currency',
-                                        'Default for transactions',
-                                    ],
-                                    ['can_receive', 'Can receive'],
-                                    ['can_pay', 'Can pay'],
-                                ].map(([name, label]) => (
-                                    <label
-                                        key={name}
-                                        className="flex items-center gap-2 text-sm"
+                {activeTab === 'settings' && (
+                    <div className="grid gap-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Facility currency setup</CardTitle>
+                                <CardDescription>
+                                    {tenant.name} uses{' '}
+                                    {tenant.default_currency_code} as its
+                                    default currency.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="grid gap-4">
+                                <div className="flex flex-wrap gap-2">
+                                    <Badge variant="outline">
+                                        Default:{' '}
+                                        {tenant.default_currency_code}
+                                    </Badge>
+                                    <Badge
+                                        variant={
+                                            tenant.multi_currency_enabled
+                                                ? 'default'
+                                                : 'secondary'
+                                        }
                                     >
-                                        <Checkbox name={name} defaultChecked />
-                                        {label}
-                                    </label>
-                                ))}
-                            </div>
-                        </form>
+                                        {tenant.multi_currency_enabled
+                                            ? 'Multi-currency on'
+                                            : 'Multi-currency off'}
+                                    </Badge>
+                                </div>
+                                {!tenant.multi_currency_enabled && (
+                                    <p className="text-sm text-muted-foreground">
+                                        Turn on multi-currency before adding
+                                        facility currencies or exchange rates.
+                                    </p>
+                                )}
+                            </CardContent>
+                        </Card>
 
-                        <div className="mt-6 overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b text-left text-muted-foreground">
-                                        <th className="py-3 pr-4 font-medium">
-                                            Branch
-                                        </th>
-                                        <th className="py-3 pr-4 font-medium">
-                                            Base
-                                        </th>
-                                        <th className="py-3 pr-4 font-medium">
-                                            Enabled currencies
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {branches.map((branch) => (
-                                        <tr
-                                            key={branch.id}
-                                            className="border-b last:border-0"
+                        {tenant.multi_currency_enabled && (
+                            <Card>
+                                <CardHeader>
+                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                        <div>
+                                            <CardTitle>
+                                                Facility currencies
+                                            </CardTitle>
+                                            <CardDescription>
+                                                Add the currencies this facility
+                                                can transact in. If a currency
+                                                is missing, add it from the
+                                                Currencies tab.
+                                            </CardDescription>
+                                        </div>
+                                        <Tabs
+                                            value={currencyStatus}
+                                            onValueChange={setCurrencyStatus}
                                         >
-                                            <td className="py-3 pr-4">
-                                                <div className="font-medium">
-                                                    {branch.name}
-                                                </div>
-                                                <div className="text-muted-foreground">
-                                                    {branch.code}
-                                                </div>
-                                            </td>
-                                            <td className="py-3 pr-4">
-                                                {branch.default_currency_code}
-                                            </td>
-                                            <td className="py-3 pr-4">
-                                                <div className="flex flex-wrap gap-2">
-                                                    {branch.currencies
-                                                        .filter(
-                                                            (setting) =>
-                                                                setting.is_enabled,
-                                                        )
-                                                        .map((setting) => (
-                                                            <Badge
-                                                                key={setting.id}
-                                                                variant={
-                                                                    setting.is_default_transaction_currency
-                                                                        ? 'default'
-                                                                        : 'secondary'
-                                                                }
-                                                            >
-                                                                {
-                                                                    setting.currency_code
-                                                                }
-                                                            </Badge>
-                                                        ))}
-                                                    {branch.currencies
-                                                        .length === 0 && (
-                                                        <span className="text-muted-foreground">
-                                                            None configured
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {branches.length === 0 && (
-                                        <tr>
-                                            <td
-                                                colSpan={3}
-                                                className="py-8 text-center text-muted-foreground"
-                                            >
-                                                No active branches are available
-                                                from the manager app.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </CardContent>
-                </Card>
+                                            <TabsList>
+                                                <TabsTrigger value="enabled">
+                                                    Added
+                                                </TabsTrigger>
+                                                <TabsTrigger value="disabled">
+                                                    Available
+                                                </TabsTrigger>
+                                            </TabsList>
+                                        </Tabs>
+                                    </div>
+                                    <div className="relative mt-2">
+                                        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                        <Input
+                                            value={currencySearch}
+                                            onChange={(event) =>
+                                                setCurrencySearch(
+                                                    event.target.value,
+                                                )
+                                            }
+                                            placeholder="Search currencies"
+                                            className="w-full pl-9 sm:w-72"
+                                        />
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                    <CurrencyTable
+                                        currencies={filteredTenantCurrencies}
+                                        onToggle={toggleTenantCurrency}
+                                    />
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
+                )}
+
+                {activeTab === 'exchange-rates' &&
+                    tenant.multi_currency_enabled && (
+                        <Card>
+                            <CardHeader>
+                                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                    <div>
+                                        <CardTitle>Exchange rates</CardTitle>
+                                        <CardDescription>
+                                            A rate means 1 FROM currency equals
+                                            the entered amount in TO currency.
+                                            Old approved rates are kept as
+                                            history when a newer rate replaces
+                                            them.
+                                        </CardDescription>
+                                    </div>
+                                    <div className="flex flex-col gap-3 lg:items-end">
+                                        <Tabs
+                                            value={rateStatus}
+                                            onValueChange={setRateStatus}
+                                        >
+                                            <TabsList>
+                                                <TabsTrigger value="draft">
+                                                    Draft
+                                                </TabsTrigger>
+                                                <TabsTrigger value="approved">
+                                                    Approved
+                                                </TabsTrigger>
+                                                <TabsTrigger value="superseded">
+                                                    Old rates
+                                                </TabsTrigger>
+                                            </TabsList>
+                                        </Tabs>
+                                        <ExchangeRateDialog
+                                            branches={branches}
+                                            currencies={exchangeCurrencyOptions}
+                                            isMultiBranch={
+                                                tenant.is_multibranch
+                                            }
+                                        />
+                                    </div>
+                                </div>
+                                <div className="relative mt-2">
+                                    <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        value={rateSearch}
+                                        onChange={(event) =>
+                                            setRateSearch(event.target.value)
+                                        }
+                                        placeholder="Search rates"
+                                        className="w-full pl-9 sm:w-72"
+                                    />
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <ExchangeRatesTable
+                                    exchangeRates={filteredExchangeRates}
+                                    branches={branches}
+                                    currencies={exchangeCurrencyOptions}
+                                    isMultiBranch={tenant.is_multibranch}
+                                    confirm={confirm}
+                                />
+                            </CardContent>
+                        </Card>
+                    )}
+
+                {activeTab === 'currencies' &&
+                    tenant.multi_currency_enabled && (
+                        <Card>
+                            <CardHeader>
+                                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                    <div>
+                                        <CardTitle>
+                                            Reference currencies
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Add a missing ISO currency here, then
+                                            return to Settings to add it to the
+                                            facility.
+                                        </CardDescription>
+                                    </div>
+                                    <div className="flex flex-col gap-3 lg:items-end">
+                                        <Tabs
+                                            value={referenceStatus}
+                                            onValueChange={setReferenceStatus}
+                                        >
+                                            <TabsList>
+                                                <TabsTrigger value="active">
+                                                    Active
+                                                </TabsTrigger>
+                                                <TabsTrigger value="inactive">
+                                                    Inactive
+                                                </TabsTrigger>
+                                            </TabsList>
+                                        </Tabs>
+                                        <CurrencyDialog />
+                                    </div>
+                                </div>
+                                <div className="relative mt-2">
+                                    <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        value={referenceSearch}
+                                        onChange={(event) =>
+                                            setReferenceSearch(
+                                                event.target.value,
+                                            )
+                                        }
+                                        placeholder="Search reference currencies"
+                                        className="w-full pl-9 sm:w-72"
+                                    />
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <ReferenceCurrenciesTable
+                                    currencies={filteredReferenceCurrencies}
+                                    onToggle={toggleReferenceCurrency}
+                                />
+                            </CardContent>
+                        </Card>
+                    )}
             </div>
         </AppLayout>
+    );
+}
+
+function CurrencyTable({
+    currencies,
+    onToggle,
+}: {
+    currencies: TenantCurrency[];
+    onToggle: (currency: TenantCurrency) => void;
+}) {
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+                <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                        <th className="py-3 pr-4 font-medium">Currency</th>
+                        <th className="py-3 pr-4 font-medium">Status</th>
+                        <th className="py-3 text-right font-medium">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {currencies.map((currency) => (
+                        <tr
+                            key={currency.code}
+                            className="border-b last:border-0"
+                        >
+                            <td className="py-3 pr-4">
+                                <div className="font-medium">
+                                    {currency.code}
+                                </div>
+                                <div className="text-muted-foreground">
+                                    {currency.name}
+                                </div>
+                            </td>
+                            <td className="py-3 pr-4">
+                                <div className="flex flex-wrap gap-2">
+                                    <Badge
+                                        variant={
+                                            currency.tenant_enabled
+                                                ? 'default'
+                                                : 'secondary'
+                                        }
+                                    >
+                                        {currency.tenant_enabled
+                                            ? 'Added'
+                                            : 'Available'}
+                                    </Badge>
+                                    {currency.tenant_default && (
+                                        <Badge variant="outline">Default</Badge>
+                                    )}
+                                </div>
+                            </td>
+                            <td className="py-3">
+                                <div className="flex justify-end">
+                                    <Button
+                                        size="sm"
+                                        variant={
+                                            currency.tenant_enabled
+                                                ? 'destructive'
+                                                : 'secondary'
+                                        }
+                                        disabled={currency.tenant_default}
+                                        onClick={() => onToggle(currency)}
+                                    >
+                                        {currency.tenant_enabled
+                                            ? 'Remove'
+                                            : 'Add'}
+                                    </Button>
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                    {currencies.length === 0 && (
+                        <tr>
+                            <td
+                                colSpan={3}
+                                className="py-8 text-center text-muted-foreground"
+                            >
+                                No currencies match the current filters.
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+function ExchangeRatesTable({
+    exchangeRates,
+    branches,
+    currencies,
+    isMultiBranch,
+    confirm,
+}: {
+    exchangeRates: ExchangeRate[];
+    branches: BranchOption[];
+    currencies: CurrencyOption[];
+    isMultiBranch: boolean;
+    confirm: ReturnType<typeof useConfirmDialog>;
+}) {
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+                <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                        <th className="py-3 pr-4 font-medium">Scope</th>
+                        <th className="py-3 pr-4 font-medium">Direction</th>
+                        <th className="py-3 pr-4 font-medium">Effective</th>
+                        <th className="py-3 pr-4 font-medium">Status</th>
+                        <th className="py-3 text-right font-medium">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {exchangeRates.map((rate) => (
+                        <tr key={rate.id} className="border-b last:border-0">
+                            <td className="py-3 pr-4">
+                                {rate.branch_name ?? 'Facility-wide'}
+                            </td>
+                            <td className="py-3 pr-4">
+                                1 {rate.from_currency_code} ={' '}
+                                {formatNumber(rate.rate)}{' '}
+                                {rate.to_currency_code}
+                            </td>
+                            <td className="py-3 pr-4">
+                                {rate.effective_date}
+                            </td>
+                            <td className="py-3 pr-4">
+                                <Badge
+                                    variant={
+                                        rate.status === 'approved'
+                                            ? 'default'
+                                            : 'secondary'
+                                    }
+                                >
+                                    {rate.status === 'superseded'
+                                        ? 'old rate'
+                                        : rate.status}
+                                </Badge>
+                            </td>
+                            <td className="py-3">
+                                <div className="flex justify-end gap-2">
+                                    <ExchangeRateDialog
+                                        exchangeRate={rate}
+                                        branches={branches}
+                                        currencies={currencies}
+                                        isMultiBranch={isMultiBranch}
+                                    />
+                                    {rate.status === 'draft' && (
+                                        <>
+                                            <Button
+                                                size="sm"
+                                                variant="secondary"
+                                                onClick={() =>
+                                                    confirm({
+                                                        title: 'Approve exchange rate?',
+                                                        description:
+                                                            'This locks the draft and moves older approved rates for the same pair into Old rates.',
+                                                        confirmLabel: 'Approve',
+                                                        onConfirm: () =>
+                                                            router.post(
+                                                                `/exchange-rates/${rate.id}/approve`,
+                                                                {},
+                                                                {
+                                                                    preserveScroll:
+                                                                        true,
+                                                                },
+                                                            ),
+                                                    })
+                                                }
+                                            >
+                                                Approve
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="destructive"
+                                                onClick={() =>
+                                                    confirm({
+                                                        title: 'Delete draft rate?',
+                                                        description:
+                                                            'Only the draft will be removed. Approved history is kept.',
+                                                        confirmLabel: 'Delete',
+                                                        variant: 'destructive',
+                                                        onConfirm: () =>
+                                                            router.delete(
+                                                                `/exchange-rates/${rate.id}`,
+                                                                {
+                                                                    preserveScroll:
+                                                                        true,
+                                                                },
+                                                            ),
+                                                    })
+                                                }
+                                            >
+                                                Delete
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                    {exchangeRates.length === 0 && (
+                        <tr>
+                            <td
+                                colSpan={5}
+                                className="py-8 text-center text-muted-foreground"
+                            >
+                                No exchange rates match the current filters.
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+function ReferenceCurrenciesTable({
+    currencies,
+    onToggle,
+}: {
+    currencies: ReferenceCurrency[];
+    onToggle: (currency: ReferenceCurrency) => void;
+}) {
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+                <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                        <th className="py-3 pr-4 font-medium">Code</th>
+                        <th className="py-3 pr-4 font-medium">Name</th>
+                        <th className="py-3 pr-4 font-medium">Symbol</th>
+                        <th className="py-3 pr-4 font-medium">Decimals</th>
+                        <th className="py-3 font-medium">Status</th>
+                        <th className="py-3 text-right font-medium">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {currencies.map((currency) => (
+                        <tr
+                            key={currency.code}
+                            className="border-b last:border-0"
+                        >
+                            <td className="py-3 pr-4 font-medium">
+                                {currency.code}
+                            </td>
+                            <td className="py-3 pr-4">{currency.name}</td>
+                            <td className="py-3 pr-4">
+                                {currency.symbol ?? '-'}
+                            </td>
+                            <td className="py-3 pr-4">
+                                {currency.decimal_places}
+                            </td>
+                            <td className="py-3">
+                                <Badge
+                                    variant={
+                                        currency.is_active
+                                            ? 'default'
+                                            : 'secondary'
+                                    }
+                                >
+                                    {currency.is_active
+                                        ? 'Active'
+                                        : 'Inactive'}
+                                </Badge>
+                            </td>
+                            <td className="py-3">
+                                <div className="flex justify-end gap-2">
+                                    <CurrencyDialog currency={currency} />
+                                    <Button
+                                        variant={
+                                            currency.is_active
+                                                ? 'destructive'
+                                                : 'secondary'
+                                        }
+                                        size="sm"
+                                        onClick={() => onToggle(currency)}
+                                    >
+                                        {currency.is_active
+                                            ? 'Deactivate'
+                                            : 'Activate'}
+                                    </Button>
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                    {currencies.length === 0 && (
+                        <tr>
+                            <td
+                                colSpan={6}
+                                className="py-8 text-center text-muted-foreground"
+                            >
+                                No currencies match the current filters.
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
     );
 }
