@@ -60,8 +60,11 @@ type Props = {
 export function CustomerDialog({ customer, branches }: Props) {
     const [open, setOpen] = useState(false);
     const isEditing = Boolean(customer);
+    const isSingleBranch = branches.length === 1;
     const form = useForm<CustomerFormData>({
-        branch_id: customer?.branch_id ?? '',
+        branch_id:
+            customer?.branch_id ??
+            (isSingleBranch ? (branches[0]?.id ?? '') : ''),
         type: customer?.type ?? 'client',
         name: customer?.name ?? '',
         code: customer?.code ?? '',
@@ -122,10 +125,14 @@ export function CustomerDialog({ customer, branches }: Props) {
                                 form.setData('branch_id', value)
                             }
                             options={[
-                                {
-                                    value: '',
-                                    label: 'Tenant-wide',
-                                },
+                                ...(isSingleBranch
+                                    ? []
+                                    : [
+                                          {
+                                              value: '',
+                                              label: 'Tenant-wide',
+                                          },
+                                      ]),
                                 ...branches.map((branch) => ({
                                     value: branch.id,
                                     label: branch.name,

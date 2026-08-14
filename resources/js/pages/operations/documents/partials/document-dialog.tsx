@@ -105,8 +105,12 @@ export function DocumentDialog({
 }: Props) {
     const [open, setOpen] = useState(false);
     const isEditing = Boolean(document);
+    const isSingleBranch = branches.length === 1;
     const form = useForm<FormData>({
-        branch_id: document?.branch_id ?? defaultBranchId ?? '',
+        branch_id:
+            document?.branch_id ??
+            defaultBranchId ??
+            (isSingleBranch ? branches[0]?.id ?? '' : ''),
         document_type_id:
             document?.document_type_id ?? documentTypes[0]?.id ?? '',
         title: document?.title ?? '',
@@ -192,7 +196,14 @@ export function DocumentDialog({
                                     form.setData('branch_id', value)
                                 }
                                 options={[
-                                    { value: '', label: 'Tenant-wide' },
+                                    ...(isSingleBranch
+                                        ? []
+                                        : [
+                                              {
+                                                  value: '',
+                                                  label: 'Tenant-wide',
+                                              },
+                                          ]),
                                     ...branches.map((branch) => ({
                                         value: branch.id,
                                         label: branch.name,

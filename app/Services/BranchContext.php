@@ -42,6 +42,12 @@ final readonly class BranchContext
             ->where('status', 'active')
             ->orderBy('name');
 
+        $singleTenantBranch = $this->singleTenantBranch($user);
+
+        if ($singleTenantBranch instanceof Branch) {
+            return new Collection([$singleTenantBranch]);
+        }
+
         if ($this->canViewAllBranches($user)) {
             return $query->get();
         }
@@ -70,7 +76,11 @@ final readonly class BranchContext
             return null;
         }
 
-        if ($this->session->get(self::SESSION_ALL_BRANCHES) === true && $this->canViewAllBranches($user)) {
+        if (
+            $this->tenantContext->current()->is_multibranch
+            && $this->session->get(self::SESSION_ALL_BRANCHES) === true
+            && $this->canViewAllBranches($user)
+        ) {
             return null;
         }
 
@@ -122,6 +132,14 @@ final readonly class BranchContext
         }
 
         if ($branchId === null || $branchId === '') {
+            $singleTenantBranch = $this->singleTenantBranch($user);
+
+            if ($singleTenantBranch instanceof Branch) {
+                $this->selectBranch($singleTenantBranch);
+
+                return $singleTenantBranch;
+            }
+
             return $this->selectAllBranches($user);
         }
 
@@ -141,6 +159,46 @@ final readonly class BranchContext
     public function clear(): void
     {
         $this->session->forget([self::SESSION_BRANCH_ID, self::SESSION_ALL_BRANCHES]);
+    }
+
+    private function singleTenantBranch(User $user): ?Branch
+    {
+        $tenant = $this->tenantContext->current();
+
+        if ($tenant->is_multibranch) {
+            return null;
+        }
+
+        $branches = Branch::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->limit(2)
+            ->get();
+
+        if ($branches->count() !== 1) {
+            return null;
+        }
+
+        $branch = $branches->first();
+
+        if (! $branch instanceof Branch) {
+            return null;
+        }
+
+        $hasDefaultBranch = $user->branches()
+            ->whereKey($branch->id)
+            ->wherePivot('is_default', true)
+            ->exists();
+
+        if (! $hasDefaultBranch) {
+            $user->branches()->syncWithoutDetaching([
+                $branch->id => ['is_default' => true],
+            ]);
+            $user->branches()->updateExistingPivot($branch->id, ['is_default' => true]);
+        }
+
+        return $branch;
     }
 
     /**

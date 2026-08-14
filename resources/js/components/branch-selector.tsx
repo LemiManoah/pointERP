@@ -1,9 +1,10 @@
 import { router, usePage } from '@inertiajs/react';
 import { Building2 } from 'lucide-react';
 import { SearchableSelect } from '@/components/searchable-select';
-import type { BranchSummary } from '@/types';
+import type { BranchSummary, CurrentTenant } from '@/types';
 
 type BranchPageProps = {
+    currentTenant: CurrentTenant | null;
     currentBranch: BranchSummary | null;
     accessibleBranches: BranchSummary[];
     canViewAllBranches: boolean;
@@ -12,8 +13,26 @@ type BranchPageProps = {
 const allBranchesValue = '__all__';
 
 export function BranchSelector() {
-    const { currentBranch, accessibleBranches, canViewAllBranches } =
+    const {
+        currentTenant,
+        currentBranch,
+        accessibleBranches,
+        canViewAllBranches,
+    } =
         usePage<BranchPageProps>().props;
+
+    const selectedBranch = currentBranch ?? accessibleBranches[0] ?? null;
+
+    if (currentTenant && !currentTenant.is_multibranch) {
+        return (
+            <div className="flex min-w-0 items-center gap-2 text-sm">
+                <Building2 className="size-4 text-muted-foreground" />
+                <span className="truncate font-medium">
+                    {selectedBranch?.name ?? 'No branch access'}
+                </span>
+            </div>
+        );
+    }
 
     const options = [
         ...(canViewAllBranches
