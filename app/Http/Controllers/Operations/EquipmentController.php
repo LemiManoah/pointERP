@@ -13,6 +13,7 @@ use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\Document;
 use App\Models\Equipment;
+use App\Models\EquipmentAssignment;
 use App\Models\EquipmentCategory;
 use App\Models\EquipmentLocation;
 use App\Models\EquipmentMeterReading;
@@ -101,6 +102,33 @@ final class EquipmentController
                         && $reading->status === EquipmentMeterReading::STATUS_PENDING
                         && $reading->event_type === 'correction',
                 ]),
+            'assignments' => EquipmentAssignment::query()
+                ->with(['project', 'site', 'location', 'returnLocation', 'custodian', 'handedOverBy', 'acceptedReturnBy'])
+                ->where('equipment_id', $equipment->id)
+                ->latest('assigned_at')
+                ->get()
+                ->map(fn (EquipmentAssignment $assignment): array => [
+                    'id' => $assignment->id,
+                    'status' => $assignment->status,
+                    'project_name' => $assignment->project->name,
+                    'site_name' => $assignment->site->name,
+                    'location_name' => $assignment->location->name,
+                    'return_location_name' => $assignment->returnLocation?->name,
+                    'custodian_name' => $assignment->custodian?->name ?? $assignment->external_custodian_name,
+                    'custodian_employer' => $assignment->external_custodian_employer,
+                    'assigned_at' => $assignment->assigned_at->toDateTimeString(),
+                    'expected_return_at' => $assignment->expected_return_at?->toDateTimeString(),
+                    'returned_at' => $assignment->returned_at?->toDateTimeString(),
+                    'handover_meter_reading' => $assignment->handover_meter_reading,
+                    'return_meter_reading' => $assignment->return_meter_reading,
+                    'handover_condition' => $assignment->handover_condition,
+                    'return_condition' => $assignment->return_condition,
+                    'assignment_notes' => $assignment->assignment_notes,
+                    'return_notes' => $assignment->return_notes,
+                    'handed_over_by' => $assignment->handedOverBy->name,
+                    'accepted_return_by' => $assignment->acceptedReturnBy?->name,
+                    'can_return' => Gate::forUser($user)->allows('update', $assignment),
+                ]),
             'documents' => $this->linkedDocumentsFor($equipment, $user),
             'categories' => EquipmentCategory::query()->orderBy('name')->get()->map(fn (EquipmentCategory $category): array => $this->categoryRow($category)),
             'locations' => EquipmentLocation::query()->with(['branch', 'project', 'site'])->visibleTo($user)->orderBy('name')->get()->map(fn (EquipmentLocation $location): array => $this->locationRow($location)),
@@ -110,6 +138,9 @@ final class EquipmentController
                 'uploadDocuments' => Gate::forUser($user)->allows('create', Document::class),
                 'viewCosts' => Gate::forUser($user)->allows('viewCosts', $equipment),
                 'recordReading' => Gate::forUser($user)->allows('create', [EquipmentMeterReading::class, $equipment]),
+                'assign' => Gate::forUser($user)->allows('create', EquipmentAssignment::class)
+                    && $equipment->is_active
+                    && in_array($equipment->current_status, ['available', 'idle'], true),
             ],
             ...$this->formOptions($user),
             ...$this->documentFormOptions($user),

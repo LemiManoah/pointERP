@@ -108,3 +108,26 @@ export type EquipmentMeterReading = {
     can_correct: boolean;
     can_approve: boolean;
 };
+
+export type EquipmentAssignment = {
+    id: string;
+    status: string;
+    project_name: string;
+    site_name: string;
+    location_name: string;
+    return_location_name: string | null;
+    custodian_name: string | null;
+    custodian_employer: string | null;
+    assigned_at: string;
+    expected_return_at: string | null;
+    returned_at: string | null;
+    handover_meter_reading: string | null;
+    return_meter_reading: string | null;
+    handover_condition: string;
+    return_condition: string | null;
+    assignment_notes: string | null;
+    return_notes: string | null;
+    handed_over_by: string;
+    accepted_return_by: string | null;
+    can_return: boolean;
+};

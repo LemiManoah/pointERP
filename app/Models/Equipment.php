@@ -140,6 +140,12 @@ final class Equipment extends Model
         return $this->hasMany(EquipmentMeterReading::class);
     }
 
+    /** @return HasMany<EquipmentAssignment, $this> */
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(EquipmentAssignment::class);
+    }
+
     /**
      * @param  Builder<Equipment>  $query
      * @return Builder<Equipment>

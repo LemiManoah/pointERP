@@ -23,6 +23,7 @@ use App\Models\DocumentLink;
 use App\Models\DocumentType;
 use App\Models\DocumentVersion;
 use App\Models\Equipment;
+use App\Models\EquipmentAssignment;
 use App\Models\EquipmentCategory;
 use App\Models\EquipmentLocation;
 use App\Models\EquipmentMeterReading;
@@ -510,6 +511,8 @@ final class PointInvestmentSeeder extends Seeder
             kibogaSite: $kibogaSite,
             jubaSite: $jubaSite,
             subcontractor: $subcontractor,
+            ugandaProjectManager: $ugandaProjectManager,
+            ugandaSiteEngineer: $ugandaSiteEngineer,
         );
     }
 
@@ -523,6 +526,8 @@ final class PointInvestmentSeeder extends Seeder
         Site $kibogaSite,
         Site $jubaSite,
         Customer $subcontractor,
+        User $ugandaProjectManager,
+        User $ugandaSiteEngineer,
     ): void {
         $categories = [];
         foreach ([
@@ -621,6 +626,65 @@ final class PointInvestmentSeeder extends Seeder
             [$meterUsage, $pendingCorrection] = $this->equipmentMeterSeedScenario($code);
             $this->seedEquipmentMeterHistory($director, $equipment, $meterUsage, $pendingCorrection);
         }
+
+        $grader = Equipment::query()->where('asset_code', 'EQ-GRD-001')->firstOrFail();
+        EquipmentAssignment::query()->updateOrCreate(
+            ['equipment_id' => $grader->id, 'assigned_at' => '2026-07-05 07:30:00'],
+            [
+                'tenant_id' => $grader->tenant_id,
+                'branch_id' => $ugandaBranch->id,
+                'project_id' => $ugandaProject->id,
+                'site_id' => $busunjuSite->id,
+                'equipment_location_id' => $locations['BUSUNJU']->id,
+                'custodian_staff_id' => $ugandaSiteEngineer->staff_id,
+                'returned_at' => '2026-07-18 17:30:00',
+                'handover_meter_reading' => '12450.0000',
+                'return_meter_reading' => '12540.0000',
+                'handover_condition' => 'Serviceable; tyres, blade and warning systems checked at handover.',
+                'return_condition' => 'Returned serviceable with routine wear noted on the cutting edge.',
+                'assignment_notes' => 'Busunju earthworks custody demonstration.',
+                'return_notes' => 'Returned to the Busunju yard after the work section was completed.',
+                'status' => EquipmentAssignment::STATUS_RETURNED,
+                'handed_over_by' => $director->id,
+                'received_by' => $ugandaSiteEngineer->id,
+                'returned_by' => $ugandaSiteEngineer->id,
+                'accepted_return_by' => $ugandaProjectManager->id,
+                'return_location_id' => $locations['BUSUNJU']->id,
+                'created_by' => $director->id,
+                'updated_by' => $ugandaProjectManager->id,
+            ],
+        );
+
+        $excavator = Equipment::query()->where('asset_code', 'EQ-EXC-003')->firstOrFail();
+        EquipmentAssignment::query()->updateOrCreate(
+            ['equipment_id' => $excavator->id, 'assigned_at' => '2026-07-21 07:00:00'],
+            [
+                'tenant_id' => $excavator->tenant_id,
+                'branch_id' => $ugandaBranch->id,
+                'project_id' => $ugandaProject->id,
+                'site_id' => $busunjuSite->id,
+                'equipment_location_id' => $locations['BUSUNJU']->id,
+                'custodian_staff_id' => $ugandaSiteEngineer->staff_id,
+                'expected_return_at' => '2026-09-30 17:00:00',
+                'handover_meter_reading' => $excavator->current_meter_reading,
+                'handover_condition' => 'Serviceable and accepted for drainage excavation works.',
+                'assignment_notes' => 'Active custody example for assignment and return testing.',
+                'status' => EquipmentAssignment::STATUS_ACTIVE,
+                'handed_over_by' => $ugandaProjectManager->id,
+                'received_by' => $ugandaSiteEngineer->id,
+                'created_by' => $ugandaProjectManager->id,
+                'updated_by' => $ugandaProjectManager->id,
+            ],
+        );
+        $excavator->forceFill([
+            'current_status' => 'assigned',
+            'current_location_id' => $locations['BUSUNJU']->id,
+            'current_project_id' => $ugandaProject->id,
+            'current_site_id' => $busunjuSite->id,
+            'current_custodian_id' => $ugandaSiteEngineer->staff_id,
+            'condition_summary' => 'Serviceable and accepted for drainage excavation works.',
+            'updated_by' => $ugandaProjectManager->id,
+        ])->save();
     }
 
     /** @return array{0: string|null, 1: bool} */

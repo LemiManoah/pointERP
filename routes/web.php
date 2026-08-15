@@ -35,6 +35,8 @@ use App\Http\Controllers\Operations\DocumentTypeController;
 use App\Http\Controllers\Operations\DocumentVersionController;
 use App\Http\Controllers\Operations\DsrExceptionExportController;
 use App\Http\Controllers\Operations\EquipmentCategoryController;
+use App\Http\Controllers\Operations\EquipmentAssignmentController;
+use App\Http\Controllers\Operations\EquipmentAssignmentReturnController;
 use App\Http\Controllers\Operations\EquipmentController;
 use App\Http\Controllers\Operations\EquipmentLocationController;
 use App\Http\Controllers\Operations\EquipmentMeterCorrectionApprovalController;
@@ -114,6 +116,8 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::resource('equipment-categories', EquipmentCategoryController::class)->only(['store', 'update', 'destroy']);
     Route::resource('equipment-locations', EquipmentLocationController::class)->only(['store', 'update', 'destroy']);
     Route::post('equipment/{equipment}/meter-readings', [EquipmentMeterReadingController::class, 'store'])->name('equipment.meter-readings.store');
+    Route::post('equipment/{equipment}/assignments', [EquipmentAssignmentController::class, 'store'])->name('equipment.assignments.store');
+    Route::post('equipment-assignments/{equipmentAssignment}/return', EquipmentAssignmentReturnController::class)->name('equipment-assignments.return');
     Route::post('equipment-meter-readings/{equipmentMeterReading}/corrections', [EquipmentMeterCorrectionController::class, 'store'])->name('equipment-meter-readings.corrections.store');
     Route::post('equipment-meter-readings/{equipmentMeterReading}/approve', EquipmentMeterCorrectionApprovalController::class)->name('equipment-meter-readings.approve');
     Route::post('equipment-meter-readings/{equipmentMeterReading}/reject', EquipmentMeterCorrectionRejectionController::class)->name('equipment-meter-readings.reject');

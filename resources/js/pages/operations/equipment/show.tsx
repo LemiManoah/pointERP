@@ -18,6 +18,10 @@ import {
     type LinkedDocumentRow,
 } from '../documents/partials/document-evidence-table';
 import { EquipmentDialog } from './partials/equipment-dialog';
+import {
+    EquipmentAssignmentDialog,
+    EquipmentReturnDialog,
+} from './partials/equipment-assignment-dialog';
 import { MeterCorrectionReviewDialog } from './partials/meter-correction-review-dialog';
 import {
     MeterCorrectionDialog,
@@ -26,6 +30,7 @@ import {
 import type {
     BranchOption,
     EquipmentCategory,
+    EquipmentAssignment,
     EquipmentLocation,
     EquipmentMeterReading,
     EquipmentRecord,
@@ -33,12 +38,14 @@ import type {
     OwnerOption,
     ProjectOption,
     SiteOption,
+    StaffOption,
 } from './types';
 
 type Props = {
     activeTab: string;
     equipment: EquipmentRecord;
     meterReadings: EquipmentMeterReading[];
+    assignments: EquipmentAssignment[];
     documents: LinkedDocumentRow[];
     documentTypes: DocumentTypeOption[];
     documentBranches: Option[];
@@ -48,6 +55,7 @@ type Props = {
     locations: EquipmentLocation[];
     projects: ProjectOption[];
     sites: SiteOption[];
+    staff: StaffOption[];
     owners: OwnerOption[];
     currencies: Option[];
     can: {
@@ -56,6 +64,7 @@ type Props = {
         uploadDocuments: boolean;
         viewCosts: boolean;
         recordReading: boolean;
+        assign: boolean;
     };
 };
 
@@ -63,6 +72,7 @@ export default function EquipmentShow(props: Props) {
     const {
         equipment,
         meterReadings,
+        assignments,
         documents,
         documentTypes,
         documentBranches,
@@ -70,12 +80,17 @@ export default function EquipmentShow(props: Props) {
         branches,
         categories,
         locations,
+        projects,
+        sites,
+        staff,
         owners,
         currencies,
         can,
     } = props;
     const [tab, setTab] = useState(
-        ['overview', 'readings', 'documents'].includes(props.activeTab)
+        ['overview', 'assignments', 'readings', 'documents'].includes(
+            props.activeTab,
+        )
             ? props.activeTab
             : 'overview',
     );
@@ -158,6 +173,9 @@ export default function EquipmentShow(props: Props) {
                 <Tabs value={tab} onValueChange={setTab}>
                     <TabsList>
                         <TabsTrigger value="overview">Overview</TabsTrigger>
+                        <TabsTrigger value="assignments">
+                            Assignments
+                        </TabsTrigger>
                         <TabsTrigger value="readings">Readings</TabsTrigger>
                         <TabsTrigger value="documents">Documents</TabsTrigger>
                     </TabsList>
@@ -375,6 +393,35 @@ export default function EquipmentShow(props: Props) {
                             </Card>
                         )}
                     </TabsContent>
+                    <TabsContent value="assignments" className="mt-6">
+                        <Card>
+                            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <CardTitle>Custody history</CardTitle>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Handover, custodian and return evidence
+                                        for this asset.
+                                    </p>
+                                </div>
+                                {can.assign && (
+                                    <EquipmentAssignmentDialog
+                                        equipment={equipment}
+                                        projects={projects}
+                                        sites={sites}
+                                        locations={locations}
+                                        staff={staff}
+                                    />
+                                )}
+                            </CardHeader>
+                            <CardContent>
+                                <AssignmentTable
+                                    equipment={equipment}
+                                    assignments={assignments}
+                                    locations={locations}
+                                />
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
                     <TabsContent value="readings" className="mt-6">
                         <Card>
                             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -422,6 +469,118 @@ export default function EquipmentShow(props: Props) {
                 </Tabs>
             </div>
         </AppLayout>
+    );
+}
+
+function AssignmentTable({
+    equipment,
+    assignments,
+    locations,
+}: {
+    equipment: EquipmentRecord;
+    assignments: EquipmentAssignment[];
+    locations: EquipmentLocation[];
+}) {
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+                <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                        <th className="py-3 pr-4 font-medium">Handover</th>
+                        <th className="py-3 pr-4 font-medium">Destination</th>
+                        <th className="py-3 pr-4 font-medium">Custodian</th>
+                        <th className="py-3 pr-4 font-medium">Meter</th>
+                        <th className="py-3 pr-4 font-medium">Status</th>
+                        <th className="py-3 text-right font-medium">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {assignments.map((assignment) => (
+                        <tr
+                            key={assignment.id}
+                            className="border-b align-top last:border-0"
+                        >
+                            <td className="py-3 pr-4">
+                                {assignment.assigned_at}
+                                <div className="text-muted-foreground">
+                                    by {assignment.handed_over_by}
+                                </div>
+                                {assignment.expected_return_at && (
+                                    <div className="text-muted-foreground">
+                                        Due {assignment.expected_return_at}
+                                    </div>
+                                )}
+                            </td>
+                            <td className="py-3 pr-4">
+                                {assignment.site_name}
+                                <div className="text-muted-foreground">
+                                    {assignment.project_name} ·{' '}
+                                    {assignment.location_name}
+                                </div>
+                            </td>
+                            <td className="py-3 pr-4">
+                                {assignment.custodian_name ?? 'Not recorded'}
+                                {assignment.custodian_employer && (
+                                    <div className="text-muted-foreground">
+                                        {assignment.custodian_employer}
+                                    </div>
+                                )}
+                            </td>
+                            <td className="py-3 pr-4">
+                                {assignment.handover_meter_reading
+                                    ? formatNumber(
+                                          assignment.handover_meter_reading,
+                                      )
+                                    : 'None'}
+                                {assignment.return_meter_reading && (
+                                    <div className="text-muted-foreground">
+                                        Return{' '}
+                                        {formatNumber(
+                                            assignment.return_meter_reading,
+                                        )}
+                                    </div>
+                                )}
+                            </td>
+                            <td className="py-3 pr-4">
+                                <Badge
+                                    variant={
+                                        assignment.status === 'active'
+                                            ? 'secondary'
+                                            : 'outline'
+                                    }
+                                >
+                                    {title(assignment.status)}
+                                </Badge>
+                                {assignment.returned_at && (
+                                    <div className="mt-1 text-muted-foreground">
+                                        {assignment.returned_at}
+                                    </div>
+                                )}
+                            </td>
+                            <td className="py-3 text-right">
+                                {assignment.can_return && (
+                                    <EquipmentReturnDialog
+                                        equipment={equipment}
+                                        assignment={assignment}
+                                        locations={locations}
+                                    />
+                                )}
+                            </td>
+                        </tr>
+                    ))}
+                    {assignments.length === 0 && (
+                        <tr>
+                            <td
+                                colSpan={6}
+                                className="py-10 text-center text-muted-foreground"
+                            >
+                                No assignment history recorded.
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
     );
 }
 
