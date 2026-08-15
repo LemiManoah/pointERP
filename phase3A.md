@@ -6,7 +6,9 @@ Architecture and implementation plan prepared on 15 August 2026.
 
 Phase 3A.1, Equipment Register and Locations, is implemented and awaiting UI and automated-test acceptance. It includes separate equipment-category, equipment-location and equipment migrations; tenant/branch-aware models and policies; audited register actions; active/inactive views; controlled-document linkage; permissions; and road-project demo data.
 
-Phase 3A.2 has not started. Meter ledgers, assignments, custody, transfers and manual location confirmations must wait until the Phase 3A.1 checkpoint is accepted.
+Phase 3A.2a, Meter Ledger and Controlled Correction, is implemented and awaiting UI and automated-test acceptance. It includes opening-reading backfill, accepted meter events, calculated usage, additive correction requests, two-person approval/rejection, asset-cache recalculation, notifications, audit, permissions, UI history and seeded examples.
+
+Phase 3A.2b has not started. Assignments, custody, handover/return, transfers and manual location confirmations follow after the meter-control checkpoint is accepted.
 
 Phase 3A is the first resource-control slice after Phase 2. It turns the equipment and fuel observations already captured in approved Daily Site Reports into a controlled fleet register, movement history, meter ledger, fuel ledger and maintenance workflow.
 
@@ -701,6 +703,8 @@ Exit: authorised users can register and inspect assets with correct tenant/branc
 
 ### 3A.2 Meter, assignment and transfer control
 
+- Checkpoint 3A.2a: meter ledger and correction workflow.
+- Checkpoint 3A.2b: assignment, transfer and location workflow.
 - Meter ledger and correction workflow.
 - Assignment/handover/return.
 - Transfer request through destination receipt.

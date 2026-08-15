@@ -37,6 +37,10 @@ use App\Http\Controllers\Operations\DsrExceptionExportController;
 use App\Http\Controllers\Operations\EquipmentCategoryController;
 use App\Http\Controllers\Operations\EquipmentController;
 use App\Http\Controllers\Operations\EquipmentLocationController;
+use App\Http\Controllers\Operations\EquipmentMeterCorrectionApprovalController;
+use App\Http\Controllers\Operations\EquipmentMeterCorrectionController;
+use App\Http\Controllers\Operations\EquipmentMeterCorrectionRejectionController;
+use App\Http\Controllers\Operations\EquipmentMeterReadingController;
 use App\Http\Controllers\Operations\ExpectedDailySiteReportExcuseController;
 use App\Http\Controllers\Operations\OperationsDashboardController;
 use App\Http\Controllers\Operations\ProjectActivityController;
@@ -109,6 +113,10 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::resource('equipment', EquipmentController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
     Route::resource('equipment-categories', EquipmentCategoryController::class)->only(['store', 'update', 'destroy']);
     Route::resource('equipment-locations', EquipmentLocationController::class)->only(['store', 'update', 'destroy']);
+    Route::post('equipment/{equipment}/meter-readings', [EquipmentMeterReadingController::class, 'store'])->name('equipment.meter-readings.store');
+    Route::post('equipment-meter-readings/{equipmentMeterReading}/corrections', [EquipmentMeterCorrectionController::class, 'store'])->name('equipment-meter-readings.corrections.store');
+    Route::post('equipment-meter-readings/{equipmentMeterReading}/approve', EquipmentMeterCorrectionApprovalController::class)->name('equipment-meter-readings.approve');
+    Route::post('equipment-meter-readings/{equipmentMeterReading}/reject', EquipmentMeterCorrectionRejectionController::class)->name('equipment-meter-readings.reject');
     Route::post('projects/{project}/users', [ProjectUserController::class, 'store'])->name('projects.users.store');
     Route::post('sites/{site}/users', [SiteUserController::class, 'store'])->name('sites.users.store');
 

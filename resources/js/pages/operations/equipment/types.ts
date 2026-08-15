@@ -88,3 +88,23 @@ export type EquipmentRecord = {
     condition_summary: string | null;
     is_active: boolean;
 };
+
+export type EquipmentMeterReading = {
+    id: string;
+    event_type: string;
+    reading_value: string;
+    read_at: string;
+    previous_reading: string | null;
+    usage: string | null;
+    status: string;
+    corrects_reading_id: string | null;
+    corrected_value: string | null;
+    reason: string | null;
+    evidence_note: string | null;
+    decision_note: string | null;
+    recorded_by: string | null;
+    approved_by: string | null;
+    rejected_by: string | null;
+    can_correct: boolean;
+    can_approve: boolean;
+};

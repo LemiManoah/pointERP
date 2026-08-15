@@ -18,10 +18,16 @@ import {
     type LinkedDocumentRow,
 } from '../documents/partials/document-evidence-table';
 import { EquipmentDialog } from './partials/equipment-dialog';
+import { MeterCorrectionReviewDialog } from './partials/meter-correction-review-dialog';
+import {
+    MeterCorrectionDialog,
+    MeterReadingDialog,
+} from './partials/meter-reading-dialog';
 import type {
     BranchOption,
     EquipmentCategory,
     EquipmentLocation,
+    EquipmentMeterReading,
     EquipmentRecord,
     Option,
     OwnerOption,
@@ -30,7 +36,9 @@ import type {
 } from './types';
 
 type Props = {
+    activeTab: string;
     equipment: EquipmentRecord;
+    meterReadings: EquipmentMeterReading[];
     documents: LinkedDocumentRow[];
     documentTypes: DocumentTypeOption[];
     documentBranches: Option[];
@@ -47,12 +55,14 @@ type Props = {
         retire: boolean;
         uploadDocuments: boolean;
         viewCosts: boolean;
+        recordReading: boolean;
     };
 };
 
 export default function EquipmentShow(props: Props) {
     const {
         equipment,
+        meterReadings,
         documents,
         documentTypes,
         documentBranches,
@@ -64,7 +74,11 @@ export default function EquipmentShow(props: Props) {
         currencies,
         can,
     } = props;
-    const [tab, setTab] = useState('overview');
+    const [tab, setTab] = useState(
+        ['overview', 'readings', 'documents'].includes(props.activeTab)
+            ? props.activeTab
+            : 'overview',
+    );
     const confirm = useConfirmDialog();
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -144,6 +158,7 @@ export default function EquipmentShow(props: Props) {
                 <Tabs value={tab} onValueChange={setTab}>
                     <TabsList>
                         <TabsTrigger value="overview">Overview</TabsTrigger>
+                        <TabsTrigger value="readings">Readings</TabsTrigger>
                         <TabsTrigger value="documents">Documents</TabsTrigger>
                     </TabsList>
                     <TabsContent value="overview" className="mt-6 grid gap-6">
@@ -360,6 +375,29 @@ export default function EquipmentShow(props: Props) {
                             </Card>
                         )}
                     </TabsContent>
+                    <TabsContent value="readings" className="mt-6">
+                        <Card>
+                            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <CardTitle>Meter ledger</CardTitle>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Accepted observations and additive
+                                        corrections for this asset.
+                                    </p>
+                                </div>
+                                {can.recordReading &&
+                                    equipment.is_active &&
+                                    equipment.meter_type !== 'none' && (
+                                        <MeterReadingDialog
+                                            equipment={equipment}
+                                        />
+                                    )}
+                            </CardHeader>
+                            <CardContent>
+                                <MeterReadingTable readings={meterReadings} />
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
                     <TabsContent value="documents" className="mt-6">
                         <DocumentEvidenceTable
                             documents={documents}
@@ -384,6 +422,118 @@ export default function EquipmentShow(props: Props) {
                 </Tabs>
             </div>
         </AppLayout>
+    );
+}
+
+function MeterReadingTable({
+    readings,
+}: {
+    readings: EquipmentMeterReading[];
+}) {
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+                <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                        <th className="py-3 pr-4 font-medium">Observed</th>
+                        <th className="py-3 pr-4 font-medium">Event</th>
+                        <th className="py-3 pr-4 font-medium">Reading</th>
+                        <th className="py-3 pr-4 font-medium">Usage</th>
+                        <th className="py-3 pr-4 font-medium">Status</th>
+                        <th className="py-3 pr-4 font-medium">Evidence</th>
+                        <th className="py-3 text-right font-medium">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {readings.map((reading) => (
+                        <tr
+                            key={reading.id}
+                            className="border-b align-top last:border-0"
+                        >
+                            <td className="py-3 pr-4">
+                                {reading.read_at}
+                                <div className="text-muted-foreground">
+                                    {reading.recorded_by ?? 'System'}
+                                </div>
+                            </td>
+                            <td className="py-3 pr-4">
+                                {title(reading.event_type)}
+                                {reading.corrects_reading_id && (
+                                    <div className="text-muted-foreground">
+                                        Corrects{' '}
+                                        {formatNumber(reading.corrected_value)}
+                                    </div>
+                                )}
+                            </td>
+                            <td className="py-3 pr-4 font-medium">
+                                {formatNumber(reading.reading_value)}
+                                {reading.previous_reading !== null && (
+                                    <div className="font-normal text-muted-foreground">
+                                        Previous{' '}
+                                        {formatNumber(reading.previous_reading)}
+                                    </div>
+                                )}
+                            </td>
+                            <td className="py-3 pr-4">
+                                {reading.usage === null
+                                    ? 'Opening'
+                                    : formatNumber(reading.usage)}
+                            </td>
+                            <td className="py-3 pr-4">
+                                <Badge
+                                    variant={
+                                        reading.status === 'rejected'
+                                            ? 'destructive'
+                                            : reading.status === 'accepted'
+                                              ? 'secondary'
+                                              : 'outline'
+                                    }
+                                >
+                                    {title(reading.status)}
+                                </Badge>
+                            </td>
+                            <td className="max-w-64 py-3 pr-4 text-muted-foreground">
+                                {reading.reason ??
+                                    reading.evidence_note ??
+                                    reading.decision_note ??
+                                    'None'}
+                            </td>
+                            <td className="py-3">
+                                <div className="flex justify-end gap-2">
+                                    {reading.can_correct && (
+                                        <MeterCorrectionDialog
+                                            reading={reading}
+                                        />
+                                    )}
+                                    {reading.can_approve && (
+                                        <>
+                                            <MeterCorrectionReviewDialog
+                                                reading={reading}
+                                                action="approve"
+                                            />
+                                            <MeterCorrectionReviewDialog
+                                                reading={reading}
+                                                action="reject"
+                                            />
+                                        </>
+                                    )}
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                    {readings.length === 0 && (
+                        <tr>
+                            <td
+                                colSpan={7}
+                                className="py-10 text-center text-muted-foreground"
+                            >
+                                No meter readings recorded.
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
     );
 }
 

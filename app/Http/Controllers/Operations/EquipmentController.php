@@ -15,6 +15,7 @@ use App\Models\Document;
 use App\Models\Equipment;
 use App\Models\EquipmentCategory;
 use App\Models\EquipmentLocation;
+use App\Models\EquipmentMeterReading;
 use App\Models\Project;
 use App\Models\Site;
 use App\Models\Staff;
@@ -68,7 +69,38 @@ final class EquipmentController
         $equipment->load(['branch', 'category', 'owner', 'defaultLocation', 'currentLocation', 'currentProject', 'currentSite', 'currentCustodian']);
 
         return Inertia::render('operations/equipment/show', [
+            'activeTab' => request()->string('tab')->value() ?: 'overview',
             'equipment' => $this->equipmentRow($equipment, Gate::forUser($user)->allows('viewCosts', $equipment)),
+            'meterReadings' => EquipmentMeterReading::query()
+                ->with(['recordedBy', 'approvedBy', 'rejectedBy', 'correctedReading'])
+                ->where('equipment_id', $equipment->id)
+                ->latest('read_at')
+                ->latest('created_at')
+                ->get()
+                ->map(fn (EquipmentMeterReading $reading): array => [
+                    'id' => $reading->id,
+                    'event_type' => $reading->event_type,
+                    'reading_value' => $reading->reading_value,
+                    'read_at' => $reading->read_at->toDateTimeString(),
+                    'previous_reading' => $reading->previous_reading,
+                    'usage' => $reading->usage,
+                    'status' => $reading->status,
+                    'corrects_reading_id' => $reading->corrects_reading_id,
+                    'corrected_value' => $reading->correctedReading?->reading_value,
+                    'reason' => $reading->reason,
+                    'evidence_note' => $reading->evidence_note,
+                    'decision_note' => $reading->decision_note,
+                    'recorded_by' => $reading->recordedBy?->name,
+                    'approved_by' => $reading->approvedBy?->name,
+                    'rejected_by' => $reading->rejectedBy?->name,
+                    'can_correct' => Gate::forUser($user)->allows('correct', $reading)
+                        && $reading->status === EquipmentMeterReading::STATUS_ACCEPTED
+                        && $reading->event_type !== 'correction'
+                        && ! $reading->corrections()->where('status', EquipmentMeterReading::STATUS_PENDING)->exists(),
+                    'can_approve' => Gate::forUser($user)->allows('approveCorrection', $reading)
+                        && $reading->status === EquipmentMeterReading::STATUS_PENDING
+                        && $reading->event_type === 'correction',
+                ]),
             'documents' => $this->linkedDocumentsFor($equipment, $user),
             'categories' => EquipmentCategory::query()->orderBy('name')->get()->map(fn (EquipmentCategory $category): array => $this->categoryRow($category)),
             'locations' => EquipmentLocation::query()->with(['branch', 'project', 'site'])->visibleTo($user)->orderBy('name')->get()->map(fn (EquipmentLocation $location): array => $this->locationRow($location)),
@@ -77,6 +109,7 @@ final class EquipmentController
                 'retire' => Gate::forUser($user)->allows('delete', $equipment),
                 'uploadDocuments' => Gate::forUser($user)->allows('create', Document::class),
                 'viewCosts' => Gate::forUser($user)->allows('viewCosts', $equipment),
+                'recordReading' => Gate::forUser($user)->allows('create', [EquipmentMeterReading::class, $equipment]),
             ],
             ...$this->formOptions($user),
             ...$this->documentFormOptions($user),

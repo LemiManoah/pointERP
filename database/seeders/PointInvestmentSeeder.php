@@ -25,6 +25,7 @@ use App\Models\DocumentVersion;
 use App\Models\Equipment;
 use App\Models\EquipmentCategory;
 use App\Models\EquipmentLocation;
+use App\Models\EquipmentMeterReading;
 use App\Models\ExchangeRate;
 use App\Models\ExpectedDailySiteReport;
 use App\Models\Project;
@@ -582,7 +583,7 @@ final class PointInvestmentSeeder extends Seeder
             $hireRate = $isOwned ? null : '850000.0000';
             $hireRateBasis = $isOwned ? null : 'day';
 
-            Equipment::query()->updateOrCreate(
+            $equipment = Equipment::query()->updateOrCreate(
                 ['tenant_id' => $branch->tenant_id, 'asset_code' => $code],
                 [
                     'branch_id' => $branch->id,
@@ -603,21 +604,101 @@ final class PointInvestmentSeeder extends Seeder
                     'default_location_id' => $location->id,
                     'meter_type' => $category->default_meter_type,
                     'starting_meter_reading' => $reading,
-                    'starting_meter_date' => now()->subMonth()->toDateString(),
+                    'starting_meter_date' => '2026-07-01',
                     'fuel_efficiency_basis' => $category->fuel_efficiency_basis,
                     'expected_fuel_efficiency' => $category->expected_fuel_efficiency,
                     'fuel_tolerance_percent' => $category->fuel_tolerance_percent,
                     'current_status' => $status,
                     'current_location_id' => $location->id,
                     'current_meter_reading' => $reading,
-                    'current_meter_read_at' => now()->subMonth(),
+                    'current_meter_read_at' => '2026-07-01 08:00:00',
                     'condition_summary' => $status === 'out_of_service' ? 'Awaiting mechanical inspection.' : 'Serviceable at register opening.',
                     'is_active' => true,
                     'created_by' => $director->id,
                     'updated_by' => $director->id,
                 ],
             );
+            [$meterUsage, $pendingCorrection] = $this->equipmentMeterSeedScenario($code);
+            $this->seedEquipmentMeterHistory($director, $equipment, $meterUsage, $pendingCorrection);
         }
+    }
+
+    /** @return array{0: string|null, 1: bool} */
+    private function equipmentMeterSeedScenario(string $assetCode): array
+    {
+        return match ($assetCode) {
+            'EQ-GRD-001' => ['120.0000', false],
+            'EQ-EXC-003' => ['80.0000', true],
+            default => [null, false],
+        };
+    }
+
+    private function seedEquipmentMeterHistory(User $actor, Equipment $equipment, ?string $usage, bool $pendingCorrection): void
+    {
+        $opening = EquipmentMeterReading::query()->updateOrCreate(
+            ['equipment_id' => $equipment->id, 'event_type' => 'opening', 'corrects_reading_id' => null],
+            [
+                'tenant_id' => $equipment->tenant_id,
+                'branch_id' => $equipment->branch_id,
+                'equipment_location_id' => $equipment->default_location_id,
+                'reading_value' => $equipment->starting_meter_reading,
+                'read_at' => $equipment->starting_meter_date,
+                'previous_reading' => null,
+                'usage' => null,
+                'status' => EquipmentMeterReading::STATUS_ACCEPTED,
+                'recorded_by' => $actor->id,
+                'approved_by' => $actor->id,
+                'approved_at' => $equipment->starting_meter_date,
+                'created_by' => $actor->id,
+                'updated_by' => $actor->id,
+            ],
+        );
+
+        if ($usage === null) {
+            return;
+        }
+
+        $value = number_format((float) $opening->reading_value + (float) $usage, 4, '.', '');
+        $latest = EquipmentMeterReading::query()->updateOrCreate(
+            ['equipment_id' => $equipment->id, 'event_type' => 'manual', 'read_at' => '2026-07-20 08:00:00'],
+            [
+                'tenant_id' => $equipment->tenant_id,
+                'branch_id' => $equipment->branch_id,
+                'equipment_location_id' => $equipment->default_location_id,
+                'reading_value' => $value,
+                'previous_reading' => $opening->reading_value,
+                'usage' => $usage,
+                'status' => EquipmentMeterReading::STATUS_ACCEPTED,
+                'evidence_note' => 'Seeded verified meter observation.',
+                'recorded_by' => $actor->id,
+                'approved_by' => $actor->id,
+                'approved_at' => '2026-07-20 08:00:00',
+                'created_by' => $actor->id,
+                'updated_by' => $actor->id,
+            ],
+        );
+        $equipment->forceFill(['current_meter_reading' => $latest->reading_value, 'current_meter_read_at' => $latest->read_at])->save();
+
+        if (! $pendingCorrection) {
+            return;
+        }
+
+        EquipmentMeterReading::query()->updateOrCreate(
+            ['equipment_id' => $equipment->id, 'event_type' => 'correction', 'corrects_reading_id' => $latest->id],
+            [
+                'tenant_id' => $equipment->tenant_id,
+                'branch_id' => $equipment->branch_id,
+                'equipment_location_id' => $equipment->default_location_id,
+                'reading_value' => number_format((float) $latest->reading_value - 5, 4, '.', ''),
+                'read_at' => $latest->read_at,
+                'status' => EquipmentMeterReading::STATUS_PENDING,
+                'reason' => 'Transcription error found during weekly logbook reconciliation.',
+                'evidence_note' => 'Physical hour-meter photograph and signed operator log available.',
+                'recorded_by' => $actor->id,
+                'created_by' => $actor->id,
+                'updated_by' => $actor->id,
+            ],
+        );
     }
 
     private function seedOperationalControls(

@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -131,6 +132,12 @@ final class Equipment extends Model
     public function documentLinks(): MorphMany
     {
         return $this->morphMany(DocumentLink::class, 'linkable');
+    }
+
+    /** @return HasMany<EquipmentMeterReading, $this> */
+    public function meterReadings(): HasMany
+    {
+        return $this->hasMany(EquipmentMeterReading::class);
     }
 
     /**
