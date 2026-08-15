@@ -11,6 +11,7 @@ use App\Models\ProjectActivity;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\DailySiteReportNotificationService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 final readonly class ApproveDailySiteReport
@@ -73,8 +74,8 @@ final readonly class ApproveDailySiteReport
             $activity = ProjectActivity::query()
                 ->where('tenant_id', $report->tenant_id)
                 ->where('project_id', $report->project_id)
-                ->when($line->project_activity_id, fn ($query) => $query->whereKey($line->project_activity_id))
-                ->when(! $line->project_activity_id && $line->boq_item_number, fn ($query) => $query->where('boq_item_number', $line->boq_item_number))
+                ->when($line->project_activity_id, fn (Builder $query) => $query->whereKey($line->project_activity_id))
+                ->when(! $line->project_activity_id && $line->boq_item_number, fn (Builder $query) => $query->where('boq_item_number', $line->boq_item_number))
                 ->first();
 
             if (! $activity instanceof ProjectActivity) {

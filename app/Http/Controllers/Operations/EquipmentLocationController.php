@@ -10,6 +10,7 @@ use App\Http\Requests\Operations\EquipmentLocations\UpdateEquipmentLocationReque
 use App\Models\Equipment;
 use App\Models\EquipmentLocation;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -42,7 +43,7 @@ final class EquipmentLocationController
     public function destroy(EquipmentLocation $equipmentLocation, SaveEquipmentLocation $action): RedirectResponse
     {
         Gate::authorize('delete', $equipmentLocation);
-        if ($equipmentLocation->is_active && Equipment::query()->where('is_active', true)->where(fn ($query) => $query->where('default_location_id', $equipmentLocation->id)->orWhere('current_location_id', $equipmentLocation->id))->exists()) {
+        if ($equipmentLocation->is_active && Equipment::query()->where('is_active', true)->where(fn (Builder $query) => $query->where('default_location_id', $equipmentLocation->id)->orWhere('current_location_id', $equipmentLocation->id))->exists()) {
             throw ValidationException::withMessages(['location' => 'Move or retire active equipment before deactivating this location.']);
         }
 

@@ -19,6 +19,7 @@ use App\Services\AuditLogger;
 use App\Services\ReportingCalendarResolver;
 use App\Services\TenantContext;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -153,7 +154,7 @@ final readonly class SaveDailySiteReport
                     ->where('tenant_id', $report->tenant_id)
                     ->where('project_id', $report->project_id)
                     ->where('status', 'active')
-                    ->where(function ($query) use ($report): void {
+                    ->where(function (Builder $query) use ($report): void {
                         $query->whereNull('site_id')->orWhere('site_id', $report->site_id);
                     })
                     ->first();

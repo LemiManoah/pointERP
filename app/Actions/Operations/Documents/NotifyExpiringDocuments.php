@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\OperationalNotificationSender;
 use App\Services\TenantContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 
 final readonly class NotifyExpiringDocuments
 {
@@ -25,7 +26,7 @@ final readonly class NotifyExpiringDocuments
         $sent = 0;
         $tenants = Tenant::query()
             ->active()
-            ->when($tenantId, fn ($query, string $id) => $query->whereKey($id))
+            ->when($tenantId, fn (Builder $query, string $id) => $query->whereKey($id))
             ->get();
 
         foreach ($tenants as $tenant) {

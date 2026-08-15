@@ -14,6 +14,7 @@ use App\Services\OperationalNotificationSender;
 use App\Services\ReportingCalendarResolver;
 use App\Services\TenantContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 
 final readonly class ProcessOverdueDailySiteReports
 {
@@ -33,7 +34,7 @@ final readonly class ProcessOverdueDailySiteReports
         $result = ['missing' => 0, 'notified' => 0, 'escalated' => 0];
         $tenants = Tenant::query()
             ->active()
-            ->when($tenantId, fn ($query, string $id) => $query->whereKey($id))
+            ->when($tenantId, fn (Builder $query, string $id) => $query->whereKey($id))
             ->get();
 
         foreach ($tenants as $tenant) {
@@ -42,7 +43,7 @@ final readonly class ProcessOverdueDailySiteReports
                 ->with(['report', 'site.manager', 'site.project.manager', 'site.project.users'])
                 ->whereIn('status', [ExpectedDailySiteReport::STATUS_EXPECTED, ExpectedDailySiteReport::STATUS_LATE, ExpectedDailySiteReport::STATUS_MISSING])
                 ->where('deadline_at', '<', $asOf)
-                ->when($siteId, fn ($query, string $id) => $query->where('site_id', $id))
+                ->when($siteId, fn (Builder $query, string $id) => $query->where('site_id', $id))
                 ->oldest('report_date')
                 ->get();
 

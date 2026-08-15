@@ -10,6 +10,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
@@ -82,9 +83,9 @@ final readonly class SaveReportingCalendar
     {
         return ReportingCalendar::query()
             ->where('is_active', true)
-            ->when($ignoreId, fn ($query, string $id) => $query->whereKeyNot($id))
-            ->when($projectId, fn ($query, string $id) => $query->where('project_id', $id), fn ($query) => $query->whereNull('project_id'))
-            ->when($siteId, fn ($query, string $id) => $query->where('site_id', $id), fn ($query) => $query->whereNull('site_id'))
+            ->when($ignoreId, fn (Builder $query, string $id) => $query->whereKeyNot($id))
+            ->when($projectId, fn (Builder $query, string $id) => $query->where('project_id', $id), fn (Builder $query) => $query->whereNull('project_id'))
+            ->when($siteId, fn (Builder $query, string $id) => $query->where('site_id', $id), fn (Builder $query) => $query->whereNull('site_id'))
             ->exists();
     }
 }

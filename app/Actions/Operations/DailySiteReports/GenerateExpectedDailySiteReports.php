@@ -11,6 +11,7 @@ use App\Services\AuditLogger;
 use App\Services\ReportingCalendarResolver;
 use App\Services\TenantContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 
 final readonly class GenerateExpectedDailySiteReports
 {
@@ -27,7 +28,7 @@ final readonly class GenerateExpectedDailySiteReports
         $created = 0;
         $tenants = Tenant::query()
             ->active()
-            ->when($tenantId, fn ($query, string $id) => $query->whereKey($id))
+            ->when($tenantId, fn (Builder $query, string $id) => $query->whereKey($id))
             ->get();
 
         foreach ($tenants as $tenant) {
@@ -35,7 +36,7 @@ final readonly class GenerateExpectedDailySiteReports
             $sites = Site::query()
                 ->with(['project', 'manager'])
                 ->where('status', 'active')
-                ->when($siteId, fn ($query, string $id) => $query->whereKey($id))
+                ->when($siteId, fn (Builder $query, string $id) => $query->whereKey($id))
                 ->get();
 
             foreach ($sites as $site) {

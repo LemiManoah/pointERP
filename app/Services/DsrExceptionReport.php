@@ -9,6 +9,7 @@ use App\Models\DocumentLink;
 use App\Models\ExpectedDailySiteReport;
 use App\Models\Site;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 
@@ -32,9 +33,9 @@ final readonly class DsrExceptionReport
             ->with(['site.project', 'site.manager', 'report'])
             ->whereIn('branch_id', $this->branchContext->accessibleBranchIds($user))
             ->whereBetween('report_date', [$from, $to])
-            ->when(is_string($filters['project_id'] ?? null) ? $filters['project_id'] : null, fn ($query, string $id) => $query->where('project_id', $id))
-            ->when(is_string($filters['site_id'] ?? null) ? $filters['site_id'] : null, fn ($query, string $id) => $query->where('site_id', $id))
-            ->when(is_string($filters['status'] ?? null) ? $filters['status'] : null, fn ($query, string $status) => $query->where('status', $status))
+            ->when(is_string($filters['project_id'] ?? null) ? $filters['project_id'] : null, fn (Builder $query, string $id) => $query->where('project_id', $id))
+            ->when(is_string($filters['site_id'] ?? null) ? $filters['site_id'] : null, fn (Builder $query, string $id) => $query->where('site_id', $id))
+            ->when(is_string($filters['status'] ?? null) ? $filters['status'] : null, fn (Builder $query, string $status) => $query->where('status', $status))
             ->latest('report_date')
             ->get()
             ->filter(fn (ExpectedDailySiteReport $expected): bool => $expected->site instanceof Site

@@ -19,6 +19,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -319,7 +320,7 @@ final class DailySiteReportController
                     $previous = (float) DailySiteReportWorkLine::query()
                         ->where('tenant_id', $report->tenant_id)
                         ->where('project_activity_id', $activityId)
-                        ->whereHas('report', fn ($query) => $query
+                        ->whereHas('report', fn (Builder $query) => $query
                             ->where('status', DailySiteReport::STATUS_APPROVED)
                             ->whereDate('report_date', '<', $report->report_date->toDateString()))
                         ->sum('quantity');
