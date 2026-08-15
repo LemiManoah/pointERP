@@ -45,7 +45,9 @@ export function LinkDialog({
               ? linkOptions.sites
               : form.data.type === 'daily_site_report'
                 ? linkOptions.dailySiteReports
-                : linkOptions.projects;
+                : form.data.type === 'equipment'
+                  ? linkOptions.equipment
+                  : linkOptions.projects;
 
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -92,6 +94,9 @@ export function LinkDialog({
                             </NativeSelectOption>
                             <NativeSelectOption value="daily_site_report">
                                 DSR
+                            </NativeSelectOption>
+                            <NativeSelectOption value="equipment">
+                                Equipment
                             </NativeSelectOption>
                         </NativeSelect>
                     </div>

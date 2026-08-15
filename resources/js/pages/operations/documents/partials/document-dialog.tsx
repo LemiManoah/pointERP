@@ -38,6 +38,7 @@ export type LinkOptions = {
     projects: Option[];
     sites: Option[];
     dailySiteReports: Option[];
+    equipment: Option[];
 };
 
 export type DocumentRecord = {
@@ -466,6 +467,7 @@ function LinkPicker({
         if (type === 'contract') return linkOptions.contracts;
         if (type === 'site') return linkOptions.sites;
         if (type === 'daily_site_report') return linkOptions.dailySiteReports;
+        if (type === 'equipment') return linkOptions.equipment;
         return linkOptions.projects;
     };
 
@@ -500,6 +502,9 @@ function LinkPicker({
                         </NativeSelectOption>
                         <NativeSelectOption value="daily_site_report">
                             DSR
+                        </NativeSelectOption>
+                        <NativeSelectOption value="equipment">
+                            Equipment
                         </NativeSelectOption>
                     </NativeSelect>
                     <SearchableSelect

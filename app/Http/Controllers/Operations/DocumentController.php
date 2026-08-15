@@ -15,6 +15,7 @@ use App\Models\Document;
 use App\Models\DocumentLink;
 use App\Models\DocumentType;
 use App\Models\DocumentVersion;
+use App\Models\Equipment;
 use App\Models\Project;
 use App\Models\Site;
 use App\Models\User;
@@ -172,6 +173,7 @@ final class DocumentController
                 'projects' => $this->projectOptions($user, $tenantId),
                 'sites' => $this->siteOptions($user, $tenantId),
                 'dailySiteReports' => $this->dailySiteReportOptions($user, $tenantId),
+                'equipment' => $this->equipmentOptions($user, $tenantId),
             ],
         ];
     }
@@ -283,7 +285,23 @@ final class DocumentController
             $target instanceof Project => $target->reference,
             $target instanceof Site => $target->name,
             $target instanceof DailySiteReport => $target->reference,
+            $target instanceof Equipment => sprintf('%s - %s', $target->asset_code, $target->name),
             default => 'Unknown record',
         };
+    }
+
+    /**
+     * @return list<array<string, string>>
+     */
+    private function equipmentOptions(User $user, string $tenantId): array
+    {
+        return Equipment::query()
+            ->where('tenant_id', $tenantId)
+            ->orderBy('asset_code')
+            ->get()
+            ->filter(fn (Equipment $equipment): bool => Gate::forUser($user)->allows('view', $equipment))
+            ->map(fn (Equipment $equipment): array => ['id' => $equipment->id, 'name' => sprintf('%s - %s', $equipment->asset_code, $equipment->name)])
+            ->values()
+            ->all();
     }
 }

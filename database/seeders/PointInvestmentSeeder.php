@@ -23,6 +23,9 @@ use App\Models\DocumentLink;
 use App\Models\DocumentType;
 use App\Models\DocumentVersion;
 use App\Models\ExchangeRate;
+use App\Models\Equipment;
+use App\Models\EquipmentCategory;
+use App\Models\EquipmentLocation;
 use App\Models\ExpectedDailySiteReport;
 use App\Models\Project;
 use App\Models\ProjectActivity;
@@ -63,6 +66,7 @@ final class PointInvestmentSeeder extends Seeder
             'SITE-ENGINEER' => $this->position('SITE-ENGINEER', 'Site Engineer'),
             'SITE-MANAGER' => $this->position('SITE-MANAGER', 'Site Manager'),
             'AUDITOR' => $this->position('AUDITOR', 'Auditor'),
+            'FLEET-MANAGER' => $this->position('FLEET-MANAGER', 'Fleet Manager'),
         ];
 
         foreach (['USD', 'UGX', 'SSP', 'CDF'] as $currencyCode) {
@@ -181,6 +185,17 @@ final class PointInvestmentSeeder extends Seeder
             roleName: 'Site Manager',
             branchAccess: [$branches['JUB-HQ']],
             defaultBranch: $branches['JUB-HQ'],
+        );
+
+        $this->user(
+            staffNumber: 'POINT-009',
+            name: 'Regional Fleet Manager',
+            email: 'fleet@point.test',
+            branch: $branches['KLA-HQ'],
+            position: $positions['FLEET-MANAGER'],
+            roleName: 'Fleet Manager',
+            branchAccess: [$branches['KLA-HQ'], $branches['GUL-SITE'], $branches['JUB-HQ']],
+            defaultBranch: $branches['KLA-HQ'],
         );
 
         $this->operationsDemoData(
@@ -347,7 +362,7 @@ final class PointInvestmentSeeder extends Seeder
             ],
         );
 
-        Customer::query()->updateOrCreate(
+        $subcontractor = Customer::query()->updateOrCreate(
             ['tenant_id' => $ugandaBranch->tenant_id, 'code' => 'ATSGSL'],
             [
                 'branch_id' => $ugandaBranch->id,
@@ -483,6 +498,121 @@ final class PointInvestmentSeeder extends Seeder
             content: 'Demo method statement for South Sudan branch isolation.',
             links: [[$southSudanProject::class, $southSudanProject->id]],
         );
+
+        $this->seedEquipmentRegister(
+            director: $director,
+            ugandaBranch: $ugandaBranch,
+            southSudanBranch: $southSudanBranch,
+            ugandaProject: $roadProject,
+            southSudanProject: $southSudanProject,
+            busunjuSite: $busunjuSite,
+            kibogaSite: $kibogaSite,
+            jubaSite: $jubaSite,
+            subcontractor: $subcontractor,
+        );
+    }
+
+    private function seedEquipmentRegister(
+        User $director,
+        Branch $ugandaBranch,
+        Branch $southSudanBranch,
+        Project $ugandaProject,
+        Project $southSudanProject,
+        Site $busunjuSite,
+        Site $kibogaSite,
+        Site $jubaSite,
+        Customer $subcontractor,
+    ): void {
+        $categories = [];
+        foreach ([
+            ['EARTHWORK', 'Earthmoving Plant', 'engine_hours', 'tonnes', 'litres_per_hour', '22.0000'],
+            ['COMPACTION', 'Compaction Plant', 'engine_hours', 'tonnes', 'litres_per_hour', '14.0000'],
+            ['HAULAGE', 'Haulage Vehicles', 'odometer_km', 'tonnes', 'litres_per_100km', '38.0000'],
+            ['SUPPORT', 'Site Support Equipment', 'engine_hours', 'kVA', 'litres_per_hour', '8.0000'],
+        ] as [$code, $name, $meter, $unit, $basis, $efficiency]) {
+            $categories[$code] = EquipmentCategory::query()->updateOrCreate(
+                ['tenant_id' => $ugandaBranch->tenant_id, 'code' => $code],
+                [
+                    'name' => $name,
+                    'description' => 'Seeded Phase 3A equipment classification.',
+                    'default_meter_type' => $meter,
+                    'default_capacity_unit' => $unit,
+                    'fuel_efficiency_basis' => $basis,
+                    'expected_fuel_efficiency' => $efficiency,
+                    'fuel_tolerance_percent' => '15.0000',
+                    'is_active' => true,
+                    'created_by' => $director->id,
+                    'updated_by' => $director->id,
+                ],
+            );
+        }
+
+        $locations = [
+            'GUL-DEPOT' => EquipmentLocation::query()->updateOrCreate(
+                ['tenant_id' => $ugandaBranch->tenant_id, 'code' => 'GUL-DEPOT'],
+                ['branch_id' => $ugandaBranch->id, 'type' => 'depot', 'name' => 'Gulu Plant Depot', 'address' => 'Gulu Project Office', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+            ),
+            'BUSUNJU' => EquipmentLocation::query()->updateOrCreate(
+                ['tenant_id' => $ugandaBranch->tenant_id, 'code' => 'BUSUNJU-YARD'],
+                ['branch_id' => $ugandaBranch->id, 'project_id' => $ugandaProject->id, 'site_id' => $busunjuSite->id, 'type' => 'site', 'name' => 'Busunju Site Yard', 'address' => $busunjuSite->location_name, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+            ),
+            'KIBOGA' => EquipmentLocation::query()->updateOrCreate(
+                ['tenant_id' => $ugandaBranch->tenant_id, 'code' => 'KIBOGA-YARD'],
+                ['branch_id' => $ugandaBranch->id, 'project_id' => $ugandaProject->id, 'site_id' => $kibogaSite->id, 'type' => 'site', 'name' => 'Kiboga-Hoima Site Yard', 'address' => $kibogaSite->location_name, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+            ),
+            'JUBA' => EquipmentLocation::query()->updateOrCreate(
+                ['tenant_id' => $southSudanBranch->tenant_id, 'code' => 'JUBA-YARD'],
+                ['branch_id' => $southSudanBranch->id, 'project_id' => $southSudanProject->id, 'site_id' => $jubaSite->id, 'type' => 'site', 'name' => 'Juba Access Works Yard', 'address' => $jubaSite->location_name, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+            ),
+        ];
+
+        $assets = [
+            ['EQ-GRD-001', 'Motor Grader', 'EARTHWORK', $ugandaBranch, $locations['BUSUNJU'], 'Caterpillar', '140K', 'CAT140K-001', 'owned', null, '12450.0000', 'available'],
+            ['EQ-EXC-003', 'Hydraulic Excavator', 'EARTHWORK', $ugandaBranch, $locations['BUSUNJU'], 'Komatsu', 'PC300', 'KMTPC300-003', 'owned', null, '8320.5000', 'available'],
+            ['EQ-RLR-002', 'Vibratory Roller', 'COMPACTION', $ugandaBranch, $locations['KIBOGA'], 'Bomag', 'BW211', 'BOM211-002', 'leased', null, '4680.0000', 'idle'],
+            ['EQ-WTR-001', 'Water Bowser', 'HAULAGE', $ugandaBranch, $locations['KIBOGA'], 'Isuzu', 'FVZ', 'ISZFVZ-001', 'hired', $subcontractor, '186500.0000', 'available'],
+            ['EQ-TIP-004', 'Tipper Truck', 'HAULAGE', $ugandaBranch, $locations['GUL-DEPOT'], 'Sinotruk', 'HOWO', 'HOWO-004', 'subcontractor', $subcontractor, '245000.0000', 'out_of_service'],
+            ['EQ-GEN-001', 'Site Generator', 'SUPPORT', $southSudanBranch, $locations['JUBA'], 'Perkins', '1106A', 'PERK-1106A-001', 'owned', null, '2150.0000', 'available'],
+        ];
+
+        foreach ($assets as [$code, $name, $categoryCode, $branch, $location, $make, $model, $serial, $ownership, $owner, $reading, $status]) {
+            $category = $categories[$categoryCode];
+            Equipment::query()->updateOrCreate(
+                ['tenant_id' => $branch->tenant_id, 'asset_code' => $code],
+                [
+                    'branch_id' => $branch->id,
+                    'equipment_category_id' => $category->id,
+                    'name' => $name,
+                    'make' => $make,
+                    'model' => $model,
+                    'serial_number' => $serial,
+                    'ownership_type' => $ownership,
+                    'owner_customer_id' => $owner?->id,
+                    'owner_name' => $owner?->name,
+                    'capacity_unit' => $category->default_capacity_unit,
+                    'acquired_on' => '2024-01-15',
+                    'acquisition_amount' => $ownership === 'owned' ? '450000000.0000' : null,
+                    'acquisition_currency_code' => $branch->default_currency_code,
+                    'hire_rate' => in_array($ownership, ['leased', 'hired', 'subcontractor'], true) ? '850000.0000' : null,
+                    'hire_rate_basis' => in_array($ownership, ['leased', 'hired', 'subcontractor'], true) ? 'day' : null,
+                    'default_location_id' => $location->id,
+                    'meter_type' => $category->default_meter_type,
+                    'starting_meter_reading' => $reading,
+                    'starting_meter_date' => now()->subMonth()->toDateString(),
+                    'fuel_efficiency_basis' => $category->fuel_efficiency_basis,
+                    'expected_fuel_efficiency' => $category->expected_fuel_efficiency,
+                    'fuel_tolerance_percent' => $category->fuel_tolerance_percent,
+                    'current_status' => $status,
+                    'current_location_id' => $location->id,
+                    'current_meter_reading' => $reading,
+                    'current_meter_read_at' => now()->subMonth(),
+                    'condition_summary' => $status === 'out_of_service' ? 'Awaiting mechanical inspection.' : 'Serviceable at register opening.',
+                    'is_active' => true,
+                    'created_by' => $director->id,
+                    'updated_by' => $director->id,
+                ],
+            );
+        }
     }
 
     private function seedOperationalControls(

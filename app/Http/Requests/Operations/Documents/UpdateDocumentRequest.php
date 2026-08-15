@@ -88,7 +88,7 @@ final class UpdateDocumentRequest extends FormRequest
                 Document::STATUS_ARCHIVED,
             ])],
             'links' => ['array'],
-            'links.*.type' => ['required_with:links', Rule::in(['contract', 'project', 'site', 'daily_site_report'])],
+            'links.*.type' => ['required_with:links', Rule::in(['contract', 'project', 'site', 'daily_site_report', 'equipment'])],
             'links.*.id' => ['required_with:links', 'uuid'],
         ];
     }

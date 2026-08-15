@@ -34,6 +34,9 @@ use App\Http\Controllers\Operations\DocumentLinkController;
 use App\Http\Controllers\Operations\DocumentTypeController;
 use App\Http\Controllers\Operations\DocumentVersionController;
 use App\Http\Controllers\Operations\DsrExceptionExportController;
+use App\Http\Controllers\Operations\EquipmentCategoryController;
+use App\Http\Controllers\Operations\EquipmentController;
+use App\Http\Controllers\Operations\EquipmentLocationController;
 use App\Http\Controllers\Operations\ExpectedDailySiteReportExcuseController;
 use App\Http\Controllers\Operations\OperationsDashboardController;
 use App\Http\Controllers\Operations\ProjectActivityController;
@@ -103,6 +106,9 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('documents/{document}/links', [DocumentLinkController::class, 'store'])->name('documents.links.store');
     Route::delete('documents/{document}/links/{documentLink}', [DocumentLinkController::class, 'destroy'])->name('documents.links.destroy');
     Route::resource('document-types', DocumentTypeController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::resource('equipment', EquipmentController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
+    Route::resource('equipment-categories', EquipmentCategoryController::class)->only(['store', 'update', 'destroy']);
+    Route::resource('equipment-locations', EquipmentLocationController::class)->only(['store', 'update', 'destroy']);
     Route::post('projects/{project}/users', [ProjectUserController::class, 'store'])->name('projects.users.store');
     Route::post('sites/{site}/users', [SiteUserController::class, 'store'])->name('sites.users.store');
 

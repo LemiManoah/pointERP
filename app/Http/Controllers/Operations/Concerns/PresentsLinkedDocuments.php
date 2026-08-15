@@ -11,6 +11,7 @@ use App\Models\Document;
 use App\Models\DocumentLink;
 use App\Models\DocumentType;
 use App\Models\DocumentVersion;
+use App\Models\Equipment;
 use App\Models\Project;
 use App\Models\Site;
 use App\Models\User;
@@ -55,6 +56,7 @@ trait PresentsLinkedDocuments
                 'projects' => $this->documentProjectOptions($user, $tenantId),
                 'sites' => $this->documentSiteOptions($user, $tenantId),
                 'dailySiteReports' => $this->documentDailySiteReportOptions($user, $tenantId),
+                'equipment' => $this->documentEquipmentOptions($user, $tenantId),
             ],
         ];
     }
@@ -122,6 +124,7 @@ trait PresentsLinkedDocuments
             $target instanceof Project => $target->reference,
             $target instanceof Site => $target->name,
             $target instanceof DailySiteReport => $target->reference,
+            $target instanceof Equipment => sprintf('%s - %s', $target->asset_code, $target->name),
             default => 'Unknown record',
         };
     }
@@ -184,6 +187,21 @@ trait PresentsLinkedDocuments
             ->get()
             ->filter(fn (DailySiteReport $report): bool => Gate::forUser($user)->allows('view', $report))
             ->map(fn (DailySiteReport $report): array => ['id' => $report->id, 'name' => sprintf('%s - %s', $report->reference, $report->site?->name)])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array<string, string>>
+     */
+    private function documentEquipmentOptions(User $user, string $tenantId): array
+    {
+        return Equipment::query()
+            ->where('tenant_id', $tenantId)
+            ->orderBy('asset_code')
+            ->get()
+            ->filter(fn (Equipment $equipment): bool => Gate::forUser($user)->allows('view', $equipment))
+            ->map(fn (Equipment $equipment): array => ['id' => $equipment->id, 'name' => sprintf('%s - %s', $equipment->asset_code, $equipment->name)])
             ->values()
             ->all();
     }

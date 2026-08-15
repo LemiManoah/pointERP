@@ -121,6 +121,8 @@ Recommended first Phase 3 slice.
 
 SRS coverage: `EQP-001` to `EQP-009` and `EQP-011`. Live GPS remains later.
 
+Detailed implementation document: `phase3A.md`.
+
 ### Phase 3B - Materials, Procurement and Inventory
 
 - Suppliers, items, categories and tenant-managed units of measure.
@@ -198,7 +200,7 @@ Run the Phase 2D migrations, seeders, focused tests and UAT. Once accepted, begi
 
 Reason: PointERP can already capture daily operational data, but it does not yet provide the complete notification, escalation and exception-management loop required by `PRJ-005` to `PRJ-008`, `COM-003` to `COM-005`, and `RPT-001` to `RPT-006`. Closing that loop makes the existing work usable for management and gives Phase 3 modules a reusable notification and dashboard foundation.
 
-After Phase 2D, create `phase3.md` for the complete resource-control architecture and `phase3A.md` for the detailed equipment/fleet/fuel implementation plan before writing its migrations.
+`phase3A.md` now defines the detailed equipment/fleet/fuel implementation plan. A broader `phase3.md` may be added before Phase 3B to consolidate equipment, inventory and workforce boundaries, but Phase 3A can proceed from its approved contract.
 
 ## 8. Phase Completion Standard
 

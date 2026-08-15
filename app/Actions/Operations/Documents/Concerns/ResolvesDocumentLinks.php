@@ -6,6 +6,7 @@ namespace App\Actions\Operations\Documents\Concerns;
 
 use App\Models\Contract;
 use App\Models\DailySiteReport;
+use App\Models\Equipment;
 use App\Models\Project;
 use App\Models\Site;
 use App\Models\User;
@@ -25,6 +26,7 @@ trait ResolvesDocumentLinks
             'project' => Project::class,
             'site' => Site::class,
             'daily_site_report' => DailySiteReport::class,
+            'equipment' => Equipment::class,
         ];
     }
 
