@@ -136,6 +136,8 @@ final class EquipmentController
     /** @return array<string, mixed> */
     private function equipmentRow(Equipment $equipment, bool $canViewCosts): array
     {
+        $owner = $equipment->getRelation('owner');
+
         return [
             'id' => $equipment->id, 'branch_id' => $equipment->branch_id, 'branch_name' => $equipment->branch->name,
             'equipment_category_id' => $equipment->equipment_category_id, 'category_name' => $equipment->category->name,
@@ -143,7 +145,7 @@ final class EquipmentController
             'model' => $equipment->model, 'model_year' => $equipment->model_year, 'serial_number' => $equipment->serial_number,
             'registration_number' => $equipment->registration_number, 'chassis_number' => $equipment->chassis_number,
             'ownership_type' => $equipment->ownership_type, 'owner_customer_id' => $equipment->owner_customer_id,
-            'owner_name' => $equipment->owner?->name ?? $equipment->owner_name, 'capacity_value' => $equipment->capacity_value,
+            'owner_name' => $owner instanceof Customer ? $owner->name : $equipment->owner_name, 'capacity_value' => $equipment->capacity_value,
             'capacity_unit' => $equipment->capacity_unit, 'acquired_on' => $equipment->acquired_on?->toDateString(),
             'acquisition_amount' => $canViewCosts ? $equipment->acquisition_amount : null,
             'acquisition_currency_code' => $canViewCosts ? $equipment->acquisition_currency_code : null,

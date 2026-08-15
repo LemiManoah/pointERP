@@ -5,15 +5,31 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property-read string $id
+ * @property-read string $tenant_id
+ * @property-read string $branch_id
+ * @property-read string $equipment_category_id
+ * @property-read string $asset_code
+ * @property-read string $name
+ * @property-read string|null $owner_customer_id
+ * @property-read string|null $owner_name
+ * @property-read CarbonInterface|null $acquired_on
+ * @property-read CarbonInterface|null $starting_meter_date
+ * @property-read CarbonInterface|null $current_meter_read_at
+ * @property-read Customer|null $owner
+ */
 #[Fillable([
     'tenant_id', 'branch_id', 'equipment_category_id', 'asset_code', 'name', 'make',
     'model', 'model_year', 'serial_number', 'registration_number', 'chassis_number',
@@ -29,8 +45,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 final class Equipment extends Model
 {
     use BelongsToTenant;
+
+    /** @use HasFactory<Factory<Equipment>> */
     use HasFactory;
-    use HasFactory;
+
     use HasUuids;
     use SoftDeletes;
 
@@ -115,7 +133,10 @@ final class Equipment extends Model
         return $this->morphMany(DocumentLink::class, 'linkable');
     }
 
-    /** @param Builder<Equipment> $query @return Builder<Equipment> */
+    /**
+     * @param  Builder<Equipment>  $query
+     * @return Builder<Equipment>
+     */
     protected function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->can('equipment.view-all') || $user->can('branches.view-all')) {

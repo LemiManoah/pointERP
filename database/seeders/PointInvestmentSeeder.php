@@ -577,6 +577,11 @@ final class PointInvestmentSeeder extends Seeder
 
         foreach ($assets as [$code, $name, $categoryCode, $branch, $location, $make, $model, $serial, $ownership, $owner, $reading, $status]) {
             $category = $categories[$categoryCode];
+            $isOwned = $ownership === 'owned';
+            $acquisitionAmount = $isOwned ? '450000000.0000' : null;
+            $hireRate = $isOwned ? null : '850000.0000';
+            $hireRateBasis = $isOwned ? null : 'day';
+
             Equipment::query()->updateOrCreate(
                 ['tenant_id' => $branch->tenant_id, 'asset_code' => $code],
                 [
@@ -591,10 +596,10 @@ final class PointInvestmentSeeder extends Seeder
                     'owner_name' => $owner?->name,
                     'capacity_unit' => $category->default_capacity_unit,
                     'acquired_on' => '2024-01-15',
-                    'acquisition_amount' => $ownership === 'owned' ? '450000000.0000' : null,
+                    'acquisition_amount' => $acquisitionAmount,
                     'acquisition_currency_code' => $branch->default_currency_code,
-                    'hire_rate' => in_array($ownership, ['leased', 'hired', 'subcontractor'], true) ? '850000.0000' : null,
-                    'hire_rate_basis' => in_array($ownership, ['leased', 'hired', 'subcontractor'], true) ? 'day' : null,
+                    'hire_rate' => $hireRate,
+                    'hire_rate_basis' => $hireRateBasis,
                     'default_location_id' => $location->id,
                     'meter_type' => $category->default_meter_type,
                     'starting_meter_reading' => $reading,
