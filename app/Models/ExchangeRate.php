@@ -95,7 +95,7 @@ final class ExchangeRate extends Model
      * @param  Builder<ExchangeRate>  $query
      */
     #[Scope]
-    protected function drafts(Builder $query): void
+    public function drafts(Builder $query): void
     {
         $query->where('status', self::STATUS_DRAFT);
     }

@@ -141,7 +141,7 @@ final readonly class SaveDailySiteReport
         }
 
         return collect($lines)
-            ->filter(is_array(...))
+            ->filter(fn (mixed $line): bool => is_array($line))
             ->map(function (array $line) use ($report): array {
                 $activityId = $line['project_activity_id'] ?? null;
 

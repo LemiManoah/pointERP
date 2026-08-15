@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\DailySiteReports\SaveDailySiteReport;
-use App\Http\Controllers\Operations\Concerns\PresentsLinkedDocuments;
+use App\Support\Operations\PresentsLinkedDocuments;
 use App\Http\Requests\Operations\DailySiteReports\StoreDailySiteReportRequest;
 use App\Http\Requests\Operations\DailySiteReports\UpdateDailySiteReportRequest;
 use App\Models\Currency;

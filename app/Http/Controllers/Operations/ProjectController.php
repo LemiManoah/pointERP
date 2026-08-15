@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\Projects\SaveProject;
-use App\Http\Controllers\Operations\Concerns\PresentsLinkedDocuments;
+use App\Support\Operations\PresentsLinkedDocuments;
 use App\Http\Requests\Operations\Projects\StoreProjectRequest;
 use App\Http\Requests\Operations\Projects\UpdateProjectRequest;
 use App\Models\Branch;

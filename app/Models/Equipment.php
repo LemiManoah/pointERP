@@ -168,7 +168,7 @@ final class Equipment extends Model
      * @param  Builder<Equipment>  $query
      * @return Builder<Equipment>
      */
-    protected function scopeVisibleTo(Builder $query, User $user): Builder
+    public function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->can('equipment.view-all') || $user->can('branches.view-all')) {
             return $query;

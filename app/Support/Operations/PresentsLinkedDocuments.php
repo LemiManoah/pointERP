@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers\Operations\Concerns;
+namespace App\Support\Operations;
 
 use App\Models\Branch;
 use App\Models\Contract;

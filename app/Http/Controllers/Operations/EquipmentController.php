@@ -6,7 +6,7 @@ namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\Equipment\SaveEquipment;
 use App\Actions\Operations\Equipment\SetEquipmentActiveStatus;
-use App\Http\Controllers\Operations\Concerns\PresentsLinkedDocuments;
+use App\Support\Operations\PresentsLinkedDocuments;
 use App\Http\Requests\Operations\Equipment\StoreEquipmentRequest;
 use App\Http\Requests\Operations\Equipment\UpdateEquipmentRequest;
 use App\Models\Branch;

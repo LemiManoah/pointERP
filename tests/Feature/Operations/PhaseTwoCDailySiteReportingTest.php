@@ -162,7 +162,7 @@ it('applies an approved correction without unlocking the report', function (): v
 
     $correction = DailySiteReportCorrection::query()
         ->where('daily_site_report_id', $report->id)
-        ->latest()
+        ->where('reason', 'Verified correction to the reported completion.')
         ->firstOrFail();
 
     $this->actingAs($director)

@@ -274,7 +274,7 @@ final class DailySiteReport extends Model
      * @param  Builder<DailySiteReport>  $query
      * @return Builder<DailySiteReport>
      */
-    protected function scopeOpen(Builder $query): Builder
+    public function scopeOpen(Builder $query): Builder
     {
         return $query->whereIn('status', [
             self::STATUS_DRAFT,

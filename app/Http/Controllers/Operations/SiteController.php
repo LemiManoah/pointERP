@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\Sites\SaveSite;
-use App\Http\Controllers\Operations\Concerns\PresentsLinkedDocuments;
+use App\Support\Operations\PresentsLinkedDocuments;
 use App\Http\Requests\Operations\Sites\StoreSiteRequest;
 use App\Http\Requests\Operations\Sites\UpdateSiteRequest;
 use App\Models\DailySiteReport;

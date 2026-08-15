@@ -62,7 +62,7 @@ final class Currency extends Model
      * @param  Builder<Currency>  $query
      */
     #[Scope]
-    protected function active(Builder $query): void
+    public function active(Builder $query): void
     {
         $query->where('is_active', true);
     }
@@ -70,7 +70,7 @@ final class Currency extends Model
     /**
      * @return Attribute<string, string>
      */
-    protected function code(): Attribute
+    public function code(): Attribute
     {
         return Attribute::make(
             set: fn (string $value): string => mb_strtoupper($value),

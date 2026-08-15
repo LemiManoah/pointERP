@@ -183,7 +183,7 @@ final class Document extends Model
      * @param  Builder<Document>  $query
      * @return Builder<Document>
      */
-    protected function scopeActive(Builder $query): Builder
+    public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', '!=', self::STATUS_ARCHIVED);
     }
@@ -192,7 +192,7 @@ final class Document extends Model
      * @param  Builder<Document>  $query
      * @return Builder<Document>
      */
-    protected function scopeArchived(Builder $query): Builder
+    public function scopeArchived(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_ARCHIVED);
     }
@@ -201,7 +201,7 @@ final class Document extends Model
      * @param  Builder<Document>  $query
      * @return Builder<Document>
      */
-    protected function scopeExpiringSoon(Builder $query, int $days = 30): Builder
+    public function scopeExpiringSoon(Builder $query, int $days = 30): Builder
     {
         return $query
             ->whereNotNull('expires_on')

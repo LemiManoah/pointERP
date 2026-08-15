@@ -88,7 +88,7 @@ final class Tenant extends Model
      * @param  Builder<Tenant>  $query
      */
     #[Scope]
-    protected function active(Builder $query): void
+    public function active(Builder $query): void
     {
         $query->where('status', 'active');
     }
@@ -96,7 +96,7 @@ final class Tenant extends Model
     /**
      * @return Attribute<string, string>
      */
-    protected function code(): Attribute
+    public function code(): Attribute
     {
         return Attribute::make(
             set: fn (string $value): string => mb_strtoupper($value),
@@ -106,7 +106,7 @@ final class Tenant extends Model
     /**
      * @return Attribute<string, string>
      */
-    protected function defaultCurrencyCode(): Attribute
+    public function defaultCurrencyCode(): Attribute
     {
         return Attribute::make(
             set: fn (string $value): string => mb_strtoupper($value),

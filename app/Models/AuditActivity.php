@@ -46,7 +46,7 @@ final class AuditActivity extends Activity
     /**
      * @return array<string, string>
      */
-    protected function casts(): array
+    public function casts(): array
     {
         return [
             ...parent::casts(),
