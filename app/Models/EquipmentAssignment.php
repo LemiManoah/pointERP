@@ -8,6 +8,7 @@ use App\Models\Concerns\BelongsToTenant;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -16,9 +17,29 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read string $tenant_id
  * @property-read string $equipment_id
  * @property-read string $branch_id
+ * @property-read string $project_id
+ * @property-read string $site_id
+ * @property-read string $equipment_location_id
+ * @property-read string|null $custodian_staff_id
+ * @property-read string|null $external_custodian_name
+ * @property-read string|null $external_custodian_employer
  * @property-read string $status
  * @property-read CarbonInterface $assigned_at
+ * @property-read CarbonInterface|null $expected_return_at
  * @property-read CarbonInterface|null $returned_at
+ * @property-read string|null $handover_meter_reading
+ * @property-read string|null $return_meter_reading
+ * @property-read string $handover_condition
+ * @property-read string|null $return_condition
+ * @property-read string|null $assignment_notes
+ * @property-read string|null $return_notes
+ * @property-read Project $project
+ * @property-read Site $site
+ * @property-read EquipmentLocation $location
+ * @property-read EquipmentLocation|null $returnLocation
+ * @property-read Staff|null $custodian
+ * @property-read User $handedOverBy
+ * @property-read User|null $acceptedReturnBy
  */
 #[Fillable([
     'tenant_id', 'equipment_id', 'branch_id', 'project_id', 'site_id',
@@ -32,6 +53,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 final class EquipmentAssignment extends Model
 {
     use BelongsToTenant;
+    use HasFactory;
     use HasUuids;
 
     public const string STATUS_ACTIVE = 'active';

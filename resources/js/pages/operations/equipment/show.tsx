@@ -17,11 +17,11 @@ import {
     DocumentEvidenceTable,
     type LinkedDocumentRow,
 } from '../documents/partials/document-evidence-table';
-import { EquipmentDialog } from './partials/equipment-dialog';
 import {
     EquipmentAssignmentDialog,
     EquipmentReturnDialog,
 } from './partials/equipment-assignment-dialog';
+import { EquipmentDialog } from './partials/equipment-dialog';
 import { MeterCorrectionReviewDialog } from './partials/meter-correction-review-dialog';
 import {
     MeterCorrectionDialog,
@@ -95,6 +95,9 @@ export default function EquipmentShow(props: Props) {
             : 'overview',
     );
     const confirm = useConfirmDialog();
+    const activeAssignment = assignments.find(
+        (assignment) => assignment.status === 'active',
+    );
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
         { title: 'Equipment', href: '/equipment' },
@@ -127,6 +130,22 @@ export default function EquipmentShow(props: Props) {
                         </p>
                     </div>
                     <div className="flex justify-end gap-2">
+                        {can.assign && (
+                            <EquipmentAssignmentDialog
+                                equipment={equipment}
+                                projects={projects}
+                                sites={sites}
+                                locations={locations}
+                                staff={staff}
+                            />
+                        )}
+                        {activeAssignment?.can_return && (
+                            <EquipmentReturnDialog
+                                equipment={equipment}
+                                assignment={activeAssignment}
+                                locations={locations}
+                            />
+                        )}
                         {can.update && (
                             <EquipmentDialog
                                 equipment={equipment}
@@ -403,15 +422,6 @@ export default function EquipmentShow(props: Props) {
                                         for this asset.
                                     </p>
                                 </div>
-                                {can.assign && (
-                                    <EquipmentAssignmentDialog
-                                        equipment={equipment}
-                                        projects={projects}
-                                        sites={sites}
-                                        locations={locations}
-                                        staff={staff}
-                                    />
-                                )}
                             </CardHeader>
                             <CardContent>
                                 <AssignmentTable

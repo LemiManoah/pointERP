@@ -75,8 +75,18 @@ it('returns assigned equipment and clears project custody', function (): void {
 });
 
 it('forbids users without assignment authority', function (): void {
-    $storeKeeper = User::query()->where('email', 'store.kla@point.test')->firstOrFail();
+    $siteManager = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();
     $roller = Equipment::query()->where('asset_code', 'EQ-RLR-002')->firstOrFail();
 
-    $this->actingAs($storeKeeper)->post(route('equipment.assignments.store', $roller), [])->assertForbidden();
+    $this->actingAs($siteManager)->post(route('equipment.assignments.store', $roller))->assertForbidden();
+});
+
+it('does not retire equipment with an active assignment', function (): void {
+    $manager = User::query()->where('email', 'fleet@point.test')->firstOrFail();
+    $excavator = Equipment::query()->where('asset_code', 'EQ-EXC-003')->firstOrFail();
+
+    $this->actingAs($manager)->delete(route('equipment.destroy', $excavator))->assertRedirect();
+
+    expect($excavator->refresh()->is_active)->toBeTrue()
+        ->and($excavator->current_status)->toBe('assigned');
 });

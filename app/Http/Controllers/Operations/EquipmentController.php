@@ -26,6 +26,7 @@ use App\Services\BranchContext;
 use App\Services\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -107,28 +108,7 @@ final class EquipmentController
                 ->where('equipment_id', $equipment->id)
                 ->latest('assigned_at')
                 ->get()
-                ->map(fn (EquipmentAssignment $assignment): array => [
-                    'id' => $assignment->id,
-                    'status' => $assignment->status,
-                    'project_name' => $assignment->project->name,
-                    'site_name' => $assignment->site->name,
-                    'location_name' => $assignment->location->name,
-                    'return_location_name' => $assignment->returnLocation?->name,
-                    'custodian_name' => $assignment->custodian?->name ?? $assignment->external_custodian_name,
-                    'custodian_employer' => $assignment->external_custodian_employer,
-                    'assigned_at' => $assignment->assigned_at->toDateTimeString(),
-                    'expected_return_at' => $assignment->expected_return_at?->toDateTimeString(),
-                    'returned_at' => $assignment->returned_at?->toDateTimeString(),
-                    'handover_meter_reading' => $assignment->handover_meter_reading,
-                    'return_meter_reading' => $assignment->return_meter_reading,
-                    'handover_condition' => $assignment->handover_condition,
-                    'return_condition' => $assignment->return_condition,
-                    'assignment_notes' => $assignment->assignment_notes,
-                    'return_notes' => $assignment->return_notes,
-                    'handed_over_by' => $assignment->handedOverBy->name,
-                    'accepted_return_by' => $assignment->acceptedReturnBy?->name,
-                    'can_return' => Gate::forUser($user)->allows('update', $assignment),
-                ]),
+                ->map(fn (EquipmentAssignment $assignment): array => $this->assignmentRow($assignment, $user)),
             'documents' => $this->linkedDocumentsFor($equipment, $user),
             'categories' => EquipmentCategory::query()->orderBy('name')->get()->map(fn (EquipmentCategory $category): array => $this->categoryRow($category)),
             'locations' => EquipmentLocation::query()->with(['branch', 'project', 'site'])->visibleTo($user)->orderBy('name')->get()->map(fn (EquipmentLocation $location): array => $this->locationRow($location)),
@@ -175,7 +155,16 @@ final class EquipmentController
         $actor = auth()->user();
         abort_unless($actor instanceof User, 403);
         $restoring = ! $equipment->is_active;
-        $action->handle($equipment, $actor);
+        try {
+            $action->handle($equipment, $actor);
+        } catch (ValidationException $validationException) {
+            $error = $validationException->errors()['equipment'][0] ?? null;
+            $message = is_string($error) ? $error : 'This equipment cannot be retired while an operational workflow is open.';
+            Inertia::flash('toast', ['type' => 'warning', 'message' => $message]);
+
+            return back();
+        }
+
         Inertia::flash('toast', ['type' => 'success', 'message' => $restoring ? 'Equipment asset restored.' : 'Equipment asset retired.']);
 
         return to_route('equipment.index');
@@ -238,6 +227,35 @@ final class EquipmentController
         return [
             ...$location->only(['id', 'branch_id', 'project_id', 'site_id', 'type', 'code', 'name', 'address', 'latitude', 'longitude', 'is_active']),
             'branch_name' => $location->branch->name, 'project_name' => $location->project?->name, 'site_name' => $location->site?->name,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function assignmentRow(EquipmentAssignment $assignment, User $user): array
+    {
+        $custodian = $assignment->getRelation('custodian');
+
+        return [
+            'id' => $assignment->id,
+            'status' => $assignment->status,
+            'project_name' => $assignment->project->name,
+            'site_name' => $assignment->site->name,
+            'location_name' => $assignment->location->name,
+            'return_location_name' => $assignment->returnLocation?->name,
+            'custodian_name' => $custodian instanceof Staff ? $custodian->name : $assignment->external_custodian_name,
+            'custodian_employer' => $assignment->external_custodian_employer,
+            'assigned_at' => $assignment->assigned_at->toDateTimeString(),
+            'expected_return_at' => $assignment->expected_return_at?->toDateTimeString(),
+            'returned_at' => $assignment->returned_at?->toDateTimeString(),
+            'handover_meter_reading' => $assignment->handover_meter_reading,
+            'return_meter_reading' => $assignment->return_meter_reading,
+            'handover_condition' => $assignment->handover_condition,
+            'return_condition' => $assignment->return_condition,
+            'assignment_notes' => $assignment->assignment_notes,
+            'return_notes' => $assignment->return_notes,
+            'handed_over_by' => $assignment->handedOverBy->name,
+            'accepted_return_by' => $assignment->acceptedReturnBy?->name,
+            'can_return' => Gate::forUser($user)->allows('update', $assignment),
         ];
     }
 }

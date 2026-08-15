@@ -188,8 +188,7 @@ export function EquipmentAssignmentDialog({
                                 <Field
                                     label="Employer"
                                     error={
-                                        form.errors
-                                            .external_custodian_employer
+                                        form.errors.external_custodian_employer
                                     }
                                 >
                                     <Input
@@ -333,7 +332,7 @@ export function EquipmentReturnDialog({
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button size="sm" variant="outline">
-                    <CornerDownLeft /> Return
+                    <CornerDownLeft /> Return equipment
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl">
@@ -358,18 +357,12 @@ export function EquipmentReturnDialog({
                             description: location.code,
                         }))}
                     />
-                    <Field
-                        label="Returned at"
-                        error={form.errors.returned_at}
-                    >
+                    <Field label="Returned at" error={form.errors.returned_at}>
                         <Input
                             type="datetime-local"
                             value={form.data.returned_at}
                             onChange={(event) =>
-                                form.setData(
-                                    'returned_at',
-                                    event.target.value,
-                                )
+                                form.setData('returned_at', event.target.value)
                             }
                         />
                     </Field>
@@ -413,10 +406,7 @@ export function EquipmentReturnDialog({
                         <Textarea
                             value={form.data.return_notes}
                             onChange={(event) =>
-                                form.setData(
-                                    'return_notes',
-                                    event.target.value,
-                                )
+                                form.setData('return_notes', event.target.value)
                             }
                         />
                     </Field>

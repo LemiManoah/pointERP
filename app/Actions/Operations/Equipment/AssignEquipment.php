@@ -59,7 +59,7 @@ final readonly class AssignEquipment
             $staff = isset($data['custodian_staff_id'])
                 ? Staff::query()->where('branch_id', $equipment->branch_id)->where('status', 'active')->find($data['custodian_staff_id'])
                 : null;
-            $externalName = trim((string) ($data['external_custodian_name'] ?? ''));
+            $externalName = mb_trim((string) ($data['external_custodian_name'] ?? ''));
 
             if (! $staff instanceof Staff && $externalName === '') {
                 throw ValidationException::withMessages(['custodian_staff_id' => 'Select an internal custodian or enter an external custodian.']);

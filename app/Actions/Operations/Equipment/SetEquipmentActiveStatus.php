@@ -7,6 +7,7 @@ namespace App\Actions\Operations\Equipment;
 use App\Models\Equipment;
 use App\Models\User;
 use App\Services\AuditLogger;
+use Illuminate\Validation\ValidationException;
 
 final readonly class SetEquipmentActiveStatus
 {
@@ -16,6 +17,19 @@ final readonly class SetEquipmentActiveStatus
     {
         $oldValues = $equipment->only(['current_status', 'is_active']);
         $restoring = ! $equipment->is_active;
+
+        if (! $restoring && $equipment->assignments()->where('status', 'active')->exists()) {
+            throw ValidationException::withMessages([
+                'equipment' => 'This equipment is currently assigned. Accept its return before retiring it.',
+            ]);
+        }
+
+        if (! $restoring && in_array($equipment->current_status, ['transferred', 'under_maintenance'], true)) {
+            throw ValidationException::withMessages([
+                'equipment' => 'This equipment has an open transfer or maintenance workflow. Close it before retiring the asset.',
+            ]);
+        }
+
         $equipment->update([
             'current_status' => $restoring ? 'available' : 'retired',
             'is_active' => $restoring,
