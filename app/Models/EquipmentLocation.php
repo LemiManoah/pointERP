@@ -8,6 +8,7 @@ use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -19,6 +20,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 final class EquipmentLocation extends Model
 {
     use BelongsToTenant;
+    use HasFactory;
+    use HasFactory;
     use HasUuids;
     use SoftDeletes;
 
@@ -38,11 +41,22 @@ final class EquipmentLocation extends Model
     }
 
     /** @return BelongsTo<Branch, $this> */
-    public function branch(): BelongsTo { return $this->belongsTo(Branch::class); }
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
     /** @return BelongsTo<Project, $this> */
-    public function project(): BelongsTo { return $this->belongsTo(Project::class); }
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class);
+    }
+
     /** @return BelongsTo<Site, $this> */
-    public function site(): BelongsTo { return $this->belongsTo(Site::class); }
+    public function site(): BelongsTo
+    {
+        return $this->belongsTo(Site::class);
+    }
 
     /** @param Builder<EquipmentLocation> $query @return Builder<EquipmentLocation> */
     protected function scopeVisibleTo(Builder $query, User $user): Builder

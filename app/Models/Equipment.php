@@ -8,6 +8,7 @@ use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -28,11 +29,15 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 final class Equipment extends Model
 {
     use BelongsToTenant;
+    use HasFactory;
+    use HasFactory;
     use HasUuids;
     use SoftDeletes;
 
     public const array METER_TYPES = ['odometer_km', 'engine_hours', 'operating_hours', 'none'];
+
     public const array OWNERSHIP_TYPES = ['owned', 'leased', 'hired', 'subcontractor'];
+
     public const array STATUSES = ['available', 'assigned', 'idle', 'under_maintenance', 'out_of_service', 'transferred', 'retired'];
 
     /** @return array<string, string> */
@@ -51,25 +56,64 @@ final class Equipment extends Model
     }
 
     /** @return BelongsTo<Branch, $this> */
-    public function branch(): BelongsTo { return $this->belongsTo(Branch::class); }
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
     /** @return BelongsTo<EquipmentCategory, $this> */
-    public function category(): BelongsTo { return $this->belongsTo(EquipmentCategory::class, 'equipment_category_id'); }
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(EquipmentCategory::class, 'equipment_category_id');
+    }
+
     /** @return BelongsTo<Customer, $this> */
-    public function owner(): BelongsTo { return $this->belongsTo(Customer::class, 'owner_customer_id'); }
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'owner_customer_id');
+    }
+
     /** @return BelongsTo<EquipmentLocation, $this> */
-    public function defaultLocation(): BelongsTo { return $this->belongsTo(EquipmentLocation::class, 'default_location_id'); }
+    public function defaultLocation(): BelongsTo
+    {
+        return $this->belongsTo(EquipmentLocation::class, 'default_location_id');
+    }
+
     /** @return BelongsTo<EquipmentLocation, $this> */
-    public function currentLocation(): BelongsTo { return $this->belongsTo(EquipmentLocation::class, 'current_location_id'); }
+    public function currentLocation(): BelongsTo
+    {
+        return $this->belongsTo(EquipmentLocation::class, 'current_location_id');
+    }
+
     /** @return BelongsTo<Project, $this> */
-    public function currentProject(): BelongsTo { return $this->belongsTo(Project::class, 'current_project_id'); }
+    public function currentProject(): BelongsTo
+    {
+        return $this->belongsTo(Project::class, 'current_project_id');
+    }
+
     /** @return BelongsTo<Site, $this> */
-    public function currentSite(): BelongsTo { return $this->belongsTo(Site::class, 'current_site_id'); }
+    public function currentSite(): BelongsTo
+    {
+        return $this->belongsTo(Site::class, 'current_site_id');
+    }
+
     /** @return BelongsTo<Staff, $this> */
-    public function currentCustodian(): BelongsTo { return $this->belongsTo(Staff::class, 'current_custodian_id'); }
+    public function currentCustodian(): BelongsTo
+    {
+        return $this->belongsTo(Staff::class, 'current_custodian_id');
+    }
+
     /** @return BelongsTo<Currency, $this> */
-    public function acquisitionCurrency(): BelongsTo { return $this->belongsTo(Currency::class, 'acquisition_currency_code', 'code'); }
+    public function acquisitionCurrency(): BelongsTo
+    {
+        return $this->belongsTo(Currency::class, 'acquisition_currency_code', 'code');
+    }
+
     /** @return MorphMany<DocumentLink, $this> */
-    public function documentLinks(): MorphMany { return $this->morphMany(DocumentLink::class, 'linkable'); }
+    public function documentLinks(): MorphMany
+    {
+        return $this->morphMany(DocumentLink::class, 'linkable');
+    }
 
     /** @param Builder<Equipment> $query @return Builder<Equipment> */
     protected function scopeVisibleTo(Builder $query, User $user): Builder

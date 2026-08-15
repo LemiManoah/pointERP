@@ -45,6 +45,7 @@ final class EquipmentLocationController
         if ($equipmentLocation->is_active && Equipment::query()->where('is_active', true)->where(fn ($query) => $query->where('default_location_id', $equipmentLocation->id)->orWhere('current_location_id', $equipmentLocation->id))->exists()) {
             throw ValidationException::withMessages(['location' => 'Move or retire active equipment before deactivating this location.']);
         }
+
         $actor = auth()->user();
         abort_unless($actor instanceof User, 403);
         $data = $equipmentLocation->only(['branch_id', 'project_id', 'site_id', 'type', 'code', 'name', 'address', 'latitude', 'longitude']);

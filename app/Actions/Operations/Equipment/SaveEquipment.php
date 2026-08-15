@@ -48,6 +48,7 @@ final readonly class SaveEquipment
         if ($equipment instanceof Equipment) {
             unset($attributes['current_status'], $attributes['is_active']);
         }
+
         $attributes['tenant_id'] = $this->tenantContext->id();
         $attributes['asset_code'] = Str::upper((string) $data['asset_code']);
         $attributes['updated_by'] = $actor->id;
@@ -66,6 +67,7 @@ final readonly class SaveEquipment
             $equipment = Equipment::query()->create([...$attributes, 'created_by' => $actor->id]);
             $event = 'equipment.asset.created';
         }
+
         $this->auditLogger->record($event, $equipment, $actor, $oldValues, $equipment->fresh()?->toArray() ?? []);
 
         return $equipment;

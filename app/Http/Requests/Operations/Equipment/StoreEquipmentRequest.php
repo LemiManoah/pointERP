@@ -17,7 +17,10 @@ use Illuminate\Validation\Rule;
 
 final class StoreEquipmentRequest extends FormRequest
 {
-    public function authorize(): bool { return true; }
+    public function authorize(): bool
+    {
+        return true;
+    }
 
     /** @return array<string, list<mixed>> */
     public function rules(): array
@@ -69,7 +72,10 @@ final class StoreEquipmentRequest extends FormRequest
     {
         $nullable = ['owner_customer_id', 'default_location_id', 'acquisition_currency_code'];
         $values = ['asset_code' => mb_strtoupper((string) $this->input('asset_code'))];
-        foreach ($nullable as $key) { $values[$key] = $this->input($key) === '' ? null : $this->input($key); }
+        foreach ($nullable as $key) {
+            $values[$key] = $this->input($key) === '' ? null : $this->input($key);
+        }
+
         $this->merge($values);
     }
 }

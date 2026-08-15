@@ -53,6 +53,7 @@ final readonly class SaveEquipmentLocation
             $location = EquipmentLocation::query()->create([...$attributes, 'created_by' => $actor->id]);
             $event = 'equipment.location.created';
         }
+
         $this->auditLogger->record($event, $location, $actor, $oldValues, $location->fresh()?->toArray() ?? []);
 
         return $location;

@@ -38,6 +38,7 @@ final readonly class SaveEquipmentCategory
             $category = EquipmentCategory::query()->create([...$attributes, 'created_by' => $actor->id]);
             $event = 'equipment.category.created';
         }
+
         $this->auditLogger->record($event, $category, $actor, $oldValues, $category->fresh()?->toArray() ?? []);
 
         return $category;
