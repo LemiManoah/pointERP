@@ -8,6 +8,8 @@ use App\Models\Concerns\BelongsToTenant;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -32,6 +34,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 final class EquipmentLocationConfirmation extends Model
 {
     use BelongsToTenant;
+
+    /** @use HasFactory<Factory<EquipmentLocationConfirmation>> */
+    use HasFactory;
+
     use HasUuids;
 
     /** @return array<string, string> */
@@ -44,11 +50,20 @@ final class EquipmentLocationConfirmation extends Model
     }
 
     /** @return BelongsTo<Equipment, $this> */
-    public function equipment(): BelongsTo { return $this->belongsTo(Equipment::class); }
+    public function equipment(): BelongsTo
+    {
+        return $this->belongsTo(Equipment::class);
+    }
 
     /** @return BelongsTo<EquipmentLocation, $this> */
-    public function location(): BelongsTo { return $this->belongsTo(EquipmentLocation::class, 'equipment_location_id'); }
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(EquipmentLocation::class, 'equipment_location_id');
+    }
 
     /** @return BelongsTo<User, $this> */
-    public function confirmedBy(): BelongsTo { return $this->belongsTo(User::class, 'confirmed_by'); }
+    public function confirmedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'confirmed_by');
+    }
 }

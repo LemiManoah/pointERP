@@ -31,6 +31,7 @@ final readonly class ConfirmEquipmentLocation
             if (! $location instanceof EquipmentLocation) {
                 throw ValidationException::withMessages(['equipment_location_id' => 'Select an active location in the equipment branch.']);
             }
+
             $assignment = $equipment->assignments()->where('status', EquipmentAssignment::STATUS_ACTIVE)->first();
             if ($assignment instanceof EquipmentAssignment && $location->site_id !== null && $location->site_id !== $assignment->site_id) {
                 throw ValidationException::withMessages(['equipment_location_id' => 'Return or transfer the assigned equipment before confirming it at another site.']);

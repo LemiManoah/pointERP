@@ -21,6 +21,12 @@ import {
     EquipmentAssignmentDialog,
     EquipmentReturnDialog,
 } from './partials/equipment-assignment-dialog';
+import { EquipmentDialog } from './partials/equipment-dialog';
+import {
+    EquipmentFuelDialog,
+    FuelApproveButton,
+    FuelReversalDialog,
+} from './partials/equipment-fuel-dialogs';
 import { EquipmentLocationConfirmationDialog } from './partials/equipment-location-confirmation-dialog';
 import {
     EquipmentTransferRequestDialog,
@@ -28,7 +34,6 @@ import {
     TransferDispatchDialog,
     TransferReceiptDialog,
 } from './partials/equipment-transfer-dialogs';
-import { EquipmentDialog } from './partials/equipment-dialog';
 import { MeterCorrectionReviewDialog } from './partials/meter-correction-review-dialog';
 import {
     MeterCorrectionDialog,
@@ -38,6 +43,7 @@ import type {
     BranchOption,
     EquipmentCategory,
     EquipmentAssignment,
+    EquipmentFuelTransaction,
     EquipmentLocation,
     EquipmentLocationConfirmation,
     EquipmentMeterReading,
@@ -57,6 +63,7 @@ type Props = {
     assignments: EquipmentAssignment[];
     transfers: EquipmentTransfer[];
     locationConfirmations: EquipmentLocationConfirmation[];
+    fuelTransactions: EquipmentFuelTransaction[];
     documents: LinkedDocumentRow[];
     documentTypes: DocumentTypeOption[];
     documentBranches: Option[];
@@ -78,6 +85,7 @@ type Props = {
         assign: boolean;
         requestTransfer: boolean;
         confirmLocation: boolean;
+        recordFuel: boolean;
     };
 };
 
@@ -88,6 +96,7 @@ export default function EquipmentShow(props: Props) {
         assignments,
         transfers,
         locationConfirmations,
+        fuelTransactions,
         documents,
         documentTypes,
         documentBranches,
@@ -108,6 +117,7 @@ export default function EquipmentShow(props: Props) {
             'assignments',
             'transfers',
             'locations',
+            'fuel',
             'readings',
             'documents',
         ].includes(props.activeTab)
@@ -230,6 +240,7 @@ export default function EquipmentShow(props: Props) {
                         </TabsTrigger>
                         <TabsTrigger value="transfers">Transfers</TabsTrigger>
                         <TabsTrigger value="locations">Locations</TabsTrigger>
+                        <TabsTrigger value="fuel">Fuel</TabsTrigger>
                         <TabsTrigger value="readings">Readings</TabsTrigger>
                         <TabsTrigger value="documents">Documents</TabsTrigger>
                     </TabsList>
@@ -500,6 +511,34 @@ export default function EquipmentShow(props: Props) {
                             </CardContent>
                         </Card>
                     </TabsContent>
+                    <TabsContent value="fuel" className="mt-6">
+                        <Card>
+                            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <CardTitle>Fuel ledger</CardTitle>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Fuel issues, posting controls and
+                                        additive reversals for this asset.
+                                    </p>
+                                </div>
+                                {can.recordFuel && (
+                                    <EquipmentFuelDialog
+                                        equipment={equipment}
+                                        staff={staff}
+                                        providers={owners}
+                                        currencies={currencies}
+                                        canViewCosts={can.viewCosts}
+                                    />
+                                )}
+                            </CardHeader>
+                            <CardContent>
+                                <FuelTransactionTable
+                                    transactions={fuelTransactions}
+                                    canViewCosts={can.viewCosts}
+                                />
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
                     <TabsContent value="readings" className="mt-6">
                         <Card>
                             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -571,44 +610,136 @@ function TransferTable({
                 </thead>
                 <tbody>
                     {transfers.map((transfer) => (
-                        <tr key={transfer.id} className="border-b align-top last:border-0">
+                        <tr
+                            key={transfer.id}
+                            className="border-b align-top last:border-0"
+                        >
                             <td className="py-3 pr-4">
                                 {transfer.requested_at}
-                                <div className="text-muted-foreground">{transfer.requested_by}</div>
+                                <div className="text-muted-foreground">
+                                    {transfer.requested_by}
+                                </div>
                             </td>
                             <td className="py-3 pr-4">
                                 {transfer.source_location_name}
-                                <div className="text-muted-foreground">to {transfer.destination_location_name} · {transfer.destination_branch_name}</div>
+                                <div className="text-muted-foreground">
+                                    to {transfer.destination_location_name} ·{' '}
+                                    {transfer.destination_branch_name}
+                                </div>
                             </td>
-                            <td className="max-w-72 py-3 pr-4">{transfer.reason}</td>
+                            <td className="max-w-72 py-3 pr-4">
+                                {transfer.reason}
+                            </td>
                             <td className="py-3 pr-4">
-                                <Badge variant={transfer.status === 'dispatched' ? 'secondary' : 'outline'}>{title(transfer.status)}</Badge>
-                                {transfer.transport_reference && <div className="mt-1 text-muted-foreground">{transfer.transport_reference}</div>}
+                                <Badge
+                                    variant={
+                                        transfer.status === 'dispatched'
+                                            ? 'secondary'
+                                            : 'outline'
+                                    }
+                                >
+                                    {title(transfer.status)}
+                                </Badge>
+                                {transfer.transport_reference && (
+                                    <div className="mt-1 text-muted-foreground">
+                                        {transfer.transport_reference}
+                                    </div>
+                                )}
                             </td>
                             <td className="py-3">
                                 <div className="flex justify-end gap-2">
-                                    {transfer.can_approve && <TransferApproveButton transfer={transfer} />}
-                                    {transfer.can_dispatch && <TransferDispatchDialog equipment={equipment} transfer={transfer} />}
-                                    {transfer.can_receive && <TransferReceiptDialog equipment={equipment} transfer={transfer} />}
+                                    {transfer.can_approve && (
+                                        <TransferApproveButton
+                                            transfer={transfer}
+                                        />
+                                    )}
+                                    {transfer.can_dispatch && (
+                                        <TransferDispatchDialog
+                                            equipment={equipment}
+                                            transfer={transfer}
+                                        />
+                                    )}
+                                    {transfer.can_receive && (
+                                        <TransferReceiptDialog
+                                            equipment={equipment}
+                                            transfer={transfer}
+                                        />
+                                    )}
                                 </div>
                             </td>
                         </tr>
                     ))}
-                    {transfers.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-muted-foreground">No transfers recorded.</td></tr>}
+                    {transfers.length === 0 && (
+                        <tr>
+                            <td
+                                colSpan={5}
+                                className="py-10 text-center text-muted-foreground"
+                            >
+                                No transfers recorded.
+                            </td>
+                        </tr>
+                    )}
                 </tbody>
             </table>
         </div>
     );
 }
 
-function LocationConfirmationTable({ confirmations }: { confirmations: EquipmentLocationConfirmation[] }) {
+function LocationConfirmationTable({
+    confirmations,
+}: {
+    confirmations: EquipmentLocationConfirmation[];
+}) {
     return (
         <div className="overflow-x-auto">
             <table className="w-full text-sm">
-                <thead><tr className="border-b text-left text-muted-foreground"><th className="py-3 pr-4 font-medium">Observed</th><th className="py-3 pr-4 font-medium">Location</th><th className="py-3 pr-4 font-medium">Status observed</th><th className="py-3 font-medium">Evidence note</th></tr></thead>
+                <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                        <th className="py-3 pr-4 font-medium">Observed</th>
+                        <th className="py-3 pr-4 font-medium">Location</th>
+                        <th className="py-3 pr-4 font-medium">
+                            Status observed
+                        </th>
+                        <th className="py-3 font-medium">Evidence note</th>
+                    </tr>
+                </thead>
                 <tbody>
-                    {confirmations.map((confirmation) => <tr key={confirmation.id} className="border-b align-top last:border-0"><td className="py-3 pr-4">{confirmation.observed_at}<div className="text-muted-foreground">{confirmation.confirmed_by}</div></td><td className="py-3 pr-4">{confirmation.location_name}</td><td className="py-3 pr-4">{confirmation.observed_status ? title(confirmation.observed_status) : 'Not recorded'}</td><td className="max-w-96 py-3">{confirmation.condition_observation ?? confirmation.note ?? 'None'}</td></tr>)}
-                    {confirmations.length === 0 && <tr><td colSpan={4} className="py-10 text-center text-muted-foreground">No manual location confirmations recorded.</td></tr>}
+                    {confirmations.map((confirmation) => (
+                        <tr
+                            key={confirmation.id}
+                            className="border-b align-top last:border-0"
+                        >
+                            <td className="py-3 pr-4">
+                                {confirmation.observed_at}
+                                <div className="text-muted-foreground">
+                                    {confirmation.confirmed_by}
+                                </div>
+                            </td>
+                            <td className="py-3 pr-4">
+                                {confirmation.location_name}
+                            </td>
+                            <td className="py-3 pr-4">
+                                {confirmation.observed_status
+                                    ? title(confirmation.observed_status)
+                                    : 'Not recorded'}
+                            </td>
+                            <td className="max-w-96 py-3">
+                                {confirmation.condition_observation ??
+                                    confirmation.note ??
+                                    'None'}
+                            </td>
+                        </tr>
+                    ))}
+                    {confirmations.length === 0 && (
+                        <tr>
+                            <td
+                                colSpan={4}
+                                className="py-10 text-center text-muted-foreground"
+                            >
+                                No manual location confirmations recorded.
+                            </td>
+                        </tr>
+                    )}
                 </tbody>
             </table>
         </div>
@@ -830,6 +961,161 @@ function MeterReadingTable({
                                 className="py-10 text-center text-muted-foreground"
                             >
                                 No meter readings recorded.
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+function FuelTransactionTable({
+    transactions,
+    canViewCosts,
+}: {
+    transactions: EquipmentFuelTransaction[];
+    canViewCosts: boolean;
+}) {
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+                <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                        <th className="py-3 pr-4 font-medium">Date / source</th>
+                        <th className="py-3 pr-4 font-medium">Transaction</th>
+                        <th className="py-3 pr-4 font-medium">Quantity</th>
+                        <th className="py-3 pr-4 font-medium">Meter / tank</th>
+                        {canViewCosts && (
+                            <th className="py-3 pr-4 font-medium">Cost</th>
+                        )}
+                        <th className="py-3 pr-4 font-medium">Control</th>
+                        <th className="py-3 text-right font-medium">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {transactions.map((transaction) => (
+                        <tr
+                            key={transaction.id}
+                            className="border-b align-top last:border-0"
+                        >
+                            <td className="py-3 pr-4">
+                                {transaction.transacted_at}
+                                <div className="text-muted-foreground">
+                                    {transaction.source_name ??
+                                        title(transaction.source_type)}
+                                </div>
+                                {transaction.voucher_reference && (
+                                    <div className="text-muted-foreground">
+                                        Ref {transaction.voucher_reference}
+                                    </div>
+                                )}
+                            </td>
+                            <td className="py-3 pr-4">
+                                {title(transaction.transaction_type)}
+                                <div className="text-muted-foreground">
+                                    {title(transaction.fuel_type)}
+                                </div>
+                            </td>
+                            <td className="py-3 pr-4 font-medium">
+                                {formatNumber(transaction.quantity)}{' '}
+                                {transaction.unit}
+                                {transaction.receiver_name && (
+                                    <div className="font-normal text-muted-foreground">
+                                        Received by {transaction.receiver_name}
+                                    </div>
+                                )}
+                            </td>
+                            <td className="py-3 pr-4">
+                                {transaction.meter_reading === null
+                                    ? 'No meter'
+                                    : formatNumber(transaction.meter_reading)}
+                                {(transaction.tank_level_before !== null ||
+                                    transaction.tank_level_after !== null) && (
+                                    <div className="text-muted-foreground">
+                                        Tank{' '}
+                                        {formatNumber(
+                                            transaction.tank_level_before,
+                                        )}{' '}
+                                        to{' '}
+                                        {formatNumber(
+                                            transaction.tank_level_after,
+                                        )}{' '}
+                                        L
+                                    </div>
+                                )}
+                                {transaction.is_full_tank && (
+                                    <div className="text-muted-foreground">
+                                        Full tank
+                                    </div>
+                                )}
+                            </td>
+                            {canViewCosts && (
+                                <td className="py-3 pr-4">
+                                    {formatCurrencyAmount(
+                                        transaction.currency_code,
+                                        transaction.total_cost,
+                                    )}
+                                    {transaction.unit_cost !== null && (
+                                        <div className="text-muted-foreground">
+                                            {formatCurrencyAmount(
+                                                transaction.currency_code,
+                                                transaction.unit_cost,
+                                            )}{' '}
+                                            / L
+                                        </div>
+                                    )}
+                                </td>
+                            )}
+                            <td className="py-3 pr-4">
+                                <Badge
+                                    variant={
+                                        transaction.status === 'reversed'
+                                            ? 'destructive'
+                                            : transaction.status === 'posted'
+                                              ? 'secondary'
+                                              : 'outline'
+                                    }
+                                >
+                                    {title(transaction.status)}
+                                </Badge>
+                                <div className="mt-1 text-muted-foreground">
+                                    by {transaction.submitted_by}
+                                </div>
+                                {transaction.approved_by && (
+                                    <div className="text-muted-foreground">
+                                        Posted by {transaction.approved_by}
+                                    </div>
+                                )}
+                                {transaction.reversal_reason && (
+                                    <div className="mt-1 max-w-56 text-muted-foreground">
+                                        {transaction.reversal_reason}
+                                    </div>
+                                )}
+                            </td>
+                            <td className="py-3">
+                                <div className="flex justify-end gap-2">
+                                    {transaction.can_approve && (
+                                        <FuelApproveButton
+                                            transaction={transaction}
+                                        />
+                                    )}
+                                    {transaction.can_reverse && (
+                                        <FuelReversalDialog
+                                            transaction={transaction}
+                                        />
+                                    )}
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                    {transactions.length === 0 && (
+                        <tr>
+                            <td
+                                colSpan={canViewCosts ? 7 : 6}
+                                className="py-10 text-center text-muted-foreground"
+                            >
+                                No fuel transactions recorded.
                             </td>
                         </tr>
                     )}

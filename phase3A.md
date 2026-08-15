@@ -10,6 +10,8 @@ Phase 3A.2a, Meter Ledger and Controlled Correction, is implemented and awaiting
 
 Phase 3A.2b is implemented and awaiting UI and automated-test acceptance. It covers assignment, custody, handover/return, controlled transfer request/approval/dispatch/receipt, manual location confirmation, derived equipment state, audit and role-aware UI commands.
 
+Phase 3A.3a, Fuel Transaction Control, is implemented and awaiting UI and automated-test acceptance. It includes a separate fuel ledger migration, submit/post/reverse lifecycle, independent approval, cost-field authority, meter posting, supplier/staff references, audit, notifications, an equipment Fuel tab and seeded posted/pending examples. Automated exception evaluation, DSR posting and fuel dashboard analysis remain in the next fuel checkpoint.
+
 Phase 3A is the first resource-control slice after Phase 2. It turns the equipment and fuel observations already captured in approved Daily Site Reports into a controlled fleet register, movement history, meter ledger, fuel ledger and maintenance workflow.
 
 This document is the implementation contract. Schema or workflow changes should be reflected here before migrations are written.

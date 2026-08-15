@@ -60,6 +60,7 @@ final readonly class ManageEquipmentTransfer
             if (isset($data['destination_project_id']) && $data['destination_project_id'] !== $destinationLocation->project_id) {
                 throw ValidationException::withMessages(['destination_project_id' => 'The project must match the destination location.']);
             }
+
             if (isset($data['destination_site_id']) && $data['destination_site_id'] !== $destinationLocation->site_id) {
                 throw ValidationException::withMessages(['destination_site_id' => 'The site must match the destination location.']);
             }
@@ -96,6 +97,7 @@ final readonly class ManageEquipmentTransfer
             if ($transfer->status !== EquipmentTransfer::STATUS_REQUESTED) {
                 throw ValidationException::withMessages(['transfer' => 'Only a requested transfer can be approved.']);
             }
+
             if ($transfer->requested_by === $actor->id) {
                 throw ValidationException::withMessages(['transfer' => 'The transfer requester cannot approve their own request.']);
             }
@@ -122,6 +124,7 @@ final readonly class ManageEquipmentTransfer
             if ($dispatchedAt->isAfter(now()->addMinutes(5))) {
                 throw ValidationException::withMessages(['dispatched_at' => 'Dispatch time cannot be in the future.']);
             }
+
             if ($equipment->meter_type !== 'none' && isset($data['dispatch_meter_reading'])) {
                 $this->recordMeterReading->handle($equipment, ['reading_value' => $data['dispatch_meter_reading'], 'read_at' => $dispatchedAt, 'event_type' => 'transfer', 'evidence_note' => 'Transfer dispatch reading.'], $actor);
             }
@@ -149,6 +152,7 @@ final readonly class ManageEquipmentTransfer
             if ($transfer->status !== EquipmentTransfer::STATUS_DISPATCHED) {
                 throw ValidationException::withMessages(['transfer' => 'Only dispatched equipment can be received.']);
             }
+
             if ($transfer->dispatched_by === $actor->id) {
                 throw ValidationException::withMessages(['transfer' => 'The dispatching user cannot accept the destination receipt.']);
             }
@@ -157,6 +161,7 @@ final readonly class ManageEquipmentTransfer
             if ($receivedAt->lessThan($transfer->dispatched_at) || $receivedAt->isAfter(now()->addMinutes(5))) {
                 throw ValidationException::withMessages(['received_at' => 'Receipt time must follow dispatch and cannot be in the future.']);
             }
+
             if ($equipment->meter_type !== 'none' && isset($data['receipt_meter_reading'])) {
                 $this->recordMeterReading->handle($equipment, [
                     'branch_id' => $transfer->destination_branch_id, 'reading_value' => $data['receipt_meter_reading'],

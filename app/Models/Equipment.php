@@ -158,6 +158,12 @@ final class Equipment extends Model
         return $this->hasMany(EquipmentLocationConfirmation::class);
     }
 
+    /** @return HasMany<EquipmentFuelTransaction, $this> */
+    public function fuelTransactions(): HasMany
+    {
+        return $this->hasMany(EquipmentFuelTransaction::class);
+    }
+
     /**
      * @param  Builder<Equipment>  $query
      * @return Builder<Equipment>

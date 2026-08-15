@@ -8,6 +8,8 @@ use App\Models\Concerns\BelongsToTenant;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -55,11 +57,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 final class EquipmentTransfer extends Model
 {
     use BelongsToTenant;
+
+    /** @use HasFactory<Factory<EquipmentTransfer>> */
+    use HasFactory;
+
     use HasUuids;
 
     public const string STATUS_REQUESTED = 'requested';
+
     public const string STATUS_APPROVED = 'approved';
+
     public const string STATUS_DISPATCHED = 'dispatched';
+
     public const string STATUS_RECEIVED = 'received';
 
     /** @return array<string, string> */
@@ -74,26 +83,50 @@ final class EquipmentTransfer extends Model
     }
 
     /** @return BelongsTo<Equipment, $this> */
-    public function equipment(): BelongsTo { return $this->belongsTo(Equipment::class); }
+    public function equipment(): BelongsTo
+    {
+        return $this->belongsTo(Equipment::class);
+    }
 
     /** @return BelongsTo<Branch, $this> */
-    public function sourceBranch(): BelongsTo { return $this->belongsTo(Branch::class, 'source_branch_id'); }
+    public function sourceBranch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class, 'source_branch_id');
+    }
 
     /** @return BelongsTo<Branch, $this> */
-    public function destinationBranch(): BelongsTo { return $this->belongsTo(Branch::class, 'destination_branch_id'); }
+    public function destinationBranch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class, 'destination_branch_id');
+    }
 
     /** @return BelongsTo<EquipmentLocation, $this> */
-    public function sourceLocation(): BelongsTo { return $this->belongsTo(EquipmentLocation::class, 'source_location_id'); }
+    public function sourceLocation(): BelongsTo
+    {
+        return $this->belongsTo(EquipmentLocation::class, 'source_location_id');
+    }
 
     /** @return BelongsTo<EquipmentLocation, $this> */
-    public function destinationLocation(): BelongsTo { return $this->belongsTo(EquipmentLocation::class, 'destination_location_id'); }
+    public function destinationLocation(): BelongsTo
+    {
+        return $this->belongsTo(EquipmentLocation::class, 'destination_location_id');
+    }
 
     /** @return BelongsTo<Project, $this> */
-    public function destinationProject(): BelongsTo { return $this->belongsTo(Project::class, 'destination_project_id'); }
+    public function destinationProject(): BelongsTo
+    {
+        return $this->belongsTo(Project::class, 'destination_project_id');
+    }
 
     /** @return BelongsTo<Site, $this> */
-    public function destinationSite(): BelongsTo { return $this->belongsTo(Site::class, 'destination_site_id'); }
+    public function destinationSite(): BelongsTo
+    {
+        return $this->belongsTo(Site::class, 'destination_site_id');
+    }
 
     /** @return BelongsTo<User, $this> */
-    public function requestedBy(): BelongsTo { return $this->belongsTo(User::class, 'requested_by'); }
+    public function requestedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'requested_by');
+    }
 }

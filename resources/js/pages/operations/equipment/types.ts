@@ -167,3 +167,33 @@ export type EquipmentLocationConfirmation = {
     note: string | null;
     confirmed_by: string;
 };
+
+export type EquipmentFuelTransaction = {
+    id: string;
+    transacted_at: string;
+    transaction_type: string;
+    fuel_type: string;
+    quantity: string;
+    unit: string;
+    source_type: string;
+    source_name: string | null;
+    receiver_name: string | null;
+    unit_cost: string | null;
+    total_cost: string | null;
+    currency_code: string | null;
+    meter_reading: string | null;
+    tank_level_before: string | null;
+    tank_level_after: string | null;
+    is_full_tank: boolean;
+    voucher_reference: string | null;
+    notes: string | null;
+    exception_status: string;
+    exception_reason: string | null;
+    status: string;
+    reversal_of_id: string | null;
+    reversal_reason: string | null;
+    submitted_by: string;
+    approved_by: string | null;
+    can_approve: boolean;
+    can_reverse: boolean;
+};

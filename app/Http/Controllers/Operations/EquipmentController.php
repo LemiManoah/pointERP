@@ -15,6 +15,7 @@ use App\Models\Document;
 use App\Models\Equipment;
 use App\Models\EquipmentAssignment;
 use App\Models\EquipmentCategory;
+use App\Models\EquipmentFuelTransaction;
 use App\Models\EquipmentLocation;
 use App\Models\EquipmentLocationConfirmation;
 use App\Models\EquipmentMeterReading;
@@ -74,10 +75,11 @@ final class EquipmentController
         $hasOpenTransfer = $equipment->transfers()
             ->whereIn('status', [EquipmentTransfer::STATUS_REQUESTED, EquipmentTransfer::STATUS_APPROVED, EquipmentTransfer::STATUS_DISPATCHED])
             ->exists();
+        $canViewCosts = Gate::forUser($user)->allows('viewCosts', $equipment);
 
         return Inertia::render('operations/equipment/show', [
             'activeTab' => request()->string('tab')->value() ?: 'overview',
-            'equipment' => $this->equipmentRow($equipment, Gate::forUser($user)->allows('viewCosts', $equipment)),
+            'equipment' => $this->equipmentRow($equipment, $canViewCosts),
             'meterReadings' => EquipmentMeterReading::query()
                 ->with(['recordedBy', 'approvedBy', 'rejectedBy', 'correctedReading'])
                 ->where('equipment_id', $equipment->id)
@@ -134,6 +136,13 @@ final class EquipmentController
                     'note' => $confirmation->note,
                     'confirmed_by' => $confirmation->confirmedBy->name,
                 ]),
+            'fuelTransactions' => EquipmentFuelTransaction::query()
+                ->with(['provider', 'receiver', 'submittedBy', 'approvedBy'])
+                ->where('equipment_id', $equipment->id)
+                ->latest('transacted_at')
+                ->latest('created_at')
+                ->get()
+                ->map(fn (EquipmentFuelTransaction $transaction): array => $this->fuelTransactionRow($transaction, $user, $canViewCosts)),
             'documents' => $this->linkedDocumentsFor($equipment, $user),
             'categories' => EquipmentCategory::query()->orderBy('name')->get()->map(fn (EquipmentCategory $category): array => $this->categoryRow($category)),
             'locations' => EquipmentLocation::query()->with(['branch', 'project', 'site'])->visibleTo($user)->orderBy('name')->get()->map(fn (EquipmentLocation $location): array => $this->locationRow($location)),
@@ -141,7 +150,10 @@ final class EquipmentController
                 'update' => Gate::forUser($user)->allows('update', $equipment),
                 'retire' => Gate::forUser($user)->allows('delete', $equipment),
                 'uploadDocuments' => Gate::forUser($user)->allows('create', Document::class),
-                'viewCosts' => Gate::forUser($user)->allows('viewCosts', $equipment),
+                'viewCosts' => $canViewCosts,
+                'recordFuel' => Gate::forUser($user)->allows('create', EquipmentFuelTransaction::class)
+                    && $equipment->is_active
+                    && ! in_array($equipment->current_status, ['retired', 'transferred'], true),
                 'recordReading' => Gate::forUser($user)->allows('create', [EquipmentMeterReading::class, $equipment]),
                 'assign' => Gate::forUser($user)->allows('create', EquipmentAssignment::class)
                     && $equipment->is_active
@@ -321,6 +333,44 @@ final class EquipmentController
             'can_approve' => Gate::forUser($user)->allows('approve', $transfer),
             'can_dispatch' => Gate::forUser($user)->allows('dispatch', $transfer),
             'can_receive' => Gate::forUser($user)->allows('receive', $transfer),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function fuelTransactionRow(EquipmentFuelTransaction $transaction, User $user, bool $canViewCosts): array
+    {
+        $provider = $transaction->getRelation('provider');
+        $receiver = $transaction->getRelation('receiver');
+
+        return [
+            'id' => $transaction->id,
+            'transacted_at' => $transaction->transacted_at->toDateTimeString(),
+            'transaction_type' => $transaction->transaction_type,
+            'fuel_type' => $transaction->fuel_type,
+            'quantity' => $transaction->quantity,
+            'unit' => $transaction->unit,
+            'source_type' => $transaction->source_type,
+            'source_name' => $provider instanceof Customer ? $provider->name : $transaction->source_name,
+            'receiver_name' => $receiver instanceof Staff ? $receiver->name : null,
+            'unit_cost' => $canViewCosts ? $transaction->unit_cost : null,
+            'total_cost' => $canViewCosts ? $transaction->total_cost : null,
+            'currency_code' => $canViewCosts ? $transaction->currency_code : null,
+            'meter_reading' => $transaction->meter_reading,
+            'tank_level_before' => $transaction->tank_level_before,
+            'tank_level_after' => $transaction->tank_level_after,
+            'is_full_tank' => $transaction->is_full_tank,
+            'voucher_reference' => $transaction->voucher_reference,
+            'notes' => $transaction->notes,
+            'exception_status' => $transaction->exception_status,
+            'exception_reason' => $transaction->exception_reason,
+            'status' => $transaction->status,
+            'reversal_of_id' => $transaction->reversal_of_id,
+            'reversal_reason' => $transaction->reversal_reason,
+            'submitted_by' => $transaction->submittedBy->name,
+            'approved_by' => $transaction->approvedBy?->name,
+            'can_approve' => Gate::forUser($user)->allows('approve', $transaction),
+            'can_reverse' => Gate::forUser($user)->allows('reverse', $transaction)
+                && ! $transaction->reversals()->exists(),
         ];
     }
 }
