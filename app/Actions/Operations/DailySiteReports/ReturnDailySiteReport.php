@@ -8,12 +8,15 @@ use App\Models\DailySiteReport;
 use App\Models\DailySiteReportReview;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\DailySiteReportNotificationService;
 use Illuminate\Support\Facades\DB;
 
 final readonly class ReturnDailySiteReport
 {
-    public function __construct(private AuditLogger $auditLogger)
-    {
+    public function __construct(
+        private AuditLogger $auditLogger,
+        private DailySiteReportNotificationService $notificationService,
+    ) {
         //
     }
 
@@ -42,6 +45,7 @@ final readonly class ReturnDailySiteReport
             ]);
 
             $this->auditLogger->record('operations.daily_site_report.returned', $report, $actor, $oldValues, $report->only(['status', 'returned_by', 'returned_at', 'return_reason']), $reason);
+            DB::afterCommit(fn () => $this->notificationService->returned($report));
 
             return $report;
         });

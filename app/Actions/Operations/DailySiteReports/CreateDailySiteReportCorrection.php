@@ -8,12 +8,15 @@ use App\Models\DailySiteReport;
 use App\Models\DailySiteReportCorrection;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\DailySiteReportNotificationService;
 use Illuminate\Support\Facades\DB;
 
 final readonly class CreateDailySiteReportCorrection
 {
-    public function __construct(private AuditLogger $auditLogger)
-    {
+    public function __construct(
+        private AuditLogger $auditLogger,
+        private DailySiteReportNotificationService $notificationService,
+    ) {
         //
     }
 
@@ -44,6 +47,7 @@ final readonly class CreateDailySiteReportCorrection
                 $newValues,
                 $reason,
             );
+            DB::afterCommit(fn () => $this->notificationService->correctionRequested($correction));
 
             return $correction;
         });

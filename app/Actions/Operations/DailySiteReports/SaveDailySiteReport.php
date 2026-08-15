@@ -12,9 +12,11 @@ use App\Models\DailySiteReportLabourLine;
 use App\Models\DailySiteReportMaterialLine;
 use App\Models\DailySiteReportWorkLine;
 use App\Models\ExpectedDailySiteReport;
+use App\Models\ProjectActivity;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\ReportingCalendarResolver;
 use App\Services\TenantContext;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +28,7 @@ final readonly class SaveDailySiteReport
     public function __construct(
         private TenantContext $tenantContext,
         private AuditLogger $auditLogger,
+        private ReportingCalendarResolver $calendarResolver,
     ) {
         //
     }
@@ -71,7 +74,11 @@ final readonly class SaveDailySiteReport
 
             $report->save();
 
-            $outputValue = $this->syncLines($report, DailySiteReportWorkLine::class, $data['work_lines'] ?? []);
+            $outputValue = $this->syncLines(
+                $report,
+                DailySiteReportWorkLine::class,
+                $this->normalizeWorkLines($report, $data['work_lines'] ?? []),
+            );
             $labourCost = $this->syncLines($report, DailySiteReportLabourLine::class, $data['labour_lines'] ?? []);
             $equipmentCost = $this->syncLines($report, DailySiteReportEquipmentLine::class, $data['equipment_lines'] ?? []);
             $materialCost = $this->syncLines($report, DailySiteReportMaterialLine::class, $data['material_lines'] ?? []);
@@ -109,7 +116,7 @@ final readonly class SaveDailySiteReport
         $expected = ExpectedDailySiteReport::query()->firstOrNew([
             'tenant_id' => $report->tenant_id,
             'site_id' => $report->site_id,
-            'report_date' => $report->report_date->toDateString(),
+            'report_date' => $report->report_date->copy()->startOfDay(),
         ]);
 
         $expected->fill([
@@ -123,12 +130,56 @@ final readonly class SaveDailySiteReport
         ])->save();
     }
 
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function normalizeWorkLines(DailySiteReport $report, mixed $lines): array
+    {
+        if (! is_array($lines)) {
+            return [];
+        }
+
+        return collect($lines)
+            ->filter(is_array(...))
+            ->map(function (array $line) use ($report): array {
+                $activityId = $line['project_activity_id'] ?? null;
+
+                if (! is_string($activityId) || $activityId === '') {
+                    return $line;
+                }
+
+                $activity = ProjectActivity::query()
+                    ->whereKey($activityId)
+                    ->where('tenant_id', $report->tenant_id)
+                    ->where('project_id', $report->project_id)
+                    ->where('status', 'active')
+                    ->where(function ($query) use ($report): void {
+                        $query->whereNull('site_id')->orWhere('site_id', $report->site_id);
+                    })
+                    ->first();
+
+                if (! $activity instanceof ProjectActivity) {
+                    throw ValidationException::withMessages([
+                        'work_lines' => 'A selected BOQ activity is not available for this report site.',
+                    ]);
+                }
+
+                return [
+                    ...$line,
+                    'boq_item_number' => $activity->boq_item_number,
+                    'description' => $activity->name,
+                    'unit' => $activity->unit,
+                    'rate_amount' => $activity->rate_amount,
+                    'currency_code' => $activity->currency_code,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
     private function deadlineAt(Site $site, DailySiteReport $report): CarbonInterface
     {
-        $deadline = $site->reporting_deadline ?? $site->project?->reporting_deadline ?? '18:00';
-        [$hour, $minute] = array_pad(explode(':', (string) $deadline), 2, '0');
-
-        return $report->report_date->copy()->setTime((int) $hour, (int) $minute);
+        return $this->calendarResolver->deadlineAt($site, $report->report_date);
     }
 
     /**

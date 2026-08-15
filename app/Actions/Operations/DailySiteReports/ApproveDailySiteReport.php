@@ -10,12 +10,15 @@ use App\Models\ExpectedDailySiteReport;
 use App\Models\ProjectActivity;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\DailySiteReportNotificationService;
 use Illuminate\Support\Facades\DB;
 
 final readonly class ApproveDailySiteReport
 {
-    public function __construct(private AuditLogger $auditLogger)
-    {
+    public function __construct(
+        private AuditLogger $auditLogger,
+        private DailySiteReportNotificationService $notificationService,
+    ) {
         //
     }
 
@@ -58,6 +61,7 @@ final readonly class ApproveDailySiteReport
             $this->syncActivityQuantities($report);
 
             $this->auditLogger->record('operations.daily_site_report.approved', $report, $actor, $oldValues, $report->only(['status', 'reviewed_by', 'reviewed_at', 'approved_by', 'approved_at']));
+            DB::afterCommit(fn () => $this->notificationService->approved($report));
 
             return $report;
         });

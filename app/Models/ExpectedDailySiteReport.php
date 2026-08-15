@@ -77,4 +77,10 @@ final class ExpectedDailySiteReport extends Model
     {
         return $this->belongsTo(DailySiteReport::class, 'daily_site_report_id');
     }
+
+    /** @return BelongsTo<Site, $this> */
+    public function site(): BelongsTo
+    {
+        return $this->belongsTo(Site::class);
+    }
 }

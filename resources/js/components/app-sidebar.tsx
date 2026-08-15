@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
     BadgeDollarSign,
+    CalendarDays,
     ClipboardCheck,
     FileText,
     FolderKanban,
@@ -12,6 +13,7 @@ import {
     ShieldCheck,
     Users,
     Warehouse,
+    Workflow,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
@@ -94,6 +96,13 @@ const groups: SidebarGroupItem[] = [
         title: 'Operations',
         items: [
             {
+                title: 'Operations control',
+                href: '/operations-dashboard',
+                icon: Workflow,
+                status: 'ready',
+                permission: 'operations-dashboard.view',
+            },
+            {
                 title: 'Projects & sites',
                 href: '/projects',
                 icon: FolderKanban,
@@ -120,6 +129,13 @@ const groups: SidebarGroupItem[] = [
                 icon: ClipboardCheck,
                 status: 'ready',
                 permission: 'daily-site-reports.view',
+            },
+            {
+                title: 'Reporting calendars',
+                href: '/reporting-calendars',
+                icon: CalendarDays,
+                status: 'ready',
+                permission: 'reporting-calendars.view',
             },
             {
                 title: 'Documents',

@@ -1,3 +1,9 @@
+# Point Investment Construction ERP
+
+Project documentation starts with [PROJECT_ROADMAP.md](PROJECT_ROADMAP.md). It links the SRS to the detailed phase architecture and implementation plans.
+
+The application is based on the following starter kit:
+
 - Inertia & React (this project) version: **[github.com/nunomaduro/laravel-starter-kit-inertia-react](https://github.com/nunomaduro/laravel-starter-kit-inertia-react)**
 - Blade version: **[github.com/nunomaduro/laravel-starter-kit](https://github.com/nunomaduro/laravel-starter-kit)**
 - Inertia & Vue version: **[github.com/nunomaduro/laravel-starter-kit-inertia-vue](https://github.com/nunomaduro/laravel-starter-kit-inertia-vue)**

@@ -43,7 +43,7 @@ final class DashboardController
                 'sites' => Site::query()->where('tenant_id', $tenantId)->where('status', 'active')->count(),
                 'documents' => Document::query()->where('tenant_id', $tenantId)->where('status', '!=', Document::STATUS_ARCHIVED)->count(),
                 'expiringDocuments' => Document::query()->where('tenant_id', $tenantId)->expiringSoon()->count(),
-                'phase' => 'Phase 2C',
+                'phase' => 'Phase 2D',
             ],
             'dailyReports' => [
                 'draft' => DailySiteReport::query()->where('tenant_id', $tenantId)->where('status', DailySiteReport::STATUS_DRAFT)->count(),

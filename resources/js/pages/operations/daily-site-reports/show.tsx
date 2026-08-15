@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import InputError from '@/components/input-error';
+import { SearchableSelect } from '@/components/searchable-select';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -40,6 +41,17 @@ import {
 
 type Line = Record<string, string | null>;
 
+type ActivityOption = {
+    id: string;
+    project_id: string;
+    site_id: string | null;
+    label: string;
+    boq_item_number: string | null;
+    unit: string | null;
+    rate_amount: string | null;
+    currency_code: string | null;
+};
+
 const numericLineFields = new Set([
     'quantity',
     'rate_amount',
@@ -50,7 +62,47 @@ const numericLineFields = new Set([
     'idle_hours',
     'fuel_quantity',
     'hours_lost',
+    'previous_approved_quantity',
+    'cumulative_to_date',
 ]);
+
+const readOnlyLineFields = new Set([
+    'previous_approved_quantity',
+    'cumulative_to_date',
+]);
+
+const activitySnapshotFields = new Set([
+    'boq_item_number',
+    'description',
+    'unit',
+    'rate_amount',
+]);
+
+const controlledLineOptions: Record<string, string[]> = {
+    side: ['Full width', 'LHS', 'RHS', 'Centreline'],
+    status: ['working', 'idle', 'breakdown', 'off-hire'],
+    fuel_type: ['Diesel', 'Petrol'],
+    material_type: ['used', 'delivered', 'wasted', 'rejected'],
+    category: [
+        'Petty cash',
+        'Allowances',
+        'Overheads',
+        'Mobilisation',
+        'Demobilisation',
+        'Subcontract',
+    ],
+    delay_type: [
+        'Weather',
+        'Equipment breakdown',
+        'Material shortage',
+        'Labour shortage',
+        'Client instruction',
+        'Design or technical',
+        'Access',
+        'Safety',
+        'Other',
+    ],
+};
 
 type Report = {
     id: string;
@@ -58,6 +110,7 @@ type Report = {
     project_name: string;
     site_name: string;
     site_id: string;
+    project_id: string;
     branch_id: string;
     report_date: string;
     status: string;
@@ -97,6 +150,9 @@ type Correction = {
     reason: string;
     requested_by: string | null;
     created_at: string;
+    old_values: Record<string, string | number | null> | null;
+    new_values: Record<string, string | number | null> | null;
+    can_manage: boolean;
 };
 
 type Props = {
@@ -116,6 +172,8 @@ type Props = {
     documentBranches: Option[];
     documentLinkOptions: LinkOptions;
     canUploadDocuments: boolean;
+    activities: ActivityOption[];
+    units: string[];
 };
 
 type FormData = Record<string, string | Line[]> & {
@@ -149,6 +207,8 @@ export default function DailySiteReportShow({
     documentBranches,
     documentLinkOptions,
     canUploadDocuments,
+    activities,
+    units,
 }: Props) {
     const confirm = useConfirmDialog();
     const form = useForm<FormData>({
@@ -338,6 +398,31 @@ export default function DailySiteReportShow({
                                     {correction.requested_by ?? 'Unknown user'}
                                 </div>
                                 <div className="mt-2">{correction.reason}</div>
+                                {correction.new_values && (
+                                    <div className="mt-2 grid gap-1 rounded border border-blue-200 bg-white/60 p-2">
+                                        {Object.entries(
+                                            correction.new_values,
+                                        ).map(([field, value]) => (
+                                            <div
+                                                key={field}
+                                                className="flex justify-between gap-4"
+                                            >
+                                                <span className="text-blue-700">
+                                                    {field.replaceAll('_', ' ')}
+                                                </span>
+                                                <span className="text-right font-medium">
+                                                    {String(value ?? '')}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {correction.can_manage && (
+                                    <CorrectionActions
+                                        reportId={report.id}
+                                        correction={correction}
+                                    />
+                                )}
                             </div>
                         ))}
                     </CardContent>
@@ -465,6 +550,7 @@ export default function DailySiteReportShow({
                         disabled={!can.update}
                         lines={form.data.work_lines}
                         fields={[
+                            'project_activity_id',
                             'boq_item_number',
                             'description',
                             'chainage_from',
@@ -472,8 +558,17 @@ export default function DailySiteReportShow({
                             'side',
                             'quantity',
                             'unit',
+                            'previous_approved_quantity',
+                            'cumulative_to_date',
                             ...(canViewCosts ? ['rate_amount'] : []),
                         ]}
+                        activities={activities.filter(
+                            (activity) =>
+                                activity.project_id === report.project_id &&
+                                (activity.site_id === null ||
+                                    activity.site_id === report.site_id),
+                        )}
+                        units={units}
                         onAdd={() =>
                             form.setData('work_lines', [
                                 ...form.data.work_lines,
@@ -542,6 +637,7 @@ export default function DailySiteReportShow({
                             'delivery_reference',
                             ...(canViewCosts ? ['rate_amount'] : []),
                         ]}
+                        units={units}
                         onAdd={() =>
                             form.setData('material_lines', [
                                 ...form.data.material_lines,
@@ -565,6 +661,7 @@ export default function DailySiteReportShow({
                                 'unit',
                                 'rate_amount',
                             ]}
+                            units={units}
                             onAdd={() =>
                                 form.setData('cost_lines', [
                                     ...form.data.cost_lines,
@@ -608,6 +705,104 @@ export default function DailySiteReportShow({
                 </form>
             </div>
         </AppLayout>
+    );
+}
+
+function CorrectionActions({
+    reportId,
+    correction,
+}: {
+    reportId: string;
+    correction: Correction;
+}) {
+    const confirm = useConfirmDialog();
+    const [rejectOpen, setRejectOpen] = useState(false);
+    const rejectForm = useForm({ reason: '' });
+
+    function reject(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        rejectForm.post(
+            `/daily-site-reports/${reportId}/corrections/${correction.id}/reject`,
+            {
+                preserveScroll: true,
+                onSuccess: () => setRejectOpen(false),
+            },
+        );
+    }
+
+    return (
+        <div className="mt-3 flex flex-wrap justify-end gap-2">
+            <Button
+                type="button"
+                size="sm"
+                onClick={() =>
+                    confirm({
+                        title: 'Approve correction?',
+                        description:
+                            'The proposed values will be applied to the approved report and recorded in the audit trail.',
+                        confirmLabel: 'Approve correction',
+                        onConfirm: () =>
+                            router.post(
+                                `/daily-site-reports/${reportId}/corrections/${correction.id}/approve`,
+                                {},
+                                { preserveScroll: true },
+                            ),
+                    })
+                }
+            >
+                Approve
+            </Button>
+            <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+                <DialogTrigger asChild>
+                    <Button type="button" size="sm" variant="outline">
+                        Reject
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg">
+                    <form onSubmit={reject} className="grid gap-4">
+                        <DialogHeader>
+                            <DialogTitle>Reject correction</DialogTitle>
+                            <DialogDescription>
+                                Record why the proposed change should not be
+                                applied.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-2">
+                            <Label htmlFor={`reject-${correction.id}`}>
+                                Reason
+                            </Label>
+                            <Textarea
+                                id={`reject-${correction.id}`}
+                                value={rejectForm.data.reason}
+                                onChange={(event) =>
+                                    rejectForm.setData(
+                                        'reason',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                            <InputError message={rejectForm.errors.reason} />
+                        </div>
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setRejectOpen(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                variant="destructive"
+                                disabled={rejectForm.processing}
+                            >
+                                Reject correction
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        </div>
     );
 }
 
@@ -896,6 +1091,8 @@ function LineCard({
     fields,
     onAdd,
     onChange,
+    activities = [],
+    units = [],
 }: {
     title: string;
     description: string;
@@ -904,11 +1101,37 @@ function LineCard({
     fields: string[];
     onAdd: () => void;
     onChange: (lines: Line[]) => void;
+    activities?: ActivityOption[];
+    units?: string[];
 }) {
     function updateLine(index: number, field: string, value: string) {
         onChange(
             lines.map((line, lineIndex) =>
                 lineIndex === index ? { ...line, [field]: value } : line,
+            ),
+        );
+    }
+
+    function selectActivity(index: number, activityId: string) {
+        const activity = activities.find((option) => option.id === activityId);
+
+        onChange(
+            lines.map((line, lineIndex) =>
+                lineIndex === index
+                    ? {
+                          ...line,
+                          project_activity_id: activityId,
+                          boq_item_number: activity?.boq_item_number ?? '',
+                          description: activity?.label ?? '',
+                          unit: activity?.unit ?? '',
+                          rate_amount:
+                              activity?.rate_amount ?? line.rate_amount ?? '',
+                          currency_code:
+                              activity?.currency_code ??
+                              line.currency_code ??
+                              'UGX',
+                      }
+                    : line,
             ),
         );
     }
@@ -934,24 +1157,103 @@ function LineCard({
                     >
                         {fields.map((field) => (
                             <div key={field} className="grid gap-2">
-                                <Label>{field.replaceAll('_', ' ')}</Label>
-                                <Input
-                                    value={lineValue(line, field, disabled)}
-                                    disabled={disabled}
-                                    onChange={(event) =>
-                                        updateLine(
-                                            index,
+                                <Label>
+                                    {field === 'project_activity_id'
+                                        ? 'BOQ / activity'
+                                        : field.replaceAll('_', ' ')}
+                                </Label>
+                                {field === 'project_activity_id' ? (
+                                    <SearchableSelect
+                                        value={String(line[field] ?? '')}
+                                        onValueChange={(value) =>
+                                            selectActivity(index, value)
+                                        }
+                                        options={activities.map((activity) => ({
+                                            value: activity.id,
+                                            label: activity.label,
+                                            description: [
+                                                activity.unit,
+                                                activity.boq_item_number,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' / '),
+                                        }))}
+                                        placeholder="Select activity"
+                                        searchPlaceholder="Search BOQ activities..."
+                                        emptyMessage="No activity is available for this site."
+                                        disabled={disabled}
+                                    />
+                                ) : (field === 'unit' && units.length > 0) ||
+                                  controlledLineOptions[field] ? (
+                                    <SearchableSelect
+                                        value={String(line[field] ?? '')}
+                                        onValueChange={(value) =>
+                                            updateLine(index, field, value)
+                                        }
+                                        options={lineFieldOptions(
                                             field,
-                                            event.target.value,
-                                        )
-                                    }
-                                />
+                                            line,
+                                            units,
+                                        )}
+                                        placeholder={`Select ${field.replaceAll('_', ' ')}`}
+                                        searchPlaceholder={`Search ${field.replaceAll('_', ' ')}...`}
+                                        disabled={lineFieldDisabled(
+                                            line,
+                                            field,
+                                            disabled,
+                                        )}
+                                    />
+                                ) : (
+                                    <Input
+                                        value={lineValue(
+                                            line,
+                                            field,
+                                            lineFieldDisabled(
+                                                line,
+                                                field,
+                                                disabled,
+                                            ),
+                                        )}
+                                        disabled={lineFieldDisabled(
+                                            line,
+                                            field,
+                                            disabled,
+                                        )}
+                                        onChange={(event) =>
+                                            updateLine(
+                                                index,
+                                                field,
+                                                event.target.value,
+                                            )
+                                        }
+                                    />
+                                )}
                             </div>
                         ))}
                     </div>
                 ))}
             </CardContent>
         </Card>
+    );
+}
+
+function lineFieldOptions(field: string, line: Line, units: string[]) {
+    const values = field === 'unit' ? units : controlledLineOptions[field] ?? [];
+    const current = String(line[field] ?? '');
+    const options = current && !values.includes(current) ? [current, ...values] : values;
+
+    return options.map((value) => ({ value, label: value }));
+}
+
+function lineFieldDisabled(
+    line: Line,
+    field: string,
+    disabled: boolean,
+): boolean {
+    return (
+        disabled ||
+        readOnlyLineFields.has(field) ||
+        (Boolean(line.project_activity_id) && activitySnapshotFields.has(field))
     );
 }
 
@@ -973,6 +1275,7 @@ function cleanLines(lines: Line[]): Line[] {
 
 function emptyWorkLine(): Line {
     return {
+        project_activity_id: '',
         boq_item_number: '',
         description: '',
         chainage_from: '',

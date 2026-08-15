@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Policies;
 
 use App\Models\DailySiteReport;
+use App\Models\DailySiteReportCorrection;
 use App\Models\Project;
 use App\Models\Site;
 use App\Models\User;
@@ -124,6 +125,20 @@ final class DailySiteReportPolicy
         return $dailySiteReport->isApproved()
             && $user->can('daily-site-reports.correct')
             && $this->view($user, $dailySiteReport);
+    }
+
+    public function approveCorrection(User $user, DailySiteReport $dailySiteReport, DailySiteReportCorrection $correction): bool
+    {
+        return $correction->daily_site_report_id === $dailySiteReport->id
+            && $correction->status === DailySiteReportCorrection::STATUS_SUBMITTED
+            && $correction->requested_by !== $user->id
+            && $user->can('daily-site-reports.approve')
+            && $this->view($user, $dailySiteReport);
+    }
+
+    public function rejectCorrection(User $user, DailySiteReport $dailySiteReport, DailySiteReportCorrection $correction): bool
+    {
+        return $this->approveCorrection($user, $dailySiteReport, $correction);
     }
 
     public function archive(User $user, DailySiteReport $dailySiteReport): bool

@@ -10,14 +10,19 @@ use App\Models\DocumentLink;
 use App\Models\ExpectedDailySiteReport;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\DailySiteReportNotificationService;
+use App\Services\ReportingCalendarResolver;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final readonly class SubmitDailySiteReport
 {
-    public function __construct(private AuditLogger $auditLogger)
-    {
+    public function __construct(
+        private AuditLogger $auditLogger,
+        private DailySiteReportNotificationService $notificationService,
+        private ReportingCalendarResolver $calendarResolver,
+    ) {
         //
     }
 
@@ -60,6 +65,8 @@ final readonly class SubmitDailySiteReport
                 $evidenceOverrideReason,
             );
 
+            DB::afterCommit(fn () => $this->notificationService->submitted($report));
+
             return $report;
         });
     }
@@ -93,7 +100,7 @@ final readonly class SubmitDailySiteReport
         $expected = ExpectedDailySiteReport::query()->firstOrNew([
             'tenant_id' => $report->tenant_id,
             'site_id' => $report->site_id,
-            'report_date' => $report->report_date->toDateString(),
+            'report_date' => $report->report_date->copy()->startOfDay(),
         ]);
 
         $expected->fill([
@@ -114,9 +121,10 @@ final readonly class SubmitDailySiteReport
     {
         $report->loadMissing('site.project');
 
-        $deadline = $report->site?->reporting_deadline ?? $report->project?->reporting_deadline ?? '18:00';
-        [$hour, $minute] = array_pad(explode(':', (string) $deadline), 2, '0');
+        if ($report->site === null) {
+            return $report->report_date->copy()->setTime(18, 0);
+        }
 
-        return $report->report_date->copy()->setTime((int) $hour, (int) $minute);
+        return $this->calendarResolver->deadlineAt($report->site, $report->report_date);
     }
 }

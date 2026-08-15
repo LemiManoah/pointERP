@@ -31,6 +31,7 @@ type Props = {
     searchPlaceholder?: string;
     emptyMessage?: string;
     className?: string;
+    disabled?: boolean;
 };
 
 export function SearchableSelect({
@@ -41,6 +42,7 @@ export function SearchableSelect({
     searchPlaceholder = 'Search...',
     emptyMessage = 'No options found.',
     className,
+    disabled = false,
 }: Props) {
     const [open, setOpen] = useState(false);
     const selectedOption = useMemo(
@@ -53,6 +55,7 @@ export function SearchableSelect({
             <PopoverTrigger asChild>
                 <Button
                     type="button"
+                    disabled={disabled}
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}

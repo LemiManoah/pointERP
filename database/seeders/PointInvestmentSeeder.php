@@ -26,13 +26,17 @@ use App\Models\ExchangeRate;
 use App\Models\ExpectedDailySiteReport;
 use App\Models\Project;
 use App\Models\ProjectActivity;
+use App\Models\ReportingCalendar;
+use App\Models\ReportingCalendarException;
 use App\Models\Role;
 use App\Models\Site;
 use App\Models\Staff;
 use App\Models\StaffPosition;
 use App\Models\TenantCurrency;
 use App\Models\User;
+use App\Notifications\OperationalNotification;
 use App\Services\TenantContext;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
 
@@ -432,6 +436,7 @@ final class PointInvestmentSeeder extends Seeder
 
         $this->dailySiteReports($director, $ugandaProjectManager, $ugandaSiteEngineer, $roadProject, $busunjuSite, $kibogaSite);
         $this->seedProjectDocuments($director, $roadProject, $contract, $busunjuSite, $kibogaSite);
+        $this->seedOperationalControls($director, $ugandaProjectManager, $ugandaSiteEngineer, $roadProject, $busunjuSite, $kibogaSite);
 
         $southSudanCustomer = Customer::query()->updateOrCreate(
             ['tenant_id' => $southSudanBranch->tenant_id, 'code' => 'SSRA'],
@@ -478,6 +483,106 @@ final class PointInvestmentSeeder extends Seeder
             content: 'Demo method statement for South Sudan branch isolation.',
             links: [[$southSudanProject::class, $southSudanProject->id]],
         );
+    }
+
+    private function seedOperationalControls(
+        User $director,
+        User $projectManager,
+        User $siteEngineer,
+        Project $project,
+        Site $busunjuSite,
+        Site $kibogaSite,
+    ): void {
+        $tenantCalendar = ReportingCalendar::query()->updateOrCreate(
+            [
+                'tenant_id' => $project->tenant_id,
+                'project_id' => null,
+                'site_id' => null,
+                'name' => 'Point Investment standard reporting week',
+            ],
+            [
+                'branch_id' => null,
+                'timezone' => 'Africa/Kampala',
+                'reporting_deadline' => '18:00:00',
+                'working_days' => [1, 2, 3, 4, 5, 6],
+                'missing_escalation_days' => 2,
+                'is_active' => true,
+                'created_by' => $director->id,
+                'updated_by' => $director->id,
+            ],
+        );
+
+        $exceptionDate = now()->addMonth()->startOfMonth()->toDateString();
+        $calendarException = ReportingCalendarException::query()
+            ->where('reporting_calendar_id', $tenantCalendar->id)
+            ->whereDate('exception_date', $exceptionDate)
+            ->first() ?? new ReportingCalendarException();
+        $calendarException->fill([
+            'tenant_id' => $project->tenant_id,
+            'branch_id' => null,
+            'reporting_calendar_id' => $tenantCalendar->id,
+            'exception_date' => $exceptionDate,
+            'type' => ReportingCalendarException::TYPE_NON_WORKING,
+            'name' => 'Planned company shutdown',
+            'reason' => 'Demo dated exception for reporting calendar training.',
+            'created_by' => $calendarException->exists ? $calendarException->created_by : $director->id,
+            'updated_by' => $director->id,
+        ])->save();
+
+        ReportingCalendar::query()->updateOrCreate(
+            [
+                'tenant_id' => $project->tenant_id,
+                'site_id' => $busunjuSite->id,
+                'name' => 'Busunju early reporting deadline',
+            ],
+            [
+                'branch_id' => $busunjuSite->branch_id,
+                'project_id' => $project->id,
+                'timezone' => 'Africa/Kampala',
+                'reporting_deadline' => '17:30:00',
+                'working_days' => [1, 2, 3, 4, 5, 6],
+                'missing_escalation_days' => 2,
+                'is_active' => true,
+                'created_by' => $director->id,
+                'updated_by' => $director->id,
+            ],
+        );
+
+        $obligations = [
+            [$busunjuSite, now()->subDay(), ExpectedDailySiteReport::STATUS_MISSING, $siteEngineer],
+            [$busunjuSite, now(), ExpectedDailySiteReport::STATUS_EXPECTED, $siteEngineer],
+            [$kibogaSite, now()->subDay(), ExpectedDailySiteReport::STATUS_MISSING, $projectManager],
+        ];
+
+        foreach ($obligations as [$site, $date, $status, $owner]) {
+            $this->seedExpectedReport(
+                project: $project,
+                site: $site,
+                reportDate: $date,
+                values: [
+                    'deadline_at' => $date->copy()->setTime(18, 0),
+                    'status' => $status,
+                    'notified_at' => $status === ExpectedDailySiteReport::STATUS_MISSING ? now() : null,
+                    'escalated_at' => null,
+                ],
+            );
+
+            $seedKey = 'phase-2d-'.$site->id.'-'.$date->toDateString();
+
+            if ($status === ExpectedDailySiteReport::STATUS_MISSING
+                && $owner->notifications()->where('data->seed_key', $seedKey)->doesntExist()) {
+                $owner->notify(new OperationalNotification([
+                    'tenant_id' => $project->tenant_id,
+                    'branch_id' => $site->branch_id,
+                    'category' => 'daily_site_reports',
+                    'severity' => 'warning',
+                    'title' => 'Daily site report is overdue',
+                    'message' => $site->name.' has not submitted its report for '.$date->toDateString().'.',
+                    'action_url' => '/operations-dashboard',
+                    'seed_key' => $seedKey,
+                ]));
+            }
+        }
     }
 
     private function documentTypes(User $actor): void
@@ -707,15 +812,12 @@ final class PointInvestmentSeeder extends Seeder
         );
 
         foreach ([$submittedReport, $approvedReport, $returnedReport, $draftReport, $missingReport] as $report) {
-            ExpectedDailySiteReport::query()->updateOrCreate(
-                [
-                    'tenant_id' => $project->tenant_id,
-                    'site_id' => $report->site_id,
-                    'report_date' => $report->report_date->toDateString(),
-                ],
-                [
-                    'branch_id' => $project->branch_id,
-                    'project_id' => $project->id,
+            $site = $report->site_id === $primarySite->id ? $primarySite : $secondarySite;
+            $this->seedExpectedReport(
+                project: $project,
+                site: $site,
+                reportDate: $report->report_date,
+                values: [
                     'deadline_at' => $report->report_date->setTime(18, 0),
                     'status' => match ($report->status) {
                         DailySiteReport::STATUS_SUBMITTED, DailySiteReport::STATUS_APPROVED => ExpectedDailySiteReport::STATUS_SUBMITTED,
@@ -730,15 +832,11 @@ final class PointInvestmentSeeder extends Seeder
             );
         }
 
-        ExpectedDailySiteReport::query()->updateOrCreate(
-            [
-                'tenant_id' => $project->tenant_id,
-                'site_id' => $secondarySite->id,
-                'report_date' => now()->addDay()->toDateString(),
-            ],
-            [
-                'branch_id' => $project->branch_id,
-                'project_id' => $project->id,
+        $this->seedExpectedReport(
+            project: $project,
+            site: $secondarySite,
+            reportDate: now()->addDay(),
+            values: [
                 'deadline_at' => now()->addDay()->setTime(18, 0),
                 'status' => ExpectedDailySiteReport::STATUS_EXPECTED,
                 'daily_site_report_id' => null,
@@ -747,6 +845,28 @@ final class PointInvestmentSeeder extends Seeder
                 'escalated_at' => null,
             ],
         );
+    }
+
+    /** @param array<string, mixed> $values */
+    private function seedExpectedReport(Project $project, Site $site, CarbonInterface $reportDate, array $values): ExpectedDailySiteReport
+    {
+        $date = $reportDate->toDateString();
+        $expected = ExpectedDailySiteReport::query()
+            ->where('tenant_id', $project->tenant_id)
+            ->where('site_id', $site->id)
+            ->whereDate('report_date', $date)
+            ->first() ?? new ExpectedDailySiteReport();
+
+        $expected->fill([
+            'tenant_id' => $project->tenant_id,
+            'branch_id' => $site->branch_id,
+            'project_id' => $project->id,
+            'site_id' => $site->id,
+            'report_date' => $date,
+            ...$values,
+        ])->save();
+
+        return $expected;
     }
 
     private function reviewEvent(DailySiteReport $report, User $actor, string $action, ?string $remarks = null): void

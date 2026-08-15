@@ -8,6 +8,7 @@ use App\Models\Branch;
 use App\Models\User;
 use App\Services\BranchContext;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\DatabaseNotification;
 use Inertia\Middleware;
 
 final class HandleInertiaRequests extends Middleware
@@ -38,6 +39,10 @@ final class HandleInertiaRequests extends Middleware
         $tenant = $user instanceof User ? $user->tenant : null;
         $branchContext = $user instanceof User ? resolve(BranchContext::class) : null;
         $currentBranch = $branchContext?->current($user instanceof User ? $user : null);
+        $canViewNotifications = $user instanceof User && $user->can('notifications.view');
+        $unreadNotifications = $canViewNotifications
+            ? $user->unreadNotifications()->where('data->tenant_id', $user->tenant_id)
+            : null;
 
         return [
             ...parent::share($request),
@@ -79,6 +84,18 @@ final class HandleInertiaRequests extends Middleware
                 ->values()
                 ->all() ?? [],
             'canViewAllBranches' => $branchContext?->canViewAllBranches($user instanceof User ? $user : null) ?? false,
+            'notificationSummary' => [
+                'unread_count' => $unreadNotifications?->count() ?? 0,
+                'latest' => $unreadNotifications?->latest()->limit(5)->get()
+                    ->map(fn (DatabaseNotification $notification): array => [
+                        'id' => $notification->id,
+                        'title' => $notification->data['title'] ?? 'Notification',
+                        'message' => $notification->data['message'] ?? '',
+                        'severity' => $notification->data['severity'] ?? 'info',
+                        'action_url' => $notification->data['action_url'] ?? null,
+                        'created_at' => $notification->created_at?->toDateTimeString() ?? '',
+                    ])->values()->all() ?? [],
+            ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

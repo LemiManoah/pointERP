@@ -11,6 +11,7 @@ use App\Http\Requests\Operations\DailySiteReports\UpdateDailySiteReportRequest;
 use App\Models\Currency;
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportCorrection;
+use App\Models\DailySiteReportWorkLine;
 use App\Models\DailySiteReportReview;
 use App\Models\Document;
 use App\Models\ProjectActivity;
@@ -89,6 +90,7 @@ final class DailySiteReportController
                 'input_cost' => $canViewCosts ? $dailySiteReport->input_cost : null,
                 'profit_loss' => $canViewCosts ? $dailySiteReport->profit_loss : null,
                 'site_id' => $dailySiteReport->site_id,
+                'project_id' => $dailySiteReport->project_id,
                 'branch_id' => $dailySiteReport->site?->branch_id,
                 'weather' => $dailySiteReport->weather,
                 'site_conditions' => $dailySiteReport->site_conditions,
@@ -100,7 +102,7 @@ final class DailySiteReportController
                 'social_notes' => $dailySiteReport->social_notes,
                 'completion_percent' => $dailySiteReport->completion_percent,
                 'return_reason' => $dailySiteReport->return_reason,
-                'work_lines' => $this->lineRows($dailySiteReport->workLines->values()->all(), $canViewCosts),
+                'work_lines' => $this->workLineRows($dailySiteReport, $canViewCosts),
                 'labour_lines' => $this->lineRows($dailySiteReport->labourLines->values()->all(), $canViewCosts),
                 'equipment_lines' => $this->lineRows($dailySiteReport->equipmentLines->values()->all(), $canViewCosts),
                 'material_lines' => $this->lineRows($dailySiteReport->materialLines->values()->all(), $canViewCosts),
@@ -133,8 +135,11 @@ final class DailySiteReportController
                     'id' => $correction->id,
                     'status' => $correction->status,
                     'reason' => $correction->reason,
+                    'old_values' => $correction->old_values,
+                    'new_values' => $correction->new_values,
                     'requested_by' => $correction->requester?->name,
                     'created_at' => $correction->created_at->toDateTimeString(),
+                    'can_manage' => Gate::forUser($user)->allows('approveCorrection', [$dailySiteReport, $correction]),
                 ]),
             'documents' => $linkedDocuments,
             'canUploadDocuments' => Gate::forUser($user)->allows('create', Document::class),
@@ -243,6 +248,19 @@ final class DailySiteReportController
                 ->orderBy('code')
                 ->get(['code', 'name'])
                 ->map(fn (Currency $currency): array => ['id' => $currency->code, 'name' => sprintf('%s - %s', $currency->code, $currency->name)]),
+            'units' => [
+                'No.',
+                'day',
+                'hour',
+                'kg',
+                'litre',
+                'lot',
+                'm',
+                'm2',
+                'm3',
+                'month',
+                'tonne',
+            ],
         ];
     }
 
@@ -285,6 +303,37 @@ final class DailySiteReportController
         }
 
         return $user->can('finance.reports.view');
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function workLineRows(DailySiteReport $report, bool $canViewCosts): array
+    {
+        return collect($this->lineRows($report->workLines->values()->all(), $canViewCosts))
+            ->map(function (array $line) use ($report): array {
+                $activityId = $line['project_activity_id'] ?? null;
+                $previous = 0.0;
+
+                if (is_string($activityId) && $activityId !== '') {
+                    $previous = (float) DailySiteReportWorkLine::query()
+                        ->where('tenant_id', $report->tenant_id)
+                        ->where('project_activity_id', $activityId)
+                        ->whereHas('report', fn ($query) => $query
+                            ->where('status', DailySiteReport::STATUS_APPROVED)
+                            ->whereDate('report_date', '<', $report->report_date->toDateString()))
+                        ->sum('quantity');
+                }
+
+                $today = is_numeric($line['quantity'] ?? null) ? (float) $line['quantity'] : 0.0;
+
+                return [
+                    ...$line,
+                    'previous_approved_quantity' => (string) $previous,
+                    'cumulative_to_date' => (string) ($previous + $today),
+                ];
+            })
+            ->all();
     }
 
     /**

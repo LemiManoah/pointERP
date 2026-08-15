@@ -1,4 +1,5 @@
 import { BranchSelector } from '@/components/branch-selector';
+import { NotificationBell } from '@/components/notification-bell';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@/types';
@@ -14,7 +15,10 @@ export function AppSidebarHeader({
                 <SidebarTrigger className="-ml-1" />
                 <Breadcrumbs breadcrumbs={breadcrumbs} />
             </div>
-            <BranchSelector />
+            <div className="flex min-w-0 items-center gap-1">
+                <NotificationBell />
+                <BranchSelector />
+            </div>
         </header>
     );
 }

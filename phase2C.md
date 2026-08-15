@@ -2,7 +2,20 @@
 
 ## Implementation Status
 
-Not implemented yet.
+Implemented - operational core complete.
+
+Implemented scope includes:
+
+- Draft, submit, return, resubmit, approve, archive and approved-report locking.
+- Controlled correction requests with separate approval/rejection and audit events.
+- Expected-report generation and overdue/missing detection commands.
+- Workflow-separated DSR tabs and project/site/dashboard summaries.
+- Structured work, labour, equipment/fuel, material, other-cost and delay lines.
+- BOQ/activity selection with server-enforced tenant/project/site validation and historical rate/unit snapshots.
+- Previous approved and cumulative-to-date activity quantities.
+- Evidence warning/override, linked evidence, policy enforcement and focused feature tests.
+
+Database notifications and strict fleet/inventory/HR master-data foreign keys remain deliberately deferred to the next focused modules. They are integration work, not missing DSR transaction workflow.
 
 Current foundation already exists from Phase 2A and Phase 2B:
 
@@ -182,20 +195,31 @@ Phase 2C should prepare clean data for these modules, not absorb them.
 
 ---
 
-## 6. Current Gaps To Close
+## 6. Remaining Integration Work
 
-The existing DSR implementation has a solid base, but these gaps remain:
+The Phase 2C DSR workflow is implemented. The following integrations belong to subsequent focused modules:
 
-1. Expected DSR records exist but are not yet the central workflow.
-2. Missing DSR handling is not yet automated enough.
-3. Approved reports can still be conceptually edited unless rules are tightened everywhere.
-4. There is no correction workflow for approved reports.
-5. Return currently uses a prompt on the UI; it should use a proper modal.
-6. Submit does not yet validate reporting completeness.
-7. Evidence is linked, but submit does not warn when evidence is missing.
-8. Dashboard exceptions are still thin.
-9. Previous cumulative and cumulative-to-date views are not yet strong enough for IPC preparation.
-10. Tests need to prove workflow states and isolation.
+1. Replace equipment name/identifier snapshots with an optional `equipment_id` selected from the fleet register while retaining the snapshots for history.
+2. Replace material name/type snapshots with an optional `inventory_item_id` selected from the inventory catalogue and post approved consumption to a stock ledger.
+3. Replace labour role/subcontractor text with optional staff, trade and subcontractor master references.
+4. Replace the controlled unit list with tenant-managed units of measure when the inventory/commercial foundation is introduced.
+5. Add database/email notifications and an in-app notification centre in Phase 2D.
+6. Convert approved DSR quantities into IPC measurement/certification records without editing the original DSR.
+
+### Source-of-truth boundary
+
+The phrase "DSR is the source of truth" applies to daily operational transactions, not master data:
+
+| Fact | Owner | DSR responsibility |
+| --- | --- | --- |
+| Equipment identity, ownership and service state | Fleet/equipment register | Select equipment and record the hours, status and fuel observed that day. |
+| Material identity, unit and stock balance | Inventory catalogue and stock ledger | Select material and record delivered/used/wasted quantities for the day. |
+| Unit definitions and conversions | Unit-of-measure catalogue | Select a valid unit and snapshot it on the DSR line. |
+| BOQ item, rate and planned quantity | Project activity/BOQ | Select the activity and snapshot item, unit, rate and currency. |
+| Daily work, resource use and site events | Approved DSR | Preserve the approved event as the auditable operational record. |
+| Certified quantity and payment | IPC/commercial module | Consume approved DSR quantities through a separate measurement and certification workflow. |
+
+This separation avoids duplicate equipment and material names while ensuring later edits to a catalogue or rate never rewrite an approved historical report.
 
 ---
 

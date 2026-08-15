@@ -5,7 +5,9 @@ declare(strict_types=1);
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportCorrection;
 use App\Models\DailySiteReportReview;
+use App\Models\DailySiteReportWorkLine;
 use App\Models\ExpectedDailySiteReport;
+use App\Models\ProjectActivity;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\TenantContext;
@@ -42,6 +44,13 @@ it('lets a site engineer submit an assigned draft report with an evidence overri
         ->where('status', DailySiteReport::STATUS_MISSING)
         ->whereHas('site', fn ($query) => $query->where('reference', 'BUSUNJU'))
         ->firstOrFail();
+    $activity = ProjectActivity::query()
+        ->where('project_id', $report->project_id)
+        ->where(function ($query) use ($report): void {
+            $query->whereNull('site_id')->orWhere('site_id', $report->site_id);
+        })
+        ->where('status', 'active')
+        ->firstOrFail();
 
     $this->actingAs($engineer)
         ->put(route('daily-site-reports.update', $report), [
@@ -50,16 +59,25 @@ it('lets a site engineer submit an assigned draft report with an evidence overri
             'work_summary' => 'Recovered missing report after field upload.',
             'work_lines' => [
                 [
-                    'boq_item_number' => '31.01(b)(i)',
-                    'description' => 'Recovered topsoil quantity',
+                    'project_activity_id' => $activity->id,
+                    'boq_item_number' => 'SPOOFED',
+                    'description' => 'Spoofed description',
                     'quantity' => '25',
-                    'unit' => 'm3',
-                    'rate_amount' => '8500',
+                    'unit' => 'invalid',
+                    'rate_amount' => '1',
                     'currency_code' => 'UGX',
                 ],
             ],
         ])
         ->assertRedirect(route('daily-site-reports.show', $report));
+
+    $workLine = DailySiteReportWorkLine::query()
+        ->where('daily_site_report_id', $report->id)
+        ->firstOrFail();
+
+    expect($workLine->boq_item_number)->toBe($activity->boq_item_number)
+        ->and($workLine->unit)->toBe($activity->unit)
+        ->and($workLine->rate_amount)->toBe($activity->rate_amount);
 
     $this->actingAs($engineer)
         ->post(route('daily-site-reports.submit', $report), [
@@ -130,6 +148,30 @@ it('locks approved reports and records correction requests', function (): void {
         ->where('daily_site_report_id', $approvedReport->id)
         ->where('reason', 'QS adjusted completion percent.')
         ->exists())->toBeTrue();
+});
+
+it('applies an approved correction without unlocking the report', function (): void {
+    $manager = User::query()->where('email', 'pm.gulu@point.test')->firstOrFail();
+    $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
+    $report = DailySiteReport::query()->where('reference', 'DSR-BUSUNJU-20241206')->firstOrFail();
+
+    $this->actingAs($manager)->post(route('daily-site-reports.corrections.store', $report), [
+        'reason' => 'Verified correction to the reported completion.',
+        'changes' => ['completion_percent' => '41.0000'],
+    ])->assertRedirect(route('daily-site-reports.show', $report));
+
+    $correction = DailySiteReportCorrection::query()
+        ->where('daily_site_report_id', $report->id)
+        ->latest()
+        ->firstOrFail();
+
+    $this->actingAs($director)
+        ->post(route('daily-site-reports.corrections.approve', [$report, $correction]))
+        ->assertRedirect(route('daily-site-reports.show', $report));
+
+    expect($correction->refresh()->status)->toBe(DailySiteReportCorrection::STATUS_APPROVED)
+        ->and($report->refresh()->completion_percent)->toBe('41.0000')
+        ->and($report->status)->toBe(DailySiteReport::STATUS_APPROVED);
 });
 
 it('generates expected reports and marks overdue obligations as missing', function (): void {

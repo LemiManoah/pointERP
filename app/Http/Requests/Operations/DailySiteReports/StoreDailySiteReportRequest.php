@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Operations\DailySiteReports;
 
 use App\Models\Site;
+use App\Models\ProjectActivity;
 use App\Services\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -31,18 +32,18 @@ final class StoreDailySiteReportRequest extends FormRequest
             'environment_notes' => ['nullable', 'string'],
             'social_notes' => ['nullable', 'string'],
             'completion_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            ...$this->lineRules(),
+            ...$this->lineRules($tenantId),
         ];
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function lineRules(): array
+    private function lineRules(string $tenantId): array
     {
         return [
             'work_lines' => ['array'],
-            'work_lines.*.project_activity_id' => ['nullable', 'uuid'],
+            'work_lines.*.project_activity_id' => ['nullable', 'uuid', Rule::exists((new ProjectActivity)->getTable(), 'id')->where('tenant_id', $tenantId)],
             'work_lines.*.site_id' => ['nullable', 'uuid'],
             'work_lines.*.boq_item_number' => ['nullable', 'string', 'max:255'],
             'work_lines.*.description' => ['required_with:work_lines', 'string', 'max:255'],

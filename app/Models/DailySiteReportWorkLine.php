@@ -58,4 +58,12 @@ final class DailySiteReportWorkLine extends Model
     {
         return $this->belongsTo(DailySiteReport::class, 'daily_site_report_id');
     }
+
+    /**
+     * @return BelongsTo<ProjectActivity, $this>
+     */
+    public function activity(): BelongsTo
+    {
+        return $this->belongsTo(ProjectActivity::class, 'project_activity_id');
+    }
 }
