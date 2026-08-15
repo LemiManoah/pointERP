@@ -7,6 +7,7 @@ namespace App\Actions\Operations\Equipment;
 use App\Models\Equipment;
 use App\Models\EquipmentAssignment;
 use App\Models\EquipmentLocation;
+use App\Models\EquipmentTransfer;
 use App\Models\Project;
 use App\Models\Site;
 use App\Models\Staff;
@@ -38,6 +39,10 @@ final readonly class AssignEquipment
 
             if ($equipment->assignments()->where('status', EquipmentAssignment::STATUS_ACTIVE)->lockForUpdate()->exists()) {
                 throw ValidationException::withMessages(['equipment' => 'This equipment already has an active assignment.']);
+            }
+
+            if ($equipment->transfers()->whereIn('status', [EquipmentTransfer::STATUS_REQUESTED, EquipmentTransfer::STATUS_APPROVED, EquipmentTransfer::STATUS_DISPATCHED])->exists()) {
+                throw ValidationException::withMessages(['equipment' => 'Complete or cancel the open transfer before assigning this equipment.']);
             }
 
             $project = Project::query()->where('branch_id', $equipment->branch_id)->find($data['project_id']);

@@ -146,6 +146,18 @@ final class Equipment extends Model
         return $this->hasMany(EquipmentAssignment::class);
     }
 
+    /** @return HasMany<EquipmentTransfer, $this> */
+    public function transfers(): HasMany
+    {
+        return $this->hasMany(EquipmentTransfer::class);
+    }
+
+    /** @return HasMany<EquipmentLocationConfirmation, $this> */
+    public function locationConfirmations(): HasMany
+    {
+        return $this->hasMany(EquipmentLocationConfirmation::class);
+    }
+
     /**
      * @param  Builder<Equipment>  $query
      * @return Builder<Equipment>

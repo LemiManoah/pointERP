@@ -53,7 +53,7 @@ final readonly class RecordEquipmentMeterReading
 
             $reading = EquipmentMeterReading::query()->create([
                 'tenant_id' => $equipment->tenant_id,
-                'branch_id' => $equipment->branch_id,
+                'branch_id' => isset($data['branch_id']) ? (string) $data['branch_id'] : $equipment->branch_id,
                 'equipment_id' => $equipment->id,
                 'project_id' => $data['project_id'] ?? $equipment->current_project_id,
                 'site_id' => $data['site_id'] ?? $equipment->current_site_id,

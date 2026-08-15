@@ -21,6 +21,13 @@ import {
     EquipmentAssignmentDialog,
     EquipmentReturnDialog,
 } from './partials/equipment-assignment-dialog';
+import { EquipmentLocationConfirmationDialog } from './partials/equipment-location-confirmation-dialog';
+import {
+    EquipmentTransferRequestDialog,
+    TransferApproveButton,
+    TransferDispatchDialog,
+    TransferReceiptDialog,
+} from './partials/equipment-transfer-dialogs';
 import { EquipmentDialog } from './partials/equipment-dialog';
 import { MeterCorrectionReviewDialog } from './partials/meter-correction-review-dialog';
 import {
@@ -32,8 +39,10 @@ import type {
     EquipmentCategory,
     EquipmentAssignment,
     EquipmentLocation,
+    EquipmentLocationConfirmation,
     EquipmentMeterReading,
     EquipmentRecord,
+    EquipmentTransfer,
     Option,
     OwnerOption,
     ProjectOption,
@@ -46,6 +55,8 @@ type Props = {
     equipment: EquipmentRecord;
     meterReadings: EquipmentMeterReading[];
     assignments: EquipmentAssignment[];
+    transfers: EquipmentTransfer[];
+    locationConfirmations: EquipmentLocationConfirmation[];
     documents: LinkedDocumentRow[];
     documentTypes: DocumentTypeOption[];
     documentBranches: Option[];
@@ -65,6 +76,8 @@ type Props = {
         viewCosts: boolean;
         recordReading: boolean;
         assign: boolean;
+        requestTransfer: boolean;
+        confirmLocation: boolean;
     };
 };
 
@@ -73,6 +86,8 @@ export default function EquipmentShow(props: Props) {
         equipment,
         meterReadings,
         assignments,
+        transfers,
+        locationConfirmations,
         documents,
         documentTypes,
         documentBranches,
@@ -88,9 +103,14 @@ export default function EquipmentShow(props: Props) {
         can,
     } = props;
     const [tab, setTab] = useState(
-        ['overview', 'assignments', 'readings', 'documents'].includes(
-            props.activeTab,
-        )
+        [
+            'overview',
+            'assignments',
+            'transfers',
+            'locations',
+            'readings',
+            'documents',
+        ].includes(props.activeTab)
             ? props.activeTab
             : 'overview',
     );
@@ -146,6 +166,19 @@ export default function EquipmentShow(props: Props) {
                                 locations={locations}
                             />
                         )}
+                        {can.requestTransfer && (
+                            <EquipmentTransferRequestDialog
+                                equipment={equipment}
+                                branches={branches}
+                                locations={locations}
+                            />
+                        )}
+                        {can.confirmLocation && (
+                            <EquipmentLocationConfirmationDialog
+                                equipment={equipment}
+                                locations={locations}
+                            />
+                        )}
                         {can.update && (
                             <EquipmentDialog
                                 equipment={equipment}
@@ -195,6 +228,8 @@ export default function EquipmentShow(props: Props) {
                         <TabsTrigger value="assignments">
                             Assignments
                         </TabsTrigger>
+                        <TabsTrigger value="transfers">Transfers</TabsTrigger>
+                        <TabsTrigger value="locations">Locations</TabsTrigger>
                         <TabsTrigger value="readings">Readings</TabsTrigger>
                         <TabsTrigger value="documents">Documents</TabsTrigger>
                     </TabsList>
@@ -432,6 +467,39 @@ export default function EquipmentShow(props: Props) {
                             </CardContent>
                         </Card>
                     </TabsContent>
+                    <TabsContent value="transfers" className="mt-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Transfer history</CardTitle>
+                                <p className="text-sm text-muted-foreground">
+                                    Controlled approval, dispatch and receipt
+                                    between operational locations.
+                                </p>
+                            </CardHeader>
+                            <CardContent>
+                                <TransferTable
+                                    equipment={equipment}
+                                    transfers={transfers}
+                                />
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                    <TabsContent value="locations" className="mt-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Location confirmations</CardTitle>
+                                <p className="text-sm text-muted-foreground">
+                                    Physical observations supporting the last
+                                    known location.
+                                </p>
+                            </CardHeader>
+                            <CardContent>
+                                <LocationConfirmationTable
+                                    confirmations={locationConfirmations}
+                                />
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
                     <TabsContent value="readings" className="mt-6">
                         <Card>
                             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -479,6 +547,71 @@ export default function EquipmentShow(props: Props) {
                 </Tabs>
             </div>
         </AppLayout>
+    );
+}
+
+function TransferTable({
+    equipment,
+    transfers,
+}: {
+    equipment: EquipmentRecord;
+    transfers: EquipmentTransfer[];
+}) {
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+                <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                        <th className="py-3 pr-4 font-medium">Requested</th>
+                        <th className="py-3 pr-4 font-medium">Movement</th>
+                        <th className="py-3 pr-4 font-medium">Reason</th>
+                        <th className="py-3 pr-4 font-medium">Status</th>
+                        <th className="py-3 text-right font-medium">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {transfers.map((transfer) => (
+                        <tr key={transfer.id} className="border-b align-top last:border-0">
+                            <td className="py-3 pr-4">
+                                {transfer.requested_at}
+                                <div className="text-muted-foreground">{transfer.requested_by}</div>
+                            </td>
+                            <td className="py-3 pr-4">
+                                {transfer.source_location_name}
+                                <div className="text-muted-foreground">to {transfer.destination_location_name} · {transfer.destination_branch_name}</div>
+                            </td>
+                            <td className="max-w-72 py-3 pr-4">{transfer.reason}</td>
+                            <td className="py-3 pr-4">
+                                <Badge variant={transfer.status === 'dispatched' ? 'secondary' : 'outline'}>{title(transfer.status)}</Badge>
+                                {transfer.transport_reference && <div className="mt-1 text-muted-foreground">{transfer.transport_reference}</div>}
+                            </td>
+                            <td className="py-3">
+                                <div className="flex justify-end gap-2">
+                                    {transfer.can_approve && <TransferApproveButton transfer={transfer} />}
+                                    {transfer.can_dispatch && <TransferDispatchDialog equipment={equipment} transfer={transfer} />}
+                                    {transfer.can_receive && <TransferReceiptDialog equipment={equipment} transfer={transfer} />}
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                    {transfers.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-muted-foreground">No transfers recorded.</td></tr>}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+function LocationConfirmationTable({ confirmations }: { confirmations: EquipmentLocationConfirmation[] }) {
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+                <thead><tr className="border-b text-left text-muted-foreground"><th className="py-3 pr-4 font-medium">Observed</th><th className="py-3 pr-4 font-medium">Location</th><th className="py-3 pr-4 font-medium">Status observed</th><th className="py-3 font-medium">Evidence note</th></tr></thead>
+                <tbody>
+                    {confirmations.map((confirmation) => <tr key={confirmation.id} className="border-b align-top last:border-0"><td className="py-3 pr-4">{confirmation.observed_at}<div className="text-muted-foreground">{confirmation.confirmed_by}</div></td><td className="py-3 pr-4">{confirmation.location_name}</td><td className="py-3 pr-4">{confirmation.observed_status ? title(confirmation.observed_status) : 'Not recorded'}</td><td className="max-w-96 py-3">{confirmation.condition_observation ?? confirmation.note ?? 'None'}</td></tr>)}
+                    {confirmations.length === 0 && <tr><td colSpan={4} className="py-10 text-center text-muted-foreground">No manual location confirmations recorded.</td></tr>}
+                </tbody>
+            </table>
+        </div>
     );
 }
 

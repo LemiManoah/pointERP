@@ -79,6 +79,7 @@ export type EquipmentRecord = {
     fuel_tolerance_percent: string | null;
     tank_capacity: string | null;
     current_status: string;
+    current_location_id: string | null;
     current_location_name: string | null;
     current_project_name: string | null;
     current_site_name: string | null;
@@ -130,4 +131,39 @@ export type EquipmentAssignment = {
     handed_over_by: string;
     accepted_return_by: string | null;
     can_return: boolean;
+};
+
+export type EquipmentTransfer = {
+    id: string;
+    status: string;
+    source_branch_name: string;
+    source_location_name: string;
+    destination_branch_name: string;
+    destination_location_name: string;
+    destination_project_name: string | null;
+    destination_site_name: string | null;
+    reason: string;
+    transport_reference: string | null;
+    requested_at: string;
+    approved_at: string | null;
+    dispatched_at: string | null;
+    received_at: string | null;
+    dispatch_meter_reading: string | null;
+    receipt_meter_reading: string | null;
+    dispatch_condition: string | null;
+    receipt_condition: string | null;
+    requested_by: string;
+    can_approve: boolean;
+    can_dispatch: boolean;
+    can_receive: boolean;
+};
+
+export type EquipmentLocationConfirmation = {
+    id: string;
+    location_name: string;
+    observed_at: string;
+    observed_status: string | null;
+    condition_observation: string | null;
+    note: string | null;
+    confirmed_by: string;
 };

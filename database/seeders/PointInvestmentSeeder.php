@@ -26,7 +26,9 @@ use App\Models\Equipment;
 use App\Models\EquipmentAssignment;
 use App\Models\EquipmentCategory;
 use App\Models\EquipmentLocation;
+use App\Models\EquipmentLocationConfirmation;
 use App\Models\EquipmentMeterReading;
+use App\Models\EquipmentTransfer;
 use App\Models\ExchangeRate;
 use App\Models\ExpectedDailySiteReport;
 use App\Models\Project;
@@ -685,6 +687,55 @@ final class PointInvestmentSeeder extends Seeder
             'condition_summary' => 'Serviceable and accepted for drainage excavation works.',
             'updated_by' => $ugandaProjectManager->id,
         ])->save();
+
+        $bowser = Equipment::query()->where('asset_code', 'EQ-WTR-001')->firstOrFail();
+        EquipmentTransfer::query()->updateOrCreate(
+            ['equipment_id' => $bowser->id, 'requested_at' => '2026-08-01 09:00:00'],
+            [
+                'tenant_id' => $bowser->tenant_id,
+                'source_branch_id' => $ugandaBranch->id,
+                'source_location_id' => $locations['KIBOGA']->id,
+                'source_project_id' => $ugandaProject->id,
+                'source_site_id' => $kibogaSite->id,
+                'destination_branch_id' => $ugandaBranch->id,
+                'destination_location_id' => $locations['BUSUNJU']->id,
+                'destination_project_id' => $ugandaProject->id,
+                'destination_site_id' => $busunjuSite->id,
+                'reason' => 'Busunju earthworks require additional dust suppression capacity.',
+                'status' => EquipmentTransfer::STATUS_REQUESTED,
+                'approved_at' => null,
+                'dispatched_at' => null,
+                'received_at' => null,
+                'dispatch_meter_reading' => null,
+                'receipt_meter_reading' => null,
+                'dispatch_condition' => null,
+                'receipt_condition' => null,
+                'transport_reference' => null,
+                'requested_by' => $ugandaProjectManager->id,
+                'approved_by' => null,
+                'dispatched_by' => null,
+                'received_by' => null,
+                'created_by' => $ugandaProjectManager->id,
+                'updated_by' => $ugandaProjectManager->id,
+            ],
+        );
+
+        EquipmentLocationConfirmation::query()->updateOrCreate(
+            ['equipment_id' => $grader->id, 'observed_at' => '2026-07-20 08:15:00'],
+            [
+                'tenant_id' => $grader->tenant_id,
+                'branch_id' => $ugandaBranch->id,
+                'equipment_location_id' => $locations['BUSUNJU']->id,
+                'project_id' => $ugandaProject->id,
+                'site_id' => $busunjuSite->id,
+                'observed_status' => 'available',
+                'condition_observation' => 'Asset physically sighted serviceable in the Busunju yard.',
+                'note' => 'Location confirmed during the morning plant inspection.',
+                'confirmed_by' => $ugandaSiteEngineer->id,
+                'created_by' => $ugandaSiteEngineer->id,
+                'updated_by' => $ugandaSiteEngineer->id,
+            ],
+        );
     }
 
     /** @return array{0: string|null, 1: bool} */

@@ -24,6 +24,12 @@ final readonly class SetEquipmentActiveStatus
             ]);
         }
 
+        if (! $restoring && $equipment->transfers()->whereIn('status', ['requested', 'approved', 'dispatched'])->exists()) {
+            throw ValidationException::withMessages([
+                'equipment' => 'This equipment has an open transfer. Complete or cancel the transfer before retiring it.',
+            ]);
+        }
+
         if (! $restoring && in_array($equipment->current_status, ['transferred', 'under_maintenance'], true)) {
             throw ValidationException::withMessages([
                 'equipment' => 'This equipment has an open transfer or maintenance workflow. Close it before retiring the asset.',

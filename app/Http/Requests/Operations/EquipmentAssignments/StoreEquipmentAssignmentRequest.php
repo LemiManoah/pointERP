@@ -4,13 +4,23 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Operations\EquipmentAssignments;
 
+use App\Models\Equipment;
+use App\Models\EquipmentAssignment;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 
 final class StoreEquipmentAssignmentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+        $equipment = $this->route('equipment');
+
+        return $user instanceof User
+            && $equipment instanceof Equipment
+            && Gate::forUser($user)->allows('view', $equipment)
+            && Gate::forUser($user)->allows('create', EquipmentAssignment::class);
     }
 
     /** @return array<string, list<mixed>> */

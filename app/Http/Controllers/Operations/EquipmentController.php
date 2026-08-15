@@ -16,7 +16,9 @@ use App\Models\Equipment;
 use App\Models\EquipmentAssignment;
 use App\Models\EquipmentCategory;
 use App\Models\EquipmentLocation;
+use App\Models\EquipmentLocationConfirmation;
 use App\Models\EquipmentMeterReading;
+use App\Models\EquipmentTransfer;
 use App\Models\Project;
 use App\Models\Site;
 use App\Models\Staff;
@@ -69,6 +71,9 @@ final class EquipmentController
         $user = auth()->user();
         abort_unless($user instanceof User, 403);
         $equipment->load(['branch', 'category', 'owner', 'defaultLocation', 'currentLocation', 'currentProject', 'currentSite', 'currentCustodian']);
+        $hasOpenTransfer = $equipment->transfers()
+            ->whereIn('status', [EquipmentTransfer::STATUS_REQUESTED, EquipmentTransfer::STATUS_APPROVED, EquipmentTransfer::STATUS_DISPATCHED])
+            ->exists();
 
         return Inertia::render('operations/equipment/show', [
             'activeTab' => request()->string('tab')->value() ?: 'overview',
@@ -109,6 +114,26 @@ final class EquipmentController
                 ->latest('assigned_at')
                 ->get()
                 ->map(fn (EquipmentAssignment $assignment): array => $this->assignmentRow($assignment, $user)),
+            'transfers' => EquipmentTransfer::query()
+                ->with(['sourceBranch', 'destinationBranch', 'sourceLocation', 'destinationLocation', 'destinationProject', 'destinationSite', 'requestedBy'])
+                ->where('equipment_id', $equipment->id)
+                ->latest('requested_at')
+                ->get()
+                ->map(fn (EquipmentTransfer $transfer): array => $this->transferRow($transfer, $user)),
+            'locationConfirmations' => EquipmentLocationConfirmation::query()
+                ->with(['location', 'confirmedBy'])
+                ->where('equipment_id', $equipment->id)
+                ->latest('observed_at')
+                ->get()
+                ->map(fn (EquipmentLocationConfirmation $confirmation): array => [
+                    'id' => $confirmation->id,
+                    'location_name' => $confirmation->location->name,
+                    'observed_at' => $confirmation->observed_at->toDateTimeString(),
+                    'observed_status' => $confirmation->observed_status,
+                    'condition_observation' => $confirmation->condition_observation,
+                    'note' => $confirmation->note,
+                    'confirmed_by' => $confirmation->confirmedBy->name,
+                ]),
             'documents' => $this->linkedDocumentsFor($equipment, $user),
             'categories' => EquipmentCategory::query()->orderBy('name')->get()->map(fn (EquipmentCategory $category): array => $this->categoryRow($category)),
             'locations' => EquipmentLocation::query()->with(['branch', 'project', 'site'])->visibleTo($user)->orderBy('name')->get()->map(fn (EquipmentLocation $location): array => $this->locationRow($location)),
@@ -120,7 +145,15 @@ final class EquipmentController
                 'recordReading' => Gate::forUser($user)->allows('create', [EquipmentMeterReading::class, $equipment]),
                 'assign' => Gate::forUser($user)->allows('create', EquipmentAssignment::class)
                     && $equipment->is_active
-                    && in_array($equipment->current_status, ['available', 'idle'], true),
+                    && in_array($equipment->current_status, ['available', 'idle'], true)
+                    && ! $hasOpenTransfer,
+                'requestTransfer' => Gate::forUser($user)->allows('create', EquipmentTransfer::class)
+                    && $equipment->is_active
+                    && in_array($equipment->current_status, ['available', 'idle'], true)
+                    && ! $hasOpenTransfer,
+                'confirmLocation' => Gate::forUser($user)->allows('create', EquipmentLocationConfirmation::class)
+                    && $equipment->is_active
+                    && ! in_array($equipment->current_status, ['retired', 'transferred'], true),
             ],
             ...$this->formOptions($user),
             ...$this->documentFormOptions($user),
@@ -208,6 +241,7 @@ final class EquipmentController
             'starting_meter_date' => $equipment->starting_meter_date?->toDateString(), 'fuel_efficiency_basis' => $equipment->fuel_efficiency_basis,
             'expected_fuel_efficiency' => $equipment->expected_fuel_efficiency, 'fuel_tolerance_percent' => $equipment->fuel_tolerance_percent,
             'tank_capacity' => $equipment->tank_capacity, 'current_status' => $equipment->current_status,
+            'current_location_id' => $equipment->current_location_id,
             'current_location_name' => $equipment->currentLocation?->name, 'current_project_name' => $equipment->currentProject?->name,
             'current_site_name' => $equipment->currentSite?->name, 'current_custodian_name' => $equipment->currentCustodian?->name,
             'current_meter_reading' => $equipment->current_meter_reading, 'current_meter_read_at' => $equipment->current_meter_read_at?->toDateTimeString(),
@@ -256,6 +290,37 @@ final class EquipmentController
             'handed_over_by' => $assignment->handedOverBy->name,
             'accepted_return_by' => $assignment->acceptedReturnBy?->name,
             'can_return' => Gate::forUser($user)->allows('update', $assignment),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function transferRow(EquipmentTransfer $transfer, User $user): array
+    {
+        $sourceLocation = $transfer->getRelation('sourceLocation');
+
+        return [
+            'id' => $transfer->id,
+            'status' => $transfer->status,
+            'source_branch_name' => $transfer->sourceBranch->name,
+            'source_location_name' => $sourceLocation instanceof EquipmentLocation ? $sourceLocation->name : 'Unconfirmed source',
+            'destination_branch_name' => $transfer->destinationBranch->name,
+            'destination_location_name' => $transfer->destinationLocation->name,
+            'destination_project_name' => $transfer->destinationProject?->name,
+            'destination_site_name' => $transfer->destinationSite?->name,
+            'reason' => $transfer->reason,
+            'transport_reference' => $transfer->transport_reference,
+            'requested_at' => $transfer->requested_at->toDateTimeString(),
+            'approved_at' => $transfer->approved_at?->toDateTimeString(),
+            'dispatched_at' => $transfer->dispatched_at?->toDateTimeString(),
+            'received_at' => $transfer->received_at?->toDateTimeString(),
+            'dispatch_meter_reading' => $transfer->dispatch_meter_reading,
+            'receipt_meter_reading' => $transfer->receipt_meter_reading,
+            'dispatch_condition' => $transfer->dispatch_condition,
+            'receipt_condition' => $transfer->receipt_condition,
+            'requested_by' => $transfer->requestedBy->name,
+            'can_approve' => Gate::forUser($user)->allows('approve', $transfer),
+            'can_dispatch' => Gate::forUser($user)->allows('dispatch', $transfer),
+            'can_receive' => Gate::forUser($user)->allows('receive', $transfer),
         ];
     }
 }
