@@ -43,7 +43,7 @@ final readonly class ProcessOverdueDailySiteReports
                 ->whereIn('status', [ExpectedDailySiteReport::STATUS_EXPECTED, ExpectedDailySiteReport::STATUS_LATE, ExpectedDailySiteReport::STATUS_MISSING])
                 ->where('deadline_at', '<', $asOf)
                 ->when($siteId, fn ($query, string $id) => $query->where('site_id', $id))
-                ->orderBy('report_date')
+                ->oldest('report_date')
                 ->get();
 
             foreach ($expectedReports as $expected) {
@@ -132,7 +132,7 @@ final readonly class ProcessOverdueDailySiteReports
         $recent = ExpectedDailySiteReport::query()
             ->where('site_id', $site->id)
             ->whereDate('report_date', '<=', $expected->report_date->toDateString())
-            ->orderByDesc('report_date')
+            ->latest('report_date')
             ->limit($threshold)
             ->pluck('status');
 

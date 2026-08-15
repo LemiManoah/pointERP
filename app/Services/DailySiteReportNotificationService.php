@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportCorrection;
 use App\Models\User;
+use Illuminate\Support\Collection;
 
 final readonly class DailySiteReportNotificationService
 {
@@ -72,8 +73,8 @@ final readonly class DailySiteReportNotificationService
         );
     }
 
-    /** @return \Illuminate\Support\Collection<int, User> */
-    private function participants(DailySiteReport $report): \Illuminate\Support\Collection
+    /** @return Collection<int, User> */
+    private function participants(DailySiteReport $report): Collection
     {
         $report->loadMissing(['submittedBy', 'site.manager']);
 

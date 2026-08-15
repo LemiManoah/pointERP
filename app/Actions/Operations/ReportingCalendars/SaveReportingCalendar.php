@@ -46,7 +46,7 @@ final readonly class SaveReportingCalendar
 
         $projectId = $project?->id;
         $siteId = $site?->id;
-        $branchId = $site?->branch_id ?? $project?->branch_id;
+        $branchId = $site instanceof Site ? $site->branch_id : $project?->branch_id;
         $isActive = (bool) $data['is_active'];
 
         if ($isActive && $this->activeScopeExists($projectId, $siteId, $calendar?->id)) {

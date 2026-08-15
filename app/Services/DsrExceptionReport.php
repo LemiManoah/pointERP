@@ -20,7 +20,7 @@ final readonly class DsrExceptionReport
     }
 
     /**
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      * @return Collection<int, array<string, mixed>>
      */
     public function rows(User $user, array $filters): Collection
@@ -28,14 +28,14 @@ final readonly class DsrExceptionReport
         $from = is_string($filters['from'] ?? null) ? $filters['from'] : now()->subDays(30)->toDateString();
         $to = is_string($filters['to'] ?? null) ? $filters['to'] : now()->toDateString();
 
-        return ExpectedDailySiteReport::query()
+        $rows = ExpectedDailySiteReport::query()
             ->with(['site.project', 'site.manager', 'report'])
             ->whereIn('branch_id', $this->branchContext->accessibleBranchIds($user))
             ->whereBetween('report_date', [$from, $to])
             ->when(is_string($filters['project_id'] ?? null) ? $filters['project_id'] : null, fn ($query, string $id) => $query->where('project_id', $id))
             ->when(is_string($filters['site_id'] ?? null) ? $filters['site_id'] : null, fn ($query, string $id) => $query->where('site_id', $id))
             ->when(is_string($filters['status'] ?? null) ? $filters['status'] : null, fn ($query, string $status) => $query->where('status', $status))
-            ->orderByDesc('report_date')
+            ->latest('report_date')
             ->get()
             ->filter(fn (ExpectedDailySiteReport $expected): bool => $expected->site instanceof Site
                 && Gate::forUser($user)->allows('view', $expected->site))
@@ -69,10 +69,13 @@ final readonly class DsrExceptionReport
                 ];
             })
             ->values();
+
+        /** @var Collection<int, array<string, mixed>> $rows */
+        return $rows;
     }
 
     /** @param Collection<int, array<string, mixed>> $rows
-     *  @return array<string, int|float>
+     * @return array<string, int|float>
      */
     public function summary(Collection $rows): array
     {

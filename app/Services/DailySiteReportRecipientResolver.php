@@ -35,12 +35,12 @@ final class DailySiteReportRecipientResolver
             ->wherePivot('can_review_dsr', true)
             ->get();
 
-        if ($report->project?->manager instanceof User) {
+        if ($report->project->manager instanceof User) {
             $users->push($report->project->manager);
         }
 
-        foreach ($report->project?->users ?? [] as $user) {
-            if ($user->pivot?->can_manage) {
+        foreach ($report->project->users as $user) {
+            if ((bool) $user->pivot->getAttribute('can_manage')) {
                 $users->push($user);
             }
         }
@@ -54,12 +54,12 @@ final class DailySiteReportRecipientResolver
         $site->loadMissing(['project.manager', 'project.users']);
         $users = collect();
 
-        if ($site->project?->manager instanceof User) {
+        if ($site->project->manager instanceof User) {
             $users->push($site->project->manager);
         }
 
-        foreach ($site->project?->users ?? [] as $user) {
-            if ($user->pivot?->can_manage) {
+        foreach ($site->project->users as $user) {
+            if ((bool) $user->pivot->getAttribute('can_manage')) {
                 $users->push($user);
             }
         }
@@ -76,7 +76,7 @@ final class DailySiteReportRecipientResolver
     }
 
     /** @param Collection<int, User> $users
-     *  @return Collection<int, User>
+     * @return Collection<int, User>
      */
     private function unique(Collection $users, string $tenantId): Collection
     {

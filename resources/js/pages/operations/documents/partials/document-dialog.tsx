@@ -110,7 +110,7 @@ export function DocumentDialog({
         branch_id:
             document?.branch_id ??
             defaultBranchId ??
-            (isSingleBranch ? branches[0]?.id ?? '' : ''),
+            (isSingleBranch ? (branches[0]?.id ?? '') : ''),
         document_type_id:
             document?.document_type_id ?? documentTypes[0]?.id ?? '',
         title: document?.title ?? '',

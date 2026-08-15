@@ -34,30 +34,7 @@ final class ReportingCalendarController
             ->get()
             ->filter(fn (ReportingCalendar $calendar): bool => Gate::forUser($user)->allows('view', $calendar))
             ->values()
-            ->map(fn (ReportingCalendar $calendar): array => [
-                'id' => $calendar->id,
-                'name' => $calendar->name,
-                'project_id' => $calendar->project_id,
-                'project_name' => $calendar->project?->name,
-                'site_id' => $calendar->site_id,
-                'site_name' => $calendar->site?->name,
-                'scope' => $calendar->site?->name ?? $calendar->project?->name ?? 'Tenant default',
-                'timezone' => $calendar->timezone,
-                'reporting_deadline' => mb_substr((string) $calendar->reporting_deadline, 0, 5),
-                'working_days' => $calendar->working_days,
-                'missing_escalation_days' => $calendar->missing_escalation_days,
-                'is_active' => $calendar->is_active,
-                'exceptions' => $calendar->exceptions
-                    ->sortBy('exception_date')
-                    ->values()
-                    ->map(fn (ReportingCalendarException $exception): array => [
-                        'id' => $exception->id,
-                        'exception_date' => $exception->exception_date->toDateString(),
-                        'type' => $exception->type,
-                        'name' => $exception->name,
-                        'reason' => $exception->reason,
-                    ]),
-            ]);
+            ->map(fn (ReportingCalendar $calendar): array => $this->calendarRow($calendar));
 
         return Inertia::render('operations/reporting-calendars/index', [
             'calendars' => $calendars,
@@ -129,5 +106,46 @@ final class ReportingCalendarController
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Reporting calendar moved to inactive.']);
 
         return to_route('reporting-calendars.index');
+    }
+
+    /** @return array<string, mixed> */
+    private function calendarRow(ReportingCalendar $calendar): array
+    {
+        $projectName = $calendar->project_id !== null && $calendar->project instanceof Project
+            ? $calendar->project->name
+            : null;
+        $siteName = $calendar->site_id !== null && $calendar->site instanceof Site
+            ? $calendar->site->name
+            : null;
+
+        return [
+            'id' => $calendar->id,
+            'name' => $calendar->name,
+            'project_id' => $calendar->project_id,
+            'project_name' => $projectName,
+            'site_id' => $calendar->site_id,
+            'site_name' => $siteName,
+            'scope' => $siteName ?? $projectName ?? 'Tenant default',
+            'timezone' => $calendar->timezone,
+            'reporting_deadline' => mb_substr($calendar->reporting_deadline, 0, 5),
+            'working_days' => $calendar->working_days,
+            'missing_escalation_days' => $calendar->missing_escalation_days,
+            'is_active' => $calendar->is_active,
+            'exceptions' => $calendar->exceptions
+                ->sortBy('exception_date')
+                ->values()
+                ->map(function (ReportingCalendarException $exception): array {
+                    $reason = $exception->getAttribute('reason');
+
+                    return [
+                        'id' => $exception->id,
+                        'exception_date' => $exception->exception_date->toDateString(),
+                        'type' => $exception->type,
+                        'name' => $exception->name,
+                        'reason' => is_string($reason) ? $reason : null,
+                    ];
+                })
+                ->all(),
+        ];
     }
 }

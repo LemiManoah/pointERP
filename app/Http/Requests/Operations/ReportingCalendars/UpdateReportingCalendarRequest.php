@@ -35,4 +35,3 @@ final class UpdateReportingCalendarRequest extends FormRequest
         ];
     }
 }
-

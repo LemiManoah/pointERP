@@ -6,6 +6,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -21,6 +23,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['tenant_id', 'user_id', 'email_enabled', 'muted_email_categories', 'digest_frequency'])]
 final class NotificationPreference extends Model
 {
+    /** @use HasFactory<Factory<NotificationPreference>> */
+    use HasFactory;
+
     use HasUuids;
 
     /** @return array<string, string> */

@@ -53,8 +53,8 @@ export function CalendarExceptionsDialog({
                     <DialogHeader>
                         <DialogTitle>{calendar.name} exceptions</DialogTitle>
                         <DialogDescription>
-                            Override a normal weekday for a holiday, shutdown
-                            or planned working day.
+                            Override a normal weekday for a holiday, shutdown or
+                            planned working day.
                         </DialogDescription>
                     </DialogHeader>
                     <form
@@ -171,7 +171,10 @@ export function CalendarExceptionsDialog({
                         )}
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setOpen(false)}>
+                        <Button
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                        >
                             Close
                         </Button>
                     </DialogFooter>

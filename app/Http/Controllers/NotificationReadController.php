@@ -7,7 +7,6 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Notifications\DatabaseNotification;
 use Inertia\Inertia;
 
 final class NotificationReadController
@@ -20,7 +19,6 @@ final class NotificationReadController
         $record = $user->notifications()
             ->where('data->tenant_id', $user->tenant_id)
             ->findOrFail($notification);
-        abort_unless($record instanceof DatabaseNotification, 404);
 
         $validated = $request->validate(['read' => ['required', 'boolean']]);
 

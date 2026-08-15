@@ -43,4 +43,3 @@ final class ProcessOverdueDailySiteReportsCommand extends Command
         return is_string($value) && $value !== '' ? $value : null;
     }
 }
-

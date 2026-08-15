@@ -57,24 +57,22 @@ final class SendOperationalNotificationDigestsCommand extends Command
                     return;
                 }
 
-                $deliveryIds = $notifications->map(function (DatabaseNotification $notification) use ($user): string {
-                    return NotificationDelivery::query()->create([
-                        'tenant_id' => $user->tenant_id,
-                        'notification_id' => $notification->id,
-                        'user_id' => $user->id,
-                        'channel' => 'email_digest',
-                        'status' => NotificationDelivery::STATUS_PENDING,
-                    ])->id;
-                })->all();
+                $deliveryIds = $notifications->map(fn (DatabaseNotification $notification): string => NotificationDelivery::query()->create([
+                    'tenant_id' => $user->tenant_id,
+                    'notification_id' => $notification->id,
+                    'user_id' => $user->id,
+                    'channel' => 'email_digest',
+                    'status' => NotificationDelivery::STATUS_PENDING,
+                ])->id)->all();
 
-                SendOperationalNotificationDigestEmail::dispatch($user->id, $deliveryIds, [
+                dispatch(new SendOperationalNotificationDigestEmail($user->id, $deliveryIds, [
                     'tenant_id' => $user->tenant_id,
                     'category' => 'operational_digest',
                     'severity' => 'info',
                     'title' => ucfirst($preference->digest_frequency).' PointERP operations digest',
                     'message' => $this->summary($notifications),
                     'action_url' => '/notifications',
-                ]);
+                ]));
                 $queued++;
             });
 

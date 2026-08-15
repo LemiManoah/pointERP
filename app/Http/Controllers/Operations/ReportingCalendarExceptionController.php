@@ -42,4 +42,3 @@ final class ReportingCalendarExceptionController
         return to_route('reporting-calendars.index');
     }
 }
-

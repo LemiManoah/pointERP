@@ -14,7 +14,11 @@ final class ReportingCalendarPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->can('reporting-calendars.view') || $user->can('reporting-calendars.manage');
+        if ($user->can('reporting-calendars.view')) {
+            return true;
+        }
+
+        return $user->can('reporting-calendars.manage');
     }
 
     public function view(User $user, ReportingCalendar $calendar): bool

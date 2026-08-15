@@ -45,4 +45,3 @@ final class GenerateExpectedDailySiteReportsCommand extends Command
         return is_string($value) && $value !== '' ? $value : null;
     }
 }
-

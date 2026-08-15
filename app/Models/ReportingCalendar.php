@@ -7,7 +7,10 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToTenant;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -28,12 +31,16 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string|null $created_by
  * @property-read Project|null $project
  * @property-read Site|null $site
- * @property-read \Illuminate\Database\Eloquent\Collection<int, ReportingCalendarException> $exceptions
+ * @property-read Collection<int, ReportingCalendarException> $exceptions
  */
 #[Fillable(['tenant_id', 'branch_id', 'project_id', 'site_id', 'name', 'timezone', 'reporting_deadline', 'working_days', 'missing_escalation_days', 'is_active', 'created_by', 'updated_by'])]
 final class ReportingCalendar extends Model
 {
     use BelongsToTenant;
+
+    /** @use HasFactory<Factory<ReportingCalendar>> */
+    use HasFactory;
+
     use HasUuids;
     use SoftDeletes;
 

@@ -9,17 +9,17 @@ use App\Models\User;
 use App\Notifications\OperationalNotification;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\Attributes\Tries;
 use Throwable;
 
+#[Tries(3)]
 final class SendOperationalNotificationDigestEmail implements ShouldQueue
 {
     use Queueable;
 
-    public int $tries = 3;
-
     /**
-     * @param list<string> $deliveryIds
-     * @param array<string, mixed> $payload
+     * @param  list<string>  $deliveryIds
+     * @param  array<string, mixed>  $payload
      */
     public function __construct(
         public readonly string $userId,

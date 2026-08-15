@@ -80,8 +80,7 @@ export function CalendarDialog({
         timezone: calendar?.timezone ?? 'Africa/Kampala',
         reporting_deadline: calendar?.reporting_deadline ?? '18:00',
         working_days: calendar?.working_days ?? [1, 2, 3, 4, 5, 6],
-        missing_escalation_days:
-            calendar?.missing_escalation_days ?? 2,
+        missing_escalation_days: calendar?.missing_escalation_days ?? 2,
         is_active: calendar?.is_active ?? true,
     };
     const form = useForm(initialData);
@@ -127,7 +126,9 @@ export function CalendarDialog({
         form.setData(
             'working_days',
             checked
-                ? [...form.data.working_days, day].sort()
+                ? [...form.data.working_days, day].sort(
+                      (first, second) => first - second,
+                  )
                 : form.data.working_days.filter((value) => value !== day),
         );
     }

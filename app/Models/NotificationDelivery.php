@@ -6,6 +6,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Notifications\DatabaseNotification;
@@ -23,10 +25,15 @@ use Illuminate\Notifications\DatabaseNotification;
 #[Fillable(['tenant_id', 'notification_id', 'user_id', 'channel', 'status', 'attempts', 'last_error', 'attempted_at', 'sent_at'])]
 final class NotificationDelivery extends Model
 {
+    /** @use HasFactory<Factory<NotificationDelivery>> */
+    use HasFactory;
+
     use HasUuids;
 
     public const string STATUS_PENDING = 'pending';
+
     public const string STATUS_SENT = 'sent';
+
     public const string STATUS_FAILED = 'failed';
 
     /** @return array<string, string> */

@@ -39,8 +39,11 @@ final readonly class NotifyExpiringDocuments
 
             foreach ($documents as $document) {
                 $recipient = $document->owner;
+                if (! $recipient instanceof User) {
+                    continue;
+                }
 
-                if (! $recipient instanceof User || ! $recipient->is_active) {
+                if (! $recipient->is_active) {
                     continue;
                 }
 

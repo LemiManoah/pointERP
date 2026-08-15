@@ -14,13 +14,17 @@ use Illuminate\Support\Collection;
 final class OperationalNotificationSender
 {
     /**
-     * @param Collection<int, User> $recipients
-     * @param array<string, mixed> $payload
+     * @param  Collection<int, User>  $recipients
+     * @param  array<string, mixed>  $payload
      */
     public function send(Collection $recipients, array $payload): void
     {
         foreach ($recipients->unique('id') as $user) {
-            if (! $user->is_active || $user->tenant_id !== ($payload['tenant_id'] ?? null)) {
+            if (! $user->is_active) {
+                continue;
+            }
+
+            if ($user->tenant_id !== ($payload['tenant_id'] ?? null)) {
                 continue;
             }
 
@@ -52,7 +56,7 @@ final class OperationalNotificationSender
                 'status' => NotificationDelivery::STATUS_PENDING,
             ]);
 
-            SendOperationalNotificationEmail::dispatch($delivery->id, $payload);
+            dispatch(new SendOperationalNotificationEmail($delivery->id, $payload));
         }
     }
 }

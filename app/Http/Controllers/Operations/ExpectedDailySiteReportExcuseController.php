@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Operations;
 
 use App\Http\Requests\Operations\ExpectedDailySiteReports\ExcuseExpectedDailySiteReportRequest;

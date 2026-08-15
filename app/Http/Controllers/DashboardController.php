@@ -55,7 +55,7 @@ final class DashboardController
                 'inputCost' => DailySiteReport::query()->where('tenant_id', $tenantId)->sum('input_cost'),
                 'profitLoss' => DailySiteReport::query()->where('tenant_id', $tenantId)->sum('profit_loss'),
             ],
-            'currentTenant' => $user->tenant?->only([
+            'currentTenant' => $user->tenant->only([
                 'id',
                 'name',
                 'code',

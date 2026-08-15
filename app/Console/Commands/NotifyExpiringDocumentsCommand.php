@@ -28,4 +28,3 @@ final class NotifyExpiringDocumentsCommand extends Command
         return self::SUCCESS;
     }
 }
-

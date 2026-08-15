@@ -25,4 +25,3 @@ final class NotificationReadAllController
         return back();
     }
 }
-

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Operations\DailySiteReports;
 
-use App\Models\Site;
 use App\Models\ProjectActivity;
+use App\Models\Site;
 use App\Services\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;

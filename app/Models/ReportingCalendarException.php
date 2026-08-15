@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -15,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read string $tenant_id
  * @property-read string|null $branch_id
  * @property-read string $reporting_calendar_id
- * @property-read \Carbon\CarbonInterface $exception_date
+ * @property-read CarbonInterface $exception_date
  * @property-read string $type
  * @property-read string $name
  * @property-read string|null $reason
@@ -25,9 +28,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 final class ReportingCalendarException extends Model
 {
     use BelongsToTenant;
+
+    /** @use HasFactory<Factory<ReportingCalendarException>> */
+    use HasFactory;
+
     use HasUuids;
 
     public const string TYPE_NON_WORKING = 'non_working';
+
     public const string TYPE_WORKING_OVERRIDE = 'working_override';
 
     /** @return array<string, string> */

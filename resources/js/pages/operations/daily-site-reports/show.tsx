@@ -265,7 +265,8 @@ export default function DailySiteReportShow({
             material_lines: cleanLines(data.material_lines),
             cost_lines: cleanLines(data.cost_lines),
             delay_lines: cleanLines(data.delay_lines),
-        })).put(`/daily-site-reports/${report.id}`, {
+        }));
+        form.put(`/daily-site-reports/${report.id}`, {
             preserveScroll: true,
         });
     }
@@ -1238,9 +1239,11 @@ function LineCard({
 }
 
 function lineFieldOptions(field: string, line: Line, units: string[]) {
-    const values = field === 'unit' ? units : controlledLineOptions[field] ?? [];
+    const values =
+        field === 'unit' ? units : (controlledLineOptions[field] ?? []);
     const current = String(line[field] ?? '');
-    const options = current && !values.includes(current) ? [current, ...values] : values;
+    const options =
+        current && !values.includes(current) ? [current, ...values] : values;
 
     return options.map((value) => ({ value, label: value }));
 }

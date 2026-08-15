@@ -161,7 +161,8 @@ export default function NotificationsIndex({
                             key={notification.id}
                             className={cn(
                                 'flex flex-col gap-3 border-b p-4 last:border-b-0 sm:flex-row sm:items-start sm:justify-between',
-                                notification.read_at === null && 'bg-blue-50/50',
+                                notification.read_at === null &&
+                                    'bg-blue-50/50',
                             )}
                         >
                             <div className="flex min-w-0 gap-3">

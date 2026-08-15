@@ -18,8 +18,7 @@ export function BranchSelector() {
         currentBranch,
         accessibleBranches,
         canViewAllBranches,
-    } =
-        usePage<BranchPageProps>().props;
+    } = usePage<BranchPageProps>().props;
 
     const selectedBranch = currentBranch ?? accessibleBranches[0] ?? null;
 

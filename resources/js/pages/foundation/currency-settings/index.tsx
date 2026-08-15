@@ -273,8 +273,7 @@ export default function CurrencySettingsIndex({
                             <CardContent className="grid gap-4">
                                 <div className="flex flex-wrap gap-2">
                                     <Badge variant="outline">
-                                        Default:{' '}
-                                        {tenant.default_currency_code}
+                                        Default: {tenant.default_currency_code}
                                     </Badge>
                                     <Badge
                                         variant={
@@ -426,9 +425,9 @@ export default function CurrencySettingsIndex({
                                             Reference currencies
                                         </CardTitle>
                                         <CardDescription>
-                                            Add a missing ISO currency here, then
-                                            return to Settings to add it to the
-                                            facility.
+                                            Add a missing ISO currency here,
+                                            then return to Settings to add it to
+                                            the facility.
                                         </CardDescription>
                                     </div>
                                     <div className="flex flex-col gap-3 lg:items-end">
@@ -489,9 +488,7 @@ function CurrencyTable({
                     <tr className="border-b text-left text-muted-foreground">
                         <th className="py-3 pr-4 font-medium">Currency</th>
                         <th className="py-3 pr-4 font-medium">Status</th>
-                        <th className="py-3 text-right font-medium">
-                            Actions
-                        </th>
+                        <th className="py-3 text-right font-medium">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -584,9 +581,7 @@ function ExchangeRatesTable({
                         <th className="py-3 pr-4 font-medium">Direction</th>
                         <th className="py-3 pr-4 font-medium">Effective</th>
                         <th className="py-3 pr-4 font-medium">Status</th>
-                        <th className="py-3 text-right font-medium">
-                            Actions
-                        </th>
+                        <th className="py-3 text-right font-medium">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -600,9 +595,7 @@ function ExchangeRatesTable({
                                 {formatNumber(rate.rate)}{' '}
                                 {rate.to_currency_code}
                             </td>
-                            <td className="py-3 pr-4">
-                                {rate.effective_date}
-                            </td>
+                            <td className="py-3 pr-4">{rate.effective_date}</td>
                             <td className="py-3 pr-4">
                                 <Badge
                                     variant={
@@ -640,8 +633,7 @@ function ExchangeRatesTable({
                                                                 `/exchange-rates/${rate.id}/approve`,
                                                                 {},
                                                                 {
-                                                                    preserveScroll:
-                                                                        true,
+                                                                    preserveScroll: true,
                                                                 },
                                                             ),
                                                     })
@@ -663,8 +655,7 @@ function ExchangeRatesTable({
                                                             router.delete(
                                                                 `/exchange-rates/${rate.id}`,
                                                                 {
-                                                                    preserveScroll:
-                                                                        true,
+                                                                    preserveScroll: true,
                                                                 },
                                                             ),
                                                     })
@@ -711,9 +702,7 @@ function ReferenceCurrenciesTable({
                         <th className="py-3 pr-4 font-medium">Symbol</th>
                         <th className="py-3 pr-4 font-medium">Decimals</th>
                         <th className="py-3 font-medium">Status</th>
-                        <th className="py-3 text-right font-medium">
-                            Actions
-                        </th>
+                        <th className="py-3 text-right font-medium">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -740,9 +729,7 @@ function ReferenceCurrenciesTable({
                                             : 'secondary'
                                     }
                                 >
-                                    {currency.is_active
-                                        ? 'Active'
-                                        : 'Inactive'}
+                                    {currency.is_active ? 'Active' : 'Inactive'}
                                 </Badge>
                             </td>
                             <td className="py-3">
