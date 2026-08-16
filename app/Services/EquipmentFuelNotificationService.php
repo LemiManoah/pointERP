@@ -29,6 +29,17 @@ final readonly class EquipmentFuelNotificationService
         }
     }
 
+    public function exception(EquipmentFuelTransaction $transaction): void
+    {
+        $recipients = User::query()->where('tenant_id', $transaction->tenant_id)->where('is_active', true)->get()
+            ->filter(fn (User $user): bool => $user->can('equipment.fuel.approve')
+                && ($user->can('branches.view-all') || $user->branches()->whereKey($transaction->branch_id)->exists()))
+            ->values();
+        $payload = $this->payload($transaction, 'warning', 'Fuel efficiency requires review');
+        $payload['message'] = $transaction->equipment->asset_code.': '.($transaction->exception_reason ?? 'Fuel usage is outside the configured tolerance.');
+        $this->notifications->send($recipients, $payload);
+    }
+
     /** @return array<string, mixed> */
     private function payload(EquipmentFuelTransaction $transaction, string $severity, string $title): array
     {

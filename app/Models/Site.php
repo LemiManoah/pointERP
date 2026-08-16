@@ -133,7 +133,7 @@ final class Site extends Model
      * @param  Builder<Site>  $query
      * @return Builder<Site>
      */
-    public function scopeVisibleTo(Builder $query, User $user): Builder
+    protected function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->can('sites.view-all') || $user->can('projects.view-all') || $user->can('branches.view-all')) {
             return $query;

@@ -151,7 +151,7 @@ final class EquipmentMeterReading extends Model
      * @param  Builder<EquipmentMeterReading>  $query
      * @return Builder<EquipmentMeterReading>
      */
-    public function scopeVisibleTo(Builder $query, User $user): Builder
+    protected function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->can('equipment.view-all') || $user->can('branches.view-all')) {
             return $query;

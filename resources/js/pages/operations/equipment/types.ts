@@ -170,6 +170,15 @@ export type EquipmentLocationConfirmation = {
 
 export type EquipmentFuelTransaction = {
     id: string;
+    equipment_id: string;
+    equipment_code: string;
+    equipment_name: string;
+    branch_id: string;
+    branch_name: string;
+    project_id: string | null;
+    project_name: string | null;
+    site_id: string | null;
+    site_name: string | null;
     transacted_at: string;
     transaction_type: string;
     fuel_type: string;

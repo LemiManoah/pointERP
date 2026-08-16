@@ -62,6 +62,8 @@ final readonly class RecordEquipmentMeterReading
                 'reading_value' => $data['reading_value'],
                 'read_at' => $readAt,
                 'status' => EquipmentMeterReading::STATUS_ACCEPTED,
+                'source_type' => $data['source_type'] ?? null,
+                'source_id' => $data['source_id'] ?? null,
                 'evidence_note' => $data['evidence_note'] ?? null,
                 'recorded_by' => $actor->id,
                 'approved_by' => $actor->id,

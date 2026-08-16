@@ -26,6 +26,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string $name
  * @property-read string|null $owner_customer_id
  * @property-read string|null $owner_name
+ * @property-read string $meter_type
+ * @property-read string|null $fuel_efficiency_basis
+ * @property-read string|null $expected_fuel_efficiency
+ * @property-read string|null $fuel_tolerance_percent
+ * @property-read string|null $current_location_id
+ * @property-read string|null $current_site_id
+ * @property-read string|null $current_meter_reading
  * @property-read CarbonInterface|null $acquired_on
  * @property-read CarbonInterface|null $starting_meter_date
  * @property-read CarbonInterface|null $current_meter_read_at
@@ -164,11 +171,17 @@ final class Equipment extends Model
         return $this->hasMany(EquipmentFuelTransaction::class);
     }
 
+    /** @return HasMany<EquipmentUsageLog, $this> */
+    public function usageLogs(): HasMany
+    {
+        return $this->hasMany(EquipmentUsageLog::class);
+    }
+
     /**
      * @param  Builder<Equipment>  $query
      * @return Builder<Equipment>
      */
-    public function scopeVisibleTo(Builder $query, User $user): Builder
+    protected function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->can('equipment.view-all') || $user->can('branches.view-all')) {
             return $query;

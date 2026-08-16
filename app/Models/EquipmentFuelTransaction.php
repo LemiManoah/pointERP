@@ -52,6 +52,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read CarbonInterface|null $posted_at
  * @property-read CarbonInterface|null $reversed_at
  * @property-read Equipment $equipment
+ * @property-read Branch $branch
+ * @property-read Project|null $project
+ * @property-read Site|null $site
  * @property-read Customer|null $provider
  * @property-read Staff|null $receiver
  * @property-read User $submittedBy
@@ -105,6 +108,24 @@ final class EquipmentFuelTransaction extends Model
     public function equipment(): BelongsTo
     {
         return $this->belongsTo(Equipment::class);
+    }
+
+    /** @return BelongsTo<Branch, $this> */
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    /** @return BelongsTo<Project, $this> */
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class);
+    }
+
+    /** @return BelongsTo<Site, $this> */
+    public function site(): BelongsTo
+    {
+        return $this->belongsTo(Site::class);
     }
 
     /** @return BelongsTo<Customer, $this> */

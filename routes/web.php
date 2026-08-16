@@ -41,6 +41,7 @@ use App\Http\Controllers\Operations\EquipmentController;
 use App\Http\Controllers\Operations\EquipmentFuelTransactionApprovalController;
 use App\Http\Controllers\Operations\EquipmentFuelTransactionController;
 use App\Http\Controllers\Operations\EquipmentFuelTransactionReversalController;
+use App\Http\Controllers\Operations\EquipmentFuelExportController;
 use App\Http\Controllers\Operations\EquipmentLocationConfirmationController;
 use App\Http\Controllers\Operations\EquipmentLocationController;
 use App\Http\Controllers\Operations\EquipmentMeterCorrectionApprovalController;
@@ -121,6 +122,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::delete('documents/{document}/links/{documentLink}', [DocumentLinkController::class, 'destroy'])->name('documents.links.destroy');
     Route::resource('document-types', DocumentTypeController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::resource('equipment', EquipmentController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
+    Route::get('equipment-fuel/export', EquipmentFuelExportController::class)->name('equipment-fuel.export');
     Route::resource('equipment-categories', EquipmentCategoryController::class)->only(['store', 'update', 'destroy']);
     Route::resource('equipment-locations', EquipmentLocationController::class)->only(['store', 'update', 'destroy']);
     Route::post('equipment/{equipment}/meter-readings', [EquipmentMeterReadingController::class, 'store'])->name('equipment.meter-readings.store');

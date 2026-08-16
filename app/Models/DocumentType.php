@@ -63,7 +63,7 @@ final class DocumentType extends Model
      * @param  Builder<DocumentType>  $query
      * @return Builder<DocumentType>
      */
-    public function scopeAvailableToTenant(Builder $query, string $tenantId): Builder
+    protected function scopeAvailableToTenant(Builder $query, string $tenantId): Builder
     {
         return $query->where(fn (Builder $query): Builder => $query
             ->whereNull('tenant_id')

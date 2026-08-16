@@ -1,7 +1,8 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Search } from 'lucide-react';
+import { Download, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
+import { SearchableSelect } from '@/components/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,14 +10,19 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
-import { formatNumber } from '@/lib/utils';
+import { formatCurrencyAmount, formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import { EquipmentCategoryDialog } from './partials/equipment-category-dialog';
 import { EquipmentDialog } from './partials/equipment-dialog';
+import {
+    FuelApproveButton,
+    FuelReversalDialog,
+} from './partials/equipment-fuel-dialogs';
 import { EquipmentLocationDialog } from './partials/equipment-location-dialog';
 import type {
     BranchOption,
     EquipmentCategory,
+    EquipmentFuelTransaction,
     EquipmentLocation,
     EquipmentRecord,
     Option,
@@ -37,6 +43,7 @@ type Props = {
     staff: StaffOption[];
     owners: OwnerOption[];
     currencies: Option[];
+    fuelTransactions: EquipmentFuelTransaction[];
     can: {
         create: boolean;
         update: boolean;
@@ -44,6 +51,8 @@ type Props = {
         manageCategories: boolean;
         manageLocations: boolean;
         viewCosts: boolean;
+        viewFuelDashboard: boolean;
+        exportFuel: boolean;
     };
 };
 
@@ -62,16 +71,27 @@ export default function EquipmentIndex(props: Props) {
         sites,
         owners,
         currencies,
+        fuelTransactions,
         can,
     } = props;
     const confirm = useConfirmDialog();
     const [tab, setTab] = useState(
-        ['register', 'categories', 'locations'].includes(props.activeTab)
+        ['register', 'categories', 'locations', 'fuel'].includes(props.activeTab)
             ? props.activeTab
             : 'register',
     );
     const [status, setStatus] = useState('active');
+    const [fuelStatus, setFuelStatus] = useState('all');
     const [search, setSearch] = useState('');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
+    const [branchId, setBranchId] = useState('all');
+    const [projectId, setProjectId] = useState('all');
+    const [siteId, setSiteId] = useState('all');
+    const [equipmentId, setEquipmentId] = useState('all');
+    const [transactionType, setTransactionType] = useState('all');
+    const [sourceType, setSourceType] = useState('all');
+    const [exceptionStatus, setExceptionStatus] = useState('all');
     const debouncedSearch = useDebouncedValue(search);
     const term = debouncedSearch.trim().toLowerCase();
     const rows = useMemo(() => {
@@ -91,6 +111,71 @@ export default function EquipmentIndex(props: Props) {
                         .includes(term)),
         );
     }, [categories, equipment, locations, status, tab, term]);
+    const filteredProjects = projects.filter(
+        (project) => branchId === 'all' || project.branch_id === branchId,
+    );
+    const filteredSites = sites.filter(
+        (site) =>
+            (branchId === 'all' || site.branch_id === branchId) &&
+            (projectId === 'all' || site.project_id === projectId),
+    );
+    const fuelRows = useMemo(
+        () =>
+            fuelTransactions.filter((transaction) => {
+                const transactionDate = transaction.transacted_at.slice(0, 10);
+
+                return (
+                    (fuelStatus === 'all' || transaction.status === fuelStatus) &&
+                    (!dateFrom || transactionDate >= dateFrom) &&
+                    (!dateTo || transactionDate <= dateTo) &&
+                    (branchId === 'all' || transaction.branch_id === branchId) &&
+                    (projectId === 'all' || transaction.project_id === projectId) &&
+                    (siteId === 'all' || transaction.site_id === siteId) &&
+                    (equipmentId === 'all' || transaction.equipment_id === equipmentId) &&
+                    (transactionType === 'all' || transaction.transaction_type === transactionType) &&
+                    (sourceType === 'all' || transaction.source_type === sourceType) &&
+                    (exceptionStatus === 'all' || transaction.exception_status === exceptionStatus) &&
+                    (!term || Object.values(transaction).join(' ').toLowerCase().includes(term))
+                );
+            }),
+        [
+            branchId,
+            dateFrom,
+            dateTo,
+            equipmentId,
+            exceptionStatus,
+            fuelStatus,
+            fuelTransactions,
+            projectId,
+            siteId,
+            sourceType,
+            term,
+            transactionType,
+        ],
+    );
+    const fuelSummary = useMemo(() => summarizeFuel(fuelRows), [fuelRows]);
+    const exportUrl = useMemo(() => {
+        const parameters = new URLSearchParams();
+        const filters: Record<string, string> = {
+            search: debouncedSearch.trim(),
+            from: dateFrom,
+            to: dateTo,
+            branch_id: branchId,
+            project_id: projectId,
+            site_id: siteId,
+            equipment_id: equipmentId,
+            transaction_type: transactionType,
+            source_type: sourceType,
+            exception_status: exceptionStatus,
+            status: fuelStatus,
+        };
+
+        Object.entries(filters).forEach(([key, value]) => {
+            if (value && value !== 'all') parameters.set(key, value);
+        });
+
+        return `/equipment-fuel/export?${parameters.toString()}`;
+    }, [branchId, dateFrom, dateTo, debouncedSearch, equipmentId, exceptionStatus, fuelStatus, projectId, siteId, sourceType, transactionType]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -103,7 +188,7 @@ export default function EquipmentIndex(props: Props) {
                                 Equipment
                             </h1>
                             <p className="mt-1 text-sm text-muted-foreground">
-                                Controlled fleet identities, classifications and
+                                Fleet register, deployment, fuel control and
                                 operational locations.
                             </p>
                         </div>
@@ -117,8 +202,36 @@ export default function EquipmentIndex(props: Props) {
                                 placeholder={`Search ${tab}`}
                                 className="w-full pl-9 sm:w-80"
                             />
+                            </div>
+                            {tab === 'fuel' && (
+                                <FuelFilters
+                                    {...{
+                                        dateFrom,
+                                        setDateFrom,
+                                        dateTo,
+                                        setDateTo,
+                                        branchId,
+                                        setBranchId,
+                                        projectId,
+                                        setProjectId,
+                                        siteId,
+                                        setSiteId,
+                                        equipmentId,
+                                        setEquipmentId,
+                                        transactionType,
+                                        setTransactionType,
+                                        sourceType,
+                                        setSourceType,
+                                        exceptionStatus,
+                                        setExceptionStatus,
+                                        branches,
+                                        projects: filteredProjects,
+                                        sites: filteredSites,
+                                        equipment,
+                                    }}
+                                />
+                            )}
                         </div>
-                    </div>
                     {tab === 'register' && can.create && (
                         <EquipmentDialog
                             branches={branches}
@@ -139,6 +252,14 @@ export default function EquipmentIndex(props: Props) {
                             sites={sites}
                         />
                     )}
+                    {tab === 'fuel' && can.exportFuel && (
+                        <Button asChild>
+                            <a href={exportUrl}>
+                                <Download />
+                                Export CSV
+                            </a>
+                        </Button>
+                    )}
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -151,12 +272,27 @@ export default function EquipmentIndex(props: Props) {
                             <TabsTrigger value="locations">
                                 Locations
                             </TabsTrigger>
+                            <TabsTrigger value="fuel">Fuel</TabsTrigger>
                         </TabsList>
                     </Tabs>
-                    <Tabs value={status} onValueChange={setStatus}>
+                    <Tabs
+                        value={tab === 'fuel' ? fuelStatus : status}
+                        onValueChange={tab === 'fuel' ? setFuelStatus : setStatus}
+                    >
                         <TabsList>
-                            <TabsTrigger value="active">Active</TabsTrigger>
-                            <TabsTrigger value="inactive">Inactive</TabsTrigger>
+                            {tab === 'fuel' ? (
+                                <>
+                                    <TabsTrigger value="all">All</TabsTrigger>
+                                    <TabsTrigger value="submitted">Submitted</TabsTrigger>
+                                    <TabsTrigger value="posted">Posted</TabsTrigger>
+                                    <TabsTrigger value="reversed">Reversed</TabsTrigger>
+                                </>
+                            ) : (
+                                <>
+                                    <TabsTrigger value="active">Active</TabsTrigger>
+                                    <TabsTrigger value="inactive">Inactive</TabsTrigger>
+                                </>
+                            )}
                         </TabsList>
                     </Tabs>
                 </div>
@@ -168,7 +304,9 @@ export default function EquipmentIndex(props: Props) {
                                 ? 'Asset register'
                                 : tab === 'categories'
                                   ? 'Equipment categories'
-                                  : 'Operational locations'}
+                                  : tab === 'locations'
+                                    ? 'Operational locations'
+                                    : 'Fuel ledger'}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -202,6 +340,17 @@ export default function EquipmentIndex(props: Props) {
                                 sites={sites}
                                 confirm={confirm}
                             />
+                        )}
+                        {tab === 'fuel' && (
+                            <div className="grid gap-5">
+                                {can.viewFuelDashboard && (
+                                    <FuelSummary summary={fuelSummary} />
+                                )}
+                                <FuelTable
+                                    rows={fuelRows}
+                                    canViewCosts={can.viewCosts}
+                                />
+                            </div>
                         )}
                     </CardContent>
                 </Card>
@@ -347,6 +496,238 @@ function RegisterTable({
             {rows.length === 0 && <Empty colSpan={7} />}
         </Table>
     );
+}
+
+type FuelSummaryData = {
+    transactions: number;
+    assets: number;
+    awaitingReview: number;
+    exceptions: number;
+    quantities: Array<{ fuel: string; quantity: number; unit: string }>;
+    costs: Array<{ currency: string; amount: number }>;
+};
+
+function summarizeFuel(rows: EquipmentFuelTransaction[]): FuelSummaryData {
+    const quantities = new Map<string, { quantity: number; unit: string }>();
+    const costs = new Map<string, number>();
+
+    rows.forEach((row) => {
+        const quantity = quantities.get(row.fuel_type) ?? {
+            quantity: 0,
+            unit: row.unit,
+        };
+        quantity.quantity += Number(row.quantity);
+        quantities.set(row.fuel_type, quantity);
+
+        if (row.currency_code && row.total_cost) {
+            costs.set(
+                row.currency_code,
+                (costs.get(row.currency_code) ?? 0) + Number(row.total_cost),
+            );
+        }
+    });
+
+    return {
+        transactions: rows.length,
+        assets: new Set(rows.map((row) => row.equipment_id)).size,
+        awaitingReview: rows.filter((row) => row.status === 'submitted').length,
+        exceptions: rows.filter((row) =>
+            ['review_required', 'insufficient_evidence'].includes(
+                row.exception_status,
+            ),
+        ).length,
+        quantities: [...quantities].map(([fuel, value]) => ({
+            fuel,
+            ...value,
+        })),
+        costs: [...costs].map(([currency, amount]) => ({ currency, amount })),
+    };
+}
+
+function FuelSummary({ summary }: { summary: FuelSummaryData }) {
+    const quantityText = summary.quantities.length
+        ? summary.quantities
+              .map(
+                  (item) =>
+                      `${title(item.fuel)} ${formatNumber(item.quantity)} ${item.unit}`,
+              )
+              .join(' / ')
+        : 'No fuel recorded';
+    const costText = summary.costs.length
+        ? summary.costs
+              .map((item) => formatCurrencyAmount(item.currency, item.amount))
+              .join(' / ')
+        : 'No visible cost';
+
+    return (
+        <div className="grid gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-2 xl:grid-cols-6">
+            <Metric label="Transactions" value={formatNumber(summary.transactions)} />
+            <Metric label="Assets fuelled" value={formatNumber(summary.assets)} />
+            <Metric label="Awaiting review" value={formatNumber(summary.awaitingReview)} />
+            <Metric label="Exceptions" value={formatNumber(summary.exceptions)} />
+            <Metric label="Fuel quantity" value={quantityText} />
+            <Metric label="Visible cost" value={costText} />
+        </div>
+    );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="min-w-0 bg-background p-4">
+            <div className="text-xs text-muted-foreground">{label}</div>
+            <div className="mt-1 break-words font-semibold">{value}</div>
+        </div>
+    );
+}
+
+function FuelFilters({
+    dateFrom,
+    setDateFrom,
+    dateTo,
+    setDateTo,
+    branchId,
+    setBranchId,
+    projectId,
+    setProjectId,
+    siteId,
+    setSiteId,
+    equipmentId,
+    setEquipmentId,
+    transactionType,
+    setTransactionType,
+    sourceType,
+    setSourceType,
+    exceptionStatus,
+    setExceptionStatus,
+    branches,
+    projects,
+    sites,
+    equipment,
+}: {
+    dateFrom: string;
+    setDateFrom: (value: string) => void;
+    dateTo: string;
+    setDateTo: (value: string) => void;
+    branchId: string;
+    setBranchId: (value: string) => void;
+    projectId: string;
+    setProjectId: (value: string) => void;
+    siteId: string;
+    setSiteId: (value: string) => void;
+    equipmentId: string;
+    setEquipmentId: (value: string) => void;
+    transactionType: string;
+    setTransactionType: (value: string) => void;
+    sourceType: string;
+    setSourceType: (value: string) => void;
+    exceptionStatus: string;
+    setExceptionStatus: (value: string) => void;
+    branches: BranchOption[];
+    projects: ProjectOption[];
+    sites: SiteOption[];
+    equipment: EquipmentRecord[];
+}) {
+    return (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <Input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} aria-label="From date" />
+            <Input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} aria-label="To date" />
+            <FilterSelect value={branchId} onChange={(value) => { setBranchId(value); setProjectId('all'); setSiteId('all'); }} label="All branches" options={branches.map((branch) => ({ value: branch.id, label: branch.name }))} />
+            <FilterSelect value={projectId} onChange={(value) => { setProjectId(value); setSiteId('all'); }} label="All projects" options={projects.map((project) => ({ value: project.id, label: project.name }))} />
+            <FilterSelect value={siteId} onChange={setSiteId} label="All sites" options={sites.map((site) => ({ value: site.id, label: site.name }))} />
+            <FilterSelect value={equipmentId} onChange={setEquipmentId} label="All equipment" options={equipment.map((asset) => ({ value: asset.id, label: asset.asset_code, description: asset.name }))} />
+            <FilterSelect value={transactionType} onChange={setTransactionType} label="All transaction types" options={['issue', 'refuel', 'consumption', 'return', 'adjustment'].map(option)} />
+            <FilterSelect value={sourceType} onChange={setSourceType} label="All sources" options={['supplier', 'store', 'site_stock', 'mobile_bowser', 'other'].map(option)} />
+            <FilterSelect value={exceptionStatus} onChange={setExceptionStatus} label="All exception states" options={['not_evaluated', 'within_tolerance', 'review_required', 'insufficient_evidence'].map(option)} />
+        </div>
+    );
+}
+
+function FilterSelect({
+    value,
+    onChange,
+    label,
+    options,
+}: {
+    value: string;
+    onChange: (value: string) => void;
+    label: string;
+    options: Array<{ value: string; label: string; description?: string }>;
+}) {
+    return (
+        <SearchableSelect
+            value={value}
+            onValueChange={onChange}
+            options={[{ value: 'all', label }, ...options]}
+            placeholder={label}
+        />
+    );
+}
+
+function FuelTable({
+    rows,
+    canViewCosts,
+}: {
+    rows: EquipmentFuelTransaction[];
+    canViewCosts: boolean;
+}) {
+    const headers = [
+        'Date / asset',
+        'Branch / project',
+        'Transaction',
+        'Quantity / meter',
+        ...(canViewCosts ? ['Cost'] : []),
+        'Control status',
+        '',
+    ];
+
+    return (
+        <Table headers={headers}>
+            {rows.map((transaction) => (
+                <tr key={transaction.id} className="border-b last:border-0">
+                    <td className="py-3 pr-4">
+                        <div>{transaction.transacted_at.slice(0, 10)}</div>
+                        <Link href={`/equipment/${transaction.equipment_id}?tab=fuel`} className="font-medium hover:underline">
+                            {transaction.equipment_code}
+                        </Link>
+                        <div className="text-muted-foreground">{transaction.equipment_name}</div>
+                    </td>
+                    <td className="py-3 pr-4">
+                        {transaction.branch_name}
+                        <div className="text-muted-foreground">{transaction.site_name ?? transaction.project_name ?? 'Branch operation'}</div>
+                    </td>
+                    <td className="py-3 pr-4">
+                        <Badge variant="outline">{title(transaction.transaction_type)}</Badge>
+                        <div className="mt-1 text-muted-foreground">{title(transaction.source_type)}{transaction.source_name ? ` / ${transaction.source_name}` : ''}</div>
+                    </td>
+                    <td className="py-3 pr-4">
+                        {formatNumber(transaction.quantity)} {transaction.unit}
+                        <div className="text-muted-foreground">{transaction.meter_reading ? `Meter ${formatNumber(transaction.meter_reading)}` : title(transaction.fuel_type)}</div>
+                    </td>
+                    {canViewCosts && (
+                        <td className="py-3 pr-4">{formatCurrencyAmount(transaction.currency_code, transaction.total_cost)}</td>
+                    )}
+                    <td className="py-3 pr-4">
+                        <Badge variant={transaction.exception_status === 'within_tolerance' ? 'secondary' : transaction.exception_status === 'not_evaluated' ? 'outline' : 'destructive'}>
+                            {title(transaction.exception_status)}
+                        </Badge>
+                        <div className="mt-1 text-muted-foreground">{title(transaction.status)}</div>
+                        {transaction.exception_reason && <div className="mt-1 max-w-64 text-xs text-muted-foreground">{transaction.exception_reason}</div>}
+                    </td>
+                    <td className="py-3">
+                        <div className="flex justify-end gap-2">
+                            {transaction.can_approve && <FuelApproveButton transaction={transaction} />}
+                            {transaction.can_reverse && <FuelReversalDialog transaction={transaction} />}
+                        </div>
+                    </td>
+                </tr>
+            ))}
+            {rows.length === 0 && <Empty colSpan={headers.length} />}
+        </Table>
+    );
+}
+
+function option(value: string) {
+    return { value, label: title(value) };
 }
 
 function CategoryTable({

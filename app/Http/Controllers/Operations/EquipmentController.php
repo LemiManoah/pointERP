@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\Equipment\SaveEquipment;
 use App\Actions\Operations\Equipment\SetEquipmentActiveStatus;
-use App\Support\Operations\PresentsLinkedDocuments;
 use App\Http\Requests\Operations\Equipment\StoreEquipmentRequest;
 use App\Http\Requests\Operations\Equipment\UpdateEquipmentRequest;
 use App\Models\Branch;
@@ -26,7 +25,9 @@ use App\Models\Staff;
 use App\Models\TenantCurrency;
 use App\Models\User;
 use App\Services\BranchContext;
+use App\Services\EquipmentFuelReport;
 use App\Services\TenantContext;
+use App\Support\Operations\PresentsLinkedDocuments;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -37,12 +38,13 @@ final class EquipmentController
 {
     use PresentsLinkedDocuments;
 
-    public function index(): Response
+    public function index(EquipmentFuelReport $fuelReport): Response
     {
         Gate::authorize('viewAny', Equipment::class);
         $user = auth()->user();
         abort_unless($user instanceof User, 403);
         $canViewCosts = $user->can('equipment.costs.view');
+        $fuelRows = $fuelReport->rows($user);
 
         return Inertia::render('operations/equipment/index', [
             'activeTab' => request()->string('tab')->value() ?: 'register',
@@ -54,6 +56,8 @@ final class EquipmentController
                 ->map(fn (Equipment $equipment): array => $this->equipmentRow($equipment, $canViewCosts)),
             'categories' => EquipmentCategory::query()->orderBy('name')->get()->map(fn (EquipmentCategory $category): array => $this->categoryRow($category)),
             'locations' => EquipmentLocation::query()->with(['branch', 'project', 'site'])->visibleTo($user)->orderBy('name')->get()->map(fn (EquipmentLocation $location): array => $this->locationRow($location)),
+            'fuelTransactions' => $fuelRows,
+            'fuelSummary' => $fuelReport->summary($fuelRows),
             'can' => [
                 'create' => Gate::forUser($user)->allows('create', Equipment::class),
                 'update' => $user->can('equipment.update'),
@@ -61,6 +65,8 @@ final class EquipmentController
                 'manageCategories' => Gate::forUser($user)->allows('create', EquipmentCategory::class),
                 'manageLocations' => Gate::forUser($user)->allows('create', EquipmentLocation::class),
                 'viewCosts' => $canViewCosts,
+                'viewFuelDashboard' => $user->can('equipment.dashboard.view'),
+                'exportFuel' => $user->can('equipment.export'),
             ],
             ...$this->formOptions($user),
         ]);
@@ -137,7 +143,7 @@ final class EquipmentController
                     'confirmed_by' => $confirmation->confirmedBy->name,
                 ]),
             'fuelTransactions' => EquipmentFuelTransaction::query()
-                ->with(['provider', 'receiver', 'submittedBy', 'approvedBy'])
+                ->with(['equipment', 'branch', 'project', 'site', 'provider', 'receiver', 'submittedBy', 'approvedBy'])
                 ->where('equipment_id', $equipment->id)
                 ->latest('transacted_at')
                 ->latest('created_at')
@@ -344,6 +350,15 @@ final class EquipmentController
 
         return [
             'id' => $transaction->id,
+            'equipment_id' => $transaction->equipment_id,
+            'equipment_code' => $transaction->equipment->asset_code,
+            'equipment_name' => $transaction->equipment->name,
+            'branch_id' => $transaction->branch_id,
+            'branch_name' => $transaction->branch->name,
+            'project_id' => $transaction->project_id,
+            'project_name' => $transaction->project?->name,
+            'site_id' => $transaction->site_id,
+            'site_name' => $transaction->site?->name,
             'transacted_at' => $transaction->transacted_at->toDateTimeString(),
             'transaction_type' => $transaction->transaction_type,
             'fuel_type' => $transaction->fuel_type,

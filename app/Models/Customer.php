@@ -111,7 +111,7 @@ final class Customer extends Model
      * @param  Builder<Customer>  $query
      * @return Builder<Customer>
      */
-    public function scopeVisibleTo(Builder $query, User $user): Builder
+    protected function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->can('branches.view-all')) {
             return $query;

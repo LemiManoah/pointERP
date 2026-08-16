@@ -1087,6 +1087,28 @@ function FuelTransactionTable({
                                         Posted by {transaction.approved_by}
                                     </div>
                                 )}
+                                {transaction.exception_status !==
+                                    'not_evaluated' && (
+                                    <Badge
+                                        className="mt-2"
+                                        variant={
+                                            transaction.exception_status ===
+                                            'review_required'
+                                                ? 'destructive'
+                                                : transaction.exception_status ===
+                                                    'within_tolerance'
+                                                  ? 'secondary'
+                                                  : 'outline'
+                                        }
+                                    >
+                                        {title(transaction.exception_status)}
+                                    </Badge>
+                                )}
+                                {transaction.exception_reason && (
+                                    <div className="mt-1 max-w-72 text-muted-foreground">
+                                        {transaction.exception_reason}
+                                    </div>
+                                )}
                                 {transaction.reversal_reason && (
                                     <div className="mt-1 max-w-56 text-muted-foreground">
                                         {transaction.reversal_reason}

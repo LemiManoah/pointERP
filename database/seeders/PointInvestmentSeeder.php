@@ -814,6 +814,44 @@ final class PointInvestmentSeeder extends Seeder
                 'updated_by' => $ugandaSiteEngineer->id,
             ],
         );
+
+        $roller = Equipment::query()->where('asset_code', 'EQ-RLR-002')->firstOrFail();
+        EquipmentFuelTransaction::query()->updateOrCreate(
+            ['tenant_id' => $roller->tenant_id, 'voucher_reference' => 'FUEL-REVIEW-2608'],
+            [
+                'equipment_id' => $roller->id,
+                'branch_id' => $ugandaBranch->id,
+                'project_id' => $ugandaProject->id,
+                'site_id' => $kibogaSite->id,
+                'equipment_location_id' => $locations['KIBOGA']->id,
+                'transacted_at' => '2026-08-14 06:50:00',
+                'transaction_type' => 'refuel',
+                'fuel_type' => 'diesel',
+                'quantity' => '240.0000',
+                'unit' => 'litre',
+                'source_type' => 'mobile_bowser',
+                'source_name' => 'Kiboga mobile bowser',
+                'unit_cost' => '5300.0000',
+                'total_cost' => '1272000.0000',
+                'currency_code' => 'UGX',
+                'meter_reading' => '4685.0000',
+                'is_full_tank' => true,
+                'issued_by_user_id' => $ugandaProjectManager->id,
+                'received_by_staff_id' => $ugandaSiteEngineer->staff_id,
+                'notes' => 'Exception demonstration requiring fleet review.',
+                'exception_status' => 'review_required',
+                'exception_reason' => 'Fuel quantity is above the expected range for the recorded meter movement.',
+                'status' => EquipmentFuelTransaction::STATUS_POSTED,
+                'submitted_by' => $ugandaSiteEngineer->id,
+                'submitted_at' => '2026-08-14 07:00:00',
+                'approved_by' => $ugandaProjectManager->id,
+                'approved_at' => '2026-08-14 07:20:00',
+                'posted_by' => $ugandaProjectManager->id,
+                'posted_at' => '2026-08-14 07:20:00',
+                'created_by' => $ugandaSiteEngineer->id,
+                'updated_by' => $ugandaProjectManager->id,
+            ],
+        );
     }
 
     /** @return array{0: string|null, 1: bool} */

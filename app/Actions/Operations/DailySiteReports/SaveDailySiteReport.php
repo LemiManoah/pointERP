@@ -11,6 +11,7 @@ use App\Models\DailySiteReportEquipmentLine;
 use App\Models\DailySiteReportLabourLine;
 use App\Models\DailySiteReportMaterialLine;
 use App\Models\DailySiteReportWorkLine;
+use App\Models\Equipment;
 use App\Models\ExpectedDailySiteReport;
 use App\Models\ProjectActivity;
 use App\Models\Site;
@@ -81,7 +82,11 @@ final readonly class SaveDailySiteReport
                 $this->normalizeWorkLines($report, $data['work_lines'] ?? []),
             );
             $labourCost = $this->syncLines($report, DailySiteReportLabourLine::class, $data['labour_lines'] ?? []);
-            $equipmentCost = $this->syncLines($report, DailySiteReportEquipmentLine::class, $data['equipment_lines'] ?? []);
+            $equipmentCost = $this->syncLines(
+                $report,
+                DailySiteReportEquipmentLine::class,
+                $this->normalizeEquipmentLines($report, $data['equipment_lines'] ?? []),
+            );
             $materialCost = $this->syncLines($report, DailySiteReportMaterialLine::class, $data['material_lines'] ?? []);
             $otherCost = $this->syncLines($report, DailySiteReportCostLine::class, $data['cost_lines'] ?? []);
             $this->syncLines($report, DailySiteReportDelayLine::class, $data['delay_lines'] ?? []);
@@ -181,6 +186,49 @@ final readonly class SaveDailySiteReport
     private function deadlineAt(Site $site, DailySiteReport $report): CarbonInterface
     {
         return $this->calendarResolver->deadlineAt($site, $report->report_date);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function normalizeEquipmentLines(DailySiteReport $report, mixed $lines): array
+    {
+        if (! is_array($lines)) {
+            return [];
+        }
+
+        return collect($lines)
+            ->filter(fn (mixed $line): bool => is_array($line))
+            ->map(function (array $line) use ($report): array {
+                $equipmentId = $line['equipment_id'] ?? null;
+                if (! is_string($equipmentId) || $equipmentId === '') {
+                    return $line;
+                }
+
+                $equipment = Equipment::query()
+                    ->whereKey($equipmentId)
+                    ->where('tenant_id', $report->tenant_id)
+                    ->where('branch_id', $report->branch_id)
+                    ->where('is_active', true)
+                    ->first();
+                if (! $equipment instanceof Equipment) {
+                    throw ValidationException::withMessages(['equipment_lines' => 'Select active equipment belonging to the report branch.']);
+                }
+
+                if (is_numeric($line['opening_meter_reading'] ?? null)
+                    && is_numeric($line['closing_meter_reading'] ?? null)
+                    && (float) $line['closing_meter_reading'] < (float) $line['opening_meter_reading']) {
+                    throw ValidationException::withMessages(['equipment_lines' => 'A closing meter reading cannot be below its opening reading.']);
+                }
+
+                return [
+                    ...$line,
+                    'equipment_name' => $equipment->name,
+                    'equipment_identifier' => $equipment->asset_code,
+                    'fleet_posting_status' => 'unposted',
+                    'fleet_posted_at' => null,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**

@@ -10,7 +10,11 @@ Phase 3A.2a, Meter Ledger and Controlled Correction, is implemented and awaiting
 
 Phase 3A.2b is implemented and awaiting UI and automated-test acceptance. It covers assignment, custody, handover/return, controlled transfer request/approval/dispatch/receipt, manual location confirmation, derived equipment state, audit and role-aware UI commands.
 
-Phase 3A.3a, Fuel Transaction Control, is implemented and awaiting UI and automated-test acceptance. It includes a separate fuel ledger migration, submit/post/reverse lifecycle, independent approval, cost-field authority, meter posting, supplier/staff references, audit, notifications, an equipment Fuel tab and seeded posted/pending examples. Automated exception evaluation, DSR posting and fuel dashboard analysis remain in the next fuel checkpoint.
+Phase 3A.3a, Fuel Transaction Control, is implemented and awaiting UI and automated-test acceptance. It includes a separate fuel ledger migration, submit/post/reverse lifecycle, independent approval, cost-field authority, meter posting, supplier/staff references, audit, notifications, an equipment Fuel tab and seeded posted/pending examples. Its planned downstream exception, DSR-posting and reporting work is now implemented in 3A.3b and 3A.3c.
+
+Phase 3A.3b, DSR Fleet Posting and Fuel Evidence, is implemented and awaiting migration, UI and automated-test acceptance. DSR equipment lines now select registered assets and preserve meter/fuel evidence snapshots. Approval idempotently posts usage and fuel ledgers, posts a valid closing meter when chronological, evaluates configured efficiency tolerance, labels incomparable data as insufficient evidence, and notifies reviewers about defensible exceptions. Its portfolio reporting follow-through is implemented in 3A.3c.
+
+Phase 3A.3c, Portfolio Fuel Reporting, is implemented and awaiting UI and automated-test acceptance. The Equipment workspace now has a Fuel tab with date, branch, project, site, asset, transaction, source, exception and lifecycle filters; scoped summary indicators; approval/reversal commands; role-aware cost omission; and a matching audited CSV export. Seed data includes normal, pending-review and abnormal fuel-control examples. This completes the planned Phase 3A.3 fuel-control slice.
 
 Phase 3A is the first resource-control slice after Phase 2. It turns the equipment and fuel observations already captured in approved Daily Site Reports into a controlled fleet register, movement history, meter ledger, fuel ledger and maintenance workflow.
 

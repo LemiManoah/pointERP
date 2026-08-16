@@ -52,6 +52,17 @@ type ActivityOption = {
     currency_code: string | null;
 };
 
+type EquipmentOption = {
+    id: string;
+    branch_id: string;
+    name: string;
+    asset_code: string;
+    category_name: string;
+    current_site_id: string | null;
+    current_meter_reading: string | null;
+    meter_type: string;
+};
+
 const numericLineFields = new Set([
     'quantity',
     'rate_amount',
@@ -60,6 +71,8 @@ const numericLineFields = new Set([
     'hours',
     'working_hours',
     'idle_hours',
+    'opening_meter_reading',
+    'closing_meter_reading',
     'fuel_quantity',
     'hours_lost',
     'previous_approved_quantity',
@@ -69,6 +82,7 @@ const numericLineFields = new Set([
 const readOnlyLineFields = new Set([
     'previous_approved_quantity',
     'cumulative_to_date',
+    'fleet_posting_status',
 ]);
 
 const activitySnapshotFields = new Set([
@@ -78,10 +92,16 @@ const activitySnapshotFields = new Set([
     'rate_amount',
 ]);
 
+const equipmentSnapshotFields = new Set([
+    'equipment_name',
+    'equipment_identifier',
+]);
+
 const controlledLineOptions: Record<string, string[]> = {
     side: ['Full width', 'LHS', 'RHS', 'Centreline'],
     status: ['working', 'idle', 'breakdown', 'off-hire'],
     fuel_type: ['Diesel', 'Petrol'],
+    fuel_transaction_type: ['consumption', 'refuel', 'issue', 'return'],
     material_type: ['used', 'delivered', 'wasted', 'rejected'],
     category: [
         'Petty cash',
@@ -173,6 +193,7 @@ type Props = {
     documentLinkOptions: LinkOptions;
     canUploadDocuments: boolean;
     activities: ActivityOption[];
+    equipmentOptions: EquipmentOption[];
     units: string[];
 };
 
@@ -208,6 +229,7 @@ export default function DailySiteReportShow({
     documentLinkOptions,
     canUploadDocuments,
     activities,
+    equipmentOptions,
     units,
 }: Props) {
     const confirm = useConfirmDialog();
@@ -606,15 +628,28 @@ export default function DailySiteReportShow({
                         disabled={!can.update}
                         lines={form.data.equipment_lines}
                         fields={[
+                            'equipment_id',
                             'equipment_name',
                             'equipment_identifier',
                             'status',
                             'working_hours',
                             'idle_hours',
+                            'opening_meter_reading',
+                            'closing_meter_reading',
                             'fuel_type',
                             'fuel_quantity',
+                            'fuel_transaction_type',
+                            'evidence_note',
+                            'fleet_posting_status',
                             ...(canViewCosts ? ['rate_amount'] : []),
                         ]}
+                        equipmentOptions={equipmentOptions.filter(
+                            (equipment) =>
+                                equipment.branch_id === report.branch_id &&
+                                (equipment.current_site_id === null ||
+                                    equipment.current_site_id ===
+                                        report.site_id),
+                        )}
                         onAdd={() =>
                             form.setData('equipment_lines', [
                                 ...form.data.equipment_lines,
@@ -1093,6 +1128,7 @@ function LineCard({
     onAdd,
     onChange,
     activities = [],
+    equipmentOptions = [],
     units = [],
 }: {
     title: string;
@@ -1103,6 +1139,7 @@ function LineCard({
     onAdd: () => void;
     onChange: (lines: Line[]) => void;
     activities?: ActivityOption[];
+    equipmentOptions?: EquipmentOption[];
     units?: string[];
 }) {
     function updateLine(index: number, field: string, value: string) {
@@ -1131,6 +1168,29 @@ function LineCard({
                               activity?.currency_code ??
                               line.currency_code ??
                               'UGX',
+                      }
+                    : line,
+            ),
+        );
+    }
+
+    function selectEquipment(index: number, equipmentId: string) {
+        const equipment = equipmentOptions.find(
+            (option) => option.id === equipmentId,
+        );
+
+        onChange(
+            lines.map((line, lineIndex) =>
+                lineIndex === index
+                    ? {
+                          ...line,
+                          equipment_id: equipmentId,
+                          equipment_name: equipment?.name ?? '',
+                          equipment_identifier: equipment?.asset_code ?? '',
+                          opening_meter_reading:
+                              line.opening_meter_reading ||
+                              equipment?.current_meter_reading ||
+                              '',
                       }
                     : line,
             ),
@@ -1182,6 +1242,29 @@ function LineCard({
                                         placeholder="Select activity"
                                         searchPlaceholder="Search BOQ activities..."
                                         emptyMessage="No activity is available for this site."
+                                        disabled={disabled}
+                                    />
+                                ) : field === 'equipment_id' ? (
+                                    <SearchableSelect
+                                        value={String(line[field] ?? '')}
+                                        onValueChange={(value) =>
+                                            selectEquipment(index, value)
+                                        }
+                                        options={equipmentOptions.map(
+                                            (equipment) => ({
+                                                value: equipment.id,
+                                                label: `${equipment.asset_code} - ${equipment.name}`,
+                                                description: [
+                                                    equipment.category_name,
+                                                    equipment.current_site_id
+                                                        ? 'Assigned to a site'
+                                                        : 'Not site-assigned',
+                                                ].join(' / '),
+                                            }),
+                                        )}
+                                        placeholder="Select equipment"
+                                        searchPlaceholder="Search asset code or name..."
+                                        emptyMessage="No registered equipment is available for this branch."
                                         disabled={disabled}
                                     />
                                 ) : (field === 'unit' && units.length > 0) ||
@@ -1256,7 +1339,9 @@ function lineFieldDisabled(
     return (
         disabled ||
         readOnlyLineFields.has(field) ||
-        (Boolean(line.project_activity_id) && activitySnapshotFields.has(field))
+        (Boolean(line.project_activity_id) &&
+            activitySnapshotFields.has(field)) ||
+        (Boolean(line.equipment_id) && equipmentSnapshotFields.has(field))
     );
 }
 
@@ -1304,13 +1389,19 @@ function emptyLabourLine(): Line {
 
 function emptyEquipmentLine(): Line {
     return {
+        equipment_id: '',
         equipment_name: '',
         equipment_identifier: '',
         status: 'working',
         working_hours: '',
         idle_hours: '',
+        opening_meter_reading: '',
+        closing_meter_reading: '',
         fuel_type: '',
         fuel_quantity: '',
+        fuel_transaction_type: 'consumption',
+        evidence_note: '',
+        fleet_posting_status: 'unposted',
         rate_amount: '',
         currency_code: 'UGX',
     };

@@ -72,7 +72,7 @@ final class Country extends Model
      * @param  Builder<Country>  $query
      */
     #[Scope]
-    public function active(Builder $query): void
+    protected function active(Builder $query): void
     {
         $query->where('is_active', true);
     }
@@ -80,7 +80,7 @@ final class Country extends Model
     /**
      * @return Attribute<string, string>
      */
-    public function code(): Attribute
+    protected function code(): Attribute
     {
         return Attribute::make(
             set: fn (string $value): string => mb_strtoupper($value),
@@ -90,7 +90,7 @@ final class Country extends Model
     /**
      * @return Attribute<string, string>
      */
-    public function iso3Code(): Attribute
+    protected function iso3Code(): Attribute
     {
         return Attribute::make(
             set: fn (string $value): string => mb_strtoupper($value),
@@ -100,7 +100,7 @@ final class Country extends Model
     /**
      * @return Attribute<string, string>
      */
-    public function defaultCurrencyCode(): Attribute
+    protected function defaultCurrencyCode(): Attribute
     {
         return Attribute::make(
             set: fn (string $value): string => mb_strtoupper($value),

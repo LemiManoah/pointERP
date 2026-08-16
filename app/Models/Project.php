@@ -159,7 +159,7 @@ final class Project extends Model
      * @param  Builder<Project>  $query
      * @return Builder<Project>
      */
-    public function scopeVisibleTo(Builder $query, User $user): Builder
+    protected function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->can('projects.view-all') || $user->can('branches.view-all')) {
             return $query;

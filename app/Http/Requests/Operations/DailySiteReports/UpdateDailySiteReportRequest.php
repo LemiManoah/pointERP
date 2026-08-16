@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Operations\DailySiteReports;
 
+use App\Models\Equipment;
 use App\Models\ProjectActivity;
 use App\Models\Site;
 use App\Services\TenantContext;
@@ -66,17 +67,22 @@ final class UpdateDailySiteReportRequest extends FormRequest
             'labour_lines.*.currency_code' => ['nullable', 'string', 'size:3'],
             'labour_lines.*.notes' => ['nullable', 'string'],
             'equipment_lines' => ['array'],
+            'equipment_lines.*.equipment_id' => ['nullable', 'uuid', 'distinct', Rule::exists((new Equipment)->getTable(), 'id')->where('tenant_id', $tenantId)],
             'equipment_lines.*.equipment_name' => ['required_with:equipment_lines', 'string', 'max:255'],
             'equipment_lines.*.equipment_identifier' => ['nullable', 'string', 'max:255'],
             'equipment_lines.*.status' => ['nullable', 'string', 'max:255'],
             'equipment_lines.*.working_hours' => ['nullable', 'numeric', 'min:0'],
             'equipment_lines.*.idle_hours' => ['nullable', 'numeric', 'min:0'],
+            'equipment_lines.*.opening_meter_reading' => ['nullable', 'numeric', 'min:0'],
+            'equipment_lines.*.closing_meter_reading' => ['nullable', 'numeric', 'min:0'],
             'equipment_lines.*.fuel_type' => ['nullable', 'string', 'max:255'],
             'equipment_lines.*.fuel_quantity' => ['nullable', 'numeric', 'min:0'],
+            'equipment_lines.*.fuel_transaction_type' => ['nullable', Rule::in(['issue', 'refuel', 'consumption', 'return'])],
             'equipment_lines.*.rate_amount' => ['nullable', 'numeric', 'min:0'],
             'equipment_lines.*.amount' => ['nullable', 'numeric'],
             'equipment_lines.*.currency_code' => ['nullable', 'string', 'size:3'],
             'equipment_lines.*.notes' => ['nullable', 'string'],
+            'equipment_lines.*.evidence_note' => ['nullable', 'string', 'max:2000'],
             'material_lines' => ['array'],
             'material_lines.*.material_name' => ['required_with:material_lines', 'string', 'max:255'],
             'material_lines.*.material_type' => ['nullable', 'string', 'max:255'],

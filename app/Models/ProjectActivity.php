@@ -122,7 +122,7 @@ final class ProjectActivity extends Model
      * @param  Builder<ProjectActivity>  $query
      * @return Builder<ProjectActivity>
      */
-    public function scopeVisibleTo(Builder $query, User $user): Builder
+    protected function scopeVisibleTo(Builder $query, User $user): Builder
     {
         return $query->whereHas('project', function (Builder $query) use ($user): void {
             /** @var Builder<Project> $projectQuery */

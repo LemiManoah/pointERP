@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\DailySiteReports\SaveDailySiteReport;
-use App\Support\Operations\PresentsLinkedDocuments;
 use App\Http\Requests\Operations\DailySiteReports\StoreDailySiteReportRequest;
 use App\Http\Requests\Operations\DailySiteReports\UpdateDailySiteReportRequest;
 use App\Models\Currency;
@@ -14,11 +13,13 @@ use App\Models\DailySiteReportCorrection;
 use App\Models\DailySiteReportReview;
 use App\Models\DailySiteReportWorkLine;
 use App\Models\Document;
+use App\Models\Equipment;
 use App\Models\ProjectActivity;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
+use App\Support\Operations\PresentsLinkedDocuments;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
@@ -243,6 +244,24 @@ final class DailySiteReportController
                     'unit' => $activity->unit,
                     'rate_amount' => $this->canViewRates($user) ? $activity->rate_amount : null,
                     'currency_code' => $activity->currency_code,
+                ]),
+            'equipmentOptions' => Equipment::query()
+                ->with(['branch', 'category'])
+                ->where('tenant_id', $tenantId)
+                ->whereIn('branch_id', $branchIds)
+                ->where('is_active', true)
+                ->visibleTo($user)
+                ->orderBy('asset_code')
+                ->get()
+                ->map(fn (Equipment $equipment): array => [
+                    'id' => $equipment->id,
+                    'branch_id' => $equipment->branch_id,
+                    'name' => $equipment->name,
+                    'asset_code' => $equipment->asset_code,
+                    'category_name' => $equipment->category->name,
+                    'current_site_id' => $equipment->current_site_id,
+                    'current_meter_reading' => $equipment->current_meter_reading,
+                    'meter_type' => $equipment->meter_type,
                 ]),
             'currencies' => Currency::query()
                 ->where('is_active', true)
