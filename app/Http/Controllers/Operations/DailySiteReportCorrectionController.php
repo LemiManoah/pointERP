@@ -24,7 +24,59 @@ final class DailySiteReportCorrectionController
 
         /** @var array<string, mixed> $changes */
         $changes = $request->validated('changes');
-        $newValues = array_filter($changes, filled(...));
+        $rawEquipmentAdjustments = $changes['equipment_adjustments'] ?? [];
+
+        if (! is_array($rawEquipmentAdjustments)) {
+            throw ValidationException::withMessages([
+                'changes.equipment_adjustments' => 'Invalid equipment adjustment payload.',
+            ]);
+        }
+
+        /** @var list<array<string, mixed>> $equipmentAdjustments */
+        $equipmentAdjustments = [];
+
+        foreach ($rawEquipmentAdjustments as $item) {
+            if (! is_array($item)) {
+                throw ValidationException::withMessages([
+                    'changes.equipment_adjustments' => 'Invalid equipment adjustment payload.',
+                ]);
+            }
+
+            $hasAdjustment = (float) ($item['working_hours_delta'] ?? 0) !== 0.0
+                || (float) ($item['idle_hours_delta'] ?? 0) !== 0.0
+                || (float) ($item['fuel_quantity_delta'] ?? 0) !== 0.0;
+
+            if (! $hasAdjustment) {
+                continue;
+            }
+
+            $line = $dailySiteReport->equipmentLines()->find((string) ($item['line_id'] ?? ''));
+
+            if ($line === null) {
+                throw ValidationException::withMessages([
+                    'changes.equipment_adjustments' => 'One or more equipment lines do not belong to this report.',
+                ]);
+            }
+
+            $equipmentAdjustments[] = [
+                ...$item,
+                'equipment_name' => $line->equipment_identifier ?? $line->equipment_name,
+            ];
+        }
+        unset($changes['equipment_adjustments']);
+
+        /** @var array<string, mixed> $newValues */
+        $newValues = [];
+
+        foreach ($changes as $field => $value) {
+            if ((string) $dailySiteReport->getAttribute($field) !== (string) $value) {
+                $newValues[$field] = $value;
+            }
+        }
+
+        if ($equipmentAdjustments !== []) {
+            $newValues['equipment_adjustments'] = $equipmentAdjustments;
+        }
 
         if ($newValues === []) {
             throw ValidationException::withMessages([

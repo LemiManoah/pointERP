@@ -82,6 +82,7 @@ final readonly class EquipmentMaintenanceReport
             if ($row['total_cost'] === null) {
                 continue;
             }
+
             if ($row['currency_code'] === null) {
                 continue;
             }

@@ -26,7 +26,11 @@ final readonly class CreateDailySiteReportCorrection
     public function handle(DailySiteReport $report, User $actor, string $reason, array $newValues): DailySiteReportCorrection
     {
         return DB::transaction(function () use ($actor, $newValues, $reason, $report): DailySiteReportCorrection {
-            $oldValues = $report->only(array_keys($newValues));
+            $reportValues = collect($newValues)->except('equipment_adjustments')->all();
+            $oldValues = $report->only(array_keys($reportValues));
+            if (isset($newValues['equipment_adjustments'])) {
+                $oldValues['equipment_adjustments'] = [];
+            }
 
             $correction = DailySiteReportCorrection::query()->create([
                 'tenant_id' => $report->tenant_id,

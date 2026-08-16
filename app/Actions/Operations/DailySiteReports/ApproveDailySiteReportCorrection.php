@@ -16,6 +16,7 @@ final readonly class ApproveDailySiteReportCorrection
     public function __construct(
         private AuditLogger $auditLogger,
         private DailySiteReportNotificationService $notificationService,
+        private ApplyDsrEquipmentLineAdjustments $applyEquipmentAdjustments,
     ) {
         //
     }
@@ -45,6 +46,12 @@ final readonly class ApproveDailySiteReportCorrection
             ];
             $newValues = collect($correction->new_values ?? [])->only($allowedFields)->all();
             $oldValues = $report->only(array_keys($newValues));
+            $equipmentAdjustments = ($correction->new_values ?? [])['equipment_adjustments'] ?? [];
+
+            if (is_array($equipmentAdjustments) && $equipmentAdjustments !== []) {
+                /** @var list<array<string, mixed>> $equipmentAdjustments */
+                $this->applyEquipmentAdjustments->handle($correction, $report, $actor, $equipmentAdjustments);
+            }
 
             $report->forceFill($newValues)->save();
             $correction->forceFill([

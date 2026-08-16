@@ -37,6 +37,10 @@ import {
     DocumentEvidenceTable,
     type LinkedDocumentRow,
 } from '../documents/partials/document-evidence-table';
+import {
+    EquipmentScopePanel,
+    type EquipmentScopeData,
+} from '../equipment/partials/equipment-scope-panel';
 
 type Site = {
     id: string;
@@ -77,6 +81,8 @@ type Props = {
     documentBranches: Option[];
     documentLinkOptions: LinkOptions;
     canUploadDocuments: boolean;
+    fleet: EquipmentScopeData | null;
+    canViewFleet: boolean;
 };
 
 type Assignment = {
@@ -96,6 +102,8 @@ export default function SiteShow({
     documentBranches,
     documentLinkOptions,
     canUploadDocuments,
+    fleet,
+    canViewFleet,
 }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -219,6 +227,21 @@ export default function SiteShow({
                         </CardContent>
                     </Card>
                 </div>
+
+                {canViewFleet && fleet && (
+                    <section className="grid gap-4">
+                        <div>
+                            <h2 className="text-lg font-semibold">
+                                Equipment operations
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                                Current deployment and approved DSR fleet
+                                reconciliation for this site.
+                            </p>
+                        </div>
+                        <EquipmentScopePanel fleet={fleet} />
+                    </section>
+                )}
 
                 <DocumentEvidenceTable
                     documents={documents}

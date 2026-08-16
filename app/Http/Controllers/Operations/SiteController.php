@@ -13,6 +13,7 @@ use App\Models\Project;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\EquipmentScopeSummary;
 use App\Support\Operations\PresentsLinkedDocuments;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -24,7 +25,7 @@ final class SiteController
 {
     use PresentsLinkedDocuments;
 
-    public function show(Site $site): Response
+    public function show(Site $site, EquipmentScopeSummary $equipmentSummary): Response
     {
         Gate::authorize('view', $site);
 
@@ -32,6 +33,7 @@ final class SiteController
         abort_unless($currentUser instanceof User, 403);
 
         $site->load(['branch', 'project', 'manager', 'users', 'activities']);
+        $canViewFleet = $currentUser->can('equipment.view');
 
         return Inertia::render('operations/sites/show', [
             'site' => [
@@ -59,6 +61,8 @@ final class SiteController
                 'can_review_dsr' => (bool) $user->pivot->getAttribute('can_review_dsr'),
             ]),
             'dsrSummary' => $this->dailySiteReportSummary($site),
+            'fleet' => $canViewFleet ? $equipmentSummary->forSite($site, $currentUser) : null,
+            'canViewFleet' => $canViewFleet,
             'documents' => $this->linkedDocumentsFor($site, $currentUser),
             'canUploadDocuments' => Gate::forUser($currentUser)->allows('create', Document::class),
             'users' => User::query()

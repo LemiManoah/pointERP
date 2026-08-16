@@ -170,10 +170,54 @@ type Correction = {
     reason: string;
     requested_by: string | null;
     created_at: string;
-    old_values: Record<string, string | number | null> | null;
-    new_values: Record<string, string | number | null> | null;
+    old_values: Record<string, unknown> | null;
+    new_values: Record<string, unknown> | null;
     can_manage: boolean;
 };
+
+type CorrectionField =
+    | 'weather'
+    | 'site_conditions'
+    | 'work_summary'
+    | 'delay_summary'
+    | 'visitor_summary'
+    | 'hse_notes'
+    | 'environment_notes'
+    | 'social_notes'
+    | 'completion_percent';
+
+type EquipmentAdjustmentForm = {
+    line_id: string;
+    equipment_name: string;
+    working_hours_delta: string;
+    idle_hours_delta: string;
+    fuel_quantity_delta: string;
+    note: string;
+};
+
+type CorrectionChanges = Record<CorrectionField, string> & {
+    equipment_adjustments: EquipmentAdjustmentForm[];
+};
+
+type CorrectionFormData = {
+    reason: string;
+    changes: CorrectionChanges;
+};
+
+const correctionFields: Array<{
+    field: CorrectionField;
+    label: string;
+}> = [
+    { field: 'weather', label: 'Weather' },
+    { field: 'site_conditions', label: 'Site conditions' },
+    { field: 'work_summary', label: 'Work summary' },
+    { field: 'delay_summary', label: 'Delay summary' },
+    { field: 'visitor_summary', label: 'Visitor summary' },
+    { field: 'hse_notes', label: 'HSE notes' },
+    { field: 'environment_notes', label: 'Environment notes' },
+    { field: 'social_notes', label: 'Social notes' },
+    { field: 'completion_percent', label: 'Completion percent' },
+];
 
 type Props = {
     report: Report;
@@ -425,19 +469,30 @@ export default function DailySiteReportShow({
                                     <div className="mt-2 grid gap-1 rounded border border-blue-200 bg-white/60 p-2">
                                         {Object.entries(
                                             correction.new_values,
-                                        ).map(([field, value]) => (
-                                            <div
-                                                key={field}
-                                                className="flex justify-between gap-4"
-                                            >
-                                                <span className="text-blue-700">
-                                                    {field.replaceAll('_', ' ')}
-                                                </span>
-                                                <span className="text-right font-medium">
-                                                    {String(value ?? '')}
-                                                </span>
-                                            </div>
-                                        ))}
+                                        ).map(([field, value]) =>
+                                            field === 'equipment_adjustments' &&
+                                            Array.isArray(value) ? (
+                                                <CorrectionAdjustmentSummary
+                                                    key={field}
+                                                    adjustments={value}
+                                                />
+                                            ) : (
+                                                <div
+                                                    key={field}
+                                                    className="flex justify-between gap-4"
+                                                >
+                                                    <span className="text-blue-700">
+                                                        {field.replaceAll(
+                                                            '_',
+                                                            ' ',
+                                                        )}
+                                                    </span>
+                                                    <span className="text-right font-medium">
+                                                        {displayUnknown(value)}
+                                                    </span>
+                                                </div>
+                                            ),
+                                        )}
                                     </div>
                                 )}
                                 {correction.can_manage && (
@@ -977,7 +1032,7 @@ function ReturnReportDialog({ report }: { report: Report }) {
 
 function CorrectionDialog({ report }: { report: Report }) {
     const [open, setOpen] = useState(false);
-    const form = useForm({
+    const form = useForm<CorrectionFormData>({
         reason: '',
         changes: {
             weather: report.weather ?? '',
@@ -989,6 +1044,23 @@ function CorrectionDialog({ report }: { report: Report }) {
             environment_notes: report.environment_notes ?? '',
             social_notes: report.social_notes ?? '',
             completion_percent: report.completion_percent ?? '',
+            equipment_adjustments: report.equipment_lines
+                .filter(
+                    (line) =>
+                        line.equipment_id &&
+                        line.fleet_posting_status === 'posted',
+                )
+                .map((line) => ({
+                    line_id: line.id ?? '',
+                    equipment_name:
+                        line.equipment_identifier ??
+                        line.equipment_name ??
+                        'Equipment',
+                    working_hours_delta: '',
+                    idle_hours_delta: '',
+                    fuel_quantity_delta: '',
+                    note: '',
+                })),
         },
     });
 
@@ -1005,7 +1077,7 @@ function CorrectionDialog({ report }: { report: Report }) {
             <DialogTrigger asChild>
                 <Button variant="outline">Request correction</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-3xl">
+            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-5xl">
                 <form onSubmit={submit} className="grid gap-4">
                     <DialogHeader>
                         <DialogTitle>Request correction</DialogTitle>
@@ -1026,21 +1098,117 @@ function CorrectionDialog({ report }: { report: Report }) {
                         <InputError message={form.errors.reason} />
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">
-                        {Object.entries(form.data.changes).map(
-                            ([field, value]) => (
-                                <div key={field} className="grid gap-2">
-                                    <Label>{field.replaceAll('_', ' ')}</Label>
-                                    <Textarea
-                                        value={value}
-                                        onChange={(event) =>
-                                            form.setData('changes', {
-                                                ...form.data.changes,
-                                                [field]: event.target.value,
-                                            })
-                                        }
-                                    />
+                        {correctionFields.map(({ field, label }) => (
+                            <div key={field} className="grid gap-2">
+                                <Label>{label}</Label>
+                                <Textarea
+                                    value={form.data.changes[field]}
+                                    onChange={(event) =>
+                                        form.setData('changes', {
+                                            ...form.data.changes,
+                                            [field]: event.target.value,
+                                        })
+                                    }
+                                />
+                            </div>
+                        ))}
+                    </div>
+                    <div className="grid gap-3">
+                        <div>
+                            <Label>Fleet ledger adjustments</Label>
+                            <p className="text-sm text-muted-foreground">
+                                Enter only the difference. Use a negative value
+                                to reduce the posted total. Meter changes use
+                                the equipment meter-correction workflow.
+                            </p>
+                        </div>
+                        {form.data.changes.equipment_adjustments.map(
+                            (adjustment, index) => (
+                                <div
+                                    key={adjustment.line_id}
+                                    className="grid gap-3 rounded-md border p-3"
+                                >
+                                    <div className="font-medium">
+                                        {adjustment.equipment_name}
+                                    </div>
+                                    <div className="grid gap-3 sm:grid-cols-3">
+                                        <AdjustmentInput
+                                            label="Working hours delta"
+                                            value={
+                                                adjustment.working_hours_delta
+                                            }
+                                            onChange={(value) =>
+                                                form.setData(
+                                                    'changes',
+                                                    updateEquipmentAdjustment(
+                                                        form.data.changes,
+                                                        index,
+                                                        'working_hours_delta',
+                                                        value,
+                                                    ),
+                                                )
+                                            }
+                                        />
+                                        <AdjustmentInput
+                                            label="Idle hours delta"
+                                            value={adjustment.idle_hours_delta}
+                                            onChange={(value) =>
+                                                form.setData(
+                                                    'changes',
+                                                    updateEquipmentAdjustment(
+                                                        form.data.changes,
+                                                        index,
+                                                        'idle_hours_delta',
+                                                        value,
+                                                    ),
+                                                )
+                                            }
+                                        />
+                                        <AdjustmentInput
+                                            label="Fuel litres delta"
+                                            value={
+                                                adjustment.fuel_quantity_delta
+                                            }
+                                            onChange={(value) =>
+                                                form.setData(
+                                                    'changes',
+                                                    updateEquipmentAdjustment(
+                                                        form.data.changes,
+                                                        index,
+                                                        'fuel_quantity_delta',
+                                                        value,
+                                                    ),
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>Line note</Label>
+                                        <Input
+                                            value={adjustment.note}
+                                            onChange={(event) =>
+                                                form.setData(
+                                                    'changes',
+                                                    updateEquipmentAdjustment(
+                                                        form.data.changes,
+                                                        index,
+                                                        'note',
+                                                        event.target.value,
+                                                    ),
+                                                )
+                                            }
+                                            placeholder="Optional equipment-specific explanation"
+                                        />
+                                    </div>
                                 </div>
                             ),
+                        )}
+                        {form.data.changes.equipment_adjustments.length ===
+                            0 && (
+                            <div className="rounded-md border px-3 py-6 text-center text-sm text-muted-foreground">
+                                This report has no posted linked equipment lines
+                                available for fleet adjustment.
+                            </div>
                         )}
                     </div>
                     <InputError message={form.errors.changes} />
@@ -1060,6 +1228,118 @@ function CorrectionDialog({ report }: { report: Report }) {
             </DialogContent>
         </Dialog>
     );
+}
+
+function AdjustmentInput({
+    label,
+    value,
+    onChange,
+}: {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+}) {
+    return (
+        <div className="grid gap-2">
+            <Label>{label}</Label>
+            <Input
+                type="number"
+                step="0.0001"
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+                placeholder="0"
+            />
+        </div>
+    );
+}
+
+function updateEquipmentAdjustment(
+    changes: CorrectionChanges,
+    index: number,
+    field:
+        | 'working_hours_delta'
+        | 'idle_hours_delta'
+        | 'fuel_quantity_delta'
+        | 'note',
+    value: string,
+): CorrectionChanges {
+    return {
+        ...changes,
+        equipment_adjustments: changes.equipment_adjustments.map(
+            (adjustment, adjustmentIndex) =>
+                adjustmentIndex === index
+                    ? { ...adjustment, [field]: value }
+                    : adjustment,
+        ),
+    };
+}
+
+function CorrectionAdjustmentSummary({
+    adjustments,
+}: {
+    adjustments: unknown[];
+}) {
+    return (
+        <div className="grid gap-2 border-t border-blue-200 pt-2">
+            <span className="font-medium text-blue-700">
+                Fleet ledger adjustments
+            </span>
+            {adjustments.filter(isRecord).map((adjustment, index) => (
+                <div
+                    key={`${displayUnknown(adjustment.line_id)}-${index}`}
+                    className="grid gap-1 rounded border border-blue-100 bg-white px-2 py-1"
+                >
+                    <div className="font-medium">
+                        {displayUnknown(
+                            adjustment.equipment_name ??
+                                adjustment.line_id ??
+                                'Equipment',
+                        )}
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 text-blue-800">
+                        <span>
+                            Working: {signed(adjustment.working_hours_delta)} h
+                        </span>
+                        <span>
+                            Idle: {signed(adjustment.idle_hours_delta)} h
+                        </span>
+                        <span>
+                            Fuel: {signed(adjustment.fuel_quantity_delta)} L
+                        </span>
+                    </div>
+                    {adjustment.note ? (
+                        <div>{displayUnknown(adjustment.note)}</div>
+                    ) : null}
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function displayUnknown(value: unknown): string {
+    if (value === null || value === undefined) {
+        return '';
+    }
+
+    if (
+        typeof value === 'string' ||
+        typeof value === 'number' ||
+        typeof value === 'boolean'
+    ) {
+        return String(value);
+    }
+
+    return JSON.stringify(value) ?? '';
+}
+
+function signed(value: unknown): string {
+    const number = Number(value ?? 0);
+
+    return `${number > 0 ? '+' : ''}${formatNumber(number)}`;
 }
 
 function Metric({ label, value }: { label: string; value: string | null }) {

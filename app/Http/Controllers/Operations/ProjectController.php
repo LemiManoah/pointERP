@@ -19,6 +19,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\BranchContext;
+use App\Services\EquipmentScopeSummary;
 use App\Services\TenantContext;
 use App\Support\Operations\PresentsLinkedDocuments;
 use Illuminate\Database\Eloquent\Builder;
@@ -50,7 +51,7 @@ final class ProjectController
         ]);
     }
 
-    public function show(Project $project): Response
+    public function show(Project $project, EquipmentScopeSummary $equipmentSummary): Response
     {
         Gate::authorize('view', $project);
 
@@ -58,6 +59,7 @@ final class ProjectController
         abort_unless($user instanceof User, 403);
 
         $project->load(['branch', 'customer', 'contract', 'manager', 'users', 'sites.manager', 'activities.site']);
+        $canViewFleet = $user->can('equipment.view');
 
         return Inertia::render('operations/projects/show', [
             'project' => $this->projectRow($project),
@@ -89,6 +91,8 @@ final class ProjectController
                 ]),
             'documents' => $this->linkedDocumentsFor($project, $user),
             'dsrSummary' => $this->dailySiteReportSummary($project, $this->canViewRates($user)),
+            'fleet' => $canViewFleet ? $equipmentSummary->forProject($project, $user) : null,
+            'canViewFleet' => $canViewFleet,
             'canUploadDocuments' => Gate::forUser($user)->allows('create', Document::class),
             'canViewRates' => $this->canViewRates($user),
             ...$this->formOptions($user),

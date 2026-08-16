@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Actions\EnsureDefaultTenant;
+use App\Actions\Operations\DailySiteReports\PostApprovedDsrEquipmentLines;
 use App\Models\Branch;
 use App\Models\BranchCurrency;
 use App\Models\Contract;
@@ -952,6 +953,25 @@ final class PointInvestmentSeeder extends Seeder
                 'updated_by' => $ugandaSiteEngineer->id,
             ],
         );
+
+        $approvedFleetReport = DailySiteReport::query()
+            ->where('reference', 'DSR-BUSUNJU-20241206')
+            ->first();
+        $approvedFleetLine = $approvedFleetReport?->equipmentLines()->first();
+
+        if ($approvedFleetReport instanceof DailySiteReport && $approvedFleetLine instanceof DailySiteReportEquipmentLine) {
+            $approvedFleetLine->forceFill([
+                'equipment_id' => $excavator->id,
+                'equipment_name' => $excavator->name,
+                'equipment_identifier' => $excavator->asset_code,
+                'fuel_transaction_type' => 'consumption',
+                'evidence_note' => 'Seeded signed plant and fuel sheet for correction-workflow demonstration.',
+                'fleet_posting_status' => 'unposted',
+                'fleet_posted_at' => null,
+            ])->save();
+
+            resolve(PostApprovedDsrEquipmentLines::class)->handle($approvedFleetReport, $director);
+        }
     }
 
     /** @return array{0: string|null, 1: bool} */

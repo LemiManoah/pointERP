@@ -24,6 +24,10 @@ import {
     type LinkedDocumentRow,
 } from '../documents/partials/document-evidence-table';
 import {
+    EquipmentScopePanel,
+    type EquipmentScopeData,
+} from '../equipment/partials/equipment-scope-panel';
+import {
     ProjectAccessDialog,
     type AssignedProjectUser,
 } from './partials/access-dialog';
@@ -55,6 +59,8 @@ type Props = {
     users: Option[];
     currencies: Option[];
     canViewRates: boolean;
+    fleet: EquipmentScopeData | null;
+    canViewFleet: boolean;
 };
 
 export default function ProjectShow({
@@ -74,6 +80,8 @@ export default function ProjectShow({
     users,
     currencies,
     canViewRates,
+    fleet,
+    canViewFleet,
 }: Props) {
     const confirm = useConfirmDialog();
     const [tab, setTab] = useState('sites');
@@ -171,6 +179,11 @@ export default function ProjectShow({
                         <TabsTrigger value="activities">
                             Activities / BOQ
                         </TabsTrigger>
+                        {canViewFleet && (
+                            <TabsTrigger value="equipment">
+                                Equipment
+                            </TabsTrigger>
+                        )}
                         <TabsTrigger value="access">Access</TabsTrigger>
                         <TabsTrigger value="documents">Documents</TabsTrigger>
                     </TabsList>
@@ -235,6 +248,12 @@ export default function ProjectShow({
                             />
                         )}
                     </TabsContent>
+
+                    {canViewFleet && fleet && (
+                        <TabsContent value="equipment" className="mt-6">
+                            <EquipmentScopePanel fleet={fleet} />
+                        </TabsContent>
+                    )}
 
                     <TabsContent value="access" className="mt-6">
                         <Card>

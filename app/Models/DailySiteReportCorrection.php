@@ -7,11 +7,13 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToTenant;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property-read string $id
@@ -28,6 +30,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read CarbonInterface|null $rejected_at
  * @property-read CarbonInterface $created_at
  * @property-read CarbonInterface $updated_at
+ * @property-read Collection<int, DsrEquipmentLineAdjustment> $equipmentAdjustments
  */
 #[Fillable(['tenant_id', 'branch_id', 'daily_site_report_id', 'requested_by', 'approved_by', 'status', 'reason', 'old_values', 'new_values', 'approved_at', 'rejected_at'])]
 final class DailySiteReportCorrection extends Model
@@ -82,5 +85,11 @@ final class DailySiteReportCorrection extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /** @return HasMany<DsrEquipmentLineAdjustment, $this> */
+    public function equipmentAdjustments(): HasMany
+    {
+        return $this->hasMany(DsrEquipmentLineAdjustment::class, 'daily_site_report_correction_id');
     }
 }

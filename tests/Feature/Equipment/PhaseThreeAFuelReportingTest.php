@@ -1,6 +1,11 @@
 <?php
 
 declare(strict_types=1);
+
+use App\Models\User;
+use App\Services\TenantContext;
+use Database\Seeders\PointInvestmentSeeder;
+use Database\Seeders\RolePermissionSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function (): void {
@@ -21,7 +26,7 @@ it('shows the scoped fuel portfolio and exception summary to fleet managers', fu
             ->where('can.viewFuelDashboard', true)
             ->where('can.exportFuel', true)
             ->where('fuelSummary.review_required', 1)
-            ->has('fuelTransactions', 3));
+            ->has('fuelTransactions', 4));
 });
 
 it('omits fuel costs and dashboard authority for site managers', function (): void {
