@@ -41,6 +41,7 @@ final class EquipmentUsageLog extends Model
 
     /** @use HasFactory<Factory<EquipmentUsageLog>> */
     use HasFactory;
+
     use HasUuids;
 
     /** @return array<string, string> */
