@@ -28,6 +28,9 @@ use App\Models\EquipmentCategory;
 use App\Models\EquipmentFuelTransaction;
 use App\Models\EquipmentLocation;
 use App\Models\EquipmentLocationConfirmation;
+use App\Models\EquipmentMaintenancePartLine;
+use App\Models\EquipmentMaintenanceSchedule;
+use App\Models\EquipmentMaintenanceWorkOrder;
 use App\Models\EquipmentMeterReading;
 use App\Models\EquipmentTransfer;
 use App\Models\ExchangeRate;
@@ -850,6 +853,76 @@ final class PointInvestmentSeeder extends Seeder
                 'posted_at' => '2026-08-14 07:20:00',
                 'created_by' => $ugandaSiteEngineer->id,
                 'updated_by' => $ugandaProjectManager->id,
+            ],
+        );
+
+        $graderSchedule = EquipmentMaintenanceSchedule::query()->updateOrCreate(
+            ['tenant_id' => $grader->tenant_id, 'equipment_id' => $grader->id, 'name' => '500-hour preventive service'],
+            [
+                'branch_id' => $ugandaBranch->id, 'maintenance_type' => 'preventive_service',
+                'basis' => 'whichever_first', 'interval_days' => 90, 'interval_meter_units' => '500.0000',
+                'last_service_date' => '2026-07-20', 'last_service_reading' => '12570.0000',
+                'next_due_date' => '2026-10-18', 'next_due_reading' => '13070.0000',
+                'warning_days' => 14, 'warning_meter_units' => '50.0000',
+                'responsible_user_id' => $ugandaProjectManager->id, 'is_active' => true,
+                'created_by' => $director->id, 'updated_by' => $ugandaProjectManager->id,
+            ],
+        );
+        EquipmentMaintenanceSchedule::query()->updateOrCreate(
+            ['tenant_id' => $roller->tenant_id, 'equipment_id' => $roller->id, 'name' => 'Monthly compactor inspection'],
+            [
+                'branch_id' => $ugandaBranch->id, 'maintenance_type' => 'inspection',
+                'basis' => 'date', 'interval_days' => 30, 'last_service_date' => '2026-06-15',
+                'next_due_date' => '2026-07-15', 'warning_days' => 7, 'warning_meter_units' => '0.0000',
+                'responsible_user_id' => $ugandaProjectManager->id, 'is_active' => true,
+                'created_by' => $director->id, 'updated_by' => $director->id,
+            ],
+        );
+        $completedWorkOrder = EquipmentMaintenanceWorkOrder::query()->updateOrCreate(
+            ['tenant_id' => $grader->tenant_id, 'reference' => 'MWO-GRD-0001'],
+            [
+                'equipment_id' => $grader->id, 'equipment_maintenance_schedule_id' => $graderSchedule->id,
+                'branch_id' => $ugandaBranch->id, 'project_id' => $ugandaProject->id, 'site_id' => $busunjuSite->id,
+                'equipment_location_id' => $locations['BUSUNJU']->id, 'maintenance_type' => 'preventive_service',
+                'priority' => 'normal', 'description' => 'Scheduled engine oil, filter and general inspection service.',
+                'status' => EquipmentMaintenanceWorkOrder::STATUS_COMPLETED, 'prior_equipment_status' => 'available',
+                'reported_at' => '2026-07-19 10:00:00', 'planned_start_at' => '2026-07-20 09:00:00',
+                'actual_start_at' => '2026-07-20 09:10:00', 'completed_at' => '2026-07-20 14:30:00',
+                'opening_meter_reading' => '12568.0000', 'closing_meter_reading' => '12570.0000',
+                'provider_customer_id' => $subcontractor->id, 'provider_name' => $subcontractor->name,
+                'downtime_hours' => '5.3333', 'labour_cost' => '450000.0000', 'parts_cost' => '780000.0000',
+                'other_cost' => '70000.0000', 'total_cost' => '1300000.0000', 'currency_code' => 'UGX',
+                'findings' => 'Engine oil degraded; primary fuel filter due for replacement.',
+                'work_performed' => 'Changed engine oil and filters, greased joints and completed safety inspection.',
+                'completion_notes' => 'Returned serviceable.', 'next_service_date' => '2026-10-18',
+                'next_service_reading' => '13070.0000', 'requested_by' => $ugandaProjectManager->id,
+                'approved_by' => $director->id, 'supervised_by' => $ugandaProjectManager->id,
+                'completed_by' => $ugandaProjectManager->id, 'created_by' => $ugandaProjectManager->id,
+                'updated_by' => $ugandaProjectManager->id,
+            ],
+        );
+        EquipmentMaintenancePartLine::query()->updateOrCreate(
+            ['equipment_maintenance_work_order_id' => $completedWorkOrder->id, 'part_code' => 'FLT-OIL-140K'],
+            [
+                'tenant_id' => $grader->tenant_id, 'part_name' => 'Engine oil filter',
+                'quantity' => '2.0000', 'unit' => 'piece', 'unit_cost' => '390000.0000',
+                'total_cost' => '780000.0000', 'currency_code' => 'UGX',
+                'provider_customer_id' => $subcontractor->id, 'provider_name' => $subcontractor->name,
+                'reference' => 'SRV-INV-2407', 'notes' => 'Historical snapshot; inventory posting begins in Phase 3B.',
+            ],
+        );
+        EquipmentMaintenanceWorkOrder::query()->updateOrCreate(
+            ['tenant_id' => $excavator->tenant_id, 'reference' => 'MWO-EXC-0002'],
+            [
+                'equipment_id' => $excavator->id, 'branch_id' => $ugandaBranch->id,
+                'project_id' => $ugandaProject->id, 'site_id' => $busunjuSite->id,
+                'equipment_location_id' => $locations['BUSUNJU']->id, 'maintenance_type' => 'inspection',
+                'priority' => 'high', 'description' => 'Inspect hydraulic hose seepage reported during daily checks.',
+                'status' => EquipmentMaintenanceWorkOrder::STATUS_PLANNED,
+                'reported_at' => '2026-08-15 16:20:00', 'planned_start_at' => '2026-08-17 08:00:00',
+                'opening_meter_reading' => $excavator->current_meter_reading,
+                'requested_by' => $ugandaSiteEngineer->id, 'created_by' => $ugandaSiteEngineer->id,
+                'updated_by' => $ugandaSiteEngineer->id,
             ],
         );
     }

@@ -29,6 +29,14 @@ import {
 } from './partials/equipment-fuel-dialogs';
 import { EquipmentLocationConfirmationDialog } from './partials/equipment-location-confirmation-dialog';
 import {
+    MaintenanceApproveButton,
+    MaintenanceCancelDialog,
+    MaintenanceCompleteDialog,
+    MaintenanceScheduleDialog,
+    MaintenanceStartDialog,
+    MaintenanceWorkOrderDialog,
+} from './partials/equipment-maintenance-dialogs';
+import {
     EquipmentTransferRequestDialog,
     TransferApproveButton,
     TransferDispatchDialog,
@@ -46,6 +54,8 @@ import type {
     EquipmentFuelTransaction,
     EquipmentLocation,
     EquipmentLocationConfirmation,
+    EquipmentMaintenanceSchedule,
+    EquipmentMaintenanceWorkOrder,
     EquipmentMeterReading,
     EquipmentRecord,
     EquipmentTransfer,
@@ -64,6 +74,9 @@ type Props = {
     transfers: EquipmentTransfer[];
     locationConfirmations: EquipmentLocationConfirmation[];
     fuelTransactions: EquipmentFuelTransaction[];
+    maintenanceSchedules: EquipmentMaintenanceSchedule[];
+    maintenanceWorkOrders: EquipmentMaintenanceWorkOrder[];
+    maintenanceUsers: Option[];
     documents: LinkedDocumentRow[];
     documentTypes: DocumentTypeOption[];
     documentBranches: Option[];
@@ -86,6 +99,8 @@ type Props = {
         requestTransfer: boolean;
         confirmLocation: boolean;
         recordFuel: boolean;
+        manageMaintenance: boolean;
+        requestMaintenance: boolean;
     };
 };
 
@@ -97,6 +112,9 @@ export default function EquipmentShow(props: Props) {
         transfers,
         locationConfirmations,
         fuelTransactions,
+        maintenanceSchedules,
+        maintenanceWorkOrders,
+        maintenanceUsers,
         documents,
         documentTypes,
         documentBranches,
@@ -118,6 +136,7 @@ export default function EquipmentShow(props: Props) {
             'transfers',
             'locations',
             'fuel',
+            'maintenance',
             'readings',
             'documents',
         ].includes(props.activeTab)
@@ -125,6 +144,7 @@ export default function EquipmentShow(props: Props) {
             : 'overview',
     );
     const confirm = useConfirmDialog();
+    const [maintenanceScheduleStatus, setMaintenanceScheduleStatus] = useState('active');
     const activeAssignment = assignments.find(
         (assignment) => assignment.status === 'active',
     );
@@ -241,6 +261,7 @@ export default function EquipmentShow(props: Props) {
                         <TabsTrigger value="transfers">Transfers</TabsTrigger>
                         <TabsTrigger value="locations">Locations</TabsTrigger>
                         <TabsTrigger value="fuel">Fuel</TabsTrigger>
+                        <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
                         <TabsTrigger value="readings">Readings</TabsTrigger>
                         <TabsTrigger value="documents">Documents</TabsTrigger>
                     </TabsList>
@@ -536,6 +557,45 @@ export default function EquipmentShow(props: Props) {
                                     transactions={fuelTransactions}
                                     canViewCosts={can.viewCosts}
                                 />
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                    <TabsContent value="maintenance" className="mt-6 grid gap-6">
+                        <Card>
+                            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <CardTitle>Maintenance schedules</CardTitle>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Date and meter-based service requirements with due-state warnings.
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {can.manageMaintenance && (
+                                        <MaintenanceScheduleDialog equipment={equipment} users={maintenanceUsers} />
+                                    )}
+                                    <Tabs value={maintenanceScheduleStatus} onValueChange={setMaintenanceScheduleStatus}>
+                                        <TabsList><TabsTrigger value="active">Active</TabsTrigger><TabsTrigger value="inactive">Inactive</TabsTrigger></TabsList>
+                                    </Tabs>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <MaintenanceScheduleTable schedules={maintenanceSchedules.filter((schedule) => schedule.is_active === (maintenanceScheduleStatus === 'active'))} equipment={equipment} users={maintenanceUsers} />
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <CardTitle>Maintenance work orders</CardTitle>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        Approved workshop activity, downtime, parts, meter evidence and final cost.
+                                    </p>
+                                </div>
+                                {can.requestMaintenance && (
+                                    <MaintenanceWorkOrderDialog equipment={equipment} schedules={maintenanceSchedules} providers={owners} />
+                                )}
+                            </CardHeader>
+                            <CardContent>
+                                <MaintenanceWorkOrderTable workOrders={maintenanceWorkOrders} equipment={equipment} currencies={currencies} canViewCosts={can.viewCosts} />
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -964,6 +1024,34 @@ function MeterReadingTable({
                             </td>
                         </tr>
                     )}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+function MaintenanceScheduleTable({ schedules, equipment, users }: { schedules: EquipmentMaintenanceSchedule[]; equipment: EquipmentRecord; users: Option[] }) {
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+                <thead><tr className="border-b text-left text-muted-foreground"><th className="py-3 pr-4 font-medium">Schedule</th><th className="py-3 pr-4 font-medium">Basis / interval</th><th className="py-3 pr-4 font-medium">Last service</th><th className="py-3 pr-4 font-medium">Next due</th><th className="py-3 pr-4 font-medium">Status</th><th className="py-3 text-right font-medium">Actions</th></tr></thead>
+                <tbody>
+                    {schedules.map((schedule) => <tr key={schedule.id} className="border-b align-top last:border-0"><td className="py-3 pr-4"><div className="font-medium">{schedule.name}</div><div className="text-muted-foreground">{title(schedule.maintenance_type)}</div><div className="text-muted-foreground">{schedule.responsible_user_name ?? 'No responsible user'}</div></td><td className="py-3 pr-4">{title(schedule.basis)}<div className="text-muted-foreground">{schedule.interval_days ? `${formatNumber(schedule.interval_days)} days` : ''}{schedule.interval_days && schedule.interval_meter_units ? ' / ' : ''}{schedule.interval_meter_units ? `${formatNumber(schedule.interval_meter_units)} meter units` : ''}</div></td><td className="py-3 pr-4">{schedule.last_service_date ?? 'No date'}<div className="text-muted-foreground">{schedule.last_service_reading ? formatNumber(schedule.last_service_reading) : 'No reading'}</div></td><td className="py-3 pr-4">{schedule.next_due_date ?? 'No date trigger'}<div className="text-muted-foreground">{schedule.next_due_reading ? formatNumber(schedule.next_due_reading) : 'No meter trigger'}</div></td><td className="py-3 pr-4"><Badge variant={schedule.due_status === 'overdue' ? 'destructive' : schedule.due_status === 'due_soon' ? 'outline' : 'secondary'}>{title(schedule.due_status)}</Badge></td><td className="py-3 text-right">{schedule.can_update && <MaintenanceScheduleDialog equipment={equipment} users={users} schedule={schedule} />}</td></tr>)}
+                    {schedules.length === 0 && <tr><td colSpan={6} className="py-10 text-center text-muted-foreground">No maintenance schedules configured.</td></tr>}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+function MaintenanceWorkOrderTable({ workOrders, equipment, currencies, canViewCosts }: { workOrders: EquipmentMaintenanceWorkOrder[]; equipment: EquipmentRecord; currencies: Option[]; canViewCosts: boolean }) {
+    return (
+        <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+                <thead><tr className="border-b text-left text-muted-foreground"><th className="py-3 pr-4 font-medium">Work order</th><th className="py-3 pr-4 font-medium">Timing / provider</th><th className="py-3 pr-4 font-medium">Meter / downtime</th>{canViewCosts && <th className="py-3 pr-4 font-medium">Cost</th>}<th className="py-3 pr-4 font-medium">Status</th><th className="py-3 text-right font-medium">Actions</th></tr></thead>
+                <tbody>
+                    {workOrders.map((workOrder) => <tr key={workOrder.id} className="border-b align-top last:border-0"><td className="max-w-80 py-3 pr-4"><div className="font-medium">{workOrder.reference}</div><div>{title(workOrder.maintenance_type)} · {title(workOrder.priority)}</div><div className="mt-1 text-muted-foreground">{workOrder.description}</div>{workOrder.work_performed && <div className="mt-2"><span className="font-medium">Work:</span> {workOrder.work_performed}</div>}{workOrder.cancellation_reason && <div className="mt-2 text-destructive">{workOrder.cancellation_reason}</div>}</td><td className="py-3 pr-4">Reported {workOrder.reported_at}<div className="text-muted-foreground">{workOrder.actual_start_at ? `Started ${workOrder.actual_start_at}` : workOrder.planned_start_at ? `Planned ${workOrder.planned_start_at}` : 'Not scheduled'}</div><div className="text-muted-foreground">{workOrder.provider_name ?? 'Internal workshop'}</div></td><td className="py-3 pr-4">{workOrder.opening_meter_reading ? `${formatNumber(workOrder.opening_meter_reading)} to ${formatNumber(workOrder.closing_meter_reading)}` : 'No meter evidence'}<div className="text-muted-foreground">{workOrder.downtime_hours ? `${formatNumber(workOrder.downtime_hours)} downtime hours` : 'Downtime not recorded'}</div>{workOrder.next_service_date && <div className="text-muted-foreground">Next {workOrder.next_service_date}</div>}</td>{canViewCosts && <td className="py-3 pr-4">{formatCurrencyAmount(workOrder.currency_code, workOrder.total_cost)}<div className="text-muted-foreground">Parts {formatCurrencyAmount(workOrder.currency_code, workOrder.parts_cost)}</div></td>}<td className="py-3 pr-4"><Badge variant={workOrder.status === 'cancelled' ? 'destructive' : workOrder.status === 'completed' ? 'secondary' : 'outline'}>{title(workOrder.status)}</Badge><div className="mt-1 text-muted-foreground">by {workOrder.requested_by}</div>{workOrder.approved_by && <div className="text-muted-foreground">Approved by {workOrder.approved_by}</div>}</td><td className="py-3"><div className="flex justify-end gap-2">{workOrder.can_approve && <MaintenanceApproveButton workOrder={workOrder} />}{workOrder.can_start && <MaintenanceStartDialog workOrder={workOrder} equipment={equipment} />}{workOrder.can_complete && <MaintenanceCompleteDialog workOrder={workOrder} equipment={equipment} currencies={currencies} canViewCosts={canViewCosts} />}{workOrder.can_cancel && <MaintenanceCancelDialog workOrder={workOrder} />}</div></td></tr>)}
+                    {workOrders.length === 0 && <tr><td colSpan={canViewCosts ? 6 : 5} className="py-10 text-center text-muted-foreground">No maintenance work orders recorded.</td></tr>}
                 </tbody>
             </table>
         </div>

@@ -206,3 +206,72 @@ export type EquipmentFuelTransaction = {
     can_approve: boolean;
     can_reverse: boolean;
 };
+
+export type EquipmentMaintenanceSchedule = {
+    id: string;
+    maintenance_type: string;
+    name: string;
+    basis: string;
+    interval_days: number | null;
+    interval_meter_units: string | null;
+    last_service_date: string | null;
+    last_service_reading: string | null;
+    next_due_date: string | null;
+    next_due_reading: string | null;
+    warning_days: number;
+    warning_meter_units: string;
+    responsible_user_id: string | null;
+    responsible_user_name: string | null;
+    due_status: string;
+    is_active: boolean;
+    can_update: boolean;
+};
+
+export type EquipmentMaintenancePart = {
+    id: string;
+    part_code: string | null;
+    part_name: string;
+    quantity: string;
+    unit: string;
+    unit_cost: string | null;
+    total_cost: string | null;
+    currency_code: string | null;
+};
+
+export type EquipmentMaintenanceWorkOrder = {
+    id: string;
+    equipment_maintenance_schedule_id: string | null;
+    schedule_name: string | null;
+    reference: string;
+    maintenance_type: string;
+    priority: string;
+    description: string;
+    status: string;
+    prior_equipment_status: string | null;
+    reported_at: string;
+    planned_start_at: string | null;
+    actual_start_at: string | null;
+    completed_at: string | null;
+    opening_meter_reading: string | null;
+    closing_meter_reading: string | null;
+    provider_name: string | null;
+    downtime_hours: string | null;
+    labour_cost: string | null;
+    parts_cost: string | null;
+    other_cost: string | null;
+    total_cost: string | null;
+    currency_code: string | null;
+    findings: string | null;
+    work_performed: string | null;
+    completion_notes: string | null;
+    cancellation_reason: string | null;
+    next_service_date: string | null;
+    next_service_reading: string | null;
+    requested_by: string;
+    approved_by: string | null;
+    parts: EquipmentMaintenancePart[];
+    can_approve: boolean;
+    can_start: boolean;
+    can_complete: boolean;
+    can_cancel: boolean;
+};

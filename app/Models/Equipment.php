@@ -177,6 +177,18 @@ final class Equipment extends Model
         return $this->hasMany(EquipmentUsageLog::class);
     }
 
+    /** @return HasMany<EquipmentMaintenanceSchedule, $this> */
+    public function maintenanceSchedules(): HasMany
+    {
+        return $this->hasMany(EquipmentMaintenanceSchedule::class);
+    }
+
+    /** @return HasMany<EquipmentMaintenanceWorkOrder, $this> */
+    public function maintenanceWorkOrders(): HasMany
+    {
+        return $this->hasMany(EquipmentMaintenanceWorkOrder::class);
+    }
+
     /**
      * @param  Builder<Equipment>  $query
      * @return Builder<Equipment>

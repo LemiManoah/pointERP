@@ -16,6 +16,8 @@ Phase 3A.3b, DSR Fleet Posting and Fuel Evidence, is implemented and awaiting mi
 
 Phase 3A.3c, Portfolio Fuel Reporting, is implemented and awaiting UI and automated-test acceptance. The Equipment workspace now has a Fuel tab with date, branch, project, site, asset, transaction, source, exception and lifecycle filters; scoped summary indicators; approval/reversal commands; role-aware cost omission; and a matching audited CSV export. Seed data includes normal, pending-review and abnormal fuel-control examples. This completes the planned Phase 3A.3 fuel-control slice.
 
+Phase 3A.4a, Maintenance Control Foundation, is implemented and awaiting migration, UI and automated-test acceptance. It adds separate schedule, work-order and part-snapshot tables; date/meter/whichever-first due calculations; planned/approved/in-progress/completed/cancelled controls; independent approval; equipment availability locking and explicit release; completion meter posting; provider, downtime, parts and cost evidence; schedule recalculation; role-aware cost omission; audit, notifications, an equipment Maintenance tab and seeded current/overdue/completed/pending examples. Phase 3A.4b remains for portfolio dashboards, scheduled due/overdue processing, reminders, exports and controlled-document links.
+
 Phase 3A is the first resource-control slice after Phase 2. It turns the equipment and fuel observations already captured in approved Daily Site Reports into a controlled fleet register, movement history, meter ledger, fuel ledger and maintenance workflow.
 
 This document is the implementation contract. Schema or workflow changes should be reflected here before migrations are written.
@@ -499,6 +501,7 @@ equipment.readings.approve-correction
 equipment.fuel.create
 equipment.fuel.approve
 equipment.fuel.reverse
+equipment.maintenance.request
 equipment.maintenance.manage
 equipment.maintenance.approve
 equipment.dashboard.view

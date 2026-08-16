@@ -17,6 +17,9 @@ use App\Models\EquipmentCategory;
 use App\Models\EquipmentFuelTransaction;
 use App\Models\EquipmentLocation;
 use App\Models\EquipmentLocationConfirmation;
+use App\Models\EquipmentMaintenanceSchedule;
+use App\Models\EquipmentMaintenancePartLine;
+use App\Models\EquipmentMaintenanceWorkOrder;
 use App\Models\EquipmentMeterReading;
 use App\Models\EquipmentTransfer;
 use App\Models\Project;
@@ -28,6 +31,7 @@ use App\Services\BranchContext;
 use App\Services\EquipmentFuelReport;
 use App\Services\TenantContext;
 use App\Support\Operations\PresentsLinkedDocuments;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -149,6 +153,25 @@ final class EquipmentController
                 ->latest('created_at')
                 ->get()
                 ->map(fn (EquipmentFuelTransaction $transaction): array => $this->fuelTransactionRow($transaction, $user, $canViewCosts)),
+            'maintenanceSchedules' => EquipmentMaintenanceSchedule::query()
+                ->with(['equipment', 'responsibleUser'])
+                ->where('equipment_id', $equipment->id)
+                ->orderByDesc('is_active')
+                ->orderBy('name')
+                ->get()
+                ->map(fn (EquipmentMaintenanceSchedule $schedule): array => $this->maintenanceScheduleRow($schedule, $user)),
+            'maintenanceWorkOrders' => EquipmentMaintenanceWorkOrder::query()
+                ->with(['schedule', 'provider', 'requestedBy', 'approvedBy', 'parts'])
+                ->where('equipment_id', $equipment->id)
+                ->latest('reported_at')
+                ->get()
+                ->map(fn (EquipmentMaintenanceWorkOrder $workOrder): array => $this->maintenanceWorkOrderRow($workOrder, $user, $canViewCosts)),
+            'maintenanceUsers' => User::query()
+                ->where('tenant_id', $equipment->tenant_id)
+                ->where('is_active', true)
+                ->whereHas('branches', fn (Builder $query): Builder => $query->whereKey($equipment->branch_id))
+                ->orderBy('name')
+                ->get(['users.id', 'users.name']),
             'documents' => $this->linkedDocumentsFor($equipment, $user),
             'categories' => EquipmentCategory::query()->orderBy('name')->get()->map(fn (EquipmentCategory $category): array => $this->categoryRow($category)),
             'locations' => EquipmentLocation::query()->with(['branch', 'project', 'site'])->visibleTo($user)->orderBy('name')->get()->map(fn (EquipmentLocation $location): array => $this->locationRow($location)),
@@ -158,6 +181,12 @@ final class EquipmentController
                 'uploadDocuments' => Gate::forUser($user)->allows('create', Document::class),
                 'viewCosts' => $canViewCosts,
                 'recordFuel' => Gate::forUser($user)->allows('create', EquipmentFuelTransaction::class)
+                    && $equipment->is_active
+                    && ! in_array($equipment->current_status, ['retired', 'transferred'], true),
+                'manageMaintenance' => Gate::forUser($user)->allows('create', EquipmentMaintenanceSchedule::class)
+                    && $equipment->is_active
+                    && $equipment->current_status !== 'retired',
+                'requestMaintenance' => Gate::forUser($user)->allows('create', EquipmentMaintenanceWorkOrder::class)
                     && $equipment->is_active
                     && ! in_array($equipment->current_status, ['retired', 'transferred'], true),
                 'recordReading' => Gate::forUser($user)->allows('create', [EquipmentMeterReading::class, $equipment]),
@@ -386,6 +415,83 @@ final class EquipmentController
             'can_approve' => Gate::forUser($user)->allows('approve', $transaction),
             'can_reverse' => Gate::forUser($user)->allows('reverse', $transaction)
                 && ! $transaction->reversals()->exists(),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function maintenanceScheduleRow(EquipmentMaintenanceSchedule $schedule, User $user): array
+    {
+        return [
+            'id' => $schedule->id,
+            'maintenance_type' => $schedule->maintenance_type,
+            'name' => $schedule->name,
+            'basis' => $schedule->basis,
+            'interval_days' => $schedule->interval_days,
+            'interval_meter_units' => $schedule->interval_meter_units,
+            'last_service_date' => $schedule->last_service_date?->toDateString(),
+            'last_service_reading' => $schedule->last_service_reading,
+            'next_due_date' => $schedule->next_due_date?->toDateString(),
+            'next_due_reading' => $schedule->next_due_reading,
+            'warning_days' => $schedule->warning_days,
+            'warning_meter_units' => $schedule->warning_meter_units,
+            'responsible_user_id' => $schedule->responsible_user_id,
+            'responsible_user_name' => $schedule->responsibleUser?->name,
+            'due_status' => $schedule->dueStatus(),
+            'is_active' => $schedule->is_active,
+            'can_update' => Gate::forUser($user)->allows('update', $schedule),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function maintenanceWorkOrderRow(EquipmentMaintenanceWorkOrder $workOrder, User $user, bool $canViewCosts): array
+    {
+        $provider = $workOrder->getRelation('provider');
+
+        return [
+            'id' => $workOrder->id,
+            'equipment_maintenance_schedule_id' => $workOrder->equipment_maintenance_schedule_id,
+            'schedule_name' => $workOrder->schedule?->name,
+            'reference' => $workOrder->reference,
+            'maintenance_type' => $workOrder->maintenance_type,
+            'priority' => $workOrder->priority,
+            'description' => $workOrder->description,
+            'status' => $workOrder->status,
+            'prior_equipment_status' => $workOrder->prior_equipment_status,
+            'reported_at' => $workOrder->reported_at->toDateTimeString(),
+            'planned_start_at' => $workOrder->planned_start_at?->toDateTimeString(),
+            'actual_start_at' => $workOrder->actual_start_at?->toDateTimeString(),
+            'completed_at' => $workOrder->completed_at?->toDateTimeString(),
+            'opening_meter_reading' => $workOrder->opening_meter_reading,
+            'closing_meter_reading' => $workOrder->closing_meter_reading,
+            'provider_name' => $provider instanceof Customer ? $provider->name : $workOrder->provider_name,
+            'downtime_hours' => $workOrder->downtime_hours,
+            'labour_cost' => $canViewCosts ? $workOrder->labour_cost : null,
+            'parts_cost' => $canViewCosts ? $workOrder->parts_cost : null,
+            'other_cost' => $canViewCosts ? $workOrder->other_cost : null,
+            'total_cost' => $canViewCosts ? $workOrder->total_cost : null,
+            'currency_code' => $canViewCosts ? $workOrder->currency_code : null,
+            'findings' => $workOrder->findings,
+            'work_performed' => $workOrder->work_performed,
+            'completion_notes' => $workOrder->completion_notes,
+            'cancellation_reason' => $workOrder->cancellation_reason,
+            'next_service_date' => $workOrder->next_service_date?->toDateString(),
+            'next_service_reading' => $workOrder->next_service_reading,
+            'requested_by' => $workOrder->requestedBy->name,
+            'approved_by' => $workOrder->approvedBy?->name,
+            'parts' => $workOrder->parts->map(fn (EquipmentMaintenancePartLine $part): array => [
+                'id' => $part->id,
+                'part_code' => $part->part_code,
+                'part_name' => $part->part_name,
+                'quantity' => $part->quantity,
+                'unit' => $part->unit,
+                'unit_cost' => $canViewCosts ? $part->unit_cost : null,
+                'total_cost' => $canViewCosts ? $part->total_cost : null,
+                'currency_code' => $canViewCosts ? $part->currency_code : null,
+            ]),
+            'can_approve' => Gate::forUser($user)->allows('approve', $workOrder),
+            'can_start' => Gate::forUser($user)->allows('start', $workOrder),
+            'can_complete' => Gate::forUser($user)->allows('complete', $workOrder),
+            'can_cancel' => Gate::forUser($user)->allows('cancel', $workOrder),
         ];
     }
 }
