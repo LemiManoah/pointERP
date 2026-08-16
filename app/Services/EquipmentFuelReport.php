@@ -72,6 +72,7 @@ final readonly class EquipmentFuelReport
             if ($row['total_cost'] === null) {
                 continue;
             }
+
             if ($row['currency_code'] === null) {
                 continue;
             }

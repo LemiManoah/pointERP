@@ -269,9 +269,58 @@ export type EquipmentMaintenanceWorkOrder = {
     next_service_reading: string | null;
     requested_by: string;
     approved_by: string | null;
+    document_count: number;
     parts: EquipmentMaintenancePart[];
     can_approve: boolean;
     can_start: boolean;
     can_complete: boolean;
     can_cancel: boolean;
+};
+
+export type EquipmentMaintenancePortfolioSchedule = {
+    id: string;
+    equipment_id: string;
+    equipment_code: string;
+    equipment_name: string;
+    branch_id: string;
+    branch_name: string;
+    project_id: string | null;
+    project_name: string | null;
+    site_id: string | null;
+    site_name: string | null;
+    name: string;
+    maintenance_type: string;
+    basis: string;
+    next_due_date: string | null;
+    next_due_reading: string | null;
+    current_meter_reading: string | null;
+    responsible_user_name: string | null;
+    due_status: string;
+};
+
+export type EquipmentMaintenancePortfolioWorkOrder = {
+    id: string;
+    equipment_id: string;
+    equipment_code: string;
+    equipment_name: string;
+    branch_id: string;
+    branch_name: string;
+    project_id: string | null;
+    site_id: string | null;
+    reference: string;
+    schedule_name: string | null;
+    maintenance_type: string;
+    priority: string;
+    description: string;
+    status: string;
+    reported_at: string;
+    planned_start_at: string | null;
+    actual_start_at: string | null;
+    completed_at: string | null;
+    provider_name: string | null;
+    downtime_hours: string | null;
+    total_cost: string | null;
+    currency_code: string | null;
+    requested_by: string;
+    document_count: number;
 };

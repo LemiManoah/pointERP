@@ -12,6 +12,7 @@ use App\Models\DocumentLink;
 use App\Models\DocumentType;
 use App\Models\DocumentVersion;
 use App\Models\Equipment;
+use App\Models\EquipmentMaintenanceWorkOrder;
 use App\Models\Project;
 use App\Models\Site;
 use App\Models\User;
@@ -57,6 +58,7 @@ trait PresentsLinkedDocuments
                 'sites' => $this->documentSiteOptions($user, $tenantId),
                 'dailySiteReports' => $this->documentDailySiteReportOptions($user, $tenantId),
                 'equipment' => $this->documentEquipmentOptions($user, $tenantId),
+                'maintenanceWorkOrders' => $this->documentMaintenanceWorkOrderOptions($user, $tenantId),
             ],
         ];
     }
@@ -125,6 +127,7 @@ trait PresentsLinkedDocuments
             $target instanceof Site => $target->name,
             $target instanceof DailySiteReport => $target->reference,
             $target instanceof Equipment => sprintf('%s - %s', $target->asset_code, $target->name),
+            $target instanceof EquipmentMaintenanceWorkOrder => $target->reference,
             default => 'Unknown record',
         };
     }
@@ -202,6 +205,25 @@ trait PresentsLinkedDocuments
             ->get()
             ->filter(fn (Equipment $equipment): bool => Gate::forUser($user)->allows('view', $equipment))
             ->map(fn (Equipment $equipment): array => ['id' => $equipment->id, 'name' => sprintf('%s - %s', $equipment->asset_code, $equipment->name)])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array<string, string>>
+     */
+    private function documentMaintenanceWorkOrderOptions(User $user, string $tenantId): array
+    {
+        return EquipmentMaintenanceWorkOrder::query()
+            ->with('equipment')
+            ->where('tenant_id', $tenantId)
+            ->latest('reported_at')
+            ->get()
+            ->filter(fn (EquipmentMaintenanceWorkOrder $workOrder): bool => Gate::forUser($user)->allows('view', $workOrder))
+            ->map(fn (EquipmentMaintenanceWorkOrder $workOrder): array => [
+                'id' => $workOrder->id,
+                'name' => sprintf('%s - %s', $workOrder->reference, $workOrder->equipment->asset_code),
+            ])
             ->values()
             ->all();
     }

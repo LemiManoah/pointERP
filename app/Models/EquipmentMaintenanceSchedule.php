@@ -33,6 +33,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read string $warning_meter_units
  * @property-read string|null $responsible_user_id
  * @property-read bool $is_active
+ * @property-read string|null $last_notified_status
+ * @property-read CarbonInterface|null $last_notified_at
  * @property-read Equipment $equipment
  * @property-read Branch $branch
  * @property-read User|null $responsibleUser
@@ -42,7 +44,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'tenant_id', 'equipment_id', 'branch_id', 'maintenance_type', 'name', 'basis',
     'interval_days', 'interval_meter_units', 'last_service_date', 'last_service_reading',
     'next_due_date', 'next_due_reading', 'warning_days', 'warning_meter_units',
-    'responsible_user_id', 'is_active', 'created_by', 'updated_by',
+    'responsible_user_id', 'is_active', 'last_notified_status', 'last_notified_at',
+    'created_by', 'updated_by',
 ])]
 final class EquipmentMaintenanceSchedule extends Model
 {
@@ -65,7 +68,8 @@ final class EquipmentMaintenanceSchedule extends Model
             'last_service_date' => 'date', 'last_service_reading' => 'decimal:4',
             'next_due_date' => 'date', 'next_due_reading' => 'decimal:4',
             'warning_days' => 'integer', 'warning_meter_units' => 'decimal:4',
-            'is_active' => 'boolean', 'created_at' => 'datetime', 'updated_at' => 'datetime',
+            'is_active' => 'boolean', 'last_notified_at' => 'datetime',
+            'created_at' => 'datetime', 'updated_at' => 'datetime',
         ];
     }
 
@@ -93,14 +97,15 @@ final class EquipmentMaintenanceSchedule extends Model
         return $this->hasMany(EquipmentMaintenanceWorkOrder::class);
     }
 
-    public function dueStatus(): string
+    public function dueStatus(?CarbonInterface $asOf = null): string
     {
         if (! $this->is_active) {
             return 'inactive';
         }
 
+        $pointInTime = $asOf ?? now();
         $currentReading = $this->equipment->current_meter_reading;
-        $dateOverdue = $this->next_due_date !== null && $this->next_due_date->isPast();
+        $dateOverdue = $this->next_due_date !== null && $this->next_due_date->lt($pointInTime);
         $meterOverdue = $this->next_due_reading !== null && $currentReading !== null
             && (float) $currentReading >= (float) $this->next_due_reading;
 
@@ -108,7 +113,7 @@ final class EquipmentMaintenanceSchedule extends Model
             return 'overdue';
         }
 
-        $dateDueSoon = $this->next_due_date !== null && $this->next_due_date->lte(now()->addDays($this->warning_days));
+        $dateDueSoon = $this->next_due_date !== null && $this->next_due_date->lte($pointInTime->copy()->addDays($this->warning_days));
         $meterDueSoon = $this->next_due_reading !== null && $currentReading !== null
             && (float) $currentReading >= (float) $this->next_due_reading - (float) $this->warning_meter_units;
 

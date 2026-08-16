@@ -638,6 +638,10 @@ export default function EquipmentShow(props: Props) {
                                     equipment={equipment}
                                     currencies={currencies}
                                     canViewCosts={can.viewCosts}
+                                    canUploadDocuments={can.uploadDocuments}
+                                    documentTypes={documentTypes}
+                                    documentBranches={documentBranches}
+                                    documentLinkOptions={documentLinkOptions}
                                 />
                             </CardContent>
                         </Card>
@@ -1195,11 +1199,19 @@ function MaintenanceWorkOrderTable({
     equipment,
     currencies,
     canViewCosts,
+    canUploadDocuments,
+    documentTypes,
+    documentBranches,
+    documentLinkOptions,
 }: {
     workOrders: EquipmentMaintenanceWorkOrder[];
     equipment: EquipmentRecord;
     currencies: Option[];
     canViewCosts: boolean;
+    canUploadDocuments: boolean;
+    documentTypes: DocumentTypeOption[];
+    documentBranches: Option[];
+    documentLinkOptions: LinkOptions;
 }) {
     return (
         <div className="overflow-x-auto">
@@ -1315,9 +1327,28 @@ function MaintenanceWorkOrderTable({
                                         Approved by {workOrder.approved_by}
                                     </div>
                                 )}
+                                <div className="text-muted-foreground">
+                                    {formatNumber(workOrder.document_count)}{' '}
+                                    document(s)
+                                </div>
                             </td>
                             <td className="py-3">
                                 <div className="flex justify-end gap-2">
+                                    {canUploadDocuments && (
+                                        <DocumentDialog
+                                            documentTypes={documentTypes}
+                                            branches={documentBranches}
+                                            linkOptions={documentLinkOptions}
+                                            defaultBranchId={
+                                                equipment.branch_id
+                                            }
+                                            defaultLink={{
+                                                type: 'equipment_maintenance_work_order',
+                                                id: workOrder.id,
+                                            }}
+                                            buttonLabel="Add evidence"
+                                        />
+                                    )}
                                     {workOrder.can_approve && (
                                         <MaintenanceApproveButton
                                             workOrder={workOrder}

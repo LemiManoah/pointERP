@@ -47,7 +47,9 @@ export function LinkDialog({
                 ? linkOptions.dailySiteReports
                 : form.data.type === 'equipment'
                   ? linkOptions.equipment
-                  : linkOptions.projects;
+                  : form.data.type === 'equipment_maintenance_work_order'
+                    ? linkOptions.maintenanceWorkOrders
+                    : linkOptions.projects;
 
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -69,8 +71,8 @@ export function LinkDialog({
                 <DialogHeader>
                     <DialogTitle>Link document</DialogTitle>
                     <DialogDescription>
-                        Attach this document to a project, site, contract or
-                        DSR.
+                        Attach this document to an accessible operational
+                        record.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={submit} className="grid gap-4">
@@ -97,6 +99,9 @@ export function LinkDialog({
                             </NativeSelectOption>
                             <NativeSelectOption value="equipment">
                                 Equipment
+                            </NativeSelectOption>
+                            <NativeSelectOption value="equipment_maintenance_work_order">
+                                Maintenance work order
                             </NativeSelectOption>
                         </NativeSelect>
                     </div>

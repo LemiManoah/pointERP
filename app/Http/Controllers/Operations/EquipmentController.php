@@ -29,6 +29,7 @@ use App\Models\TenantCurrency;
 use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\EquipmentFuelReport;
+use App\Services\EquipmentMaintenanceReport;
 use App\Services\TenantContext;
 use App\Support\Operations\PresentsLinkedDocuments;
 use Illuminate\Database\Eloquent\Builder;
@@ -42,13 +43,14 @@ final class EquipmentController
 {
     use PresentsLinkedDocuments;
 
-    public function index(EquipmentFuelReport $fuelReport): Response
+    public function index(EquipmentFuelReport $fuelReport, EquipmentMaintenanceReport $maintenanceReport): Response
     {
         Gate::authorize('viewAny', Equipment::class);
         $user = auth()->user();
         abort_unless($user instanceof User, 403);
         $canViewCosts = $user->can('equipment.costs.view');
         $fuelRows = $fuelReport->rows($user);
+        $maintenancePortfolio = $maintenanceReport->portfolio($user);
 
         return Inertia::render('operations/equipment/index', [
             'activeTab' => request()->string('tab')->value() ?: 'register',
@@ -62,6 +64,9 @@ final class EquipmentController
             'locations' => EquipmentLocation::query()->with(['branch', 'project', 'site'])->visibleTo($user)->orderBy('name')->get()->map(fn (EquipmentLocation $location): array => $this->locationRow($location)),
             'fuelTransactions' => $fuelRows,
             'fuelSummary' => $fuelReport->summary($fuelRows),
+            'maintenanceSchedules' => $maintenancePortfolio['schedules'],
+            'maintenanceWorkOrders' => $maintenancePortfolio['work_orders'],
+            'maintenanceSummary' => $maintenanceReport->summary($maintenancePortfolio['schedules'], $maintenancePortfolio['work_orders']),
             'can' => [
                 'create' => Gate::forUser($user)->allows('create', Equipment::class),
                 'update' => $user->can('equipment.update'),
@@ -70,7 +75,9 @@ final class EquipmentController
                 'manageLocations' => Gate::forUser($user)->allows('create', EquipmentLocation::class),
                 'viewCosts' => $canViewCosts,
                 'viewFuelDashboard' => $user->can('equipment.dashboard.view'),
+                'viewMaintenanceDashboard' => $user->can('equipment.dashboard.view'),
                 'exportFuel' => $user->can('equipment.export'),
+                'exportMaintenance' => $user->can('equipment.export'),
             ],
             ...$this->formOptions($user),
         ]);
@@ -478,6 +485,7 @@ final class EquipmentController
             'next_service_reading' => $workOrder->next_service_reading,
             'requested_by' => $workOrder->requestedBy->name,
             'approved_by' => $workOrder->approvedBy?->name,
+            'document_count' => $workOrder->documentLinks()->count(),
             'parts' => $workOrder->parts->map(fn (EquipmentMaintenancePartLine $part): array => [
                 'id' => $part->id,
                 'part_code' => $part->part_code,

@@ -24,6 +24,8 @@ import type {
     EquipmentCategory,
     EquipmentFuelTransaction,
     EquipmentLocation,
+    EquipmentMaintenancePortfolioSchedule,
+    EquipmentMaintenancePortfolioWorkOrder,
     EquipmentRecord,
     Option,
     OwnerOption,
@@ -44,6 +46,8 @@ type Props = {
     owners: OwnerOption[];
     currencies: Option[];
     fuelTransactions: EquipmentFuelTransaction[];
+    maintenanceSchedules: EquipmentMaintenancePortfolioSchedule[];
+    maintenanceWorkOrders: EquipmentMaintenancePortfolioWorkOrder[];
     can: {
         create: boolean;
         update: boolean;
@@ -52,7 +56,9 @@ type Props = {
         manageLocations: boolean;
         viewCosts: boolean;
         viewFuelDashboard: boolean;
+        viewMaintenanceDashboard: boolean;
         exportFuel: boolean;
+        exportMaintenance: boolean;
     };
 };
 
@@ -72,11 +78,13 @@ export default function EquipmentIndex(props: Props) {
         owners,
         currencies,
         fuelTransactions,
+        maintenanceSchedules,
+        maintenanceWorkOrders,
         can,
     } = props;
     const confirm = useConfirmDialog();
     const [tab, setTab] = useState(
-        ['register', 'categories', 'locations', 'fuel'].includes(
+        ['register', 'categories', 'locations', 'fuel', 'maintenance'].includes(
             props.activeTab,
         )
             ? props.activeTab
@@ -84,6 +92,9 @@ export default function EquipmentIndex(props: Props) {
     );
     const [status, setStatus] = useState('active');
     const [fuelStatus, setFuelStatus] = useState('all');
+    const [maintenanceStatus, setMaintenanceStatus] = useState('all');
+    const [maintenanceDueStatus, setMaintenanceDueStatus] = useState('all');
+    const [maintenancePriority, setMaintenancePriority] = useState('all');
     const [search, setSearch] = useState('');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
@@ -167,7 +178,7 @@ export default function EquipmentIndex(props: Props) {
         ],
     );
     const fuelSummary = useMemo(() => summarizeFuel(fuelRows), [fuelRows]);
-    const exportUrl = useMemo(() => {
+    const fuelExportUrl = useMemo(() => {
         const parameters = new URLSearchParams();
         const filters: Record<string, string> = {
             search: debouncedSearch.trim(),
@@ -200,6 +211,109 @@ export default function EquipmentIndex(props: Props) {
         siteId,
         sourceType,
         transactionType,
+    ]);
+    const maintenanceScheduleRows = useMemo(
+        () =>
+            maintenanceSchedules.filter(
+                (schedule) =>
+                    (branchId === 'all' || schedule.branch_id === branchId) &&
+                    (projectId === 'all' ||
+                        schedule.project_id === projectId) &&
+                    (siteId === 'all' || schedule.site_id === siteId) &&
+                    (equipmentId === 'all' ||
+                        schedule.equipment_id === equipmentId) &&
+                    (maintenanceDueStatus === 'all' ||
+                        schedule.due_status === maintenanceDueStatus) &&
+                    (!term ||
+                        Object.values(schedule)
+                            .join(' ')
+                            .toLowerCase()
+                            .includes(term)),
+            ),
+        [
+            branchId,
+            equipmentId,
+            maintenanceDueStatus,
+            maintenanceSchedules,
+            projectId,
+            siteId,
+            term,
+        ],
+    );
+    const maintenanceWorkOrderRows = useMemo(
+        () =>
+            maintenanceWorkOrders.filter((workOrder) => {
+                const reportedDate = workOrder.reported_at.slice(0, 10);
+                return (
+                    (maintenanceStatus === 'all' ||
+                        workOrder.status === maintenanceStatus) &&
+                    (maintenancePriority === 'all' ||
+                        workOrder.priority === maintenancePriority) &&
+                    (!dateFrom || reportedDate >= dateFrom) &&
+                    (!dateTo || reportedDate <= dateTo) &&
+                    (branchId === 'all' || workOrder.branch_id === branchId) &&
+                    (projectId === 'all' ||
+                        workOrder.project_id === projectId) &&
+                    (siteId === 'all' || workOrder.site_id === siteId) &&
+                    (equipmentId === 'all' ||
+                        workOrder.equipment_id === equipmentId) &&
+                    (!term ||
+                        Object.values(workOrder)
+                            .join(' ')
+                            .toLowerCase()
+                            .includes(term))
+                );
+            }),
+        [
+            branchId,
+            dateFrom,
+            dateTo,
+            equipmentId,
+            maintenancePriority,
+            maintenanceStatus,
+            maintenanceWorkOrders,
+            projectId,
+            siteId,
+            term,
+        ],
+    );
+    const maintenanceSummary = useMemo(
+        () =>
+            summarizeMaintenance(
+                maintenanceScheduleRows,
+                maintenanceWorkOrderRows,
+            ),
+        [maintenanceScheduleRows, maintenanceWorkOrderRows],
+    );
+    const maintenanceExportUrl = useMemo(() => {
+        const parameters = new URLSearchParams();
+        const filters: Record<string, string> = {
+            search: debouncedSearch.trim(),
+            from: dateFrom,
+            to: dateTo,
+            branch_id: branchId,
+            project_id: projectId,
+            site_id: siteId,
+            equipment_id: equipmentId,
+            due_status: maintenanceDueStatus,
+            status: maintenanceStatus,
+            priority: maintenancePriority,
+        };
+        Object.entries(filters).forEach(([key, value]) => {
+            if (value && value !== 'all') parameters.set(key, value);
+        });
+        return `/equipment-maintenance/export?${parameters.toString()}`;
+    }, [
+        branchId,
+        dateFrom,
+        dateTo,
+        debouncedSearch,
+        equipmentId,
+        maintenanceDueStatus,
+        maintenancePriority,
+        maintenanceStatus,
+        projectId,
+        siteId,
     ]);
 
     return (
@@ -256,6 +370,32 @@ export default function EquipmentIndex(props: Props) {
                                 }}
                             />
                         )}
+                        {tab === 'maintenance' && (
+                            <MaintenanceFilters
+                                {...{
+                                    dateFrom,
+                                    setDateFrom,
+                                    dateTo,
+                                    setDateTo,
+                                    branchId,
+                                    setBranchId,
+                                    projectId,
+                                    setProjectId,
+                                    siteId,
+                                    setSiteId,
+                                    equipmentId,
+                                    setEquipmentId,
+                                    maintenanceDueStatus,
+                                    setMaintenanceDueStatus,
+                                    maintenancePriority,
+                                    setMaintenancePriority,
+                                    branches,
+                                    projects: filteredProjects,
+                                    sites: filteredSites,
+                                    equipment,
+                                }}
+                            />
+                        )}
                     </div>
                     {tab === 'register' && can.create && (
                         <EquipmentDialog
@@ -279,7 +419,15 @@ export default function EquipmentIndex(props: Props) {
                     )}
                     {tab === 'fuel' && can.exportFuel && (
                         <Button asChild>
-                            <a href={exportUrl}>
+                            <a href={fuelExportUrl}>
+                                <Download />
+                                Export CSV
+                            </a>
+                        </Button>
+                    )}
+                    {tab === 'maintenance' && can.exportMaintenance && (
+                        <Button asChild>
+                            <a href={maintenanceExportUrl}>
                                 <Download />
                                 Export CSV
                             </a>
@@ -298,12 +446,25 @@ export default function EquipmentIndex(props: Props) {
                                 Locations
                             </TabsTrigger>
                             <TabsTrigger value="fuel">Fuel</TabsTrigger>
+                            <TabsTrigger value="maintenance">
+                                Maintenance
+                            </TabsTrigger>
                         </TabsList>
                     </Tabs>
                     <Tabs
-                        value={tab === 'fuel' ? fuelStatus : status}
+                        value={
+                            tab === 'fuel'
+                                ? fuelStatus
+                                : tab === 'maintenance'
+                                  ? maintenanceStatus
+                                  : status
+                        }
                         onValueChange={
-                            tab === 'fuel' ? setFuelStatus : setStatus
+                            tab === 'fuel'
+                                ? setFuelStatus
+                                : tab === 'maintenance'
+                                  ? setMaintenanceStatus
+                                  : setStatus
                         }
                     >
                         <TabsList>
@@ -318,6 +479,25 @@ export default function EquipmentIndex(props: Props) {
                                     </TabsTrigger>
                                     <TabsTrigger value="reversed">
                                         Reversed
+                                    </TabsTrigger>
+                                </>
+                            ) : tab === 'maintenance' ? (
+                                <>
+                                    <TabsTrigger value="all">All</TabsTrigger>
+                                    <TabsTrigger value="planned">
+                                        Planned
+                                    </TabsTrigger>
+                                    <TabsTrigger value="approved">
+                                        Approved
+                                    </TabsTrigger>
+                                    <TabsTrigger value="in_progress">
+                                        In progress
+                                    </TabsTrigger>
+                                    <TabsTrigger value="completed">
+                                        Completed
+                                    </TabsTrigger>
+                                    <TabsTrigger value="cancelled">
+                                        Cancelled
                                     </TabsTrigger>
                                 </>
                             ) : (
@@ -343,7 +523,9 @@ export default function EquipmentIndex(props: Props) {
                                   ? 'Equipment categories'
                                   : tab === 'locations'
                                     ? 'Operational locations'
-                                    : 'Fuel ledger'}
+                                    : tab === 'fuel'
+                                      ? 'Fuel ledger'
+                                      : 'Maintenance portfolio'}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -385,6 +567,23 @@ export default function EquipmentIndex(props: Props) {
                                 )}
                                 <FuelTable
                                     rows={fuelRows}
+                                    canViewCosts={can.viewCosts}
+                                />
+                            </div>
+                        )}
+                        {tab === 'maintenance' && (
+                            <div className="grid gap-6">
+                                {can.viewMaintenanceDashboard && (
+                                    <MaintenanceSummary
+                                        summary={maintenanceSummary}
+                                        canViewCosts={can.viewCosts}
+                                    />
+                                )}
+                                <MaintenanceSchedulePortfolioTable
+                                    rows={maintenanceScheduleRows}
+                                />
+                                <MaintenanceWorkOrderPortfolioTable
+                                    rows={maintenanceWorkOrderRows}
                                     canViewCosts={can.viewCosts}
                                 />
                             </div>
@@ -899,6 +1098,377 @@ function FuelTable({
             ))}
             {rows.length === 0 && <Empty colSpan={headers.length} />}
         </Table>
+    );
+}
+
+type MaintenanceSummaryData = {
+    dueSoon: number;
+    overdue: number;
+    planned: number;
+    inProgress: number;
+    completed: number;
+    downtime: number;
+    costs: Array<{ currency: string; amount: number }>;
+};
+
+function summarizeMaintenance(
+    schedules: EquipmentMaintenancePortfolioSchedule[],
+    workOrders: EquipmentMaintenancePortfolioWorkOrder[],
+): MaintenanceSummaryData {
+    const costs = new Map<string, number>();
+    workOrders.forEach((row) => {
+        if (row.currency_code && row.total_cost)
+            costs.set(
+                row.currency_code,
+                (costs.get(row.currency_code) ?? 0) + Number(row.total_cost),
+            );
+    });
+    return {
+        dueSoon: schedules.filter((row) => row.due_status === 'due_soon')
+            .length,
+        overdue: schedules.filter((row) => row.due_status === 'overdue').length,
+        planned: workOrders.filter((row) =>
+            ['planned', 'approved'].includes(row.status),
+        ).length,
+        inProgress: workOrders.filter((row) => row.status === 'in_progress')
+            .length,
+        completed: workOrders.filter((row) => row.status === 'completed')
+            .length,
+        downtime: workOrders.reduce(
+            (total, row) => total + Number(row.downtime_hours ?? 0),
+            0,
+        ),
+        costs: [...costs].map(([currency, amount]) => ({ currency, amount })),
+    };
+}
+
+function MaintenanceSummary({
+    summary,
+    canViewCosts,
+}: {
+    summary: MaintenanceSummaryData;
+    canViewCosts: boolean;
+}) {
+    const costText = summary.costs.length
+        ? summary.costs
+              .map((row) => formatCurrencyAmount(row.currency, row.amount))
+              .join(' / ')
+        : 'No visible cost';
+    return (
+        <div className="grid gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-2 xl:grid-cols-7">
+            <Metric label="Due soon" value={formatNumber(summary.dueSoon)} />
+            <Metric label="Overdue" value={formatNumber(summary.overdue)} />
+            <Metric label="Planned" value={formatNumber(summary.planned)} />
+            <Metric
+                label="In progress"
+                value={formatNumber(summary.inProgress)}
+            />
+            <Metric label="Completed" value={formatNumber(summary.completed)} />
+            <Metric
+                label="Downtime"
+                value={`${formatNumber(summary.downtime)} hours`}
+            />
+            {canViewCosts && (
+                <Metric label="Maintenance cost" value={costText} />
+            )}
+        </div>
+    );
+}
+
+function MaintenanceFilters({
+    dateFrom,
+    setDateFrom,
+    dateTo,
+    setDateTo,
+    branchId,
+    setBranchId,
+    projectId,
+    setProjectId,
+    siteId,
+    setSiteId,
+    equipmentId,
+    setEquipmentId,
+    maintenanceDueStatus,
+    setMaintenanceDueStatus,
+    maintenancePriority,
+    setMaintenancePriority,
+    branches,
+    projects,
+    sites,
+    equipment,
+}: {
+    dateFrom: string;
+    setDateFrom: (value: string) => void;
+    dateTo: string;
+    setDateTo: (value: string) => void;
+    branchId: string;
+    setBranchId: (value: string) => void;
+    projectId: string;
+    setProjectId: (value: string) => void;
+    siteId: string;
+    setSiteId: (value: string) => void;
+    equipmentId: string;
+    setEquipmentId: (value: string) => void;
+    maintenanceDueStatus: string;
+    setMaintenanceDueStatus: (value: string) => void;
+    maintenancePriority: string;
+    setMaintenancePriority: (value: string) => void;
+    branches: BranchOption[];
+    projects: ProjectOption[];
+    sites: SiteOption[];
+    equipment: EquipmentRecord[];
+}) {
+    return (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <Input
+                type="date"
+                value={dateFrom}
+                onChange={(event) => setDateFrom(event.target.value)}
+                aria-label="From date"
+            />
+            <Input
+                type="date"
+                value={dateTo}
+                onChange={(event) => setDateTo(event.target.value)}
+                aria-label="To date"
+            />
+            <FilterSelect
+                value={branchId}
+                onChange={(value) => {
+                    setBranchId(value);
+                    setProjectId('all');
+                    setSiteId('all');
+                }}
+                label="All branches"
+                options={branches.map((branch) => ({
+                    value: branch.id,
+                    label: branch.name,
+                }))}
+            />
+            <FilterSelect
+                value={projectId}
+                onChange={(value) => {
+                    setProjectId(value);
+                    setSiteId('all');
+                }}
+                label="All projects"
+                options={projects.map((project) => ({
+                    value: project.id,
+                    label: project.name,
+                }))}
+            />
+            <FilterSelect
+                value={siteId}
+                onChange={setSiteId}
+                label="All sites"
+                options={sites.map((site) => ({
+                    value: site.id,
+                    label: site.name,
+                }))}
+            />
+            <FilterSelect
+                value={equipmentId}
+                onChange={setEquipmentId}
+                label="All equipment"
+                options={equipment.map((asset) => ({
+                    value: asset.id,
+                    label: asset.asset_code,
+                    description: asset.name,
+                }))}
+            />
+            <FilterSelect
+                value={maintenanceDueStatus}
+                onChange={setMaintenanceDueStatus}
+                label="All due states"
+                options={['current', 'due_soon', 'overdue'].map(option)}
+            />
+            <FilterSelect
+                value={maintenancePriority}
+                onChange={setMaintenancePriority}
+                label="All priorities"
+                options={['low', 'normal', 'high', 'critical'].map(option)}
+            />
+        </div>
+    );
+}
+
+function MaintenanceSchedulePortfolioTable({
+    rows,
+}: {
+    rows: EquipmentMaintenancePortfolioSchedule[];
+}) {
+    return (
+        <section className="grid gap-3">
+            <div>
+                <h3 className="font-semibold">Service schedule exceptions</h3>
+                <p className="text-sm text-muted-foreground">
+                    Active schedules ordered by urgency.
+                </p>
+            </div>
+            <Table
+                headers={[
+                    'Asset',
+                    'Schedule',
+                    'Scope',
+                    'Due threshold',
+                    'Status',
+                ]}
+            >
+                {rows.map((row) => (
+                    <tr key={row.id} className="border-b last:border-0">
+                        <td className="py-3 pr-4">
+                            <Link
+                                href={`/equipment/${row.equipment_id}?tab=maintenance`}
+                                className="font-medium hover:underline"
+                            >
+                                {row.equipment_code}
+                            </Link>
+                            <div className="text-muted-foreground">
+                                {row.equipment_name}
+                            </div>
+                        </td>
+                        <td className="py-3 pr-4">
+                            {row.name}
+                            <div className="text-muted-foreground">
+                                {title(row.maintenance_type)} /{' '}
+                                {title(row.basis)}
+                            </div>
+                        </td>
+                        <td className="py-3 pr-4">
+                            {row.branch_name}
+                            <div className="text-muted-foreground">
+                                {row.site_name ??
+                                    row.project_name ??
+                                    'Branch operation'}
+                            </div>
+                        </td>
+                        <td className="py-3 pr-4">
+                            {row.next_due_date ?? 'No date trigger'}
+                            <div className="text-muted-foreground">
+                                {row.next_due_reading
+                                    ? `${formatNumber(row.next_due_reading)} meter units`
+                                    : 'No meter trigger'}
+                            </div>
+                        </td>
+                        <td className="py-3">
+                            <Badge
+                                variant={
+                                    row.due_status === 'overdue'
+                                        ? 'destructive'
+                                        : row.due_status === 'due_soon'
+                                          ? 'outline'
+                                          : 'secondary'
+                                }
+                            >
+                                {title(row.due_status)}
+                            </Badge>
+                        </td>
+                    </tr>
+                ))}
+                {rows.length === 0 && <Empty colSpan={5} />}
+            </Table>
+        </section>
+    );
+}
+
+function MaintenanceWorkOrderPortfolioTable({
+    rows,
+    canViewCosts,
+}: {
+    rows: EquipmentMaintenancePortfolioWorkOrder[];
+    canViewCosts: boolean;
+}) {
+    const headers = [
+        'Work order / asset',
+        'Scope',
+        'Type / priority',
+        'Timing',
+        ...(canViewCosts ? ['Cost'] : []),
+        'Status / evidence',
+    ];
+    return (
+        <section className="grid gap-3">
+            <div>
+                <h3 className="font-semibold">Work-order ledger</h3>
+                <p className="text-sm text-muted-foreground">
+                    Planned work, workshop progress and completed maintenance
+                    history.
+                </p>
+            </div>
+            <Table headers={headers}>
+                {rows.map((row) => (
+                    <tr
+                        key={row.id}
+                        className="border-b align-top last:border-0"
+                    >
+                        <td className="py-3 pr-4">
+                            <div className="font-medium">{row.reference}</div>
+                            <Link
+                                href={`/equipment/${row.equipment_id}?tab=maintenance`}
+                                className="hover:underline"
+                            >
+                                {row.equipment_code}
+                            </Link>
+                            <div className="text-muted-foreground">
+                                {row.equipment_name}
+                            </div>
+                        </td>
+                        <td className="py-3 pr-4">{row.branch_name}</td>
+                        <td className="py-3 pr-4">
+                            {title(row.maintenance_type)}
+                            <div className="text-muted-foreground">
+                                {title(row.priority)}
+                            </div>
+                            <div className="max-w-72 text-muted-foreground">
+                                {row.description}
+                            </div>
+                        </td>
+                        <td className="py-3 pr-4">
+                            {row.reported_at}
+                            <div className="text-muted-foreground">
+                                {row.completed_at
+                                    ? `Completed ${row.completed_at}`
+                                    : row.actual_start_at
+                                      ? `Started ${row.actual_start_at}`
+                                      : row.planned_start_at
+                                        ? `Planned ${row.planned_start_at}`
+                                        : 'Start not set'}
+                            </div>
+                            <div className="text-muted-foreground">
+                                {row.downtime_hours
+                                    ? `${formatNumber(row.downtime_hours)} downtime hours`
+                                    : ''}
+                            </div>
+                        </td>
+                        {canViewCosts && (
+                            <td className="py-3 pr-4">
+                                {formatCurrencyAmount(
+                                    row.currency_code,
+                                    row.total_cost,
+                                )}
+                            </td>
+                        )}
+                        <td className="py-3">
+                            <Badge
+                                variant={
+                                    row.status === 'cancelled'
+                                        ? 'destructive'
+                                        : row.status === 'completed'
+                                          ? 'secondary'
+                                          : 'outline'
+                                }
+                            >
+                                {title(row.status)}
+                            </Badge>
+                            <div className="mt-1 text-muted-foreground">
+                                {formatNumber(row.document_count)} document(s)
+                            </div>
+                        </td>
+                    </tr>
+                ))}
+                {rows.length === 0 && <Empty colSpan={headers.length} />}
+            </Table>
+        </section>
     );
 }
 

@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 /**
  * @property-read string $id
@@ -59,6 +60,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read User $requestedBy
  * @property-read User|null $approvedBy
  * @property-read Collection<int, EquipmentMaintenancePartLine> $parts
+ * @property-read Collection<int, DocumentLink> $documentLinks
  */
 #[Fillable([
     'tenant_id', 'equipment_id', 'equipment_maintenance_schedule_id', 'branch_id',
@@ -141,5 +143,11 @@ final class EquipmentMaintenanceWorkOrder extends Model
     public function parts(): HasMany
     {
         return $this->hasMany(EquipmentMaintenancePartLine::class);
+    }
+
+    /** @return MorphMany<DocumentLink, $this> */
+    public function documentLinks(): MorphMany
+    {
+        return $this->morphMany(DocumentLink::class, 'linkable');
     }
 }

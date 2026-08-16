@@ -911,6 +911,33 @@ final class PointInvestmentSeeder extends Seeder
                 'reference' => 'SRV-INV-2407', 'notes' => 'Historical snapshot; inventory posting begins in Phase 3B.',
             ],
         );
+        $this->seedDocument(
+            actor: $director,
+            typeCode: 'INSPECTION_RECORD',
+            branch: $ugandaBranch,
+            title: 'Motor grader preventive service completion record',
+            reference: 'EQ-GRD-001-SERVICE-20260720',
+            content: 'Signed service record covering oil, filters, lubrication and safety inspection.',
+            links: [[$completedWorkOrder::class, $completedWorkOrder->id], [$grader::class, $grader->id]],
+            documentNumber: 'SRV-INV-2407',
+            revision: 'Completed',
+            discipline: 'Fleet Maintenance',
+            issuer: $subcontractor->name,
+        );
+        $this->seedDocument(
+            actor: $director,
+            typeCode: 'PERMIT',
+            branch: $ugandaBranch,
+            title: 'Motor grader insurance and road-use certificate',
+            reference: 'EQ-GRD-001-INSURANCE-2026',
+            content: 'Demo insurance and compliance certificate for fleet document expiry monitoring.',
+            links: [[$grader::class, $grader->id]],
+            expiresOn: '2026-09-30',
+            documentNumber: 'INS-EQ-GRD-001-2026',
+            revision: 'Issued',
+            discipline: 'Fleet Compliance',
+            issuer: 'Demo General Insurance',
+        );
         EquipmentMaintenanceWorkOrder::query()->updateOrCreate(
             ['tenant_id' => $excavator->tenant_id, 'reference' => 'MWO-EXC-0002'],
             [
