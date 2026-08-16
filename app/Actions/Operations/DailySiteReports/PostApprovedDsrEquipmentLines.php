@@ -31,12 +31,10 @@ final readonly class PostApprovedDsrEquipmentLines
         $report->loadMissing('equipmentLines');
 
         foreach ($report->equipmentLines as $line) {
-            if (! $line instanceof DailySiteReportEquipmentLine) {
-                continue;
-            }
             if ($line->equipment_id === null) {
                 continue;
             }
+
             $this->postLine($report, $line, $actor);
         }
     }

@@ -12,7 +12,10 @@ final class EquipmentMaintenanceSchedulePolicy
 {
     use ChecksTenantAccess;
 
-    public function viewAny(User $user): bool { return $user->can('equipment.view'); }
+    public function viewAny(User $user): bool
+    {
+        return $user->can('equipment.view');
+    }
 
     public function view(User $user, EquipmentMaintenanceSchedule $schedule): bool
     {
@@ -21,7 +24,10 @@ final class EquipmentMaintenanceSchedulePolicy
             && $this->viewAny($user);
     }
 
-    public function create(User $user): bool { return $user->can('equipment.maintenance.manage'); }
+    public function create(User $user): bool
+    {
+        return $user->can('equipment.maintenance.manage');
+    }
 
     public function update(User $user, EquipmentMaintenanceSchedule $schedule): bool
     {

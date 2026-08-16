@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Operations\Equipment\Maintenance;
 
-use App\Models\EquipmentMaintenanceSchedule;
 use App\Models\Equipment;
+use App\Models\EquipmentMaintenanceSchedule;
 use App\Models\User;
 use App\Services\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
@@ -13,7 +13,10 @@ use Illuminate\Validation\Rule;
 
 final class StoreMaintenanceScheduleRequest extends FormRequest
 {
-    public function authorize(): bool { return $this->user()?->can('equipment.maintenance.manage') === true; }
+    public function authorize(): bool
+    {
+        return $this->user()?->can('equipment.maintenance.manage') === true;
+    }
 
     /** @return array<string, mixed> */
     public function rules(): array

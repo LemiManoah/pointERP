@@ -35,7 +35,7 @@ it('controls the maintenance lifecycle and equipment availability', function ():
     $fleetManager = User::query()->where('email', 'fleet@point.test')->firstOrFail();
     $excavator = Equipment::query()->where('asset_code', 'EQ-EXC-003')->firstOrFail();
 
-    $this->actingAs($projectManager)->post(route('equipment.maintenance-schedules.store', $excavator), [
+    $this->actingAs($fleetManager)->post(route('equipment.maintenance-schedules.store', $excavator), [
         'maintenance_type' => 'preventive_service', 'name' => 'Test 250-hour service',
         'basis' => 'meter', 'interval_meter_units' => '250.0000',
         'last_service_reading' => $excavator->current_meter_reading,
@@ -59,23 +59,24 @@ it('controls the maintenance lifecycle and equipment availability', function ():
         'opening_meter_reading' => $excavator->current_meter_reading,
     ])->assertRedirect();
     expect($excavator->refresh()->current_status)->toBe('under_maintenance');
+    $closingReading = number_format((float) $excavator->current_meter_reading + 10, 4, '.', '');
 
     $this->actingAs($fleetManager)->post(route('equipment-maintenance-work-orders.complete', $workOrder), [
-        'completed_at' => now()->toDateTimeString(), 'closing_meter_reading' => '8400.0000',
+        'completed_at' => now()->toDateTimeString(), 'closing_meter_reading' => $closingReading,
         'downtime_hours' => '0.5000', 'work_performed' => 'Changed filters and completed inspection.',
         'labour_cost' => '200000.0000', 'other_cost' => '50000.0000', 'currency_code' => 'UGX',
         'parts' => [[
             'part_code' => 'TEST-FLT', 'part_name' => 'Test filter', 'quantity' => '2.0000',
             'unit' => 'piece', 'unit_cost' => '100000.0000',
         ]],
-    ])->assertRedirect();
+    ])->assertSessionHasNoErrors()->assertRedirect();
 
     expect($workOrder->refresh()->status)->toBe(EquipmentMaintenanceWorkOrder::STATUS_COMPLETED)
         ->and($workOrder->total_cost)->toBe('450000.0000')
         ->and($workOrder->parts)->toHaveCount(1)
         ->and($excavator->refresh()->current_status)->toBe('assigned')
-        ->and($excavator->current_meter_reading)->toBe('8400.0000')
-        ->and($schedule->refresh()->next_due_reading)->toBe('8650.0000');
+        ->and($excavator->current_meter_reading)->toBe($closingReading)
+        ->and($schedule->refresh()->next_due_reading)->toBe(number_format((float) $closingReading + 250, 4, '.', ''));
 });
 
 it('does not expose maintenance costs to site managers', function (): void {

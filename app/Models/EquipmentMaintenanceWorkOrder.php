@@ -7,8 +7,8 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToTenant;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -77,13 +77,19 @@ final class EquipmentMaintenanceWorkOrder extends Model
 
     /** @use HasFactory<Factory<EquipmentMaintenanceWorkOrder>> */
     use HasFactory;
+
     use HasUuids;
 
     public const string STATUS_PLANNED = 'planned';
+
     public const string STATUS_APPROVED = 'approved';
+
     public const string STATUS_IN_PROGRESS = 'in_progress';
+
     public const string STATUS_COMPLETED = 'completed';
+
     public const string STATUS_CANCELLED = 'cancelled';
+
     public const array PRIORITIES = ['low', 'normal', 'high', 'critical'];
 
     /** @return array<string, string> */
@@ -102,15 +108,38 @@ final class EquipmentMaintenanceWorkOrder extends Model
     }
 
     /** @return BelongsTo<Equipment, $this> */
-    public function equipment(): BelongsTo { return $this->belongsTo(Equipment::class); }
+    public function equipment(): BelongsTo
+    {
+        return $this->belongsTo(Equipment::class);
+    }
+
     /** @return BelongsTo<EquipmentMaintenanceSchedule, $this> */
-    public function schedule(): BelongsTo { return $this->belongsTo(EquipmentMaintenanceSchedule::class, 'equipment_maintenance_schedule_id'); }
+    public function schedule(): BelongsTo
+    {
+        return $this->belongsTo(EquipmentMaintenanceSchedule::class, 'equipment_maintenance_schedule_id');
+    }
+
     /** @return BelongsTo<Customer, $this> */
-    public function provider(): BelongsTo { return $this->belongsTo(Customer::class, 'provider_customer_id'); }
+    public function provider(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'provider_customer_id');
+    }
+
     /** @return BelongsTo<User, $this> */
-    public function requestedBy(): BelongsTo { return $this->belongsTo(User::class, 'requested_by'); }
+    public function requestedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'requested_by');
+    }
+
     /** @return BelongsTo<User, $this> */
-    public function approvedBy(): BelongsTo { return $this->belongsTo(User::class, 'approved_by'); }
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
     /** @return HasMany<EquipmentMaintenancePartLine, $this> */
-    public function parts(): HasMany { return $this->hasMany(EquipmentMaintenancePartLine::class); }
+    public function parts(): HasMany
+    {
+        return $this->hasMany(EquipmentMaintenancePartLine::class);
+    }
 }

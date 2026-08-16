@@ -14,8 +14,8 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\EquipmentMaintenanceNotificationService;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final readonly class ManageEquipmentMaintenance
@@ -34,6 +34,7 @@ final readonly class ManageEquipmentMaintenance
             if (! $equipment->is_active || $equipment->current_status === 'retired') {
                 throw ValidationException::withMessages(['equipment' => 'Maintenance schedules cannot be changed for retired equipment.']);
             }
+
             if ($equipment->meter_type === 'none' && in_array($data['basis'], ['meter', 'whichever_first'], true)) {
                 throw ValidationException::withMessages(['basis' => 'A no-meter asset can only use a date-based maintenance schedule.']);
             }
@@ -49,6 +50,7 @@ final readonly class ManageEquipmentMaintenance
             if ($lastReading !== null && $equipment->current_meter_reading !== null && $lastReading > (float) $equipment->current_meter_reading) {
                 throw ValidationException::withMessages(['last_service_reading' => 'The service baseline cannot exceed the latest accepted equipment reading.']);
             }
+
             $intervalDays = isset($data['interval_days']) ? (int) $data['interval_days'] : null;
             $intervalMeter = isset($data['interval_meter_units']) ? (float) $data['interval_meter_units'] : null;
 
@@ -99,8 +101,8 @@ final readonly class ManageEquipmentMaintenance
                 'project_id' => $equipment->current_project_id,
                 'site_id' => $equipment->current_site_id,
                 'equipment_location_id' => $equipment->current_location_id,
-                'provider_customer_id' => $provider?->id,
-                'provider_name' => $provider?->name ?? ($data['provider_name'] ?? null),
+                'provider_customer_id' => $provider instanceof Customer ? $provider->id : null,
+                'provider_name' => $provider instanceof Customer ? $provider->name : ($data['provider_name'] ?? null),
                 'status' => EquipmentMaintenanceWorkOrder::STATUS_PLANNED,
                 'requested_by' => $actor->id,
                 'created_by' => $actor->id,
@@ -120,6 +122,7 @@ final readonly class ManageEquipmentMaintenance
             if ($workOrder->status !== EquipmentMaintenanceWorkOrder::STATUS_PLANNED) {
                 throw ValidationException::withMessages(['work_order' => 'Only a planned work order can be approved.']);
             }
+
             $workOrder->forceFill(['status' => EquipmentMaintenanceWorkOrder::STATUS_APPROVED, 'approved_by' => $actor->id, 'updated_by' => $actor->id])->save();
             $this->auditLogger->record('equipment.maintenance_work_order.approved', $workOrder, $actor, ['status' => 'planned'], ['status' => 'approved'], $note);
             DB::afterCommit(fn () => $this->notifications->changed($workOrder, 'success', 'Maintenance work order approved'));
@@ -137,6 +140,7 @@ final readonly class ManageEquipmentMaintenance
             if ($workOrder->status !== EquipmentMaintenanceWorkOrder::STATUS_APPROVED) {
                 throw ValidationException::withMessages(['work_order' => 'Only an approved work order can be started.']);
             }
+
             if (in_array($equipment->current_status, ['retired', 'transferred', 'under_maintenance'], true)) {
                 throw ValidationException::withMessages(['equipment' => 'This equipment is unavailable for maintenance start.']);
             }
@@ -166,10 +170,12 @@ final readonly class ManageEquipmentMaintenance
             if ($workOrder->status !== EquipmentMaintenanceWorkOrder::STATUS_IN_PROGRESS || $workOrder->actual_start_at === null) {
                 throw ValidationException::withMessages(['work_order' => 'Only an in-progress work order can be completed.']);
             }
+
             $completedAt = CarbonImmutable::parse((string) $data['completed_at']);
             if ($completedAt->lt($workOrder->actual_start_at)) {
                 throw ValidationException::withMessages(['completed_at' => 'Completion cannot be earlier than maintenance start.']);
             }
+
             if ($equipment->meter_type !== 'none' && blank($data['closing_meter_reading'] ?? null)) {
                 throw ValidationException::withMessages(['closing_meter_reading' => 'A completion meter reading is required for metered equipment.']);
             }
@@ -180,6 +186,7 @@ final readonly class ManageEquipmentMaintenance
             if ($hasCosts && ! $actor->can('equipment.costs.view')) {
                 throw ValidationException::withMessages(['costs' => 'You do not have permission to record maintenance costs.']);
             }
+
             $currency = $hasCosts ? mb_strtoupper((string) ($data['currency_code'] ?? '')) : null;
             if ($currency !== null && ! BranchCurrency::query()->where('branch_id', $workOrder->branch_id)->where('currency_code', $currency)->where('is_enabled', true)->exists()) {
                 throw ValidationException::withMessages(['currency_code' => 'Select a currency enabled for this branch.']);
@@ -187,7 +194,10 @@ final readonly class ManageEquipmentMaintenance
 
             $partsCost = 0.0;
             foreach ($partRows as $part) {
-                if (! is_array($part)) continue;
+                if (! is_array($part)) {
+                    continue;
+                }
+
                 $unitCost = filled($part['unit_cost'] ?? null) ? (float) $part['unit_cost'] : null;
                 $total = $unitCost === null ? null : (float) $part['quantity'] * $unitCost;
                 $partsCost += $total ?? 0.0;
@@ -238,6 +248,7 @@ final readonly class ManageEquipmentMaintenance
                     'next_due_date' => $nextDate, 'next_due_reading' => $nextReading, 'updated_by' => $actor->id,
                 ])->save();
             }
+
             $equipment->forceFill(['current_status' => $releaseStatus, 'updated_by' => $actor->id])->save();
             $this->auditLogger->record('equipment.maintenance_work_order.completed', $workOrder, $actor, ['status' => 'in_progress'], ['status' => 'completed', 'equipment_status' => $releaseStatus, 'total_cost' => $workOrder->total_cost]);
             DB::afterCommit(fn () => $this->notifications->changed($workOrder, 'success', 'Equipment maintenance completed'));
@@ -254,6 +265,7 @@ final readonly class ManageEquipmentMaintenance
             if (! in_array($workOrder->status, [EquipmentMaintenanceWorkOrder::STATUS_PLANNED, EquipmentMaintenanceWorkOrder::STATUS_APPROVED, EquipmentMaintenanceWorkOrder::STATUS_IN_PROGRESS], true)) {
                 throw ValidationException::withMessages(['work_order' => 'This work order can no longer be cancelled.']);
             }
+
             $oldStatus = $workOrder->status;
             if ($oldStatus === EquipmentMaintenanceWorkOrder::STATUS_IN_PROGRESS) {
                 $hasActiveAssignment = $equipment->assignments()->where('status', 'active')->exists();
@@ -262,8 +274,10 @@ final readonly class ManageEquipmentMaintenance
                         ? 'Equipment with active custody must return to Assigned or be marked Out of Service.'
                         : 'Equipment cannot be released as Assigned without an active assignment.']);
                 }
+
                 $equipment->forceFill(['current_status' => $releaseStatus, 'updated_by' => $actor->id])->save();
             }
+
             $workOrder->forceFill([
                 'status' => EquipmentMaintenanceWorkOrder::STATUS_CANCELLED,
                 'cancellation_reason' => $reason, 'cancelled_at' => now(),

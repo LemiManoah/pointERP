@@ -76,7 +76,9 @@ export default function EquipmentIndex(props: Props) {
     } = props;
     const confirm = useConfirmDialog();
     const [tab, setTab] = useState(
-        ['register', 'categories', 'locations', 'fuel'].includes(props.activeTab)
+        ['register', 'categories', 'locations', 'fuel'].includes(
+            props.activeTab,
+        )
             ? props.activeTab
             : 'register',
     );
@@ -125,17 +127,28 @@ export default function EquipmentIndex(props: Props) {
                 const transactionDate = transaction.transacted_at.slice(0, 10);
 
                 return (
-                    (fuelStatus === 'all' || transaction.status === fuelStatus) &&
+                    (fuelStatus === 'all' ||
+                        transaction.status === fuelStatus) &&
                     (!dateFrom || transactionDate >= dateFrom) &&
                     (!dateTo || transactionDate <= dateTo) &&
-                    (branchId === 'all' || transaction.branch_id === branchId) &&
-                    (projectId === 'all' || transaction.project_id === projectId) &&
+                    (branchId === 'all' ||
+                        transaction.branch_id === branchId) &&
+                    (projectId === 'all' ||
+                        transaction.project_id === projectId) &&
                     (siteId === 'all' || transaction.site_id === siteId) &&
-                    (equipmentId === 'all' || transaction.equipment_id === equipmentId) &&
-                    (transactionType === 'all' || transaction.transaction_type === transactionType) &&
-                    (sourceType === 'all' || transaction.source_type === sourceType) &&
-                    (exceptionStatus === 'all' || transaction.exception_status === exceptionStatus) &&
-                    (!term || Object.values(transaction).join(' ').toLowerCase().includes(term))
+                    (equipmentId === 'all' ||
+                        transaction.equipment_id === equipmentId) &&
+                    (transactionType === 'all' ||
+                        transaction.transaction_type === transactionType) &&
+                    (sourceType === 'all' ||
+                        transaction.source_type === sourceType) &&
+                    (exceptionStatus === 'all' ||
+                        transaction.exception_status === exceptionStatus) &&
+                    (!term ||
+                        Object.values(transaction)
+                            .join(' ')
+                            .toLowerCase()
+                            .includes(term))
                 );
             }),
         [
@@ -175,7 +188,19 @@ export default function EquipmentIndex(props: Props) {
         });
 
         return `/equipment-fuel/export?${parameters.toString()}`;
-    }, [branchId, dateFrom, dateTo, debouncedSearch, equipmentId, exceptionStatus, fuelStatus, projectId, siteId, sourceType, transactionType]);
+    }, [
+        branchId,
+        dateFrom,
+        dateTo,
+        debouncedSearch,
+        equipmentId,
+        exceptionStatus,
+        fuelStatus,
+        projectId,
+        siteId,
+        sourceType,
+        transactionType,
+    ]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -202,36 +227,36 @@ export default function EquipmentIndex(props: Props) {
                                 placeholder={`Search ${tab}`}
                                 className="w-full pl-9 sm:w-80"
                             />
-                            </div>
-                            {tab === 'fuel' && (
-                                <FuelFilters
-                                    {...{
-                                        dateFrom,
-                                        setDateFrom,
-                                        dateTo,
-                                        setDateTo,
-                                        branchId,
-                                        setBranchId,
-                                        projectId,
-                                        setProjectId,
-                                        siteId,
-                                        setSiteId,
-                                        equipmentId,
-                                        setEquipmentId,
-                                        transactionType,
-                                        setTransactionType,
-                                        sourceType,
-                                        setSourceType,
-                                        exceptionStatus,
-                                        setExceptionStatus,
-                                        branches,
-                                        projects: filteredProjects,
-                                        sites: filteredSites,
-                                        equipment,
-                                    }}
-                                />
-                            )}
                         </div>
+                        {tab === 'fuel' && (
+                            <FuelFilters
+                                {...{
+                                    dateFrom,
+                                    setDateFrom,
+                                    dateTo,
+                                    setDateTo,
+                                    branchId,
+                                    setBranchId,
+                                    projectId,
+                                    setProjectId,
+                                    siteId,
+                                    setSiteId,
+                                    equipmentId,
+                                    setEquipmentId,
+                                    transactionType,
+                                    setTransactionType,
+                                    sourceType,
+                                    setSourceType,
+                                    exceptionStatus,
+                                    setExceptionStatus,
+                                    branches,
+                                    projects: filteredProjects,
+                                    sites: filteredSites,
+                                    equipment,
+                                }}
+                            />
+                        )}
+                    </div>
                     {tab === 'register' && can.create && (
                         <EquipmentDialog
                             branches={branches}
@@ -277,20 +302,32 @@ export default function EquipmentIndex(props: Props) {
                     </Tabs>
                     <Tabs
                         value={tab === 'fuel' ? fuelStatus : status}
-                        onValueChange={tab === 'fuel' ? setFuelStatus : setStatus}
+                        onValueChange={
+                            tab === 'fuel' ? setFuelStatus : setStatus
+                        }
                     >
                         <TabsList>
                             {tab === 'fuel' ? (
                                 <>
                                     <TabsTrigger value="all">All</TabsTrigger>
-                                    <TabsTrigger value="submitted">Submitted</TabsTrigger>
-                                    <TabsTrigger value="posted">Posted</TabsTrigger>
-                                    <TabsTrigger value="reversed">Reversed</TabsTrigger>
+                                    <TabsTrigger value="submitted">
+                                        Submitted
+                                    </TabsTrigger>
+                                    <TabsTrigger value="posted">
+                                        Posted
+                                    </TabsTrigger>
+                                    <TabsTrigger value="reversed">
+                                        Reversed
+                                    </TabsTrigger>
                                 </>
                             ) : (
                                 <>
-                                    <TabsTrigger value="active">Active</TabsTrigger>
-                                    <TabsTrigger value="inactive">Inactive</TabsTrigger>
+                                    <TabsTrigger value="active">
+                                        Active
+                                    </TabsTrigger>
+                                    <TabsTrigger value="inactive">
+                                        Inactive
+                                    </TabsTrigger>
                                 </>
                             )}
                         </TabsList>
@@ -561,10 +598,22 @@ function FuelSummary({ summary }: { summary: FuelSummaryData }) {
 
     return (
         <div className="grid gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-2 xl:grid-cols-6">
-            <Metric label="Transactions" value={formatNumber(summary.transactions)} />
-            <Metric label="Assets fuelled" value={formatNumber(summary.assets)} />
-            <Metric label="Awaiting review" value={formatNumber(summary.awaitingReview)} />
-            <Metric label="Exceptions" value={formatNumber(summary.exceptions)} />
+            <Metric
+                label="Transactions"
+                value={formatNumber(summary.transactions)}
+            />
+            <Metric
+                label="Assets fuelled"
+                value={formatNumber(summary.assets)}
+            />
+            <Metric
+                label="Awaiting review"
+                value={formatNumber(summary.awaitingReview)}
+            />
+            <Metric
+                label="Exceptions"
+                value={formatNumber(summary.exceptions)}
+            />
             <Metric label="Fuel quantity" value={quantityText} />
             <Metric label="Visible cost" value={costText} />
         </div>
@@ -575,7 +624,7 @@ function Metric({ label, value }: { label: string; value: string }) {
     return (
         <div className="min-w-0 bg-background p-4">
             <div className="text-xs text-muted-foreground">{label}</div>
-            <div className="mt-1 break-words font-semibold">{value}</div>
+            <div className="mt-1 font-semibold break-words">{value}</div>
         </div>
     );
 }
@@ -629,15 +678,97 @@ function FuelFilters({
 }) {
     return (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            <Input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} aria-label="From date" />
-            <Input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} aria-label="To date" />
-            <FilterSelect value={branchId} onChange={(value) => { setBranchId(value); setProjectId('all'); setSiteId('all'); }} label="All branches" options={branches.map((branch) => ({ value: branch.id, label: branch.name }))} />
-            <FilterSelect value={projectId} onChange={(value) => { setProjectId(value); setSiteId('all'); }} label="All projects" options={projects.map((project) => ({ value: project.id, label: project.name }))} />
-            <FilterSelect value={siteId} onChange={setSiteId} label="All sites" options={sites.map((site) => ({ value: site.id, label: site.name }))} />
-            <FilterSelect value={equipmentId} onChange={setEquipmentId} label="All equipment" options={equipment.map((asset) => ({ value: asset.id, label: asset.asset_code, description: asset.name }))} />
-            <FilterSelect value={transactionType} onChange={setTransactionType} label="All transaction types" options={['issue', 'refuel', 'consumption', 'return', 'adjustment'].map(option)} />
-            <FilterSelect value={sourceType} onChange={setSourceType} label="All sources" options={['supplier', 'store', 'site_stock', 'mobile_bowser', 'other'].map(option)} />
-            <FilterSelect value={exceptionStatus} onChange={setExceptionStatus} label="All exception states" options={['not_evaluated', 'within_tolerance', 'review_required', 'insufficient_evidence'].map(option)} />
+            <Input
+                type="date"
+                value={dateFrom}
+                onChange={(event) => setDateFrom(event.target.value)}
+                aria-label="From date"
+            />
+            <Input
+                type="date"
+                value={dateTo}
+                onChange={(event) => setDateTo(event.target.value)}
+                aria-label="To date"
+            />
+            <FilterSelect
+                value={branchId}
+                onChange={(value) => {
+                    setBranchId(value);
+                    setProjectId('all');
+                    setSiteId('all');
+                }}
+                label="All branches"
+                options={branches.map((branch) => ({
+                    value: branch.id,
+                    label: branch.name,
+                }))}
+            />
+            <FilterSelect
+                value={projectId}
+                onChange={(value) => {
+                    setProjectId(value);
+                    setSiteId('all');
+                }}
+                label="All projects"
+                options={projects.map((project) => ({
+                    value: project.id,
+                    label: project.name,
+                }))}
+            />
+            <FilterSelect
+                value={siteId}
+                onChange={setSiteId}
+                label="All sites"
+                options={sites.map((site) => ({
+                    value: site.id,
+                    label: site.name,
+                }))}
+            />
+            <FilterSelect
+                value={equipmentId}
+                onChange={setEquipmentId}
+                label="All equipment"
+                options={equipment.map((asset) => ({
+                    value: asset.id,
+                    label: asset.asset_code,
+                    description: asset.name,
+                }))}
+            />
+            <FilterSelect
+                value={transactionType}
+                onChange={setTransactionType}
+                label="All transaction types"
+                options={[
+                    'issue',
+                    'refuel',
+                    'consumption',
+                    'return',
+                    'adjustment',
+                ].map(option)}
+            />
+            <FilterSelect
+                value={sourceType}
+                onChange={setSourceType}
+                label="All sources"
+                options={[
+                    'supplier',
+                    'store',
+                    'site_stock',
+                    'mobile_bowser',
+                    'other',
+                ].map(option)}
+            />
+            <FilterSelect
+                value={exceptionStatus}
+                onChange={setExceptionStatus}
+                label="All exception states"
+                options={[
+                    'not_evaluated',
+                    'within_tolerance',
+                    'review_required',
+                    'insufficient_evidence',
+                ].map(option)}
+            />
         </div>
     );
 }
@@ -686,37 +817,82 @@ function FuelTable({
                 <tr key={transaction.id} className="border-b last:border-0">
                     <td className="py-3 pr-4">
                         <div>{transaction.transacted_at.slice(0, 10)}</div>
-                        <Link href={`/equipment/${transaction.equipment_id}?tab=fuel`} className="font-medium hover:underline">
+                        <Link
+                            href={`/equipment/${transaction.equipment_id}?tab=fuel`}
+                            className="font-medium hover:underline"
+                        >
                             {transaction.equipment_code}
                         </Link>
-                        <div className="text-muted-foreground">{transaction.equipment_name}</div>
+                        <div className="text-muted-foreground">
+                            {transaction.equipment_name}
+                        </div>
                     </td>
                     <td className="py-3 pr-4">
                         {transaction.branch_name}
-                        <div className="text-muted-foreground">{transaction.site_name ?? transaction.project_name ?? 'Branch operation'}</div>
+                        <div className="text-muted-foreground">
+                            {transaction.site_name ??
+                                transaction.project_name ??
+                                'Branch operation'}
+                        </div>
                     </td>
                     <td className="py-3 pr-4">
-                        <Badge variant="outline">{title(transaction.transaction_type)}</Badge>
-                        <div className="mt-1 text-muted-foreground">{title(transaction.source_type)}{transaction.source_name ? ` / ${transaction.source_name}` : ''}</div>
+                        <Badge variant="outline">
+                            {title(transaction.transaction_type)}
+                        </Badge>
+                        <div className="mt-1 text-muted-foreground">
+                            {title(transaction.source_type)}
+                            {transaction.source_name
+                                ? ` / ${transaction.source_name}`
+                                : ''}
+                        </div>
                     </td>
                     <td className="py-3 pr-4">
                         {formatNumber(transaction.quantity)} {transaction.unit}
-                        <div className="text-muted-foreground">{transaction.meter_reading ? `Meter ${formatNumber(transaction.meter_reading)}` : title(transaction.fuel_type)}</div>
+                        <div className="text-muted-foreground">
+                            {transaction.meter_reading
+                                ? `Meter ${formatNumber(transaction.meter_reading)}`
+                                : title(transaction.fuel_type)}
+                        </div>
                     </td>
                     {canViewCosts && (
-                        <td className="py-3 pr-4">{formatCurrencyAmount(transaction.currency_code, transaction.total_cost)}</td>
+                        <td className="py-3 pr-4">
+                            {formatCurrencyAmount(
+                                transaction.currency_code,
+                                transaction.total_cost,
+                            )}
+                        </td>
                     )}
                     <td className="py-3 pr-4">
-                        <Badge variant={transaction.exception_status === 'within_tolerance' ? 'secondary' : transaction.exception_status === 'not_evaluated' ? 'outline' : 'destructive'}>
+                        <Badge
+                            variant={
+                                transaction.exception_status ===
+                                'within_tolerance'
+                                    ? 'secondary'
+                                    : transaction.exception_status ===
+                                        'not_evaluated'
+                                      ? 'outline'
+                                      : 'destructive'
+                            }
+                        >
                             {title(transaction.exception_status)}
                         </Badge>
-                        <div className="mt-1 text-muted-foreground">{title(transaction.status)}</div>
-                        {transaction.exception_reason && <div className="mt-1 max-w-64 text-xs text-muted-foreground">{transaction.exception_reason}</div>}
+                        <div className="mt-1 text-muted-foreground">
+                            {title(transaction.status)}
+                        </div>
+                        {transaction.exception_reason && (
+                            <div className="mt-1 max-w-64 text-xs text-muted-foreground">
+                                {transaction.exception_reason}
+                            </div>
+                        )}
                     </td>
                     <td className="py-3">
                         <div className="flex justify-end gap-2">
-                            {transaction.can_approve && <FuelApproveButton transaction={transaction} />}
-                            {transaction.can_reverse && <FuelReversalDialog transaction={transaction} />}
+                            {transaction.can_approve && (
+                                <FuelApproveButton transaction={transaction} />
+                            )}
+                            {transaction.can_reverse && (
+                                <FuelReversalDialog transaction={transaction} />
+                            )}
                         </div>
                     </td>
                 </tr>

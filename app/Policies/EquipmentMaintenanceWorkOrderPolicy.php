@@ -12,7 +12,10 @@ final class EquipmentMaintenanceWorkOrderPolicy
 {
     use ChecksTenantAccess;
 
-    public function viewAny(User $user): bool { return $user->can('equipment.view'); }
+    public function viewAny(User $user): bool
+    {
+        return $user->can('equipment.view');
+    }
 
     public function view(User $user, EquipmentMaintenanceWorkOrder $workOrder): bool
     {
@@ -23,7 +26,11 @@ final class EquipmentMaintenanceWorkOrderPolicy
 
     public function create(User $user): bool
     {
-        return $user->can('equipment.maintenance.request') || $user->can('equipment.maintenance.manage');
+        if ($user->can('equipment.maintenance.request')) {
+            return true;
+        }
+
+        return $user->can('equipment.maintenance.manage');
     }
 
     public function approve(User $user, EquipmentMaintenanceWorkOrder $workOrder): bool

@@ -17,7 +17,7 @@ final readonly class EquipmentFuelReport
     public function __construct(private BranchContext $branchContext, private TenantContext $tenantContext) {}
 
     /**
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      * @return Collection<int, array<string, mixed>>
      */
     public function rows(User $user, array $filters = []): Collection
@@ -58,7 +58,7 @@ final readonly class EquipmentFuelReport
     }
 
     /**
-     * @param Collection<int, array<string, mixed>> $rows
+     * @param  Collection<int, array<string, mixed>>  $rows
      * @return array<string, mixed>
      */
     public function summary(Collection $rows): array
@@ -69,8 +69,10 @@ final readonly class EquipmentFuelReport
         foreach ($rows as $row) {
             $fuelType = (string) $row['fuel_type'];
             $quantityByFuel[$fuelType] = ($quantityByFuel[$fuelType] ?? 0.0) + (float) $row['quantity'];
-
-            if ($row['total_cost'] === null || $row['currency_code'] === null) {
+            if ($row['total_cost'] === null) {
+                continue;
+            }
+            if ($row['currency_code'] === null) {
                 continue;
             }
 

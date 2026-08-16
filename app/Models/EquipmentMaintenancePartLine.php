@@ -35,6 +35,7 @@ final class EquipmentMaintenancePartLine extends Model
 
     /** @use HasFactory<Factory<EquipmentMaintenancePartLine>> */
     use HasFactory;
+
     use HasUuids;
 
     /** @return array<string, string> */

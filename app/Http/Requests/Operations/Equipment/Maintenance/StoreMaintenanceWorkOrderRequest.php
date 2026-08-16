@@ -15,8 +15,11 @@ final class StoreMaintenanceWorkOrderRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('equipment.maintenance.request') === true
-            || $this->user()?->can('equipment.maintenance.manage') === true;
+        if ($this->user()?->can('equipment.maintenance.request') === true) {
+            return true;
+        }
+
+        return $this->user()?->can('equipment.maintenance.manage') === true;
     }
 
     /** @return array<string, mixed> */

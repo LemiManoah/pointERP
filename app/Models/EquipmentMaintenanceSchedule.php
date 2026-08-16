@@ -7,8 +7,8 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToTenant;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -50,9 +50,11 @@ final class EquipmentMaintenanceSchedule extends Model
 
     /** @use HasFactory<Factory<EquipmentMaintenanceSchedule>> */
     use HasFactory;
+
     use HasUuids;
 
     public const array BASES = ['date', 'meter', 'whichever_first'];
+
     public const array TYPES = ['preventive_service', 'inspection', 'certification', 'lubrication', 'tyres', 'other'];
 
     /** @return array<string, string> */
@@ -68,24 +70,43 @@ final class EquipmentMaintenanceSchedule extends Model
     }
 
     /** @return BelongsTo<Equipment, $this> */
-    public function equipment(): BelongsTo { return $this->belongsTo(Equipment::class); }
+    public function equipment(): BelongsTo
+    {
+        return $this->belongsTo(Equipment::class);
+    }
+
     /** @return BelongsTo<Branch, $this> */
-    public function branch(): BelongsTo { return $this->belongsTo(Branch::class); }
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
     /** @return BelongsTo<User, $this> */
-    public function responsibleUser(): BelongsTo { return $this->belongsTo(User::class, 'responsible_user_id'); }
+    public function responsibleUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'responsible_user_id');
+    }
+
     /** @return HasMany<EquipmentMaintenanceWorkOrder, $this> */
-    public function workOrders(): HasMany { return $this->hasMany(EquipmentMaintenanceWorkOrder::class); }
+    public function workOrders(): HasMany
+    {
+        return $this->hasMany(EquipmentMaintenanceWorkOrder::class);
+    }
 
     public function dueStatus(): string
     {
-        if (! $this->is_active) return 'inactive';
+        if (! $this->is_active) {
+            return 'inactive';
+        }
 
         $currentReading = $this->equipment->current_meter_reading;
         $dateOverdue = $this->next_due_date !== null && $this->next_due_date->isPast();
         $meterOverdue = $this->next_due_reading !== null && $currentReading !== null
             && (float) $currentReading >= (float) $this->next_due_reading;
 
-        if ($dateOverdue || $meterOverdue) return 'overdue';
+        if ($dateOverdue || $meterOverdue) {
+            return 'overdue';
+        }
 
         $dateDueSoon = $this->next_due_date !== null && $this->next_due_date->lte(now()->addDays($this->warning_days));
         $meterDueSoon = $this->next_due_reading !== null && $currentReading !== null

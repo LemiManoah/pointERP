@@ -1,11 +1,6 @@
 <?php
 
 declare(strict_types=1);
-
-use AppModelsUser;
-use AppServicesTenantContext;
-use DatabaseSeedersPointInvestmentSeeder;
-use DatabaseSeedersRolePermissionSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function (): void {
