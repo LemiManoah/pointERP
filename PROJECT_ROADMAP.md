@@ -200,7 +200,7 @@ Run the Phase 2D migrations, seeders, focused tests and UAT. Once accepted, begi
 
 Reason: PointERP can already capture daily operational data, but it does not yet provide the complete notification, escalation and exception-management loop required by `PRJ-005` to `PRJ-008`, `COM-003` to `COM-005`, and `RPT-001` to `RPT-006`. Closing that loop makes the existing work usable for management and gives Phase 3 modules a reusable notification and dashboard foundation.
 
-`phase3A.md` now defines the detailed equipment/fleet/fuel implementation plan. A broader `phase3.md` may be added before Phase 3B to consolidate equipment, inventory and workforce boundaries, but Phase 3A can proceed from its approved contract.
+`phase3A.md` defines the detailed equipment/fleet/fuel implementation plan. `phase3B.md` defines the next materials, procurement and inventory implementation contract. A broader `phase3.md` may still be added later to consolidate all Phase 3 domains, but Phase 3B can proceed from its approved contract.
 
 ## 8. Phase Completion Standard
 

@@ -8,7 +8,6 @@ use App\Http\Controllers\AuditTrailController;
 use App\Http\Controllers\Branches\CurrentBranchController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Foundation\BranchCurrencyController;
-use App\Http\Controllers\Foundation\CountryController;
 use App\Http\Controllers\Foundation\CurrencyController;
 use App\Http\Controllers\Foundation\CurrencySettingController;
 use App\Http\Controllers\Foundation\ExchangeRateApprovalController;
@@ -101,7 +100,6 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::put('current-branch', [CurrentBranchController::class, 'update'])->name('current-branch.update');
     Route::get('audit-trail', [AuditTrailController::class, 'index'])->name('audit-trail.index');
 
-    Route::resource('countries', CountryController::class)->except(['show'])->names('foundation.countries');
     Route::resource('currencies', CurrencyController::class)->except(['show'])->names('foundation.currencies');
     Route::get('currency-settings', [CurrencySettingController::class, 'index'])->name('foundation.currency-settings.index');
     Route::put('currency-settings/multi-currency', [TenantMultiCurrencyController::class, 'update'])->name('foundation.currency-settings.multi-currency.toggle');

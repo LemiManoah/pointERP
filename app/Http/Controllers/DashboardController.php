@@ -4,17 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\Branch;
-use App\Models\Contract;
-use App\Models\Country;
-use App\Models\Currency;
-use App\Models\Customer;
 use App\Models\DailySiteReport;
 use App\Models\Document;
+use App\Models\Equipment;
 use App\Models\Project;
-use App\Models\Role;
 use App\Models\Site;
-use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -31,14 +25,6 @@ final class DashboardController
 
         return Inertia::render('dashboard', [
             'metrics' => [
-                'tenants' => Tenant::query()->count(),
-                'countries' => Country::query()->active()->count(),
-                'currencies' => Currency::query()->active()->count(),
-                'branches' => Branch::query()->where('tenant_id', $tenantId)->where('status', 'active')->count(),
-                'users' => User::query()->where('tenant_id', $tenantId)->where('is_active', true)->where('is_support', false)->count(),
-                'roles' => Role::query()->count(),
-                'customers' => Customer::query()->where('tenant_id', $tenantId)->where('status', 'active')->count(),
-                'contracts' => Contract::query()->where('tenant_id', $tenantId)->where('status', 'active')->count(),
                 'projects' => Project::query()->where('tenant_id', $tenantId)->where('status', 'active')->count(),
                 'sites' => Site::query()->where('tenant_id', $tenantId)->where('status', 'active')->count(),
                 'documents' => Document::query()->where('tenant_id', $tenantId)->where('status', '!=', Document::STATUS_ARCHIVED)->count(),
@@ -55,6 +41,29 @@ final class DashboardController
                 'inputCost' => DailySiteReport::query()->where('tenant_id', $tenantId)->sum('input_cost'),
                 'profitLoss' => DailySiteReport::query()->where('tenant_id', $tenantId)->sum('profit_loss'),
             ],
+            'equipment' => [
+                'total' => Equipment::query()->where('tenant_id', $tenantId)->count(),
+                'available' => Equipment::query()->where('tenant_id', $tenantId)->where('current_status', 'available')->count(),
+                'assigned' => Equipment::query()->where('tenant_id', $tenantId)->where('current_status', 'assigned')->count(),
+                'underMaintenance' => Equipment::query()->where('tenant_id', $tenantId)->where('current_status', 'under_maintenance')->count(),
+                'idle' => Equipment::query()->where('tenant_id', $tenantId)->where('current_status', 'idle')->count(),
+                'outOfService' => Equipment::query()->where('tenant_id', $tenantId)->where('current_status', 'out_of_service')->count(),
+                'retired' => Equipment::query()->where('tenant_id', $tenantId)->where('current_status', 'retired')->count(),
+            ],
+            'expiringDocuments' => Document::query()
+                ->where('tenant_id', $tenantId)
+                ->expiringSoon()
+                ->orderBy('expires_on')
+                ->limit(5)
+                ->get()
+                ->map(fn (Document $document): array => [
+                    'id' => $document->id,
+                    'title' => $document->title,
+                    'reference' => $document->reference,
+                    'type_name' => $document->type?->name,
+                    'expires_on' => $document->expires_on?->toDateString(),
+                    'days_left' => $document->expires_on?->diffInDays(now()),
+                ]),
             'currentTenant' => $user->tenant->only([
                 'id',
                 'name',

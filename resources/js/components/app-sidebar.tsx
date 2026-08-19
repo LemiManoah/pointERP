@@ -6,7 +6,6 @@ import {
     FileText,
     FolderKanban,
     Gauge,
-    Globe2,
     HardHat,
     Package,
     ScrollText,
@@ -61,13 +60,6 @@ const groups: SidebarGroupItem[] = [
                 href: '/dashboard',
                 icon: Gauge,
                 status: 'ready',
-            },
-            {
-                title: 'Countries',
-                href: '/countries',
-                icon: Globe2,
-                status: 'ready',
-                permission: 'foundation.countries.manage',
             },
             {
                 title: 'Currency',
