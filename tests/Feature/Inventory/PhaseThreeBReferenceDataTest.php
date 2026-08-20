@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\AuditActivity;
 use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
+use App\Models\InventoryPriceTier;
 use App\Models\InventoryStore;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
@@ -136,6 +137,25 @@ it('shows the seeded item reference details and hides price lists without cost p
             ->has('prices', 0)
             ->where('can.manage', false)
             ->where('can.viewCosts', false));
+});
+
+it('creates reusable price lists before attaching an item price', function (): void {
+    $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
+    $item = InventoryItem::query()->where('code', 'AGG-20')->firstOrFail();
+    $unit = UnitOfMeasure::query()->where('code', 'TONNE')->firstOrFail();
+    $branch = $director->branches()->where('code', 'KLA-HQ')->firstOrFail();
+
+    $this->actingAs($director)->post(route('inventory.price-lists.store'), [
+        'code' => 'CONTRACTOR', 'name' => 'Contractor', 'description' => 'Approved contractor selling prices.', 'priority' => 75, 'is_active' => true,
+    ])->assertRedirect(route('inventory.index', ['tab' => 'price-lists']));
+    $priceList = InventoryPriceTier::query()->where('code', 'CONTRACTOR')->firstOrFail();
+
+    $this->actingAs($director)->post(route('inventory.items.prices.store', $item), [
+        'inventory_price_tier_id' => $priceList->id, 'branch_id' => $branch->id,
+        'unit_of_measure_id' => $unit->id, 'amount' => '140000', 'minimum_quantity' => '10', 'is_active' => true,
+    ])->assertRedirect(route('inventory.items.show', $item));
+
+    expect($priceList->prices()->where('inventory_item_id', $item->id)->value('amount'))->toBe('140000.0000');
 });
 
 it('authorises inventory mutations by permission and audits permanent deletion', function (): void {

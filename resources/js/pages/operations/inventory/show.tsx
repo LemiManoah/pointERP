@@ -26,6 +26,10 @@ import type {
     ItemPrice,
     StoreSetting,
 } from './partials/item-detail-dialogs';
+import {
+    StockMovementDialog,
+    StockMovementReversalDialog,
+} from './partials/stock-movement-dialogs';
 
 type Option = {
     id: string;
@@ -75,6 +79,29 @@ type DocumentRow = {
     status: string;
     expires_on: string | null;
 };
+type StockBalance = {
+    store_id: string;
+    store_name: string;
+    branch_name: string;
+    minimum_stock: string | null;
+    on_hand: string;
+    reserved: string;
+    available: string;
+};
+type StockMovement = {
+    id: string;
+    store_name: string;
+    movement_type: string;
+    status: string;
+    quantity: string;
+    original_quantity: string;
+    original_unit: string;
+    batch_number: string | null;
+    reason: string;
+    posted_by: string;
+    posted_at: string;
+    reversed_at: string | null;
+};
 
 type Props = {
     item: Item;
@@ -82,18 +109,28 @@ type Props = {
     prices: PriceRow[];
     batches: BatchRow[];
     storeSettings: StoreSettingRow[];
+    stockBalances: StockBalance[];
+    stockMovements: StockMovement[];
     units: Option[];
     stores: Option[];
     branches: Option[];
+    priceLists: Option[];
     documents: DocumentRow[];
     documentTypes: DocumentTypeOption[];
     documentBranches: Option[];
     documentLinkOptions: LinkOptions;
+    activeTab: string;
     can: {
         manage: boolean;
         permanentlyDelete: boolean;
         viewCosts: boolean;
         uploadDocuments: boolean;
+        viewStock: boolean;
+        postStock: boolean;
+        adjustStock: boolean;
+        issueStock: boolean;
+        returnStock: boolean;
+        reverseStock: boolean;
     };
 };
 
@@ -193,7 +230,7 @@ export default function InventoryItemShow(props: Props) {
                     </div>
                 </div>
 
-                <Tabs defaultValue="overview">
+                <Tabs defaultValue={props.activeTab}>
                     <TabsList className="flex h-auto flex-wrap justify-start">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="conversions">
@@ -207,7 +244,14 @@ export default function InventoryItemShow(props: Props) {
                         {item.tracking_type === 'batch' && (
                             <TabsTrigger value="batches">Batches</TabsTrigger>
                         )}
-                        <TabsTrigger value="stores">Store settings</TabsTrigger>
+                        <TabsTrigger value="stores">
+                            Stocked in stores
+                        </TabsTrigger>
+                        {props.can.viewStock && (
+                            <TabsTrigger value="stock">
+                                Stock ledger
+                            </TabsTrigger>
+                        )}
                         <TabsTrigger value="documents">Documents</TabsTrigger>
                     </TabsList>
                     <TabsContent value="overview" className="mt-6">
@@ -306,19 +350,23 @@ export default function InventoryItemShow(props: Props) {
                                     '',
                                 ]}
                                 rows={props.conversions.map((row) => [
-                                    <>
+                                    <span key={`${row.id}-conversion`}>
                                         1{' '}
                                         {row.from_unit?.symbol ??
                                             row.from_unit?.name}{' '}
                                         = {formatNumber(row.multiplier)}{' '}
                                         {row.to_unit?.symbol ??
                                             row.to_unit?.name}
-                                    </>,
+                                    </span>,
                                     row.effective_from ?? 'Immediately',
                                     row.reason ?? 'No reason recorded',
-                                    <Status active={row.is_active} />,
+                                    <Status
+                                        key={`${row.id}-status`}
+                                        active={row.is_active}
+                                    />,
                                     props.can.manage ? (
                                         <ConversionDialog
+                                            key={`${row.id}-action`}
                                             itemId={item.id}
                                             units={props.units.filter(
                                                 (unit) =>
@@ -342,6 +390,7 @@ export default function InventoryItemShow(props: Props) {
                                             itemId={item.id}
                                             units={props.units}
                                             branches={props.branches}
+                                            priceLists={props.priceLists}
                                         />
                                     ) : null
                                 }
@@ -356,14 +405,14 @@ export default function InventoryItemShow(props: Props) {
                                         '',
                                     ]}
                                     rows={props.prices.map((row) => [
-                                        <>
+                                        <div key={`${row.id}-price`}>
                                             <span className="font-medium">
                                                 {row.tier_name}
                                             </span>
                                             <div className="text-muted-foreground">
                                                 {row.tier_code}
                                             </div>
-                                        </>,
+                                        </div>,
                                         row.branch_name,
                                         formatCurrencyAmount(
                                             row.currency,
@@ -373,9 +422,11 @@ export default function InventoryItemShow(props: Props) {
                                         `${row.effective_from ?? 'Now'} to ${row.effective_until ?? 'Open'}`,
                                         props.can.manage ? (
                                             <PriceDialog
+                                                key={`${row.id}-action`}
                                                 itemId={item.id}
                                                 units={props.units}
                                                 branches={props.branches}
+                                                priceLists={props.priceLists}
                                                 price={row}
                                             />
                                         ) : null,
@@ -411,11 +462,15 @@ export default function InventoryItemShow(props: Props) {
                                         row.store_name ?? 'Not assigned',
                                         row.manufactured_on ?? 'Not recorded',
                                         row.expires_on ?? 'Not recorded',
-                                        <Badge variant="outline">
+                                        <Badge
+                                            key={`${row.id}-status`}
+                                            variant="outline"
+                                        >
                                             {title(row.status)}
                                         </Badge>,
                                         props.can.manage ? (
                                             <BatchDialog
+                                                key={`${row.id}-action`}
                                                 itemId={item.id}
                                                 stores={props.stores}
                                                 batch={row}
@@ -428,7 +483,7 @@ export default function InventoryItemShow(props: Props) {
                     )}
                     <TabsContent value="stores" className="mt-6">
                         <Section
-                            title="Store-specific settings"
+                            title="Store availability"
                             action={
                                 props.can.manage ? (
                                     <StoreSettingDialog
@@ -455,6 +510,7 @@ export default function InventoryItemShow(props: Props) {
                                     row.storage_location ?? 'Not set',
                                     props.can.manage ? (
                                         <StoreSettingDialog
+                                            key={`${row.id}-action`}
                                             itemId={item.id}
                                             stores={props.stores}
                                             setting={row}
@@ -464,6 +520,158 @@ export default function InventoryItemShow(props: Props) {
                             />
                         </Section>
                     </TabsContent>
+                    {props.can.viewStock && (
+                        <TabsContent value="stock" className="mt-6 space-y-6">
+                            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                {props.stockBalances.map((balance) => {
+                                    const low =
+                                        balance.minimum_stock !== null &&
+                                        Number(balance.on_hand) <=
+                                            Number(balance.minimum_stock);
+                                    return (
+                                        <Card key={balance.store_id}>
+                                            <CardHeader className="pb-3">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div>
+                                                        <CardTitle className="text-base">
+                                                            {balance.store_name}
+                                                        </CardTitle>
+                                                        <p className="mt-1 text-sm text-muted-foreground">
+                                                            {
+                                                                balance.branch_name
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                    {low && (
+                                                        <Badge variant="destructive">
+                                                            Low stock
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="grid grid-cols-3 gap-3">
+                                                <Value
+                                                    label="On hand"
+                                                    value={formatNumber(
+                                                        balance.on_hand,
+                                                    )}
+                                                />
+                                                <Value
+                                                    label="Reserved"
+                                                    value={formatNumber(
+                                                        balance.reserved,
+                                                    )}
+                                                />
+                                                <Value
+                                                    label="Available"
+                                                    value={formatNumber(
+                                                        balance.available,
+                                                    )}
+                                                />
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
+                            </div>
+                            <Section
+                                title="Movement ledger"
+                                action={
+                                    props.can.postStock ? (
+                                        <StockMovementDialog
+                                            itemId={item.id}
+                                            stores={props.stockBalances.map(
+                                                (balance) => ({
+                                                    id: balance.store_id,
+                                                    name: balance.store_name,
+                                                    branch_name:
+                                                        balance.branch_name,
+                                                }),
+                                            )}
+                                            units={props.units}
+                                            batches={props.batches}
+                                            can={props.can}
+                                        />
+                                    ) : null
+                                }
+                            >
+                                <Table
+                                    headers={[
+                                        'Posted',
+                                        'Store',
+                                        'Movement',
+                                        'Stock quantity',
+                                        'Original quantity',
+                                        'Reason',
+                                        'Status',
+                                        '',
+                                    ]}
+                                    rows={props.stockMovements.map(
+                                        (movement) => [
+                                            <div key={`${movement.id}-posted`}>
+                                                <span className="font-medium">
+                                                    {movement.posted_at}
+                                                </span>
+                                                <div className="text-muted-foreground">
+                                                    {movement.posted_by}
+                                                </div>
+                                            </div>,
+                                            movement.store_name,
+                                            <Badge
+                                                key={`${movement.id}-type`}
+                                                variant="outline"
+                                            >
+                                                {title(movement.movement_type)}
+                                            </Badge>,
+                                            <span
+                                                key={`${movement.id}-quantity`}
+                                                className={
+                                                    Number(movement.quantity) <
+                                                    0
+                                                        ? 'text-destructive'
+                                                        : 'text-emerald-700'
+                                                }
+                                            >
+                                                {formatNumber(
+                                                    movement.quantity,
+                                                )}{' '}
+                                                {item.stock_unit?.symbol ??
+                                                    item.stock_unit?.name}
+                                            </span>,
+                                            `${formatNumber(movement.original_quantity)} ${movement.original_unit}`,
+                                            <div
+                                                key={`${movement.id}-reason`}
+                                                className="max-w-xs"
+                                            >
+                                                <span>{movement.reason}</span>
+                                                {movement.batch_number && (
+                                                    <div className="text-muted-foreground">
+                                                        Batch{' '}
+                                                        {movement.batch_number}
+                                                    </div>
+                                                )}
+                                            </div>,
+                                            <Status
+                                                key={`${movement.id}-status`}
+                                                active={
+                                                    movement.status === 'posted'
+                                                }
+                                                label={title(movement.status)}
+                                            />,
+                                            props.can.reverseStock &&
+                                            movement.status === 'posted' &&
+                                            movement.movement_type !==
+                                                'reversal' ? (
+                                                <StockMovementReversalDialog
+                                                    key={`${movement.id}-action`}
+                                                    movementId={movement.id}
+                                                />
+                                            ) : null,
+                                        ],
+                                    )}
+                                />
+                            </Section>
+                        </TabsContent>
+                    )}
                     <TabsContent value="documents" className="mt-6">
                         <Section
                             title="Linked documents"
@@ -491,7 +699,7 @@ export default function InventoryItemShow(props: Props) {
                                     '',
                                 ]}
                                 rows={props.documents.map((document) => [
-                                    <>
+                                    <div key={`${document.id}-document`}>
                                         <span className="font-medium">
                                             {document.title}
                                         </span>
@@ -499,14 +707,20 @@ export default function InventoryItemShow(props: Props) {
                                             {document.reference ??
                                                 'No reference'}
                                         </div>
-                                    </>,
+                                    </div>,
                                     document.type_name ?? 'Unclassified',
                                     <Status
+                                        key={`${document.id}-status`}
                                         active={document.status === 'active'}
                                         label={title(document.status)}
                                     />,
                                     document.expires_on ?? 'No expiry',
-                                    <Button asChild variant="outline" size="sm">
+                                    <Button
+                                        key={`${document.id}-action`}
+                                        asChild
+                                        variant="outline"
+                                        size="sm"
+                                    >
                                         <Link
                                             href={`/documents/${document.id}`}
                                         >

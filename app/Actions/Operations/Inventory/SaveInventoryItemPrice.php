@@ -9,24 +9,19 @@ use App\Models\InventoryItemPrice;
 use App\Models\InventoryPriceTier;
 use App\Models\User;
 use App\Services\AuditLogger;
-use App\Services\BranchContext;
 use App\Services\TenantContext;
 
 final readonly class SaveInventoryItemPrice
 {
-    public function __construct(private AuditLogger $auditLogger, private TenantContext $tenantContext, private BranchContext $branchContext) {}
+    public function __construct(private AuditLogger $auditLogger, private TenantContext $tenantContext) {}
 
     /** @param array<string, mixed> $data */
     public function handle(array $data, InventoryItem $item, User $actor, ?InventoryItemPrice $price = null): InventoryItemPrice
     {
         $tenantId = $this->tenantContext->id();
-        $tier = InventoryPriceTier::query()->firstOrCreate(
-            ['tenant_id' => $tenantId, 'code' => $data['tier_code']],
-            ['name' => $data['tier_name'], 'is_active' => true, 'created_by' => $actor->id, 'updated_by' => $actor->id],
-        );
-        $tier->update(['name' => $data['tier_name'], 'is_active' => true, 'updated_by' => $actor->id]);
+        $tier = InventoryPriceTier::query()->whereKey($data['inventory_price_tier_id'])->where('is_active', true)->firstOrFail();
 
-        $branchId = $data['branch_id'] ?? $this->branchContext->current($actor)?->id;
+        $branchId = (string) $data['branch_id'];
         $price ??= InventoryItemPrice::query()
             ->where('inventory_item_id', $item->id)
             ->where('inventory_price_tier_id', $tier->id)

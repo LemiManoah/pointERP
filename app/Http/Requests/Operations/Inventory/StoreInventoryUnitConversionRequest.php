@@ -23,6 +23,7 @@ final class StoreInventoryUnitConversionRequest extends FormRequest
             'effective_from' => ['nullable', 'date'],
             'reason' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['required', 'boolean'],
+            'return_to' => ['nullable', Rule::in(['register'])],
         ];
     }
 }

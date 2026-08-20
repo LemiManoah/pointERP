@@ -1,7 +1,12 @@
 import { useForm } from '@inertiajs/react';
 import { Pencil, Plus } from 'lucide-react';
-import type { FormEvent, ReactNode } from 'react';
-import { useState } from 'react';
+import type {
+    ComponentPropsWithoutRef,
+    ComponentRef,
+    FormEvent,
+    ReactNode,
+} from 'react';
+import { forwardRef, useState } from 'react';
 import InputError from '@/components/input-error';
 import { SearchableSelect } from '@/components/searchable-select';
 import { Button } from '@/components/ui/button';
@@ -38,6 +43,7 @@ export type Conversion = {
 };
 export type ItemPrice = {
     id: string;
+    inventory_price_tier_id: string;
     tier_code: string;
     tier_name: string;
     branch_id: string | null;
@@ -85,17 +91,22 @@ function Field({
     );
 }
 
-function Trigger({ editing }: { editing: boolean }) {
+const Trigger = forwardRef<
+    ComponentRef<typeof Button>,
+    ComponentPropsWithoutRef<typeof Button> & { editing: boolean }
+>(function Trigger({ editing, ...props }, ref) {
     return (
         <Button
+            ref={ref}
             variant={editing ? 'outline' : 'default'}
             size={editing ? 'sm' : 'default'}
+            {...props}
         >
             {editing ? <Pencil /> : <Plus />}
             {editing ? 'Edit' : 'Add new'}
         </Button>
     );
-}
+});
 
 export function ConversionDialog({
     itemId,
@@ -120,12 +131,14 @@ export function ConversionDialog({
             preserveScroll: true,
             onSuccess: () => setOpen(false),
         };
-        conversion
-            ? form.put(
-                  `/inventory/items/${itemId}/conversions/${conversion.id}`,
-                  options,
-              )
-            : form.post(`/inventory/items/${itemId}/conversions`, options);
+        if (conversion) {
+            form.put(
+                `/inventory/items/${itemId}/conversions/${conversion.id}`,
+                options,
+            );
+        } else {
+            form.post(`/inventory/items/${itemId}/conversions`, options);
+        }
     }
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -222,17 +235,18 @@ export function PriceDialog({
     itemId,
     units,
     branches,
+    priceLists,
     price,
 }: {
     itemId: string;
     units: Option[];
     branches: Option[];
+    priceLists: Option[];
     price?: ItemPrice;
 }) {
     const [open, setOpen] = useState(false);
     const form = useForm({
-        tier_code: price?.tier_code ?? '',
-        tier_name: price?.tier_name ?? '',
+        inventory_price_tier_id: price?.inventory_price_tier_id ?? '',
         branch_id:
             price?.branch_id ?? (branches.length === 1 ? branches[0].id : ''),
         unit_of_measure_id: price?.unit_of_measure_id ?? '',
@@ -248,9 +262,11 @@ export function PriceDialog({
             preserveScroll: true,
             onSuccess: () => setOpen(false),
         };
-        price
-            ? form.put(`/inventory/items/${itemId}/prices/${price.id}`, options)
-            : form.post(`/inventory/items/${itemId}/prices`, options);
+        if (price) {
+            form.put(`/inventory/items/${itemId}/prices/${price.id}`, options);
+        } else {
+            form.post(`/inventory/items/${itemId}/prices`, options);
+        }
     }
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -265,41 +281,28 @@ export function PriceDialog({
                             : 'Add price list entry'}
                     </DialogTitle>
                     <DialogDescription>
-                        Use names such as Retail, Wholesale or Staff. The
-                        selected branch supplies the currency.
+                        Select an existing price list. The selected branch
+                        supplies the currency.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={submit} className="grid gap-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <Field
-                            label="Price list code"
-                            error={form.errors.tier_code}
-                        >
-                            <Input
-                                value={form.data.tier_code}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'tier_code',
-                                        event.target.value.toUpperCase(),
-                                    )
-                                }
-                            />
-                        </Field>
-                        <Field
-                            label="Price list name"
-                            error={form.errors.tier_name}
-                        >
-                            <Input
-                                value={form.data.tier_name}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'tier_name',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                        </Field>
-                    </div>
+                    <Field
+                        label="Price list"
+                        error={form.errors.inventory_price_tier_id}
+                    >
+                        <SearchableSelect
+                            value={form.data.inventory_price_tier_id}
+                            options={priceLists.map((list) => ({
+                                value: list.id,
+                                label: list.name,
+                                description: list.code,
+                            }))}
+                            onValueChange={(value) =>
+                                form.setData('inventory_price_tier_id', value)
+                            }
+                            placeholder="Select price list"
+                        />
+                    </Field>
                     <div className="grid gap-4 sm:grid-cols-3">
                         <Field
                             label="Branch / facility"
@@ -440,12 +443,11 @@ export function BatchDialog({
             preserveScroll: true,
             onSuccess: () => setOpen(false),
         };
-        batch
-            ? form.put(
-                  `/inventory/items/${itemId}/batches/${batch.id}`,
-                  options,
-              )
-            : form.post(`/inventory/items/${itemId}/batches`, options);
+        if (batch) {
+            form.put(`/inventory/items/${itemId}/batches/${batch.id}`, options);
+        } else {
+            form.post(`/inventory/items/${itemId}/batches`, options);
+        }
     }
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -605,12 +607,14 @@ export function StoreSettingDialog({
             preserveScroll: true,
             onSuccess: () => setOpen(false),
         };
-        setting
-            ? form.put(
-                  `/inventory/items/${itemId}/store-settings/${setting.id}`,
-                  options,
-              )
-            : form.post(`/inventory/items/${itemId}/store-settings`, options);
+        if (setting) {
+            form.put(
+                `/inventory/items/${itemId}/store-settings/${setting.id}`,
+                options,
+            );
+        } else {
+            form.post(`/inventory/items/${itemId}/store-settings`, options);
+        }
     }
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -625,8 +629,8 @@ export function StoreSettingDialog({
                             : 'Enable item in store'}
                     </DialogTitle>
                     <DialogDescription>
-                        Override the item defaults for a specific operational
-                        store.
+                        Enable this item in a store and optionally override its
+                        warning level, reorder quantity and storage location.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={submit} className="grid gap-4">

@@ -4,7 +4,7 @@
 
 Phase 3B is the next major implementation phase after Phase 3A. It introduces controlled materials, suppliers, procurement and stores while preserving the operational history already captured by Daily Site Reports and the fleet module.
 
-Status: implementation in progress. Chunk 3B.1 is implemented and awaiting local migration, focused-test, static-analysis and UI acceptance before Chunk 3B.2 begins.
+Status: implementation in progress. Chunks 3B.1 and 3B.2 are implemented and awaiting local migration, focused tests, static analysis and UI acceptance before requisitions begin in Chunk 3B.3.
 
 The roadmap and SRS are the authority for this phase. `phase3A.md` remains the authority for equipment, fuel, maintenance, meter, custody and fleet location behaviour. This document owns stock, procurement and material issue workflows.
 
@@ -147,7 +147,7 @@ Each item declares a tracking type: `none`, `serial`, `batch` or `other`.
 
 `is_for_sale` distinguishes materials that may be sold externally from internal-use-only stock. An optional default unit selling price provides a simple fallback in the active branch/facility default currency.
 
-Multiple selling prices are represented by named price tiers, not columns such as `retail_price` and `wholesale_price` on the item. `inventory_price_tiers` defines tenant-owned tiers such as Retail, Wholesale or Staff, and `inventory_item_prices` stores item, tier, currency, unit, amount, effective dates and minimum quantity. A sales transaction copies the selected price snapshot so later price changes do not rewrite history.
+Multiple selling prices are represented by named price lists, not columns such as `retail_price` and `wholesale_price` on the item. `inventory_price_tiers` defines tenant-owned reusable lists such as Retail, Wholesale or Staff. Users create those lists in the dedicated Price lists register, then attach a list, branch, selling unit, amount, effective dates and optional minimum quantity to an item. Currency is resolved from the selected branch/facility and is not selected again on the item price. A sales transaction copies the selected price and currency snapshot so later configuration changes do not rewrite history.
 
 ## 5. Proposed Data Model
 
@@ -518,7 +518,7 @@ Audit events should include actor, tenant, branch, event, record type/id, old/ne
 
 ### Chunk 3B.1: Reference data and store foundation
 
-Status: implemented, pending validation. Category, unit, item and store foundations now include secure price-field serialization, equipment-style tables, item tracking/saleability fields, conversion management, price lists, batch references, store-item settings, document links, permission-based lifecycle controls and stronger isolation tests.
+Status: implemented, pending validation. Category, unit, item and store foundations now include secure price-field serialization, equipment-style tables, item tracking/saleability fields, dedicated unit-conversion and price-list registers, batch references, explicit store availability, document links, permission-based lifecycle controls and stronger isolation tests.
 
 - Create category, unit, item and store schema separately.
 - Add models, factories, policies, requests, actions and CRUD pages.
@@ -532,6 +532,8 @@ Status: implemented, pending validation. Category, unit, item and store foundati
 Acceptance: an authorised manager can define an item and store, configure warning thresholds, conversions, price lists, batches, store settings and documents, and permanently delete only inactive unused reference records; unrelated branches and tenants cannot manage them.
 
 ### Chunk 3B.2: Stock ledger and balances
+
+Status: implemented, pending validation. The current slice provides append-only stock movements, store-item row locking, unit-conversion snapshots, batch enforcement, idempotent posting, negative-stock prevention, reservation-aware balances, controlled reversals, low-stock views, CSV export, audit events and seeded opening balances.
 
 - Create movement, reservation and balance query/service.
 - Use locked store-item rows and transactional posting to prevent concurrent negative stock.

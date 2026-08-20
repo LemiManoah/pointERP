@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable(['tenant_id', 'branch_id', 'equipment_location_id', 'project_id', 'site_id', 'code', 'name', 'type', 'address', 'is_active', 'created_by', 'updated_by'])]
@@ -54,6 +55,12 @@ final class InventoryStore extends Model
     public function site(): BelongsTo
     {
         return $this->belongsTo(Site::class);
+    }
+
+    /** @return HasMany<InventoryStockMovement, $this> */
+    public function stockMovements(): HasMany
+    {
+        return $this->hasMany(InventoryStockMovement::class);
     }
 
     /**

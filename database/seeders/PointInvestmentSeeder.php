@@ -6,8 +6,10 @@ namespace Database\Seeders;
 
 use App\Actions\EnsureDefaultTenant;
 use App\Actions\Operations\DailySiteReports\PostApprovedDsrEquipmentLines;
+use App\Actions\Operations\Inventory\PostInventoryStockMovement;
 use App\Enums\InventoryBatchStatus;
 use App\Enums\InventoryMaterialClass;
+use App\Enums\InventoryMovementType;
 use App\Enums\InventoryStoreType;
 use App\Enums\InventoryTrackingType;
 use App\Models\Branch;
@@ -265,8 +267,8 @@ final class PointInvestmentSeeder extends Seeder
         ];
         $inventoryItems = [];
         foreach ($items as [$code, $name, $unitCode, $class, $trackingType, $batchNumber, $isExpires, $isForSale, $reorder, $reorderQty, $unitCost, $sellingPrice]) {
-            /** @var InventoryMaterialClass $class */
-            /** @var InventoryTrackingType $trackingType */
+            /** @var InventoryMaterialClass::ConstructionMaterial|InventoryMaterialClass::Consumable $class */
+            /** @var InventoryTrackingType::Batch|InventoryTrackingType::None $trackingType */
             $inventoryItems[$code] = InventoryItem::query()->updateOrCreate(
                 ['tenant_id' => $tenantId, 'code' => $code],
                 ['inventory_category_id' => $category->id, 'stock_unit_id' => $units[$unitCode]->id, 'preferred_supplier_id' => $supplier->id, 'name' => $name, 'material_class' => $class->value, 'tracking_type' => $trackingType->value, 'batch_number' => $batchNumber, 'is_expires' => $isExpires, 'is_for_sale' => $isForSale, 'minimum_stock' => $reorder, 'reorder_quantity' => $reorderQty, 'default_unit_cost' => $unitCost, 'default_selling_price' => $sellingPrice, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
@@ -303,7 +305,7 @@ final class PointInvestmentSeeder extends Seeder
             );
         }
 
-        InventoryBatch::query()->updateOrCreate(
+        $cementBatch = InventoryBatch::query()->updateOrCreate(
             ['tenant_id' => $tenantId, 'inventory_item_id' => $inventoryItems['CEM-42']->id, 'batch_number' => 'CEM-42-2026-08'],
             ['inventory_store_id' => $kampalaStore->id, 'manufactured_on' => now()->subMonth()->toDateString(), 'expires_on' => now()->addMonths(5)->toDateString(), 'status' => InventoryBatchStatus::Available->value, 'notes' => 'Demo cement batch for the Kampala depot.', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
         );
@@ -313,6 +315,33 @@ final class PointInvestmentSeeder extends Seeder
                 ['inventory_store_id' => $store->id, 'inventory_item_id' => $inventoryItems['CEM-42']->id],
                 ['tenant_id' => $tenantId, 'minimum_stock' => $minimumStock, 'reorder_quantity' => $reorderQuantity, 'storage_location' => $storageLocation, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
             );
+        }
+
+        foreach ([['AGG-20', '25', '100', 'Aggregate yard'], ['PPE-VEST', '20', '50', 'PPE cage']] as [$itemCode, $minimumStock, $reorderQuantity, $storageLocation]) {
+            InventoryStoreItem::query()->updateOrCreate(
+                ['inventory_store_id' => $kampalaStore->id, 'inventory_item_id' => $inventoryItems[$itemCode]->id],
+                ['tenant_id' => $tenantId, 'minimum_stock' => $minimumStock, 'reorder_quantity' => $reorderQuantity, 'storage_location' => $storageLocation, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+            );
+        }
+
+        $stockPosting = resolve(PostInventoryStockMovement::class);
+        foreach ([
+            [$inventoryItems['CEM-42'], $kampalaStore, $units['BAG'], $cementBatch, '1200', 'seed:opening:cem-42:kla'],
+            [$inventoryItems['AGG-20'], $kampalaStore, $units['TONNE'], null, '180', 'seed:opening:agg-20:kla'],
+            [$inventoryItems['PPE-VEST'], $kampalaStore, $units['PIECE'], null, '75', 'seed:opening:ppe-vest:kla'],
+        ] as [$item, $store, $unit, $batch, $quantity, $sourceKey]) {
+            /** @var InventoryItem $item */
+            /** @var InventoryStore $store */
+            /** @var UnitOfMeasure $unit */
+            /** @var InventoryBatch|null $batch */
+            $stockPosting->handle($store, $item, [
+                'movement_type' => InventoryMovementType::OpeningBalance->value,
+                'original_quantity' => $quantity,
+                'original_unit_id' => $unit->id,
+                'inventory_batch_id' => $batch?->id,
+                'source_key' => $sourceKey,
+                'reason' => 'Controlled opening balance for Phase 3B demonstration.',
+            ], $director);
         }
 
         $itemDocument = Document::query()->where('tenant_id', $tenantId)->first();

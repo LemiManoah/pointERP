@@ -9,7 +9,9 @@ use App\Models\Customer;
 use App\Models\EquipmentLocation;
 use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
+use App\Models\InventoryPriceTier;
 use App\Models\InventoryStore;
+use App\Models\InventoryUnitConversion;
 use App\Models\Project;
 use App\Models\Site;
 use App\Models\UnitOfMeasure;
@@ -32,8 +34,7 @@ final class InventoryController
         $branchContext = resolve(BranchContext::class);
         $branchIds = $branchContext->accessibleBranchIds($actor);
         $canViewCosts = Gate::allows('viewCosts', InventoryItem::class);
-        $priceCurrency = $branchContext->current($actor)?->default_currency_code
-            ?? resolve(TenantContext::class)->current()->default_currency_code;
+        $priceCurrency = $branchContext->current($actor)->default_currency_code;
 
         $items = InventoryItem::query()
             ->with(['category', 'stockUnit', 'preferredSupplier'])
@@ -69,6 +70,15 @@ final class InventoryController
             'categories' => InventoryCategory::query()->orderBy('name')->get(),
             'units' => UnitOfMeasure::query()->where(fn (Builder $query): Builder => $query->whereNull('tenant_id')->orWhere('tenant_id', resolve(TenantContext::class)->id()))->orderBy('name')->get(),
             'items' => $items,
+            'priceLists' => $canViewCosts ? InventoryPriceTier::query()->withCount('prices')->orderBy('priority')->orderBy('name')->get() : [],
+            'conversions' => InventoryUnitConversion::query()->with(['item.stockUnit', 'fromUnit', 'toUnit'])->orderByDesc('is_active')->get()->map(fn (InventoryUnitConversion $conversion): array => [
+                'id' => $conversion->id, 'inventory_item_id' => $conversion->inventory_item_id,
+                'item_name' => $conversion->item->name, 'item_code' => $conversion->item->code,
+                'from_unit_id' => $conversion->from_unit_id, 'from_unit_name' => $conversion->fromUnit->name,
+                'from_unit_symbol' => $conversion->fromUnit->symbol, 'to_unit_name' => $conversion->toUnit->name,
+                'to_unit_symbol' => $conversion->toUnit->symbol, 'multiplier' => $conversion->multiplier,
+                'effective_from' => $conversion->effective_from?->toDateString(), 'reason' => $conversion->reason, 'is_active' => $conversion->is_active,
+            ]),
             'stores' => InventoryStore::query()->visibleTo($actor)->with(['branch', 'project', 'site'])->orderBy('name')->get(),
             'branches' => Branch::query()->whereIn('id', $branchIds)->where('status', 'active')->orderBy('name')->get(['id', 'name', 'code']),
             'projects' => Project::query()->whereIn('branch_id', $branchIds)->where('status', 'active')->orderBy('name')->get(['id', 'branch_id', 'name', 'reference']),
@@ -81,6 +91,7 @@ final class InventoryController
                 'manageCategories' => Gate::allows('create', InventoryCategory::class),
                 'manageUnits' => Gate::allows('create', UnitOfMeasure::class),
                 'manageStores' => Gate::allows('create', InventoryStore::class),
+                'managePriceLists' => Gate::allows('create', InventoryPriceTier::class),
                 'viewCosts' => $canViewCosts,
                 'permanentlyDeleteItems' => $actor->can('inventory.items.delete'),
                 'permanentlyDeleteStores' => $actor->can('inventory.stores.delete'),

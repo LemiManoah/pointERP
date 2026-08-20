@@ -16,6 +16,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property-read string $code
+ * @property-read string $name
+ * @property-read string|null $description
+ * @property-read InventoryMaterialClass $material_class
+ * @property-read InventoryTrackingType $tracking_type
+ * @property-read string|null $batch_number
+ * @property-read bool $is_expires
+ * @property-read bool $is_for_sale
+ * @property-read float|null $minimum_stock
+ * @property-read float|null $reorder_quantity
+ * @property-read float|null $default_unit_cost
+ * @property-read float|null $default_selling_price
+ * @property-read bool $is_active
+ */
 #[Fillable([
     'tenant_id', 'inventory_category_id', 'stock_unit_id', 'preferred_supplier_id',
     'code', 'name', 'description', 'material_class',
@@ -92,5 +107,11 @@ final class InventoryItem extends Model
     public function storeSettings(): HasMany
     {
         return $this->hasMany(InventoryStoreItem::class);
+    }
+
+    /** @return HasMany<InventoryStockMovement, $this> */
+    public function stockMovements(): HasMany
+    {
+        return $this->hasMany(InventoryStockMovement::class);
     }
 }

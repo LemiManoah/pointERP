@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -13,6 +14,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property-read float $amount
+ * @property-read float $minimum_quantity
+ * @property-read CarbonInterface|null $effective_from
+ * @property-read CarbonInterface|null $effective_until
+ * @property-read bool $is_active
+ */
 #[Fillable(['tenant_id', 'inventory_item_id', 'inventory_price_tier_id', 'branch_id', 'unit_of_measure_id', 'amount', 'minimum_quantity', 'effective_from', 'effective_until', 'is_active', 'created_by', 'updated_by'])]
 final class InventoryItemPrice extends Model
 {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -12,6 +13,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property-read float $multiplier
+ * @property-read float $divisor
+ * @property-read CarbonInterface|null $effective_from
+ * @property-read CarbonInterface|null $effective_until
+ * @property-read string|null $reason
+ * @property-read bool $is_active
+ */
 #[Fillable(['tenant_id', 'inventory_item_id', 'from_unit_id', 'to_unit_id', 'multiplier', 'divisor', 'effective_from', 'effective_until', 'reason', 'is_active', 'created_by'])]
 final class InventoryUnitConversion extends Model
 {

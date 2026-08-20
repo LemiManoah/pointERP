@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Operations\Inventory;
 
 use App\Models\Branch;
+use App\Models\InventoryPriceTier;
 use App\Models\UnitOfMeasure;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
@@ -20,8 +21,7 @@ final class StoreInventoryItemPriceRequest extends FormRequest
         $tenantId = resolve(TenantContext::class)->id();
 
         return [
-            'tier_code' => ['required', 'string', 'max:40'],
-            'tier_name' => ['required', 'string', 'max:100'],
+            'inventory_price_tier_id' => ['required', 'uuid', Rule::exists((new InventoryPriceTier)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
             'branch_id' => ['required', 'uuid', Rule::exists((new Branch)->getTable(), 'id')->where('tenant_id', $tenantId)->whereIn('id', resolve(BranchContext::class)->accessibleBranchIds())->where('status', 'active')],
             'unit_of_measure_id' => ['required', 'uuid', Rule::exists((new UnitOfMeasure)->getTable(), 'id')->where(fn (Builder $query): Builder => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenantId))->where('is_active', true)],
             'amount' => ['required', 'numeric', 'min:0'],
@@ -30,10 +30,5 @@ final class StoreInventoryItemPriceRequest extends FormRequest
             'effective_until' => ['nullable', 'date', 'after_or_equal:effective_from'],
             'is_active' => ['required', 'boolean'],
         ];
-    }
-
-    public function prepareForValidation(): void
-    {
-        $this->merge(['tier_code' => mb_strtoupper((string) $this->input('tier_code'))]);
     }
 }

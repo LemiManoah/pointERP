@@ -52,6 +52,30 @@ export type Item = {
     default_selling_price?: string | null;
     is_active: boolean;
 };
+export type PriceList = {
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+    priority: number;
+    prices_count: number;
+    is_active: boolean;
+};
+export type ConversionRegister = {
+    id: string;
+    inventory_item_id: string;
+    item_name: string;
+    item_code: string;
+    from_unit_id: string;
+    from_unit_name: string;
+    from_unit_symbol: string | null;
+    to_unit_name: string;
+    to_unit_symbol: string | null;
+    multiplier: string;
+    effective_from: string | null;
+    reason: string | null;
+    is_active: boolean;
+};
 export type Store = {
     id: string;
     branch_id: string;

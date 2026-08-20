@@ -18,9 +18,27 @@ import {
     StoreDialog,
     UnitDialog,
 } from './partials/inventory-dialogs';
-import type { Category, Item, Option, Store, Unit } from './types';
+import {
+    GlobalConversionDialog,
+    PriceListDialog,
+} from './partials/inventory-reference-dialogs';
+import type {
+    Category,
+    ConversionRegister,
+    Item,
+    Option,
+    PriceList,
+    Store,
+    Unit,
+} from './types';
 
-type InventoryTab = 'items' | 'categories' | 'units' | 'stores';
+type InventoryTab =
+    | 'items'
+    | 'categories'
+    | 'units'
+    | 'conversions'
+    | 'price-lists'
+    | 'stores';
 
 type Props = {
     activeTab: string;
@@ -28,6 +46,8 @@ type Props = {
     categories: Category[];
     units: Unit[];
     items: Item[];
+    priceLists: PriceList[];
+    conversions: ConversionRegister[];
     stores: Store[];
     branches: Option[];
     projects: Option[];
@@ -40,6 +60,7 @@ type Props = {
         manageCategories: boolean;
         manageUnits: boolean;
         manageStores: boolean;
+        managePriceLists: boolean;
         viewCosts: boolean;
         permanentlyDeleteItems: boolean;
         permanentlyDeleteStores: boolean;
@@ -50,11 +71,21 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Materials & stores', href: '/inventory' },
 ];
-const tabs: InventoryTab[] = ['items', 'categories', 'units', 'stores'];
+const tabs: InventoryTab[] = [
+    'items',
+    'categories',
+    'units',
+    'conversions',
+    'price-lists',
+    'stores',
+];
 
 export default function InventoryIndex(props: Props) {
+    const availableTabs = props.can.viewCosts
+        ? tabs
+        : tabs.filter((candidate) => candidate !== 'price-lists');
     const [tab, setTab] = useState<InventoryTab>(
-        tabs.includes(props.activeTab as InventoryTab)
+        availableTabs.includes(props.activeTab as InventoryTab)
             ? (props.activeTab as InventoryTab)
             : 'items',
     );
@@ -72,17 +103,17 @@ export default function InventoryIndex(props: Props) {
               ? props.categories
               : tab === 'units'
                 ? props.units
-                : props.stores;
+                : tab === 'conversions'
+                  ? props.conversions
+                  : tab === 'price-lists'
+                    ? props.priceLists
+                    : props.stores;
     const rows = useMemo(
         () =>
             source.filter(
                 (row) =>
                     row.is_active === (status === 'active') &&
-                    (!term ||
-                        Object.values(row)
-                            .join(' ')
-                            .toLowerCase()
-                            .includes(term)),
+                    (!term || JSON.stringify(row).toLowerCase().includes(term)),
             ),
         [source, status, term],
     );
@@ -98,6 +129,10 @@ export default function InventoryIndex(props: Props) {
             <CategoryDialog />
         ) : tab === 'units' && props.can.manageUnits ? (
             <UnitDialog />
+        ) : tab === 'conversions' && props.can.manageItems ? (
+            <GlobalConversionDialog items={props.items} units={props.units} />
+        ) : tab === 'price-lists' && props.can.managePriceLists ? (
+            <PriceListDialog />
         ) : tab === 'stores' && props.can.manageStores ? (
             <StoreDialog
                 branches={props.branches}
@@ -139,7 +174,7 @@ export default function InventoryIndex(props: Props) {
                     <Tabs
                         value={tab}
                         onValueChange={(value) => {
-                            if (tabs.includes(value as InventoryTab)) {
+                            if (availableTabs.includes(value as InventoryTab)) {
                                 setTab(value as InventoryTab);
                             }
                         }}
@@ -150,6 +185,14 @@ export default function InventoryIndex(props: Props) {
                                 Categories
                             </TabsTrigger>
                             <TabsTrigger value="units">Units</TabsTrigger>
+                            <TabsTrigger value="conversions">
+                                Unit conversions
+                            </TabsTrigger>
+                            {props.can.viewCosts && (
+                                <TabsTrigger value="price-lists">
+                                    Price lists
+                                </TabsTrigger>
+                            )}
                             <TabsTrigger value="stores">Stores</TabsTrigger>
                         </TabsList>
                     </Tabs>
@@ -202,6 +245,28 @@ export default function InventoryIndex(props: Props) {
                             <StoreTable
                                 rows={rows as Store[]}
                                 props={props}
+                                confirm={confirm}
+                            />
+                        )}
+                        {tab === 'conversions' && (
+                            <ConversionTable
+                                rows={rows as ConversionRegister[]}
+                                items={props.items}
+                                units={props.units}
+                                canManage={props.can.manageItems}
+                                canPermanentlyDelete={
+                                    props.can.permanentlyDeleteItems
+                                }
+                                confirm={confirm}
+                            />
+                        )}
+                        {tab === 'price-lists' && (
+                            <PriceListTable
+                                rows={rows as PriceList[]}
+                                canManage={props.can.managePriceLists}
+                                canPermanentlyDelete={
+                                    props.can.permanentlyDeleteItems
+                                }
                                 confirm={confirm}
                             />
                         )}
@@ -680,6 +745,249 @@ function StoreTable({
     );
 }
 
+function ConversionTable({
+    rows,
+    items,
+    units,
+    canManage,
+    canPermanentlyDelete,
+    confirm,
+}: {
+    rows: ConversionRegister[];
+    items: Item[];
+    units: Unit[];
+    canManage: boolean;
+    canPermanentlyDelete: boolean;
+    confirm: ReturnType<typeof useConfirmDialog>;
+}) {
+    return (
+        <Table
+            headers={[
+                'Item',
+                'Additional unit',
+                'Stock unit',
+                'Conversion',
+                'Effective from',
+                'Status',
+                '',
+            ]}
+        >
+            {rows.map((conversion) => (
+                <tr key={conversion.id} className="border-b last:border-0">
+                    <td className="py-3 pr-4">
+                        <Link
+                            href={`/inventory/items/${conversion.inventory_item_id}?tab=conversions`}
+                            className="font-medium hover:underline"
+                        >
+                            {conversion.item_name}
+                        </Link>
+                        <div className="text-muted-foreground">
+                            {conversion.item_code}
+                        </div>
+                    </td>
+                    <td className="py-3 pr-4">
+                        {conversion.from_unit_name}
+                        <div className="text-muted-foreground">
+                            {conversion.from_unit_symbol}
+                        </div>
+                    </td>
+                    <td className="py-3 pr-4">
+                        {conversion.to_unit_name}
+                        <div className="text-muted-foreground">
+                            {conversion.to_unit_symbol}
+                        </div>
+                    </td>
+                    <td className="py-3 pr-4">
+                        1{' '}
+                        {conversion.from_unit_symbol ??
+                            conversion.from_unit_name}{' '}
+                        = {formatNumber(conversion.multiplier)}{' '}
+                        {conversion.to_unit_symbol ?? conversion.to_unit_name}
+                    </td>
+                    <td className="py-3 pr-4">
+                        {conversion.effective_from ?? 'Immediately'}
+                    </td>
+                    <td className="py-3 pr-4">
+                        <StatusBadge active={conversion.is_active} />
+                    </td>
+                    <td className="py-3 text-right">
+                        <div className="flex justify-end gap-2">
+                            {canManage && (
+                                <GlobalConversionDialog
+                                    items={items}
+                                    units={units}
+                                    conversion={conversion}
+                                />
+                            )}
+                            {canManage && (
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    title={
+                                        conversion.is_active
+                                            ? 'Deactivate conversion'
+                                            : 'Restore conversion'
+                                    }
+                                    onClick={() =>
+                                        confirm({
+                                            title: conversion.is_active
+                                                ? 'Deactivate conversion?'
+                                                : 'Restore conversion?',
+                                            confirmLabel: conversion.is_active
+                                                ? 'Deactivate'
+                                                : 'Restore',
+                                            variant: conversion.is_active
+                                                ? 'destructive'
+                                                : 'default',
+                                            onConfirm: () =>
+                                                router.delete(
+                                                    `/inventory/items/${conversion.inventory_item_id}/conversions/${conversion.id}`,
+                                                ),
+                                        })
+                                    }
+                                >
+                                    <Power />
+                                </Button>
+                            )}
+                            {!conversion.is_active && canPermanentlyDelete && (
+                                <Button
+                                    variant="destructive"
+                                    size="icon"
+                                    title="Delete permanently"
+                                    onClick={() =>
+                                        confirm({
+                                            title: 'Permanently delete conversion?',
+                                            description:
+                                                'Posted movements retain their conversion snapshots.',
+                                            confirmLabel: 'Delete permanently',
+                                            variant: 'destructive',
+                                            onConfirm: () =>
+                                                router.delete(
+                                                    `/inventory/items/${conversion.inventory_item_id}/conversions/${conversion.id}/permanent`,
+                                                ),
+                                        })
+                                    }
+                                >
+                                    <Trash2 />
+                                </Button>
+                            )}
+                        </div>
+                    </td>
+                </tr>
+            ))}
+            {rows.length === 0 && <Empty colSpan={7} />}
+        </Table>
+    );
+}
+
+function PriceListTable({
+    rows,
+    canManage,
+    canPermanentlyDelete,
+    confirm,
+}: {
+    rows: PriceList[];
+    canManage: boolean;
+    canPermanentlyDelete: boolean;
+    confirm: ReturnType<typeof useConfirmDialog>;
+}) {
+    return (
+        <Table
+            headers={[
+                'Price list',
+                'Description',
+                'Priority',
+                'Item prices',
+                'Status',
+                '',
+            ]}
+        >
+            {rows.map((priceList) => (
+                <tr key={priceList.id} className="border-b last:border-0">
+                    <td className="py-3 pr-4">
+                        <div className="font-medium">{priceList.name}</div>
+                        <div className="text-muted-foreground">
+                            {priceList.code}
+                        </div>
+                    </td>
+                    <td className="max-w-md py-3 pr-4 text-muted-foreground">
+                        {priceList.description ?? 'No description'}
+                    </td>
+                    <td className="py-3 pr-4">
+                        {formatNumber(priceList.priority)}
+                    </td>
+                    <td className="py-3 pr-4">
+                        {formatNumber(priceList.prices_count)}
+                    </td>
+                    <td className="py-3 pr-4">
+                        <StatusBadge active={priceList.is_active} />
+                    </td>
+                    <td className="py-3 text-right">
+                        <div className="flex justify-end gap-2">
+                            {canManage && (
+                                <PriceListDialog priceList={priceList} />
+                            )}
+                            {canManage && (
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    title={
+                                        priceList.is_active
+                                            ? 'Deactivate price list'
+                                            : 'Restore price list'
+                                    }
+                                    onClick={() =>
+                                        confirm({
+                                            title: priceList.is_active
+                                                ? 'Deactivate price list?'
+                                                : 'Restore price list?',
+                                            confirmLabel: priceList.is_active
+                                                ? 'Deactivate'
+                                                : 'Restore',
+                                            variant: priceList.is_active
+                                                ? 'destructive'
+                                                : 'default',
+                                            onConfirm: () =>
+                                                router.delete(
+                                                    `/inventory/price-lists/${priceList.id}`,
+                                                ),
+                                        })
+                                    }
+                                >
+                                    <Power />
+                                </Button>
+                            )}
+                            {!priceList.is_active && canPermanentlyDelete && (
+                                <Button
+                                    variant="destructive"
+                                    size="icon"
+                                    title="Delete permanently"
+                                    onClick={() =>
+                                        confirm({
+                                            title: 'Permanently delete price list?',
+                                            description:
+                                                'Price lists already attached to item prices cannot be deleted.',
+                                            confirmLabel: 'Delete permanently',
+                                            variant: 'destructive',
+                                            onConfirm: () =>
+                                                router.delete(
+                                                    `/inventory/price-lists/${priceList.id}/permanent`,
+                                                ),
+                                        })
+                                    }
+                                >
+                                    <Trash2 />
+                                </Button>
+                            )}
+                        </div>
+                    </td>
+                </tr>
+            ))}
+            {rows.length === 0 && <Empty colSpan={6} />}
+        </Table>
+    );
+}
+
 function Table({
     headers,
     children,
@@ -736,7 +1044,11 @@ function tableTitle(tab: InventoryTab) {
           ? 'Inventory categories'
           : tab === 'units'
             ? 'Units of measure'
-            : 'Operational stores';
+            : tab === 'conversions'
+              ? 'Item unit conversions'
+              : tab === 'price-lists'
+                ? 'Price lists'
+                : 'Operational stores';
 }
 
 function title(value: string) {

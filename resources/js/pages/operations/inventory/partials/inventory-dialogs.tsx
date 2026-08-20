@@ -1,3 +1,4 @@
+import type { FormDataType } from '@inertiajs/core';
 import { useForm } from '@inertiajs/react';
 import { Pencil, Plus } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
@@ -40,7 +41,7 @@ function Field({
     );
 }
 
-function useModalForm<T extends Record<string, string | boolean>>(
+function useModalForm<T extends FormDataType<T>>(
     data: T,
     url: string,
     method: 'post' | 'put',
@@ -50,7 +51,11 @@ function useModalForm<T extends Record<string, string | boolean>>(
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
         const options = { preserveScroll: true, onSuccess: onClose };
-        method === 'put' ? form.put(url, options) : form.post(url, options);
+        if (method === 'put') {
+            form.put(url, options);
+        } else {
+            form.post(url, options);
+        }
     }
     return { form, submit };
 }
@@ -218,7 +223,8 @@ export function UnitDialog({ unit }: { unit?: Unit }) {
                                 onChange={(e) =>
                                     form.setData(
                                         'quantity_dimension',
-                                        e.target.value,
+                                        e.target
+                                            .value as Unit['quantity_dimension'],
                                     )
                                 }
                             >
@@ -430,7 +436,8 @@ export function ItemDialog({
                                 onChange={(event) =>
                                     form.setData(
                                         'material_class',
-                                        event.target.value,
+                                        event.target
+                                            .value as Item['material_class'],
                                     )
                                 }
                             >
@@ -459,7 +466,10 @@ export function ItemDialog({
                                 value={form.data.tracking_type}
                                 onChange={(event) => {
                                     const trackingType = event.target.value;
-                                    form.setData('tracking_type', trackingType);
+                                    form.setData(
+                                        'tracking_type',
+                                        trackingType as Item['tracking_type'],
+                                    );
                                     if (trackingType === 'batch') {
                                         form.setData('is_expires', true);
                                     } else {
@@ -762,7 +772,10 @@ export function StoreDialog({
                             <NativeSelect
                                 value={form.data.type}
                                 onChange={(e) =>
-                                    form.setData('type', e.target.value)
+                                    form.setData(
+                                        'type',
+                                        e.target.value as Store['type'],
+                                    )
                                 }
                             >
                                 <NativeSelectOption value="warehouse">
