@@ -28,7 +28,6 @@ final class EquipmentFuelTransactionPolicy
     {
         return $this->view($user, $transaction)
             && $transaction->status === EquipmentFuelTransaction::STATUS_SUBMITTED
-            && $transaction->submitted_by !== $user->id
             && $user->can('equipment.fuel.approve');
     }
 

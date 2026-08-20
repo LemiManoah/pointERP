@@ -47,12 +47,12 @@ it('moves equipment only after approval dispatch and destination receipt', funct
         ->and($bowser->current_meter_reading)->toBe('186530.0000');
 });
 
-it('prevents a requester from approving their own transfer', function (): void {
+it('allows a requester to approve their transfer when they have permission', function (): void {
     $requester = User::query()->where('email', 'pm.gulu@point.test')->firstOrFail();
     $transfer = EquipmentTransfer::query()->where('status', EquipmentTransfer::STATUS_REQUESTED)->firstOrFail();
 
-    $this->actingAs($requester)->post(route('equipment-transfers.approve', $transfer))->assertForbidden();
-    expect($transfer->refresh()->status)->toBe(EquipmentTransfer::STATUS_REQUESTED);
+    $this->actingAs($requester)->post(route('equipment-transfers.approve', $transfer))->assertRedirect();
+    expect($transfer->refresh()->status)->toBe(EquipmentTransfer::STATUS_APPROVED);
 });
 
 it('records a manual location observation without creating a transfer', function (): void {

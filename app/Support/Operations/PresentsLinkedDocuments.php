@@ -13,6 +13,7 @@ use App\Models\DocumentType;
 use App\Models\DocumentVersion;
 use App\Models\Equipment;
 use App\Models\EquipmentMaintenanceWorkOrder;
+use App\Models\InventoryItem;
 use App\Models\Project;
 use App\Models\Site;
 use App\Models\User;
@@ -59,6 +60,7 @@ trait PresentsLinkedDocuments
                 'dailySiteReports' => $this->documentDailySiteReportOptions($user, $tenantId),
                 'equipment' => $this->documentEquipmentOptions($user, $tenantId),
                 'maintenanceWorkOrders' => $this->documentMaintenanceWorkOrderOptions($user, $tenantId),
+                'inventoryItems' => $this->documentInventoryItemOptions($user, $tenantId),
             ],
         ];
     }
@@ -128,6 +130,7 @@ trait PresentsLinkedDocuments
             $target instanceof DailySiteReport => $target->reference,
             $target instanceof Equipment => sprintf('%s - %s', $target->asset_code, $target->name),
             $target instanceof EquipmentMaintenanceWorkOrder => $target->reference,
+            $target instanceof InventoryItem => sprintf('%s - %s', $target->code, $target->name),
             default => 'Unknown record',
         };
     }
@@ -224,6 +227,19 @@ trait PresentsLinkedDocuments
                 'id' => $workOrder->id,
                 'name' => sprintf('%s - %s', $workOrder->reference, $workOrder->equipment->asset_code),
             ])
+            ->values()
+            ->all();
+    }
+
+    /** @return list<array<string, string>> */
+    private function documentInventoryItemOptions(User $user, string $tenantId): array
+    {
+        return InventoryItem::query()
+            ->where('tenant_id', $tenantId)
+            ->orderBy('code')
+            ->get()
+            ->filter(fn (InventoryItem $item): bool => Gate::forUser($user)->allows('view', $item))
+            ->map(fn (InventoryItem $item): array => ['id' => $item->id, 'name' => sprintf('%s - %s', $item->code, $item->name)])
             ->values()
             ->all();
     }

@@ -14,7 +14,11 @@ final class InventoryItemPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->can('inventory.items.view') || $user->can('inventory.items.manage');
+        if ($user->can('inventory.items.view')) {
+            return true;
+        }
+
+        return $user->can('inventory.items.manage');
     }
 
     public function view(User $user, InventoryItem $item): bool
@@ -35,6 +39,11 @@ final class InventoryItemPolicy
     public function delete(User $user, InventoryItem $item): bool
     {
         return $this->update($user, $item);
+    }
+
+    public function forceDelete(User $user, InventoryItem $item): bool
+    {
+        return $this->view($user, $item) && $user->can('inventory.items.delete');
     }
 
     public function viewCosts(User $user): bool

@@ -4,7 +4,7 @@
 
 Phase 3B is the next major implementation phase after Phase 3A. It introduces controlled materials, suppliers, procurement and stores while preserving the operational history already captured by Daily Site Reports and the fleet module.
 
-Status: implementation in progress. Chunk 3B.1 is partially implemented and must pass its corrected acceptance contract before Chunk 3B.2 begins.
+Status: implementation in progress. Chunk 3B.1 is implemented and awaiting local migration, focused-test, static-analysis and UI acceptance before Chunk 3B.2 begins.
 
 The roadmap and SRS are the authority for this phase. `phase3A.md` remains the authority for equipment, fuel, maintenance, meter, custody and fleet location behaviour. This document owns stock, procurement and material issue workflows.
 
@@ -50,7 +50,7 @@ The phase replaces uncontrolled material names and spreadsheet balances with mas
 - Full cost accounting, project actuals and financial forecasting; Phase 4 owns these.
 - Automatic supplier price selection without approval.
 - Barcode scanners, RFID and warehouse automation.
-- Full lot/batch/serial stock ledgers in the first slice. The item master still declares tracking requirements, and posting is blocked until the required tracking records are supported.
+- Quantity-bearing lot/batch/serial stock ledgers in the first slice. Chunk 3B.1 records batch references and expiry metadata; Chunk 3B.2 movements will own batch quantities and balances.
 - Multi-level warehouse bin optimisation.
 - Manufacturing, recipes, production orders and material requirements planning.
 - Automatic stock deduction from every DSR save or submission.
@@ -166,7 +166,7 @@ Unique category code and name within a tenant. Inactive categories remain availa
 - `code`, `name`, `symbol`, `quantity_dimension`;
 - `is_base_unit`, `is_active`, timestamps.
 
-Dimensions initially include `mass`, `volume`, `length`, `area`, `count` and `time`. A conversion is valid only within the same dimension.
+Dimensions initially include `mass`, `volume`, `length`, `area`, `count` and `time`. Generic conversions remain within one dimension. Item-specific conversions may cross dimensions when the packaging or specification makes the relationship explicit, such as one cement bag equalling 50 kg; the factor and reason are audited and copied to transactions.
 
 ### 5.3 `inventory_items`
 
@@ -175,7 +175,7 @@ Dimensions initially include `mass`, `volume`, `length`, `area`, `count` and `ti
 - stock unit and optional issue/purchase units;
 - tracking type (`none`, `serial`, `batch`, `other`) and `is_expires`; batch tracking requires a batch number and expiry;
 - `is_for_sale` and optional default unit selling price using the branch/facility currency;
-- reorder level and reorder quantity;
+- optional minimum-stock warning and reorder quantity;
 - preferred supplier and optional lead time;
 - default unit cost, permission-controlled and valued in the resolved branch/facility currency;
 - material class: consumable, construction_material, spare_part, fuel_related or other;
@@ -188,7 +188,7 @@ Item codes are tenant-unique. Retired items cannot receive new requisition lines
 Defines which items a store carries and owns store-specific controls:
 
 - tenant, store and item;
-- reorder level, reorder quantity, minimum and optional maximum stock;
+- minimum-stock warning, reorder quantity and optional maximum stock;
 - preferred issue unit and storage location note;
 - is stocked/is active flags and audit users.
 
@@ -202,7 +202,7 @@ Price tier:
 
 Item price:
 
-- item, price tier, selling unit, currency and amount;
+- item, price tier, selling unit and amount in the resolved branch/facility default currency;
 - optional minimum quantity, effective-from/effective-until dates and active state;
 - audit users and timestamps.
 
@@ -518,7 +518,7 @@ Audit events should include actor, tenant, branch, event, record type/id, old/ne
 
 ### Chunk 3B.1: Reference data and store foundation
 
-Status: in progress. Category, unit, item and store foundations exist. The corrected acceptance work includes secure price-field serialization, equipment-style tables, item tracking/saleability fields, conversion management, store-item settings, document links and stronger isolation tests.
+Status: implemented, pending validation. Category, unit, item and store foundations now include secure price-field serialization, equipment-style tables, item tracking/saleability fields, conversion management, price lists, batch references, store-item settings, document links, permission-based lifecycle controls and stronger isolation tests.
 
 - Create category, unit, item and store schema separately.
 - Add models, factories, policies, requests, actions and CRUD pages.
@@ -529,7 +529,7 @@ Status: in progress. Category, unit, item and store foundations exist. The corre
 - Add permissions and seed roles.
 - Add tests for tenant, branch, inactive records and cost omission.
 
-Acceptance: a store manager can define an item and store; unrelated branches and tenants cannot see them.
+Acceptance: an authorised manager can define an item and store, configure warning thresholds, conversions, price lists, batches, store settings and documents, and permanently delete only inactive unused reference records; unrelated branches and tenants cannot manage them.
 
 ### Chunk 3B.2: Stock ledger and balances
 

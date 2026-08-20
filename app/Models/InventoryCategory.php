@@ -20,6 +20,7 @@ final class InventoryCategory extends Model
 
     /** @use HasFactory<Factory<InventoryCategory>> */
     use HasFactory;
+
     use HasUuids;
     use SoftDeletes;
 

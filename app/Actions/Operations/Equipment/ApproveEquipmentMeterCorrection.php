@@ -28,10 +28,6 @@ final readonly class ApproveEquipmentMeterCorrection
                 throw ValidationException::withMessages(['correction' => 'Only a pending correction can be approved.']);
             }
 
-            if ($correction->recorded_by === $actor->id && ! $actor->can('equipment.readings.override-self-approval')) {
-                throw ValidationException::withMessages(['correction' => 'You cannot approve your own meter correction.']);
-            }
-
             $target = $correction->correctedReading;
             if (! $target instanceof EquipmentMeterReading || $target->status !== EquipmentMeterReading::STATUS_ACCEPTED) {
                 throw ValidationException::withMessages(['correction' => 'The source reading is no longer available for correction.']);

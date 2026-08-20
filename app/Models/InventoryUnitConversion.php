@@ -19,6 +19,7 @@ final class InventoryUnitConversion extends Model
 
     /** @use HasFactory<Factory<InventoryUnitConversion>> */
     use HasFactory;
+
     use HasUuids;
 
     /** @return array<string, string> */

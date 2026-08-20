@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Actions\Operations\Inventory;
 
-use App\Models\InventoryStore;
 use App\Models\EquipmentLocation;
+use App\Models\InventoryStore;
 use App\Models\Project;
 use App\Models\Site;
 use App\Models\User;
@@ -26,9 +26,11 @@ final readonly class SaveInventoryStore
         if ($project instanceof Project && $project->branch_id !== $data['branch_id']) {
             throw ValidationException::withMessages(['project_id' => 'The project must belong to the selected branch.']);
         }
+
         if ($site instanceof Site && ($site->branch_id !== $data['branch_id'] || ($project instanceof Project && $site->project_id !== $project->id))) {
             throw ValidationException::withMessages(['site_id' => 'The selected site must belong to the selected project and branch.']);
         }
+
         if ($location instanceof EquipmentLocation && $location->branch_id !== $data['branch_id']) {
             throw ValidationException::withMessages(['equipment_location_id' => 'The equipment location must belong to the selected branch.']);
         }
@@ -42,6 +44,7 @@ final readonly class SaveInventoryStore
             $store = InventoryStore::query()->create([...$attributes, 'created_by' => $actor->id]);
             $event = 'inventory.store.created';
         }
+
         $this->auditLogger->record($event, $store, $actor, $old, $store->fresh()?->toArray() ?? []);
 
         return $store;

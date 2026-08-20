@@ -98,10 +98,6 @@ final readonly class ManageEquipmentTransfer
                 throw ValidationException::withMessages(['transfer' => 'Only a requested transfer can be approved.']);
             }
 
-            if ($transfer->requested_by === $actor->id) {
-                throw ValidationException::withMessages(['transfer' => 'The transfer requester cannot approve their own request.']);
-            }
-
             $transfer->forceFill(['status' => EquipmentTransfer::STATUS_APPROVED, 'approved_at' => now(), 'approved_by' => $actor->id, 'updated_by' => $actor->id])->save();
             $this->auditLogger->record('equipment.transfer.approved', $transfer, $actor, ['status' => EquipmentTransfer::STATUS_REQUESTED], $transfer->only(['status', 'approved_at', 'approved_by']));
             DB::afterCommit(fn () => $this->notificationService->approved($transfer));
@@ -151,10 +147,6 @@ final readonly class ManageEquipmentTransfer
             $equipment = Equipment::query()->lockForUpdate()->findOrFail($transfer->equipment_id);
             if ($transfer->status !== EquipmentTransfer::STATUS_DISPATCHED) {
                 throw ValidationException::withMessages(['transfer' => 'Only dispatched equipment can be received.']);
-            }
-
-            if ($transfer->dispatched_by === $actor->id) {
-                throw ValidationException::withMessages(['transfer' => 'The dispatching user cannot accept the destination receipt.']);
             }
 
             $receivedAt = CarbonImmutable::parse((string) $data['received_at']);

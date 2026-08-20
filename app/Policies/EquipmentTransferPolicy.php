@@ -29,7 +29,6 @@ final class EquipmentTransferPolicy
         return $this->view($user, $transfer)
             && $this->canAccessBranch($user, $transfer->source_branch_id)
             && $transfer->status === EquipmentTransfer::STATUS_REQUESTED
-            && $transfer->requested_by !== $user->id
             && $user->can('equipment.transfers.approve');
     }
 
@@ -46,7 +45,6 @@ final class EquipmentTransferPolicy
         return $this->view($user, $transfer)
             && $this->canAccessBranch($user, $transfer->destination_branch_id)
             && $transfer->status === EquipmentTransfer::STATUS_DISPATCHED
-            && $transfer->dispatched_by !== $user->id
             && $user->can('equipment.transfers.receive');
     }
 }

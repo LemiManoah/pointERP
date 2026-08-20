@@ -18,8 +18,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'tenant_id', 'inventory_category_id', 'stock_unit_id', 'preferred_supplier_id',
-    'code', 'name', 'description', 'material_class', 'reorder_level',
-    'reorder_quantity', 'default_unit_cost', 'default_selling_price',
+    'code', 'name', 'description', 'material_class',
+    'minimum_stock', 'reorder_quantity', 'default_unit_cost', 'default_selling_price',
     'tracking_type', 'batch_number',
     'is_expires', 'is_for_sale', 'is_active', 'created_by', 'updated_by',
 ])]
@@ -29,6 +29,7 @@ final class InventoryItem extends Model
 
     /** @use HasFactory<Factory<InventoryItem>> */
     use HasFactory;
+
     use HasUuids;
     use SoftDeletes;
 
@@ -36,7 +37,7 @@ final class InventoryItem extends Model
     public function casts(): array
     {
         return [
-            'reorder_level' => 'decimal:4',
+            'minimum_stock' => 'decimal:4',
             'reorder_quantity' => 'decimal:4',
             'default_unit_cost' => 'decimal:4',
             'default_selling_price' => 'decimal:4',
@@ -73,5 +74,23 @@ final class InventoryItem extends Model
     public function conversions(): HasMany
     {
         return $this->hasMany(InventoryUnitConversion::class);
+    }
+
+    /** @return HasMany<InventoryItemPrice, $this> */
+    public function prices(): HasMany
+    {
+        return $this->hasMany(InventoryItemPrice::class);
+    }
+
+    /** @return HasMany<InventoryBatch, $this> */
+    public function batches(): HasMany
+    {
+        return $this->hasMany(InventoryBatch::class);
+    }
+
+    /** @return HasMany<InventoryStoreItem, $this> */
+    public function storeSettings(): HasMany
+    {
+        return $this->hasMany(InventoryStoreItem::class);
     }
 }

@@ -64,9 +64,7 @@ final class DailySiteReportPolicy
             && $dailySiteReport->site instanceof Site
             && $dailySiteReport->project instanceof Project
             && (
-                $dailySiteReport->created_by === $user->id
-                || $dailySiteReport->submitted_by === $user->id
-                || $dailySiteReport->site->users()->whereKey($user->id)->wherePivot('can_submit_dsr', true)->exists()
+                $dailySiteReport->site->users()->whereKey($user->id)->wherePivot('can_submit_dsr', true)->exists()
                 || $dailySiteReport->project->manager_id === $user->id
                 || $dailySiteReport->project->users()->whereKey($user->id)->wherePivot('can_manage', true)->exists()
             );
@@ -101,10 +99,6 @@ final class DailySiteReportPolicy
         return in_array($dailySiteReport->status, [DailySiteReport::STATUS_SUBMITTED, DailySiteReport::STATUS_REVIEWED], true)
             && $user->can('daily-site-reports.approve')
             && $this->view($user, $dailySiteReport)
-            && (
-                $dailySiteReport->submitted_by !== $user->id
-                || $user->can('daily-site-reports.override-self-approval')
-            )
             && $dailySiteReport->project instanceof Project
             && (
                 $dailySiteReport->project->manager_id === $user->id
@@ -131,7 +125,6 @@ final class DailySiteReportPolicy
     {
         return $correction->daily_site_report_id === $dailySiteReport->id
             && $correction->status === DailySiteReportCorrection::STATUS_SUBMITTED
-            && $correction->requested_by !== $user->id
             && $user->can('daily-site-reports.approve')
             && $this->view($user, $dailySiteReport);
     }

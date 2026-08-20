@@ -585,23 +585,40 @@ export default function Dashboard({
                                 <table className="w-full text-left text-sm">
                                     <thead>
                                         <tr className="border-b text-muted-foreground">
-                                            <th className="py-3 pr-4 font-medium">Document</th>
-                                            <th className="py-3 pr-4 font-medium">Type</th>
-                                            <th className="py-3 pr-4 font-medium">Reference</th>
-                                            <th className="py-3 pr-4 font-medium">Expires</th>
-                                            <th className="py-3 text-right font-medium">Due</th>
+                                            <th className="py-3 pr-4 font-medium">
+                                                Document
+                                            </th>
+                                            <th className="py-3 pr-4 font-medium">
+                                                Type
+                                            </th>
+                                            <th className="py-3 pr-4 font-medium">
+                                                Reference
+                                            </th>
+                                            <th className="py-3 pr-4 font-medium">
+                                                Expires
+                                            </th>
+                                            <th className="py-3 text-right font-medium">
+                                                Due
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {expiringDocuments.map((document) => (
-                                            <tr key={document.id} className="border-b last:border-0">
+                                            <tr
+                                                key={document.id}
+                                                className="border-b last:border-0"
+                                            >
                                                 <td className="py-3 pr-4">
-                                                    <Link href={`/documents/${document.id}`} className="font-medium hover:underline">
+                                                    <Link
+                                                        href={`/documents/${document.id}`}
+                                                        className="font-medium hover:underline"
+                                                    >
                                                         {document.title}
                                                     </Link>
                                                 </td>
                                                 <td className="py-3 pr-4 text-muted-foreground">
-                                                    {document.type_name ?? 'Document'}
+                                                    {document.type_name ??
+                                                        'Document'}
                                                 </td>
                                                 <td className="py-3 pr-4 text-muted-foreground">
                                                     {document.reference ?? '-'}
@@ -610,10 +627,19 @@ export default function Dashboard({
                                                     {document.expires_on ?? '-'}
                                                 </td>
                                                 <td className="py-3 text-right">
-                                                    <Badge variant={(document.days_left ?? 99) <= 7 ? 'destructive' : 'secondary'}>
-                                                        {document.days_left === null
+                                                    <Badge
+                                                        variant={
+                                                            (document.days_left ??
+                                                                99) <= 7
+                                                                ? 'destructive'
+                                                                : 'secondary'
+                                                        }
+                                                    >
+                                                        {document.days_left ===
+                                                        null
                                                             ? '-'
-                                                            : document.days_left < 0
+                                                            : document.days_left <
+                                                                0
                                                               ? `${Math.abs(document.days_left)} days overdue`
                                                               : `${document.days_left} ${document.days_left === 1 ? 'day' : 'days'}`}
                                                     </Badge>

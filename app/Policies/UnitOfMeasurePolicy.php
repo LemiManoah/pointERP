@@ -14,7 +14,11 @@ final class UnitOfMeasurePolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->can('inventory.items.view') || $user->can('inventory.items.manage');
+        if ($user->can('inventory.items.view')) {
+            return true;
+        }
+
+        return $user->can('inventory.items.manage');
     }
 
     public function view(User $user, UnitOfMeasure $unit): bool
@@ -35,5 +39,10 @@ final class UnitOfMeasurePolicy
     public function delete(User $user, UnitOfMeasure $unit): bool
     {
         return $this->update($user, $unit);
+    }
+
+    public function forceDelete(User $user, UnitOfMeasure $unit): bool
+    {
+        return $this->view($user, $unit) && $unit->tenant_id !== null && $user->can('inventory.items.delete');
     }
 }

@@ -37,7 +37,6 @@ final class EquipmentMaintenanceWorkOrderPolicy
     {
         return $this->view($user, $workOrder)
             && $workOrder->status === EquipmentMaintenanceWorkOrder::STATUS_PLANNED
-            && $workOrder->requested_by !== $user->id
             && $user->can('equipment.maintenance.approve');
     }
 

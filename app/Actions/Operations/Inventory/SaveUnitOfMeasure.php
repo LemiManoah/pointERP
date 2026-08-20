@@ -25,6 +25,7 @@ final readonly class SaveUnitOfMeasure
             $unit = UnitOfMeasure::query()->create($attributes);
             $event = 'inventory.unit.created';
         }
+
         $this->auditLogger->record($event, $unit, $actor, $old, $unit->fresh()?->toArray() ?? []);
 
         return $unit;

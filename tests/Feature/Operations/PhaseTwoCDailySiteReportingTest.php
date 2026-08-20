@@ -89,7 +89,7 @@ it('lets a site engineer submit an assigned draft report with an evidence overri
         ->and(DailySiteReportReview::query()->where('daily_site_report_id', $report->id)->where('action', DailySiteReportReview::ACTION_SUBMITTED)->exists())->toBeTrue();
 });
 
-it('prevents a project manager from approving their own submitted report without override permission', function (): void {
+it('allows a project manager to approve a submitted report when they have permission', function (): void {
     $manager = User::query()->where('email', 'pm.gulu@point.test')->firstOrFail();
     $site = Site::query()->where('reference', 'KIBOGA-HOIMA')->firstOrFail();
 
@@ -108,7 +108,7 @@ it('prevents a project manager from approving their own submitted report without
         'updated_by' => $manager->id,
     ]);
 
-    expect(Gate::forUser($manager)->allows('approve', $report))->toBeFalse();
+    expect(Gate::forUser($manager)->allows('approve', $report))->toBeTrue();
 });
 
 it('lets a project manager return and approve valid submitted reports', function (): void {

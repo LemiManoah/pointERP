@@ -51,10 +51,10 @@ final class InventoryController
                 'is_for_sale' => $item->is_for_sale,
                 'inventory_category_id' => $item->inventory_category_id,
                 'stock_unit_id' => $item->stock_unit_id,
-                'category' => $item->category?->only(['id', 'code', 'name', 'description', 'is_active']),
+                'category' => $item->category?->only(['id', 'name', 'description', 'is_active']),
                 'stock_unit' => $item->stockUnit?->only(['id', 'code', 'name', 'symbol', 'quantity_dimension', 'is_base_unit', 'is_active']),
                 'preferred_supplier' => $item->preferredSupplier?->only(['id', 'name', 'code', 'type']),
-                'reorder_level' => $item->reorder_level,
+                'minimum_stock' => $item->minimum_stock,
                 'reorder_quantity' => $item->reorder_quantity,
                 'is_active' => $item->is_active,
                 ...($canViewCosts ? [
@@ -65,8 +65,9 @@ final class InventoryController
 
         return Inertia::render('operations/inventory/index', [
             'activeTab' => (string) $request->string('tab', 'items'),
+            'activeStatus' => (string) $request->string('status', 'active'),
             'categories' => InventoryCategory::query()->orderBy('name')->get(),
-            'units' => UnitOfMeasure::query()->where(fn (Builder $query): Builder => $query->whereNull('tenant_id')->orWhere('tenant_id', app(TenantContext::class)->id()))->orderBy('name')->get(),
+            'units' => UnitOfMeasure::query()->where(fn (Builder $query): Builder => $query->whereNull('tenant_id')->orWhere('tenant_id', resolve(TenantContext::class)->id()))->orderBy('name')->get(),
             'items' => $items,
             'stores' => InventoryStore::query()->visibleTo($actor)->with(['branch', 'project', 'site'])->orderBy('name')->get(),
             'branches' => Branch::query()->whereIn('id', $branchIds)->where('status', 'active')->orderBy('name')->get(['id', 'name', 'code']),
@@ -81,6 +82,8 @@ final class InventoryController
                 'manageUnits' => Gate::allows('create', UnitOfMeasure::class),
                 'manageStores' => Gate::allows('create', InventoryStore::class),
                 'viewCosts' => $canViewCosts,
+                'permanentlyDeleteItems' => $actor->can('inventory.items.delete'),
+                'permanentlyDeleteStores' => $actor->can('inventory.stores.delete'),
             ],
         ]);
     }

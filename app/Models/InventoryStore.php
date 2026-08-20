@@ -22,6 +22,7 @@ final class InventoryStore extends Model
 
     /** @use HasFactory<Factory<InventoryStore>> */
     use HasFactory;
+
     use HasUuids;
     use SoftDeletes;
 
@@ -59,7 +60,7 @@ final class InventoryStore extends Model
      * @param  Builder<InventoryStore>  $query
      * @return Builder<InventoryStore>
      */
-    public function scopeVisibleTo(Builder $query, User $user): Builder
+    protected function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->can('branches.view-all')) {
             return $query;

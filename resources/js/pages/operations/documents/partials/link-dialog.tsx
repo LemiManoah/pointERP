@@ -49,7 +49,9 @@ export function LinkDialog({
                   ? linkOptions.equipment
                   : form.data.type === 'equipment_maintenance_work_order'
                     ? linkOptions.maintenanceWorkOrders
-                    : linkOptions.projects;
+                    : form.data.type === 'inventory_item'
+                      ? linkOptions.inventoryItems
+                      : linkOptions.projects;
 
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -102,6 +104,9 @@ export function LinkDialog({
                             </NativeSelectOption>
                             <NativeSelectOption value="equipment_maintenance_work_order">
                                 Maintenance work order
+                            </NativeSelectOption>
+                            <NativeSelectOption value="inventory_item">
+                                Inventory item
                             </NativeSelectOption>
                         </NativeSelect>
                     </div>

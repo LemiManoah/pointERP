@@ -10,6 +10,7 @@ use App\Models\Equipment;
 use App\Models\Project;
 use App\Models\Site;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -61,8 +62,8 @@ final class DashboardController
                     'reference' => $document->reference,
                     'type_name' => $document->type?->name,
                     'expires_on' => $document->expires_on?->toDateString(),
-                    'days_left' => $document->expires_on instanceof \Carbon\CarbonInterface
-                        ? (int) now()->startOfDay()->diffInDays($document->expires_on->startOfDay(), false)
+                    'days_left' => $document->expires_on instanceof CarbonInterface
+                        ? (int) today()->diffInDays($document->expires_on->startOfDay(), false)
                         : null,
                 ]),
             'currentTenant' => $user->tenant->only([

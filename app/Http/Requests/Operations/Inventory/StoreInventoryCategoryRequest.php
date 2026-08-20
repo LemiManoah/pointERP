@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Operations\Inventory;
 
+use App\Services\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -13,7 +14,7 @@ final class StoreInventoryCategoryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'code' => ['required', 'string', 'max:40', Rule::unique('inventory_categories', 'code')->where('tenant_id', resolve(\App\Services\TenantContext::class)->id())->ignore($this->route('inventoryCategory')?->id)],
+            'code' => ['required', 'string', 'max:40', Rule::unique('inventory_categories', 'code')->where('tenant_id', resolve(TenantContext::class)->id())->ignore($this->route('inventoryCategory')?->id)],
             'name' => ['required', 'string', 'max:160'],
             'description' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['required', 'boolean'],

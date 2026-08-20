@@ -51,7 +51,7 @@ it('submits fuel and lets a different authorised user post it', function (): voi
         ->and($roller->refresh()->current_meter_reading)->toBe('4690.0000');
 });
 
-it('enforces independent approval', function (): void {
+it('allows the submitter to approve fuel when they have permission', function (): void {
     $projectManager = User::query()->where('email', 'pm.gulu@point.test')->firstOrFail();
     $roller = Equipment::query()->where('asset_code', 'EQ-RLR-002')->firstOrFail();
 
@@ -67,9 +67,9 @@ it('enforces independent approval', function (): void {
     ])->assertRedirect();
 
     $transaction = EquipmentFuelTransaction::query()->where('voucher_reference', 'TEST-FUEL-SELF')->firstOrFail();
-    $this->actingAs($projectManager)->post(route('equipment-fuel-transactions.approve', $transaction))->assertForbidden();
+    $this->actingAs($projectManager)->post(route('equipment-fuel-transactions.approve', $transaction))->assertRedirect();
 
-    expect($transaction->refresh()->status)->toBe(EquipmentFuelTransaction::STATUS_SUBMITTED);
+    expect($transaction->refresh()->status)->toBe(EquipmentFuelTransaction::STATUS_POSTED);
 });
 
 it('does not accept costs from users without cost authority', function (): void {

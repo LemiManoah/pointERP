@@ -25,6 +25,7 @@ final readonly class SaveInventoryCategory
             $category = InventoryCategory::query()->create([...$attributes, 'created_by' => $actor->id]);
             $event = 'inventory.category.created';
         }
+
         $this->auditLogger->record($event, $category, $actor, $old, $category->fresh()?->toArray() ?? []);
 
         return $category;

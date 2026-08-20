@@ -34,7 +34,7 @@ final class StoreInventoryItemRequest extends FormRequest
             'batch_number' => ['nullable', Rule::requiredIf($this->input('tracking_type') === InventoryTrackingType::Batch->value), 'string', 'max:100'],
             'is_expires' => ['required', 'boolean', Rule::requiredIf($this->input('tracking_type') === InventoryTrackingType::Batch->value), 'accepted_if:tracking_type,batch'],
             'is_for_sale' => ['required', 'boolean'],
-            'reorder_level' => ['required', 'numeric', 'min:0'],
+            'minimum_stock' => ['nullable', 'numeric', 'min:0'],
             'reorder_quantity' => ['nullable', 'numeric', 'gt:0'],
             'default_unit_cost' => ['nullable', 'numeric', 'min:0'],
             'default_selling_price' => ['nullable', Rule::prohibitedIf(! $this->boolean('is_for_sale')), 'numeric', 'min:0'],
@@ -44,7 +44,7 @@ final class StoreInventoryItemRequest extends FormRequest
 
     public function prepareForValidation(): void
     {
-        $code = trim((string) $this->input('code'));
+        $code = mb_trim((string) $this->input('code'));
         if ($code === '') {
             $code = Str::slug((string) $this->input('name'));
         }

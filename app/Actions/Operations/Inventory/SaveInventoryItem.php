@@ -25,7 +25,7 @@ final readonly class SaveInventoryItem
         $defaultSellingPrice = $data['default_selling_price'] ?? null;
         $attributes = [
             'tenant_id' => $this->tenantContext->id(), 'inventory_category_id' => $data['inventory_category_id'], 'stock_unit_id' => $data['stock_unit_id'], 'preferred_supplier_id' => $data['preferred_supplier_id'] ?? null,
-            'code' => $data['code'], 'name' => $data['name'], 'description' => $data['description'] ?? null, 'material_class' => $data['material_class'], 'reorder_level' => $data['reorder_level'], 'reorder_quantity' => $data['reorder_quantity'] ?? null,
+            'code' => $data['code'], 'name' => $data['name'], 'description' => $data['description'] ?? null, 'material_class' => $data['material_class'], 'minimum_stock' => $data['minimum_stock'] ?? null, 'reorder_quantity' => $data['reorder_quantity'] ?? null,
             'tracking_type' => $data['tracking_type'], 'batch_number' => $data['tracking_type'] === InventoryTrackingType::Batch->value ? $data['batch_number'] : null, 'is_expires' => $data['tracking_type'] === InventoryTrackingType::Batch->value || $data['is_expires'], 'is_for_sale' => $data['is_for_sale'],
             'default_unit_cost' => $canViewCosts ? $defaultUnitCost : ($item?->default_unit_cost), 'default_selling_price' => $canViewCosts ? $defaultSellingPrice : ($item?->default_selling_price), 'is_active' => $data['is_active'], 'updated_by' => $actor->id,
         ];
@@ -37,6 +37,7 @@ final readonly class SaveInventoryItem
             $item = InventoryItem::query()->create([...$attributes, 'created_by' => $actor->id]);
             $event = 'inventory.item.created';
         }
+
         $this->auditLogger->record($event, $item, $actor, $old, $item->fresh()?->toArray() ?? []);
 
         return $item;

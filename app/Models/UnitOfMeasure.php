@@ -17,6 +17,7 @@ final class UnitOfMeasure extends Model
 {
     /** @use HasFactory<Factory<UnitOfMeasure>> */
     use HasFactory;
+
     use HasUuids;
 
     /** @return array<string, string> */

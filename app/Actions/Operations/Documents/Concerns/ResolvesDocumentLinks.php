@@ -8,6 +8,7 @@ use App\Models\Contract;
 use App\Models\DailySiteReport;
 use App\Models\Equipment;
 use App\Models\EquipmentMaintenanceWorkOrder;
+use App\Models\InventoryItem;
 use App\Models\Project;
 use App\Models\Site;
 use App\Models\User;
@@ -29,6 +30,7 @@ trait ResolvesDocumentLinks
             'daily_site_report' => DailySiteReport::class,
             'equipment' => Equipment::class,
             'equipment_maintenance_work_order' => EquipmentMaintenanceWorkOrder::class,
+            'inventory_item' => InventoryItem::class,
         ];
     }
 

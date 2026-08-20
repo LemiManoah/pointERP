@@ -26,7 +26,7 @@ return new class extends Migration
             $table->string('batch_number', 100)->nullable();
             $table->boolean('is_expires')->default(false);
             $table->boolean('is_for_sale')->default(false);
-            $table->decimal('reorder_level', 20, 4)->default(0);
+            $table->decimal('minimum_stock', 20, 4)->nullable();
             $table->decimal('reorder_quantity', 20, 4)->nullable();
             $table->decimal('default_unit_cost', 20, 4)->nullable();
             $table->decimal('default_selling_price', 20, 4)->nullable();

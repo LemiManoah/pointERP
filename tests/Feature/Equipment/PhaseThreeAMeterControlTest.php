@@ -79,7 +79,7 @@ it('preserves the original while another user approves a correction', function (
         ->and($grader->refresh()->current_meter_reading)->toBe('12565.0000');
 });
 
-it('blocks correction self approval without override permission', function (): void {
+it('allows correction self approval when the user has approval permission', function (): void {
     $manager = User::query()->where('email', 'pm.gulu@point.test')->firstOrFail();
     $roller = Equipment::query()->where('asset_code', 'EQ-RLR-002')->firstOrFail();
     $target = $roller->meterReadings()->where('event_type', 'opening')->firstOrFail();
@@ -90,9 +90,8 @@ it('blocks correction self approval without override permission', function (): v
     ])->assertRedirect();
     $correction = $target->corrections()->where('status', EquipmentMeterReading::STATUS_PENDING)->firstOrFail();
 
-    $this->actingAs($manager)->post(route('equipment-meter-readings.approve', $correction))
-        ->assertSessionHasErrors('correction');
-    expect($correction->refresh()->status)->toBe(EquipmentMeterReading::STATUS_PENDING);
+    $this->actingAs($manager)->post(route('equipment-meter-readings.approve', $correction))->assertRedirect();
+    expect($correction->refresh()->status)->toBe(EquipmentMeterReading::STATUS_ACCEPTED);
 });
 
 it('forbids users without meter permissions', function (): void {

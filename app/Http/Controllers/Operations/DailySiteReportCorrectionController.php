@@ -63,6 +63,7 @@ final class DailySiteReportCorrectionController
                 'equipment_name' => $line->equipment_identifier ?? $line->equipment_name,
             ];
         }
+
         unset($changes['equipment_adjustments']);
 
         /** @var array<string, mixed> $newValues */

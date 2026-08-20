@@ -6,6 +6,9 @@ namespace Database\Seeders;
 
 use App\Actions\EnsureDefaultTenant;
 use App\Actions\Operations\DailySiteReports\PostApprovedDsrEquipmentLines;
+use App\Enums\InventoryBatchStatus;
+use App\Enums\InventoryMaterialClass;
+use App\Enums\InventoryStoreType;
 use App\Enums\InventoryTrackingType;
 use App\Models\Branch;
 use App\Models\BranchCurrency;
@@ -37,10 +40,14 @@ use App\Models\EquipmentMeterReading;
 use App\Models\EquipmentTransfer;
 use App\Models\ExchangeRate;
 use App\Models\ExpectedDailySiteReport;
+use App\Models\InventoryBatch;
 use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
+use App\Models\InventoryItemPrice;
+use App\Models\InventoryPriceTier;
 use App\Models\InventoryStore;
-use App\Models\UnitOfMeasure;
+use App\Models\InventoryStoreItem;
+use App\Models\InventoryUnitConversion;
 use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\ReportingCalendar;
@@ -50,6 +57,7 @@ use App\Models\Site;
 use App\Models\Staff;
 use App\Models\StaffPosition;
 use App\Models\TenantCurrency;
+use App\Models\UnitOfMeasure;
 use App\Models\User;
 use App\Notifications\OperationalNotification;
 use App\Services\TenantContext;
@@ -244,30 +252,76 @@ final class PointInvestmentSeeder extends Seeder
                 ['name' => $name, 'symbol' => $symbol, 'quantity_dimension' => $dimension, 'is_base_unit' => $base, 'is_active' => true],
             );
         }
+
         $supplier = Customer::query()->where('tenant_id', $tenantId)->whereIn('type', [Customer::TYPE_SUPPLIER, Customer::TYPE_SUBCONTRACTOR])->first();
         if ($supplier === null) {
             $supplier = Customer::query()->create(['tenant_id' => $tenantId, 'branch_id' => $kampalaBranch->id, 'type' => Customer::TYPE_SUPPLIER, 'name' => 'Demo Materials Supplier', 'code' => 'SUP-DEMO', 'status' => 'active', 'created_by' => $director->id, 'updated_by' => $director->id]);
         }
+
         $items = [
-            ['CEM-42', 'Portland cement 42.5N', 'BAG', 'construction_material', InventoryTrackingType::Batch, 'CEM-42-2026-08', true, true, '250', '500', '42000', '48000'],
-            ['AGG-20', 'Crushed aggregate 20mm', 'TONNE', 'construction_material', InventoryTrackingType::None, null, false, true, '25', '100', '120000', '145000'],
-            ['PPE-VEST', 'High visibility safety vest', 'PIECE', 'consumable', InventoryTrackingType::None, null, false, false, '20', '50', '18000', null],
+            ['CEM-42', 'Portland cement 42.5N', 'BAG', InventoryMaterialClass::ConstructionMaterial, InventoryTrackingType::Batch, 'CEM-42-2026-08', true, true, '250', '500', '42000', '48000'],
+            ['AGG-20', 'Crushed aggregate 20mm', 'TONNE', InventoryMaterialClass::ConstructionMaterial, InventoryTrackingType::None, null, false, true, '25', '100', '120000', '145000'],
+            ['PPE-VEST', 'High visibility safety vest', 'PIECE', InventoryMaterialClass::Consumable, InventoryTrackingType::None, null, false, false, '20', '50', '18000', null],
         ];
+        $inventoryItems = [];
         foreach ($items as [$code, $name, $unitCode, $class, $trackingType, $batchNumber, $isExpires, $isForSale, $reorder, $reorderQty, $unitCost, $sellingPrice]) {
-            InventoryItem::query()->updateOrCreate(
+            /** @var InventoryMaterialClass $class */
+            /** @var InventoryTrackingType $trackingType */
+            $inventoryItems[$code] = InventoryItem::query()->updateOrCreate(
                 ['tenant_id' => $tenantId, 'code' => $code],
-                ['inventory_category_id' => $category->id, 'stock_unit_id' => $units[$unitCode]->id, 'preferred_supplier_id' => $supplier->id, 'name' => $name, 'material_class' => $class, 'tracking_type' => $trackingType, 'batch_number' => $batchNumber, 'is_expires' => $isExpires, 'is_for_sale' => $isForSale, 'reorder_level' => $reorder, 'reorder_quantity' => $reorderQty, 'default_unit_cost' => $unitCost, 'default_selling_price' => $sellingPrice, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+                ['inventory_category_id' => $category->id, 'stock_unit_id' => $units[$unitCode]->id, 'preferred_supplier_id' => $supplier->id, 'name' => $name, 'material_class' => $class->value, 'tracking_type' => $trackingType->value, 'batch_number' => $batchNumber, 'is_expires' => $isExpires, 'is_for_sale' => $isForSale, 'minimum_stock' => $reorder, 'reorder_quantity' => $reorderQty, 'default_unit_cost' => $unitCost, 'default_selling_price' => $sellingPrice, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
             );
         }
+
         $location = EquipmentLocation::query()->where('tenant_id', $tenantId)->where('branch_id', $kampalaBranch->id)->where('type', 'depot')->first();
-        InventoryStore::query()->updateOrCreate(
+        $kampalaStore = InventoryStore::query()->updateOrCreate(
             ['tenant_id' => $tenantId, 'code' => 'KLA-MAIN-STORE'],
-            ['branch_id' => $kampalaBranch->id, 'equipment_location_id' => $location?->id, 'name' => 'Kampala Main Materials Store', 'type' => 'depot', 'address' => 'Kampala Head Office depot', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+            ['branch_id' => $kampalaBranch->id, 'equipment_location_id' => $location?->id, 'name' => 'Kampala Main Materials Store', 'type' => InventoryStoreType::Depot->value, 'address' => 'Kampala Head Office depot', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
         );
-        InventoryStore::query()->updateOrCreate(
+        $guluStore = InventoryStore::query()->updateOrCreate(
             ['tenant_id' => $tenantId, 'code' => 'GUL-SITE-STORE'],
-            ['branch_id' => $guluBranch->id, 'name' => 'Gulu Road Site Store', 'type' => 'site_store', 'address' => 'Gulu project compound store', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+            ['branch_id' => $guluBranch->id, 'name' => 'Gulu Road Site Store', 'type' => InventoryStoreType::SiteStore->value, 'address' => 'Gulu project compound store', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
         );
+
+        InventoryUnitConversion::query()->updateOrCreate(
+            ['inventory_item_id' => $inventoryItems['CEM-42']->id, 'from_unit_id' => $units['KG']->id, 'to_unit_id' => $units['BAG']->id],
+            ['tenant_id' => $tenantId, 'multiplier' => '0.0200000000', 'divisor' => 1, 'effective_from' => now()->startOfYear()->toDateString(), 'reason' => 'One 50 kg cement bag is the stock unit.', 'is_active' => true, 'created_by' => $director->id],
+        );
+        $retailTier = InventoryPriceTier::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'code' => 'RETAIL'],
+            ['name' => 'Retail', 'description' => 'Standard counter selling price.', 'priority' => 100, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+        );
+        $wholesaleTier = InventoryPriceTier::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'code' => 'WHOLESALE'],
+            ['name' => 'Wholesale', 'description' => 'Bulk customer selling price.', 'priority' => 50, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+        );
+        foreach ([[$retailTier, '48000', '1'], [$wholesaleTier, '45000', '100']] as [$tier, $amount, $minimumQuantity]) {
+            /** @var InventoryPriceTier $tier */
+            InventoryItemPrice::query()->updateOrCreate(
+                ['inventory_item_id' => $inventoryItems['CEM-42']->id, 'inventory_price_tier_id' => $tier->id, 'branch_id' => $kampalaBranch->id, 'unit_of_measure_id' => $units['BAG']->id],
+                ['tenant_id' => $tenantId, 'amount' => $amount, 'minimum_quantity' => $minimumQuantity, 'effective_from' => now()->startOfYear()->toDateString(), 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+            );
+        }
+
+        InventoryBatch::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'inventory_item_id' => $inventoryItems['CEM-42']->id, 'batch_number' => 'CEM-42-2026-08'],
+            ['inventory_store_id' => $kampalaStore->id, 'manufactured_on' => now()->subMonth()->toDateString(), 'expires_on' => now()->addMonths(5)->toDateString(), 'status' => InventoryBatchStatus::Available->value, 'notes' => 'Demo cement batch for the Kampala depot.', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+        );
+        foreach ([[$kampalaStore, '250', '500', 'Aisle A / Cement bay'], [$guluStore, '100', '250', 'Weatherproof container 1']] as [$store, $minimumStock, $reorderQuantity, $storageLocation]) {
+            /** @var InventoryStore $store */
+            InventoryStoreItem::query()->updateOrCreate(
+                ['inventory_store_id' => $store->id, 'inventory_item_id' => $inventoryItems['CEM-42']->id],
+                ['tenant_id' => $tenantId, 'minimum_stock' => $minimumStock, 'reorder_quantity' => $reorderQuantity, 'storage_location' => $storageLocation, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+            );
+        }
+
+        $itemDocument = Document::query()->where('tenant_id', $tenantId)->first();
+        if ($itemDocument instanceof Document) {
+            DocumentLink::query()->updateOrCreate(
+                ['document_id' => $itemDocument->id, 'linkable_type' => InventoryItem::class, 'linkable_id' => $inventoryItems['CEM-42']->id],
+                ['tenant_id' => $tenantId, 'created_by' => $director->id],
+            );
+        }
     }
 
     private function branch(string $code, string $name, string $countryCode, string $currencyCode, string $status = 'active'): Branch
