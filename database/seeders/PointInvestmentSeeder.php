@@ -6,6 +6,7 @@ namespace Database\Seeders;
 
 use App\Actions\EnsureDefaultTenant;
 use App\Actions\Operations\DailySiteReports\PostApprovedDsrEquipmentLines;
+use App\Enums\InventoryTrackingType;
 use App\Models\Branch;
 use App\Models\BranchCurrency;
 use App\Models\Contract;
@@ -36,6 +37,10 @@ use App\Models\EquipmentMeterReading;
 use App\Models\EquipmentTransfer;
 use App\Models\ExchangeRate;
 use App\Models\ExpectedDailySiteReport;
+use App\Models\InventoryCategory;
+use App\Models\InventoryItem;
+use App\Models\InventoryStore;
+use App\Models\UnitOfMeasure;
 use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\ReportingCalendar;
@@ -217,10 +222,52 @@ final class PointInvestmentSeeder extends Seeder
             southSudanSiteManager: $jubaSiteManager,
         );
 
+        $this->inventoryDemoData($branches['KLA-HQ'], $branches['GUL-SITE'], $director);
+
         $this->exchangeRate($director, null, 'USD', 'UGX', '3600.0000000000', now()->subMonth()->toDateString(), ExchangeRate::STATUS_APPROVED);
         $this->exchangeRate($director, null, 'USD', 'UGX', '3700.0000000000', now()->toDateString(), ExchangeRate::STATUS_DRAFT);
         $this->exchangeRate($director, $branches['JUB-HQ'], 'USD', 'SSP', '1500.0000000000', now()->toDateString(), ExchangeRate::STATUS_APPROVED);
         $this->exchangeRate($director, $branches['KLA-HQ'], 'UGX', 'USD', '0.0002702703', now()->toDateString(), ExchangeRate::STATUS_DRAFT);
+    }
+
+    private function inventoryDemoData(Branch $kampalaBranch, Branch $guluBranch, User $director): void
+    {
+        $tenantId = resolve(TenantContext::class)->id();
+        $category = InventoryCategory::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'code' => 'ROAD-MATERIALS'],
+            ['name' => 'Road construction materials', 'description' => 'Core materials used on road and drainage works.', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+        );
+        $units = [];
+        foreach ([['KG', 'Kilogram', 'kg', 'mass', true], ['BAG', 'Bag', 'bag', 'count', false], ['TONNE', 'Tonne', 't', 'mass', false], ['LITRE', 'Litre', 'L', 'volume', true], ['PIECE', 'Piece', 'pc', 'count', true]] as [$code, $name, $symbol, $dimension, $base]) {
+            $units[$code] = UnitOfMeasure::query()->updateOrCreate(
+                ['tenant_id' => $tenantId, 'code' => $code],
+                ['name' => $name, 'symbol' => $symbol, 'quantity_dimension' => $dimension, 'is_base_unit' => $base, 'is_active' => true],
+            );
+        }
+        $supplier = Customer::query()->where('tenant_id', $tenantId)->whereIn('type', [Customer::TYPE_SUPPLIER, Customer::TYPE_SUBCONTRACTOR])->first();
+        if ($supplier === null) {
+            $supplier = Customer::query()->create(['tenant_id' => $tenantId, 'branch_id' => $kampalaBranch->id, 'type' => Customer::TYPE_SUPPLIER, 'name' => 'Demo Materials Supplier', 'code' => 'SUP-DEMO', 'status' => 'active', 'created_by' => $director->id, 'updated_by' => $director->id]);
+        }
+        $items = [
+            ['CEM-42', 'Portland cement 42.5N', 'BAG', 'construction_material', InventoryTrackingType::Batch, 'CEM-42-2026-08', true, true, '250', '500', '42000', '48000'],
+            ['AGG-20', 'Crushed aggregate 20mm', 'TONNE', 'construction_material', InventoryTrackingType::None, null, false, true, '25', '100', '120000', '145000'],
+            ['PPE-VEST', 'High visibility safety vest', 'PIECE', 'consumable', InventoryTrackingType::None, null, false, false, '20', '50', '18000', null],
+        ];
+        foreach ($items as [$code, $name, $unitCode, $class, $trackingType, $batchNumber, $isExpires, $isForSale, $reorder, $reorderQty, $unitCost, $sellingPrice]) {
+            InventoryItem::query()->updateOrCreate(
+                ['tenant_id' => $tenantId, 'code' => $code],
+                ['inventory_category_id' => $category->id, 'stock_unit_id' => $units[$unitCode]->id, 'preferred_supplier_id' => $supplier->id, 'name' => $name, 'material_class' => $class, 'tracking_type' => $trackingType, 'batch_number' => $batchNumber, 'is_expires' => $isExpires, 'is_for_sale' => $isForSale, 'reorder_level' => $reorder, 'reorder_quantity' => $reorderQty, 'default_unit_cost' => $unitCost, 'default_selling_price' => $sellingPrice, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+            );
+        }
+        $location = EquipmentLocation::query()->where('tenant_id', $tenantId)->where('branch_id', $kampalaBranch->id)->where('type', 'depot')->first();
+        InventoryStore::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'code' => 'KLA-MAIN-STORE'],
+            ['branch_id' => $kampalaBranch->id, 'equipment_location_id' => $location?->id, 'name' => 'Kampala Main Materials Store', 'type' => 'depot', 'address' => 'Kampala Head Office depot', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+        );
+        InventoryStore::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'code' => 'GUL-SITE-STORE'],
+            ['branch_id' => $guluBranch->id, 'name' => 'Gulu Road Site Store', 'type' => 'site_store', 'address' => 'Gulu project compound store', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+        );
     }
 
     private function branch(string $code, string $name, string $countryCode, string $currencyCode, string $status = 'active'): Branch

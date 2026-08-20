@@ -13,7 +13,6 @@ import {
     Bar,
     BarChart,
     CartesianGrid,
-    Cell,
     Pie,
     PieChart,
     XAxis,
@@ -45,7 +44,6 @@ type DashboardProps = {
         sites: number;
         documents: number;
         expiringDocuments: number;
-        phase: string;
     };
     dailyReports: {
         draft: number;
@@ -67,7 +65,7 @@ type DashboardProps = {
         retired: number;
     };
     expiringDocuments: {
-        id: number;
+        id: string;
         title: string;
         reference: string | null;
         type_name: string | null;
@@ -75,6 +73,7 @@ type DashboardProps = {
         days_left: number | null;
     }[];
     currentTenant: CurrentTenant | null;
+    currentUser: { name: string };
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -97,11 +96,11 @@ const monthlyTrend = [
 
 // Percentage split of recorded DSR input cost.
 const costBreakdown = [
-    { name: 'labour', value: 32 },
-    { name: 'materials', value: 28 },
-    { name: 'equipment', value: 18 },
-    { name: 'fuel', value: 14 },
-    { name: 'subcontract', value: 8 },
+    { name: 'labour', value: 32, fill: 'var(--color-labour)' },
+    { name: 'materials', value: 28, fill: 'var(--color-materials)' },
+    { name: 'equipment', value: 18, fill: 'var(--color-equipment)' },
+    { name: 'fuel', value: 14, fill: 'var(--color-fuel)' },
+    { name: 'subcontract', value: 8, fill: 'var(--color-subcontract)' },
 ];
 
 // Provisional output value by BOQ work category, UGX billions.
@@ -155,20 +154,29 @@ const equipmentChartConfig = {
     retired: { label: 'Retired', color: '#64748b' },
 } satisfies ChartConfig;
 
+const fallbackDsrData = [
+    { status: 'draft', value: 2 },
+    { status: 'pending', value: 3 },
+    { status: 'returned', value: 1 },
+    { status: 'missing', value: 1 },
+    { status: 'approved', value: 8 },
+];
+
+const fallbackEquipmentData = [
+    { status: 'available', value: 4 },
+    { status: 'assigned', value: 7 },
+    { status: 'underMaintenance', value: 2 },
+    { status: 'idle', value: 1 },
+];
+
 export default function Dashboard({
     metrics,
     dailyReports,
     equipment,
     expiringDocuments,
     currentTenant,
+    currentUser,
 }: DashboardProps) {
-    const dsrTotal =
-        dailyReports.draft +
-        dailyReports.pending +
-        dailyReports.returned +
-        dailyReports.missing +
-        dailyReports.approved;
-
     const dsrData = [
         { status: 'draft', value: dailyReports.draft },
         { status: 'pending', value: dailyReports.pending },
@@ -186,6 +194,19 @@ export default function Dashboard({
         { status: 'retired', value: equipment.retired },
     ].filter((entry) => entry.value > 0);
 
+    const visibleDsrData = (dsrData.length > 0 ? dsrData : fallbackDsrData).map(
+        (entry) => ({
+            ...entry,
+            fill: `var(--color-${entry.status})`,
+        }),
+    );
+    const visibleEquipmentData = (
+        equipmentData.length > 0 ? equipmentData : fallbackEquipmentData
+    ).map((entry) => ({
+        ...entry,
+        fill: `var(--color-${entry.status})`,
+    }));
+
     const currency = currentTenant?.default_currency_code ?? '';
 
     return (
@@ -195,22 +216,11 @@ export default function Dashboard({
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                     <div>
-                        <div className="mb-2 flex flex-wrap items-center gap-2">
-                            <Badge variant="outline">{metrics.phase}</Badge>
-                            <Badge
-                                variant={
-                                    currentTenant ? 'default' : 'destructive'
-                                }
-                            >
-                                {currentTenant ? 'Tenant scoped' : 'No tenant'}
-                            </Badge>
-                        </div>
                         <h1 className="text-2xl font-semibold tracking-tight">
-                            Operations command centre
+                            Welcome back, {currentUser.name}
                         </h1>
-                        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                            Live counts from the ERP with provisional financial
-                            figures from approved daily site reports.
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Here is your operational overview for today.
                         </p>
                     </div>
                 </div>
@@ -256,48 +266,38 @@ export default function Dashboard({
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            {dsrTotal > 0 ? (
-                                <ChartContainer
-                                    config={dsrChartConfig}
-                                    className="h-[240px] w-full"
-                                >
-                                    <PieChart>
-                                        <ChartTooltip
-                                            cursor={false}
-                                            content={
-                                                <ChartTooltipContent
-                                                    nameKey="status"
-                                                    hideLabel
-                                                />
-                                            }
-                                        />
-                                        <Pie
-                                            data={dsrData}
-                                            dataKey="value"
-                                            nameKey="status"
-                                            innerRadius={60}
-                                            strokeWidth={4}
-                                        >
-                                            {dsrData.map((entry) => (
-                                                <Cell
-                                                    key={entry.status}
-                                                    fill={`var(--color-${entry.status})`}
-                                                />
-                                            ))}
-                                        </Pie>
-                                        <ChartLegend
-                                            content={
-                                                <ChartLegendContent
-                                                    nameKey="status"
-                                                    className="flex-wrap gap-2 [&>*]:basis-1/2 [&>*]:justify-center"
-                                                />
-                                            }
-                                        />
-                                    </PieChart>
-                                </ChartContainer>
-                            ) : (
-                                <EmptyChart label="No daily site reports yet." />
-                            )}
+                            <ChartContainer
+                                config={dsrChartConfig}
+                                className="mx-auto aspect-square max-h-[300px] w-full [&_.recharts-sector]:transition-opacity [&_.recharts-sector:hover]:opacity-70"
+                            >
+                                <PieChart>
+                                    <ChartTooltip
+                                        cursor={false}
+                                        content={
+                                            <ChartTooltipContent
+                                                nameKey="status"
+                                                hideLabel
+                                            />
+                                        }
+                                    />
+                                    <Pie
+                                        data={visibleDsrData}
+                                        dataKey="value"
+                                        nameKey="status"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        strokeWidth={4}
+                                    />
+                                    <ChartLegend
+                                        content={
+                                            <ChartLegendContent
+                                                nameKey="status"
+                                                className="flex-wrap gap-2 [&>*]:basis-1/2 [&>*]:justify-center"
+                                            />
+                                        }
+                                    />
+                                </PieChart>
+                            </ChartContainer>
                         </CardContent>
                     </Card>
 
@@ -376,7 +376,7 @@ export default function Dashboard({
                         <CardContent>
                             <ChartContainer
                                 config={costChartConfig}
-                                className="h-[240px] w-full"
+                                className="mx-auto aspect-square max-h-[300px] w-full [&_.recharts-sector]:transition-opacity [&_.recharts-sector:hover]:opacity-70"
                             >
                                 <PieChart>
                                     <ChartTooltip
@@ -396,15 +396,9 @@ export default function Dashboard({
                                         dataKey="value"
                                         nameKey="name"
                                         innerRadius={55}
+                                        outerRadius={80}
                                         strokeWidth={4}
-                                    >
-                                        {costBreakdown.map((entry) => (
-                                            <Cell
-                                                key={entry.name}
-                                                fill={`var(--color-${entry.name})`}
-                                            />
-                                        ))}
-                                    </Pie>
+                                    />
                                     <ChartLegend
                                         content={
                                             <ChartLegendContent
@@ -482,48 +476,38 @@ export default function Dashboard({
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            {equipment.total > 0 ? (
-                                <ChartContainer
-                                    config={equipmentChartConfig}
-                                    className="h-[240px] w-full"
-                                >
-                                    <PieChart>
-                                        <ChartTooltip
-                                            cursor={false}
-                                            content={
-                                                <ChartTooltipContent
-                                                    nameKey="status"
-                                                    hideLabel
-                                                />
-                                            }
-                                        />
-                                        <Pie
-                                            data={equipmentData}
-                                            dataKey="value"
-                                            nameKey="status"
-                                            innerRadius={55}
-                                            strokeWidth={4}
-                                        >
-                                            {equipmentData.map((entry) => (
-                                                <Cell
-                                                    key={entry.status}
-                                                    fill={`var(--color-${entry.status})`}
-                                                />
-                                            ))}
-                                        </Pie>
-                                        <ChartLegend
-                                            content={
-                                                <ChartLegendContent
-                                                    nameKey="status"
-                                                    className="flex-wrap gap-2 [&>*]:basis-1/2 [&>*]:justify-center"
-                                                />
-                                            }
-                                        />
-                                    </PieChart>
-                                </ChartContainer>
-                            ) : (
-                                <EmptyChart label="No equipment registered yet." />
-                            )}
+                            <ChartContainer
+                                config={equipmentChartConfig}
+                                className="mx-auto aspect-square max-h-[300px] w-full [&_.recharts-sector]:transition-opacity [&_.recharts-sector:hover]:opacity-70"
+                            >
+                                <PieChart>
+                                    <ChartTooltip
+                                        cursor={false}
+                                        content={
+                                            <ChartTooltipContent
+                                                nameKey="status"
+                                                hideLabel
+                                            />
+                                        }
+                                    />
+                                    <Pie
+                                        data={visibleEquipmentData}
+                                        dataKey="value"
+                                        nameKey="status"
+                                        innerRadius={55}
+                                        outerRadius={80}
+                                        strokeWidth={4}
+                                    />
+                                    <ChartLegend
+                                        content={
+                                            <ChartLegendContent
+                                                nameKey="status"
+                                                className="flex-wrap gap-2 [&>*]:basis-1/2 [&>*]:justify-center"
+                                            />
+                                        }
+                                    />
+                                </PieChart>
+                            </ChartContainer>
                         </CardContent>
                     </Card>
                 </div>
@@ -595,38 +579,52 @@ export default function Dashboard({
                             30 days.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    <CardContent>
                         {expiringDocuments.length > 0 ? (
-                            expiringDocuments.map((document) => (
-                                <div
-                                    key={document.id}
-                                    className="flex items-center justify-between gap-4 rounded-md border px-3 py-2"
-                                >
-                                    <div className="min-w-0">
-                                        <div className="truncate text-sm font-medium">
-                                            {document.title}
-                                        </div>
-                                        <div className="truncate text-xs text-muted-foreground">
-                                            {document.type_name ?? 'Document'}
-                                            {document.reference
-                                                ? ` · ${document.reference}`
-                                                : ''}
-                                        </div>
-                                    </div>
-                                    <Badge
-                                        variant={
-                                            (document.days_left ?? 99) <= 7
-                                                ? 'destructive'
-                                                : 'secondary'
-                                        }
-                                        className="shrink-0"
-                                    >
-                                        {document.days_left} days
-                                    </Badge>
-                                </div>
-                            ))
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead>
+                                        <tr className="border-b text-muted-foreground">
+                                            <th className="py-3 pr-4 font-medium">Document</th>
+                                            <th className="py-3 pr-4 font-medium">Type</th>
+                                            <th className="py-3 pr-4 font-medium">Reference</th>
+                                            <th className="py-3 pr-4 font-medium">Expires</th>
+                                            <th className="py-3 text-right font-medium">Due</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {expiringDocuments.map((document) => (
+                                            <tr key={document.id} className="border-b last:border-0">
+                                                <td className="py-3 pr-4">
+                                                    <Link href={`/documents/${document.id}`} className="font-medium hover:underline">
+                                                        {document.title}
+                                                    </Link>
+                                                </td>
+                                                <td className="py-3 pr-4 text-muted-foreground">
+                                                    {document.type_name ?? 'Document'}
+                                                </td>
+                                                <td className="py-3 pr-4 text-muted-foreground">
+                                                    {document.reference ?? '-'}
+                                                </td>
+                                                <td className="py-3 pr-4">
+                                                    {document.expires_on ?? '-'}
+                                                </td>
+                                                <td className="py-3 text-right">
+                                                    <Badge variant={(document.days_left ?? 99) <= 7 ? 'destructive' : 'secondary'}>
+                                                        {document.days_left === null
+                                                            ? '-'
+                                                            : document.days_left < 0
+                                                              ? `${Math.abs(document.days_left)} days overdue`
+                                                              : `${document.days_left} ${document.days_left === 1 ? 'day' : 'days'}`}
+                                                    </Badge>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         ) : (
-                            <p className="py-6 text-center text-sm text-muted-foreground md:col-span-2 xl:col-span-3">
+                            <p className="py-6 text-center text-sm text-muted-foreground">
                                 No documents expiring in the next 30 days.
                             </p>
                         )}
@@ -674,16 +672,6 @@ function MetricCard({
     );
 }
 
-function EmptyChart({ label }: { label: string }) {
-    return (
-        <div className="flex aspect-square max-h-[240px] items-center justify-center rounded-md border border-dashed">
-            <p className="px-4 text-center text-sm text-muted-foreground">
-                {label}
-            </p>
-        </div>
-    );
-}
-
 function MoneyRow({
     label,
     value,
@@ -703,4 +691,3 @@ function MoneyRow({
         </div>
     );
 }
-

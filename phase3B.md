@@ -4,7 +4,7 @@
 
 Phase 3B is the next major implementation phase after Phase 3A. It introduces controlled materials, suppliers, procurement and stores while preserving the operational history already captured by Daily Site Reports and the fleet module.
 
-Status: planned implementation contract.
+Status: implementation in progress. Chunk 3B.1 is partially implemented and must pass its corrected acceptance contract before Chunk 3B.2 begins.
 
 The roadmap and SRS are the authority for this phase. `phase3A.md` remains the authority for equipment, fuel, maintenance, meter, custody and fleet location behaviour. This document owns stock, procurement and material issue workflows.
 
@@ -50,7 +50,7 @@ The phase replaces uncontrolled material names and spreadsheet balances with mas
 - Full cost accounting, project actuals and financial forecasting; Phase 4 owns these.
 - Automatic supplier price selection without approval.
 - Barcode scanners, RFID and warehouse automation.
-- Lot, batch, serial-number and expiry tracking in the first slice unless required for a specific material class.
+- Full lot/batch/serial stock ledgers in the first slice. The item master still declares tracking requirements, and posting is blocked until the required tracking records are supported.
 - Multi-level warehouse bin optimisation.
 - Manufacturing, recipes, production orders and material requirements planning.
 - Automatic stock deduction from every DSR save or submission.
@@ -68,6 +68,8 @@ An authorised user may link a draft or approved DSR line to an inventory item fo
 Every stock change is a posted movement. Balances are calculated or cached from posted movements and may not be edited directly. Corrections use a reversal plus replacement movement or an approved stock adjustment with a reason.
 
 The system must prevent a posted issue from being changed in place, a receipt from being deleted, and a negative balance unless a tenant-level policy explicitly permits controlled negative stock.
+
+Negative-stock protection must be concurrency-safe. Posting actions run in a database transaction and lock the affected store-item balance row before checking available quantity and writing movements. A read-then-insert check without a lock is not sufficient because two simultaneous issues could otherwise both spend the same stock.
 
 ### 4.3 Units are explicit
 
@@ -128,6 +130,25 @@ Purchase, receipt and issue costs store the transaction currency and preserve th
 
 Cost fields, supplier prices and quotation comparisons require dedicated permissions. Users who cannot view costs may still see quantities, statuses and operational references.
 
+The item form does not ask users to select a pricing currency and the item table stores no separate currency column. Optional default purchase cost and default selling price are displayed in the active branch/facility default currency; tenant default currency is the fallback only in a legitimate all-branches context. Every quotation, order, receipt, issue with cost, and sale still preserves its own currency and source amount.
+
+### 4.9 Tracking and expiry
+
+Each item declares a tracking type: `none`, `serial`, `batch` or `other`.
+
+- `none`: quantities are interchangeable and no serial/batch identity is required;
+- `serial`: each tracked unit receives a unique serial identity before receipt is posted;
+- `batch`: setup requires an initial/default batch number and expiry tracking; receipts and issues identify their actual batch;
+- `other`: a controlled reference is required, with the exact pilot convention recorded in the item specification.
+
+`is_expires` indicates that expiry dates must be captured at the tracked stock-record level. Expiry belongs to a batch or serial stock record, not to the item master itself. The item-level `batch_number` is the initial/default setup reference only; it cannot replace receipt-level batch records because one item may have many batches. The first ledger slice may defer full batch/serial stock tables, but it must prevent tracked items from being posted until the required tracking implementation exists.
+
+### 4.10 Saleability and selling prices
+
+`is_for_sale` distinguishes materials that may be sold externally from internal-use-only stock. An optional default unit selling price provides a simple fallback in the active branch/facility default currency.
+
+Multiple selling prices are represented by named price tiers, not columns such as `retail_price` and `wholesale_price` on the item. `inventory_price_tiers` defines tenant-owned tiers such as Retail, Wholesale or Staff, and `inventory_item_prices` stores item, tier, currency, unit, amount, effective dates and minimum quantity. A sales transaction copies the selected price snapshot so later price changes do not rewrite history.
+
 ## 5. Proposed Data Model
 
 All primary keys are UUIDs. Every migration must be created separately with Artisan. Foreign keys and indexes must use explicit short names because MySQL identifier limits have already affected this project.
@@ -150,15 +171,42 @@ Dimensions initially include `mass`, `volume`, `length`, `area`, `count` and `ti
 ### 5.3 `inventory_items`
 
 - `id`, `tenant_id`, `inventory_category_id`;
-- stable item `code`, `name`, description and specification;
+- stable item `code`, `name`, description and specification; code is suggested from the name but remains editable and tenant-unique;
 - stock unit and optional issue/purchase units;
-- reorder level, reorder quantity and minimum issue quantity;
+- tracking type (`none`, `serial`, `batch`, `other`) and `is_expires`; batch tracking requires a batch number and expiry;
+- `is_for_sale` and optional default unit selling price using the branch/facility currency;
+- reorder level and reorder quantity;
 - preferred supplier and optional lead time;
-- default unit cost and currency, permission-controlled;
+- default unit cost, permission-controlled and valued in the resolved branch/facility currency;
 - material class: consumable, construction_material, spare_part, fuel_related or other;
 - `is_active`, audit users, timestamps and soft delete.
 
 Item codes are tenant-unique. Retired items cannot receive new requisition lines or stock movements.
+
+### 5.3.1 `inventory_store_items`
+
+Defines which items a store carries and owns store-specific controls:
+
+- tenant, store and item;
+- reorder level, reorder quantity, minimum and optional maximum stock;
+- preferred issue unit and storage location note;
+- is stocked/is active flags and audit users.
+
+Item-level reorder values are defaults used when enabling an item at a store. Operational low-stock calculations use the store-item values because Kampala and a site store may require different minimum quantities.
+
+### 5.3.2 `inventory_price_tiers` and `inventory_item_prices`
+
+Price tier:
+
+- tenant-owned code, name, description, priority and active state.
+
+Item price:
+
+- item, price tier, selling unit, currency and amount;
+- optional minimum quantity, effective-from/effective-until dates and active state;
+- audit users and timestamps.
+
+The item default selling price supports simple tenants. Tier prices override it when a matching active tier is selected. Customer-specific contract pricing remains a later extension unless the pilot requires it.
 
 ### 5.4 `inventory_unit_conversions`
 
@@ -266,6 +314,8 @@ The immutable stock ledger:
 
 Posted movements are append-only. A reversal points to the original movement and records a reason.
 
+The ledger must enforce source idempotency with a stable source key and use locked store-item rows when posting. A transfer dispatch and receipt are separate movements joined by the transfer line, and their posting occurs through transactional domain actions only.
+
 ### 5.12 `inventory_reservations`
 
 - item, source store, requisition line and reserved quantity;
@@ -293,14 +343,15 @@ Count entry does not change stock. Only approval posts the variance.
 
 ### 5.15 DSR integration fields
 
-Add optional fields to the existing material line through a focused migration:
+Add optional item and reconciliation-state fields to the existing material line through a focused migration:
 
 - `inventory_item_id`;
 - `inventory_store_id`;
 - `stock_unit_quantity` and conversion snapshot;
 - `inventory_posting_status`;
-- `inventory_stock_movement_id`;
 - `inventory_posted_at`.
+
+Do not place a single `inventory_stock_movement_id` on the DSR line. One reported line may be fulfilled by multiple partial issues, stores, returns or additive corrections. Stock movements reference the DSR material line as their source, and a reconciliation table/state summarizes reported, posted, returned and outstanding stock-unit quantities.
 
 Existing material snapshot columns remain unchanged and nullable additions preserve old reports.
 
@@ -327,11 +378,11 @@ Policies must check:
 3. permission;
 4. record state and allowed transition;
 5. project/site access where present;
-6. separation of requester and approver where required;
+6. explicit approval permission, including self-approval when the requester holds that permission;
 7. cost visibility independently from quantity visibility;
 8. authority to administer a store or assign a supplier.
 
-Direct routes must return 403 when the interface control is hidden. A user must not approve their own requisition or purchase order unless a configured emergency rule explicitly permits it and records the reason.
+Direct routes must return 403 when the interface control is hidden. A requester may approve their own requisition or purchase order only when they hold the explicit approval permission. The audit trail records both requester and approver even when they are the same user.
 
 ## 7. Workflow Design
 
@@ -405,8 +456,14 @@ After DSR approval:
 1. Display item-linked and unlinked material lines.
 2. Show required stock unit conversion.
 3. Let an authorised store/project user select the source store and post an issue, or mark the line as externally supplied/non-stock with a reason.
-4. Create one idempotent stock movement linked to the DSR line.
-5. Prevent duplicate posting and use additive correction for later changes.
+4. Create one or more idempotent stock movements linked to the DSR line through their source identity.
+5. Prevent duplicate source posting, support partial fulfilment and use additive correction for later changes.
+
+### 7.8 Phase 3A stock integration
+
+- An equipment fuel transaction may link to an inventory item, source store and stock movement without replacing its existing fuel snapshot.
+- A maintenance part line may link to an inventory item and issue movement without replacing its part-name, quantity and cost snapshot.
+- Posting is explicit and idempotent. Historical Phase 3A records remain valid when inventory is not linked.
 
 ## 8. UI Plan
 
@@ -461,10 +518,14 @@ Audit events should include actor, tenant, branch, event, record type/id, old/ne
 
 ### Chunk 3B.1: Reference data and store foundation
 
+Status: in progress. Category, unit, item and store foundations exist. The corrected acceptance work includes secure price-field serialization, equipment-style tables, item tracking/saleability fields, conversion management, store-item settings, document links and stronger isolation tests.
+
 - Create category, unit, item and store schema separately.
 - Add models, factories, policies, requests, actions and CRUD pages.
 - Reuse equipment locations where appropriate.
 - Add item/store documents and active/inactive views.
+- Add tracking, saleability, default selling price and generated-but-editable item codes.
+- Add store-item stocking and reorder settings; add price tiers after the simple default selling price is stable.
 - Add permissions and seed roles.
 - Add tests for tenant, branch, inactive records and cost omission.
 
@@ -473,6 +534,7 @@ Acceptance: a store manager can define an item and store; unrelated branches and
 ### Chunk 3B.2: Stock ledger and balances
 
 - Create movement, reservation and balance query/service.
+- Use locked store-item rows and transactional posting to prevent concurrent negative stock.
 - Add opening balance, receipt-like controlled seed path, issue, return, adjustment and reversal actions.
 - Enforce append-only posted movements and idempotency keys/source uniqueness.
 - Add stock ledger UI, balance cards, low-stock query and CSV export.
@@ -521,8 +583,9 @@ Acceptance: dispatched stock is in transit, not destination on-hand; count entry
 - Add approved-line reconciliation and stock issue posting.
 - Add external/non-stock reason and additive correction path.
 - Add project/site material summaries and exception indicators.
+- Link fuel transactions and maintenance part lines to inventory issues while retaining their Phase 3A snapshots.
 
-Acceptance: the approved DSR snapshot remains unchanged, one stock movement can be linked to it, duplicate posting is blocked and users can distinguish reported quantity from posted stock.
+Acceptance: the approved DSR snapshot remains unchanged, partial and multiple source movements can reconcile one line, duplicate posting is blocked, Phase 3A snapshots remain unchanged and users can distinguish reported quantity from posted stock.
 
 ### Chunk 3B.8: Reporting, seed data and hardening
 
@@ -553,7 +616,7 @@ Tests must prove:
 2. single-branch default behaviour;
 3. permission enforcement through direct requests;
 4. state transition enforcement;
-5. requester/approver separation;
+5. approval permission enforcement, including authorised self-approval and rejection of users without approval permission;
 6. cost-field omission;
 7. unit conversion and historical snapshot preservation;
 8. partial receipt and rejected quantity accounting;
@@ -564,6 +627,11 @@ Tests must prove:
 13. DSR snapshot immutability and correction rules;
 14. audit and notification creation;
 15. exports using the same authorised filters as the UI.
+16. concurrent issues cannot create negative stock;
+17. server responses and exports omit cost and selling-price fields without cost permission;
+18. batch tracking requires an initial batch number and expiry; unsupported tracked movements are blocked;
+19. store-specific reorder settings override item defaults;
+20. one DSR line can reconcile multiple partial movements without losing its snapshot.
 
 ## 12. Seed Scenario
 
@@ -571,6 +639,8 @@ Extend the existing Point Investment road demo with:
 
 - cement, aggregate, fuel-related consumable, reinforcement steel, culvert component and PPE items;
 - tonne, kilogram, bag, litre and piece units;
+- non-tracked cement, batch-and-expiry-tracked consumables and one serial-tracked spare/tool example;
+- retail and wholesale price tiers for at least one saleable item;
 - Kampala depot, Gulu site store and one inactive historical store;
 - one supplier and one subcontractor supplier;
 - a submitted and approved requisition;
@@ -594,7 +664,7 @@ Suggested commands after each chunk:
 php artisan migrate
 php artisan db:seed --class=RolePermissionSeeder
 php artisan db:seed --class=PointInvestmentSeeder
-php vendor/bin/pest tests/Feature/Operations/PhaseThreeBReferenceDataTest.php --compact
+php vendor/bin/pest tests/Feature/Inventory/PhaseThreeBReferenceDataTest.php --compact
 vendor/bin/phpstan analyse
 composer lint
 ```
@@ -607,17 +677,23 @@ Phase 4 may consume posted receipt, issue and commitment records for project cos
 
 Phase 3C may use requisition and issue data to compare planned workforce/material demand, but workforce remains a separate master and access-control domain.
 
-## 15. Decisions to Confirm During 3B.1
+## 15. Confirmed Decisions for 3B.1
 
-Recommended defaults are included so implementation can begin:
+The following decisions are now confirmed for implementation:
 
-1. Negative stock: blocked by default; emergency override requires a dedicated permission and reason.
-2. Stock unit: one canonical unit per item; all conversions are explicit.
-3. Approval: requester cannot approve their own requisition or PO.
-4. Receipt: accepted quantity posts stock; rejected quantity remains outside on-hand.
-5. Store model: one store may serve one site or several sites, but every movement names its destination context.
-6. DSR posting: explicit reconciliation action after approval, never automatic on draft save.
-7. Cost visibility: separate from quantity visibility.
-8. Supplier: existing `Customer` records of type supplier or subcontractor are the initial supplier master.
-9. Lot/expiry/serial tracking: deferred until a real pilot material requires it.
-10. Inventory valuation: operational quantities and source costs now; formal valuation and accounting in Phase 4.
+1. Negative stock is blocked. A store cannot issue more than its available quantity; an exception workflow may be designed later if the pilot proves it necessary.
+2. Each item has one primary stock unit. Purchase, issue and DSR units require explicit conversions copied onto the transaction.
+3. A requester may approve their own requisition or purchase order only when they hold the explicit approval permission. The policy will not impose a blanket requester/approver separation.
+4. Accepted receipt quantity posts stock; rejected quantity remains outside on-hand.
+5. One store may serve several sites. Every movement still names its store and project/site context where applicable.
+6. DSR stock posting is an explicit reconciliation action after approval, never automatic on draft save.
+7. Cost visibility is separate from quantity visibility. A storekeeper can see item names, units, reorder levels, store balances and movement quantities without seeing supplier prices, unit costs or currency amounts. The server also strips or preserves cost fields according to permission, so hiding a column is not the security control.
+8. Existing `Customer` records of type supplier or subcontractor are the initial supplier master.
+9. Full lot, expiry and serial ledgers are deferred until a real pilot material requires them. The item master records the tracking requirement, and batch items require an initial/default batch reference plus expiry tracking.
+10. Inventory tracking type, material class, store type and unit dimension are represented by PHP backed enum classes and stored in ordinary string columns, keeping business validation in code instead of database-specific enum constraints.
+11. Phase 3B stores source costs and operational quantities for traceability. Formal valuation methods, accounting journals, payable recognition, tax and financial reporting belong to Phase 4; inventory must not pretend that a receipt is already a posted accounting transaction.
+12. Item codes are suggested from the item name and remain editable before save. The saved code is stable and tenant-unique.
+13. The user-facing term is `Stock unit`, not `canonical stock unit`.
+14. Reorder controls are ultimately store-specific; item values are setup defaults.
+15. Selling prices support a simple item default and extensible named tiers such as Retail and Wholesale.
+16. Cost and selling-price fields are removed from server payloads and exports when the user lacks cost permission.

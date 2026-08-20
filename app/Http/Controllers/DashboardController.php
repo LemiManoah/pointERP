@@ -29,7 +29,6 @@ final class DashboardController
                 'sites' => Site::query()->where('tenant_id', $tenantId)->where('status', 'active')->count(),
                 'documents' => Document::query()->where('tenant_id', $tenantId)->where('status', '!=', Document::STATUS_ARCHIVED)->count(),
                 'expiringDocuments' => Document::query()->where('tenant_id', $tenantId)->expiringSoon()->count(),
-                'phase' => 'Phase 2D',
             ],
             'dailyReports' => [
                 'draft' => DailySiteReport::query()->where('tenant_id', $tenantId)->where('status', DailySiteReport::STATUS_DRAFT)->count(),
@@ -62,7 +61,9 @@ final class DashboardController
                     'reference' => $document->reference,
                     'type_name' => $document->type?->name,
                     'expires_on' => $document->expires_on?->toDateString(),
-                    'days_left' => $document->expires_on?->diffInDays(now()),
+                    'days_left' => $document->expires_on instanceof \Carbon\CarbonInterface
+                        ? (int) now()->startOfDay()->diffInDays($document->expires_on->startOfDay(), false)
+                        : null,
                 ]),
             'currentTenant' => $user->tenant->only([
                 'id',
@@ -74,6 +75,7 @@ final class DashboardController
                 'timezone',
                 'status',
             ]),
+            'currentUser' => ['name' => $user->name],
         ]);
     }
 }
