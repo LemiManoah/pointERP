@@ -21,6 +21,7 @@ export type AccessUser = {
     is_director: boolean;
     last_login_at: string | null;
     branch_ids: string[];
+    branches: BranchOption[];
     default_branch_id: string | null;
     roles: string[];
     permissions: string[];

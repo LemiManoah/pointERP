@@ -7,6 +7,7 @@ namespace App\Http\Requests\Operations\Inventory;
 use App\Enums\InventoryMovementType;
 use App\Models\Equipment;
 use App\Models\InventoryBatch;
+use App\Models\InventoryStore;
 use App\Models\Project;
 use App\Models\Site;
 use App\Models\UnitOfMeasure;
@@ -24,7 +25,8 @@ final class StoreInventoryStockMovementRequest extends FormRequest
         $tenantId = resolve(TenantContext::class)->id();
 
         return [
-            'movement_type' => ['required', Rule::in([InventoryMovementType::OpeningBalance->value, InventoryMovementType::Receipt->value, InventoryMovementType::Issue->value, InventoryMovementType::Return->value, InventoryMovementType::Adjustment->value])],
+            'movement_type' => ['required', Rule::in([InventoryMovementType::OpeningBalance->value, InventoryMovementType::Issue->value, InventoryMovementType::Return->value, InventoryMovementType::Adjustment->value, 'transfer'])],
+            'destination_store_id' => ['nullable', Rule::requiredIf($this->input('movement_type') === 'transfer'), 'uuid', Rule::exists((new InventoryStore)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
             'original_quantity' => ['required', 'numeric', 'gt:0'],
             'adjustment_direction' => ['nullable', Rule::requiredIf($this->input('movement_type') === InventoryMovementType::Adjustment->value), Rule::in(['increase', 'decrease'])],
             'original_unit_id' => ['required', 'uuid', Rule::exists((new UnitOfMeasure)->getTable(), 'id')->where(fn (Builder $query): Builder => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenantId))->where('is_active', true)],
@@ -34,6 +36,7 @@ final class StoreInventoryStockMovementRequest extends FormRequest
             'equipment_id' => ['nullable', 'uuid', Rule::exists((new Equipment)->getTable(), 'id')->where('tenant_id', $tenantId)],
             'source_key' => ['required', 'string', 'max:160'],
             'reason' => ['required', 'string', 'max:2000'],
+            'return_to' => ['nullable', Rule::in(['movements'])],
         ];
     }
 

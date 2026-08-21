@@ -213,7 +213,7 @@ export default function Dashboard({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
 
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+            <div className="flex min-w-0 flex-1 flex-col gap-6 p-4 md:p-6">
                 <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
                     <div>
                         <h1 className="text-2xl font-semibold tracking-tight">
@@ -257,7 +257,7 @@ export default function Dashboard({
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-3">
-                    <Card>
+                    <Card className="min-w-0 overflow-hidden">
                         <CardHeader>
                             <CardTitle>DSR workflow</CardTitle>
                             <CardDescription>
@@ -265,10 +265,11 @@ export default function Dashboard({
                                 period.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="min-w-0 overflow-hidden">
                             <ChartContainer
                                 config={dsrChartConfig}
-                                className="mx-auto aspect-square max-h-[300px] w-full [&_.recharts-sector]:transition-opacity [&_.recharts-sector:hover]:opacity-70"
+                                initialDimension={{ width: 240, height: 300 }}
+                                className="mx-auto h-[300px] w-full max-w-full min-w-0 overflow-hidden [&_.recharts-sector]:transition-opacity [&_.recharts-sector:hover]:opacity-70"
                             >
                                 <PieChart>
                                     <ChartTooltip
@@ -292,7 +293,7 @@ export default function Dashboard({
                                         content={
                                             <ChartLegendContent
                                                 nameKey="status"
-                                                className="flex-wrap gap-2 [&>*]:basis-1/2 [&>*]:justify-center"
+                                                className="flex-row flex-wrap gap-x-3 gap-y-2 px-1 [&>*]:min-w-0 [&>*]:justify-center"
                                             />
                                         }
                                     />
@@ -301,7 +302,7 @@ export default function Dashboard({
                         </CardContent>
                     </Card>
 
-                    <Card className="lg:col-span-2">
+                    <Card className="min-w-0 overflow-hidden lg:col-span-2">
                         <CardHeader>
                             <CardTitle>Output vs input cost</CardTitle>
                             <CardDescription>
@@ -309,10 +310,11 @@ export default function Dashboard({
                                 the last six months.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="min-w-0 overflow-hidden">
                             <ChartContainer
                                 config={trendChartConfig}
-                                className="h-[280px] w-full"
+                                initialDimension={{ width: 240, height: 280 }}
+                                className="h-[280px] w-full max-w-full min-w-0 overflow-hidden"
                             >
                                 <AreaChart
                                     data={monthlyTrend}
@@ -366,17 +368,18 @@ export default function Dashboard({
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <Card>
+                    <Card className="min-w-0 overflow-hidden">
                         <CardHeader>
                             <CardTitle>Cost breakdown</CardTitle>
                             <CardDescription>
                                 Share of recorded DSR input cost by category.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="min-w-0 overflow-hidden">
                             <ChartContainer
                                 config={costChartConfig}
-                                className="mx-auto aspect-square max-h-[300px] w-full [&_.recharts-sector]:transition-opacity [&_.recharts-sector:hover]:opacity-70"
+                                initialDimension={{ width: 240, height: 300 }}
+                                className="mx-auto h-[300px] w-full max-w-full min-w-0 overflow-hidden [&_.recharts-sector]:transition-opacity [&_.recharts-sector:hover]:opacity-70"
                             >
                                 <PieChart>
                                     <ChartTooltip
@@ -403,7 +406,7 @@ export default function Dashboard({
                                         content={
                                             <ChartLegendContent
                                                 nameKey="name"
-                                                className="flex-wrap gap-2 [&>*]:basis-1/2 [&>*]:justify-center"
+                                                className="flex-row flex-wrap gap-x-3 gap-y-2 px-1 [&>*]:min-w-0 [&>*]:justify-center"
                                             />
                                         }
                                     />
@@ -412,7 +415,7 @@ export default function Dashboard({
                         </CardContent>
                     </Card>
 
-                    <Card>
+                    <Card className="min-w-0 overflow-hidden">
                         <CardHeader>
                             <CardTitle>Output by work category</CardTitle>
                             <CardDescription>
@@ -420,10 +423,11 @@ export default function Dashboard({
                                 UGX billions.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="min-w-0 overflow-hidden">
                             <ChartContainer
                                 config={categoryChartConfig}
-                                className="h-[240px] w-full"
+                                initialDimension={{ width: 240, height: 240 }}
+                                className="h-[240px] w-full max-w-full min-w-0 overflow-hidden"
                             >
                                 <BarChart
                                     data={outputByCategory}
@@ -468,17 +472,18 @@ export default function Dashboard({
                         </CardContent>
                     </Card>
 
-                    <Card>
+                    <Card className="min-w-0 overflow-hidden">
                         <CardHeader>
                             <CardTitle>Equipment status</CardTitle>
                             <CardDescription>
                                 Fleet availability from the equipment register.
                             </CardDescription>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="min-w-0 overflow-hidden">
                             <ChartContainer
                                 config={equipmentChartConfig}
-                                className="mx-auto aspect-square max-h-[300px] w-full [&_.recharts-sector]:transition-opacity [&_.recharts-sector:hover]:opacity-70"
+                                initialDimension={{ width: 240, height: 300 }}
+                                className="mx-auto h-[300px] w-full max-w-full min-w-0 overflow-hidden [&_.recharts-sector]:transition-opacity [&_.recharts-sector:hover]:opacity-70"
                             >
                                 <PieChart>
                                     <ChartTooltip
@@ -502,7 +507,7 @@ export default function Dashboard({
                                         content={
                                             <ChartLegendContent
                                                 nameKey="status"
-                                                className="flex-wrap gap-2 [&>*]:basis-1/2 [&>*]:justify-center"
+                                                className="flex-row flex-wrap gap-x-3 gap-y-2 px-1 [&>*]:min-w-0 [&>*]:justify-center"
                                             />
                                         }
                                     />

@@ -45,6 +45,8 @@ type Props = {
     branches: BranchOption[];
     currencies: CurrencyOption[];
     isMultiBranch: boolean;
+    defaultBranchId: string | null;
+    canManageFacilityWide: boolean;
     onCancel?: () => void;
     onSuccess?: () => void;
 };
@@ -54,11 +56,15 @@ export function ExchangeRateForm({
     branches,
     currencies,
     isMultiBranch,
+    defaultBranchId,
+    canManageFacilityWide,
     onCancel,
     onSuccess,
 }: Props) {
     const form = useForm<ExchangeRateFormData>({
-        branch_id: exchangeRate?.branch_id ?? '__tenant__',
+        branch_id:
+            exchangeRate?.branch_id ??
+            (isMultiBranch ? (defaultBranchId ?? '') : '__tenant__'),
         from_currency_code:
             exchangeRate?.from_currency_code ?? currencies[0]?.code ?? '',
         to_currency_code:
@@ -106,12 +112,16 @@ export function ExchangeRateForm({
                             form.setData('branch_id', value)
                         }
                         options={[
-                            {
-                                value: '__tenant__',
-                                label: 'Facility-wide',
-                                description:
-                                    'Applies unless a branch rate exists',
-                            },
+                            ...(canManageFacilityWide
+                                ? [
+                                      {
+                                          value: '__tenant__',
+                                          label: 'Facility-wide',
+                                          description:
+                                              'Applies unless a branch rate exists',
+                                      },
+                                  ]
+                                : []),
                             ...branches.map((branch) => ({
                                 value: branch.id,
                                 label: branch.name,

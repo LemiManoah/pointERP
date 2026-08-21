@@ -15,7 +15,6 @@ import type {
     LinkOptions,
 } from '../documents/partials/document-dialog';
 import {
-    BatchDialog,
     ConversionDialog,
     PriceDialog,
     StoreSettingDialog,
@@ -26,10 +25,7 @@ import type {
     ItemPrice,
     StoreSetting,
 } from './partials/item-detail-dialogs';
-import {
-    StockMovementDialog,
-    StockMovementReversalDialog,
-} from './partials/stock-movement-dialogs';
+import { StockMovementReversalDialog } from './partials/stock-movement-dialogs';
 
 type Option = {
     id: string;
@@ -114,6 +110,8 @@ type Props = {
     units: Option[];
     stores: Option[];
     branches: Option[];
+    defaultPriceBranchId: string;
+    canChangePriceBranch: boolean;
     priceLists: Option[];
     documents: DocumentRow[];
     documentTypes: DocumentTypeOption[];
@@ -388,8 +386,13 @@ export default function InventoryItemShow(props: Props) {
                                     props.can.manage ? (
                                         <PriceDialog
                                             itemId={item.id}
-                                            units={props.units}
                                             branches={props.branches}
+                                            defaultBranchId={
+                                                props.defaultPriceBranchId
+                                            }
+                                            canChangeBranch={
+                                                props.canChangePriceBranch
+                                            }
                                             priceLists={props.priceLists}
                                         />
                                     ) : null
@@ -400,8 +403,6 @@ export default function InventoryItemShow(props: Props) {
                                         'Price list',
                                         'Context',
                                         'Unit price',
-                                        'Minimum quantity',
-                                        'Dates',
                                         '',
                                     ]}
                                     rows={props.prices.map((row) => [
@@ -418,14 +419,17 @@ export default function InventoryItemShow(props: Props) {
                                             row.currency,
                                             row.amount,
                                         ),
-                                        formatNumber(row.minimum_quantity),
-                                        `${row.effective_from ?? 'Now'} to ${row.effective_until ?? 'Open'}`,
                                         props.can.manage ? (
                                             <PriceDialog
                                                 key={`${row.id}-action`}
                                                 itemId={item.id}
-                                                units={props.units}
                                                 branches={props.branches}
+                                                defaultBranchId={
+                                                    props.defaultPriceBranchId
+                                                }
+                                                canChangeBranch={
+                                                    props.canChangePriceBranch
+                                                }
                                                 priceLists={props.priceLists}
                                                 price={row}
                                             />
@@ -437,17 +441,7 @@ export default function InventoryItemShow(props: Props) {
                     )}
                     {item.tracking_type === 'batch' && (
                         <TabsContent value="batches" className="mt-6">
-                            <Section
-                                title="Batches"
-                                action={
-                                    props.can.manage ? (
-                                        <BatchDialog
-                                            itemId={item.id}
-                                            stores={props.stores}
-                                        />
-                                    ) : null
-                                }
-                            >
+                            <Section title="Batches" action={null}>
                                 <Table
                                     headers={[
                                         'Batch',
@@ -455,7 +449,6 @@ export default function InventoryItemShow(props: Props) {
                                         'Manufactured',
                                         'Expiry',
                                         'Status',
-                                        '',
                                     ]}
                                     rows={props.batches.map((row) => [
                                         row.batch_number,
@@ -468,14 +461,6 @@ export default function InventoryItemShow(props: Props) {
                                         >
                                             {title(row.status)}
                                         </Badge>,
-                                        props.can.manage ? (
-                                            <BatchDialog
-                                                key={`${row.id}-action`}
-                                                itemId={item.id}
-                                                stores={props.stores}
-                                                batch={row}
-                                            />
-                                        ) : null,
                                     ])}
                                 />
                             </Section>
@@ -576,27 +561,16 @@ export default function InventoryItemShow(props: Props) {
                             <Section
                                 title="Movement ledger"
                                 action={
-                                    props.can.postStock ? (
-                                        <StockMovementDialog
-                                            itemId={item.id}
-                                            stores={props.stockBalances.map(
-                                                (balance) => ({
-                                                    id: balance.store_id,
-                                                    name: balance.store_name,
-                                                    branch_name:
-                                                        balance.branch_name,
-                                                }),
-                                            )}
-                                            units={props.units}
-                                            batches={props.batches}
-                                            can={props.can}
-                                        />
-                                    ) : null
+                                    <Button asChild variant="outline">
+                                        <Link href="/inventory/stock-movements">
+                                            Open movements
+                                        </Link>
+                                    </Button>
                                 }
                             >
                                 <Table
                                     headers={[
-                                        'Posted',
+                                        'Recorded',
                                         'Store',
                                         'Movement',
                                         'Stock quantity',

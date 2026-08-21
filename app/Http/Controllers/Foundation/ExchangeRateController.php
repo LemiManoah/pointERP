@@ -29,10 +29,13 @@ final class ExchangeRateController
         Gate::authorize('viewAny', ExchangeRate::class);
 
         $tenant = resolve(TenantContext::class)->current();
+        $actor = request()->user();
+        abort_unless($actor instanceof User, 403);
         $tenantId = $tenant->id;
         $branchContext = resolve(BranchContext::class);
         $accessibleBranchIds = $branchContext->accessibleBranchIds();
         $canViewAllBranches = $branchContext->canViewAllBranches();
+        $defaultBranch = $branchContext->current() ?? $branchContext->operationalDefault();
 
         $this->ensureDefaultTenantCurrency($tenant);
 
@@ -40,6 +43,8 @@ final class ExchangeRateController
             'tenant' => [
                 'is_multibranch' => $tenant->is_multibranch,
             ],
+            'defaultBranchId' => $defaultBranch?->id,
+            'canManageFacilityWide' => $actor->can('exchange-rates.manage-facility-wide'),
             'exchangeRates' => ExchangeRate::query()
                 ->with('branch')
                 ->where('tenant_id', $tenantId)

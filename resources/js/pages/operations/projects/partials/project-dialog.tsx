@@ -315,7 +315,7 @@ export function ProjectDialog({
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="reporting_deadline">
-                                DSR deadline
+                                Daily report deadline
                             </Label>
                             <Input
                                 id="reporting_deadline"

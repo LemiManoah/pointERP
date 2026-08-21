@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { Pencil, Plus } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
@@ -482,7 +482,7 @@ function LinkPicker({
             {links.map((link, index) => (
                 <div
                     key={index}
-                    className="grid gap-3 md:grid-cols-[12rem_1fr]"
+                    className="grid gap-3 md:grid-cols-[12rem_1fr_auto]"
                 >
                     <NativeSelect
                         value={link.type}
@@ -535,6 +535,22 @@ function LinkPicker({
                         }))}
                         placeholder="Select record"
                     />
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        title="Remove link"
+                        onClick={() =>
+                            onChange(
+                                links.filter(
+                                    (_, currentIndex) => currentIndex !== index,
+                                ),
+                            )
+                        }
+                    >
+                        <Trash2 />
+                        <span className="sr-only">Remove link</span>
+                    </Button>
                 </div>
             ))}
             <Button

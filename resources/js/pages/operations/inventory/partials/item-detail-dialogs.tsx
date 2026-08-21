@@ -47,11 +47,7 @@ export type ItemPrice = {
     tier_code: string;
     tier_name: string;
     branch_id: string | null;
-    unit_of_measure_id: string;
     amount: string;
-    minimum_quantity: string | null;
-    effective_from: string | null;
-    effective_until: string | null;
     is_active: boolean;
 };
 export type Batch = {
@@ -233,28 +229,24 @@ export function ConversionDialog({
 
 export function PriceDialog({
     itemId,
-    units,
     branches,
+    defaultBranchId,
+    canChangeBranch,
     priceLists,
     price,
 }: {
     itemId: string;
-    units: Option[];
     branches: Option[];
+    defaultBranchId: string;
+    canChangeBranch: boolean;
     priceLists: Option[];
     price?: ItemPrice;
 }) {
     const [open, setOpen] = useState(false);
     const form = useForm({
         inventory_price_tier_id: price?.inventory_price_tier_id ?? '',
-        branch_id:
-            price?.branch_id ?? (branches.length === 1 ? branches[0].id : ''),
-        unit_of_measure_id: price?.unit_of_measure_id ?? '',
+        branch_id: price?.branch_id ?? defaultBranchId,
         amount: price?.amount ?? '',
-        minimum_quantity: price?.minimum_quantity ?? '',
-        effective_from: price?.effective_from ?? '',
-        effective_until: price?.effective_until ?? '',
-        is_active: price?.is_active ?? true,
     });
     function submit(event: FormEvent) {
         event.preventDefault();
@@ -281,8 +273,8 @@ export function PriceDialog({
                             : 'Add price list entry'}
                     </DialogTitle>
                     <DialogDescription>
-                        Select an existing price list. The selected branch
-                        supplies the currency.
+                        Select a price list and enter the price. Currency,
+                        branch and selling unit are resolved automatically.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={submit} className="grid gap-4">
@@ -290,20 +282,27 @@ export function PriceDialog({
                         label="Price list"
                         error={form.errors.inventory_price_tier_id}
                     >
-                        <SearchableSelect
-                            value={form.data.inventory_price_tier_id}
-                            options={priceLists.map((list) => ({
-                                value: list.id,
-                                label: list.name,
-                                description: list.code,
-                            }))}
-                            onValueChange={(value) =>
-                                form.setData('inventory_price_tier_id', value)
-                            }
-                            placeholder="Select price list"
-                        />
+                        {price ? (
+                            <Input value={price.tier_name} disabled />
+                        ) : (
+                            <SearchableSelect
+                                value={form.data.inventory_price_tier_id}
+                                options={priceLists.map((list) => ({
+                                    value: list.id,
+                                    label: list.name,
+                                    description: list.code,
+                                }))}
+                                onValueChange={(value) =>
+                                    form.setData(
+                                        'inventory_price_tier_id',
+                                        value,
+                                    )
+                                }
+                                placeholder="Select price list"
+                            />
+                        )}
                     </Field>
-                    <div className="grid gap-4 sm:grid-cols-3">
+                    {canChangeBranch && !price && (
                         <Field
                             label="Branch / facility"
                             error={form.errors.branch_id}
@@ -321,94 +320,18 @@ export function PriceDialog({
                                 placeholder="Use current facility"
                             />
                         </Field>
-                        <Field
-                            label="Selling unit"
-                            error={form.errors.unit_of_measure_id}
-                        >
-                            <SearchableSelect
-                                value={form.data.unit_of_measure_id}
-                                options={units.map((unit) => ({
-                                    value: unit.id,
-                                    label: unit.name,
-                                    description: unit.symbol ?? unit.code,
-                                }))}
-                                onValueChange={(value) =>
-                                    form.setData('unit_of_measure_id', value)
-                                }
-                                placeholder="Select unit"
-                            />
-                        </Field>
-                        <Field label="Price" error={form.errors.amount}>
-                            <Input
-                                type="number"
-                                min="0"
-                                step="0.0001"
-                                value={form.data.amount}
-                                onChange={(event) =>
-                                    form.setData('amount', event.target.value)
-                                }
-                            />
-                        </Field>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-3">
-                        <Field
-                            label="Minimum quantity"
-                            error={form.errors.minimum_quantity}
-                        >
-                            <Input
-                                type="number"
-                                min="0"
-                                step="0.0001"
-                                value={form.data.minimum_quantity}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'minimum_quantity',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                        </Field>
-                        <Field
-                            label="Effective from"
-                            error={form.errors.effective_from}
-                        >
-                            <Input
-                                type="date"
-                                value={form.data.effective_from}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'effective_from',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                        </Field>
-                        <Field
-                            label="Effective until"
-                            error={form.errors.effective_until}
-                        >
-                            <Input
-                                type="date"
-                                value={form.data.effective_until}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'effective_until',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                        </Field>
-                    </div>
-                    <label className="flex items-center gap-2 text-sm">
-                        <input
-                            type="checkbox"
-                            checked={form.data.is_active}
+                    )}
+                    <Field label="Price" error={form.errors.amount}>
+                        <Input
+                            type="number"
+                            min="0"
+                            step="0.0001"
+                            value={form.data.amount}
                             onChange={(event) =>
-                                form.setData('is_active', event.target.checked)
+                                form.setData('amount', event.target.value)
                             }
-                        />{' '}
-                        Active
-                    </label>
+                        />
+                    </Field>
                     <Button type="submit" disabled={form.processing}>
                         Save price
                     </Button>

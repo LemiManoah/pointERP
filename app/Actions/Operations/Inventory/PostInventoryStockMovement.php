@@ -19,7 +19,6 @@ use App\Services\InventoryStockBalance;
 use App\Services\TenantContext;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -55,7 +54,7 @@ final readonly class PostInventoryStockMovement
                 default => $stockQuantity,
             };
 
-            $this->validateBatch($item, $store, $data['inventory_batch_id'] ?? null);
+            $this->validateBatch($item, $data['inventory_batch_id'] ?? null);
             $current = BigDecimal::of($this->balances->for($store, $item)['on_hand']);
             if ($current->plus($signedQuantity)->isNegative()) {
                 throw ValidationException::withMessages(['original_quantity' => 'This movement would create negative stock. Available on-hand quantity is '.$current->toScale(4).'.']);
@@ -90,10 +89,10 @@ final readonly class PostInventoryStockMovement
             throw ValidationException::withMessages(['original_unit_id' => 'No active conversion exists from this unit to the item stock unit.']);
         }
 
-        return BigDecimal::of($conversion->multiplier)->dividedBy($conversion->divisor, 10, RoundingMode::HalfUp);
+        return BigDecimal::of((string) $conversion->multiplier)->dividedBy((string) $conversion->divisor, 10, RoundingMode::HalfUp);
     }
 
-    private function validateBatch(InventoryItem $item, InventoryStore $store, mixed $batchId): void
+    private function validateBatch(InventoryItem $item, mixed $batchId): void
     {
         if ($item->tracking_type !== InventoryTrackingType::Batch) {
             return;
@@ -103,7 +102,7 @@ final readonly class PostInventoryStockMovement
             throw ValidationException::withMessages(['inventory_batch_id' => 'Select a batch for this batch-tracked item.']);
         }
 
-        $valid = InventoryBatch::query()->whereKey($batchId)->where('inventory_item_id', $item->id)->where(fn (Builder $query): Builder => $query->whereNull('inventory_store_id')->orWhere('inventory_store_id', $store->id))->where('is_active', true)->exists();
+        $valid = InventoryBatch::query()->whereKey($batchId)->where('inventory_item_id', $item->id)->where('is_active', true)->exists();
         if (! $valid) {
             throw ValidationException::withMessages(['inventory_batch_id' => 'The selected batch is not available for this item and store.']);
         }

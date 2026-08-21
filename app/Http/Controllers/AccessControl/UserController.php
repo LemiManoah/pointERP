@@ -55,6 +55,11 @@ final class UserController
                     'is_director' => $user->is_director,
                     'last_login_at' => $user->last_login_at?->toDateTimeString(),
                     'branch_ids' => $user->branches->pluck('id')->values()->all(),
+                    'branches' => $user->branches->map(fn (Branch $branch): array => [
+                        'id' => $branch->id,
+                        'name' => $branch->name,
+                        'code' => $branch->code,
+                    ])->values()->all(),
                     'default_branch_id' => $user->branches()
                         ->wherePivot('is_default', true)
                         ->value('branches.id'),

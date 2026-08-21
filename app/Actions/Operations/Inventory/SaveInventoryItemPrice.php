@@ -9,36 +9,50 @@ use App\Models\InventoryItemPrice;
 use App\Models\InventoryPriceTier;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\BranchContext;
 use App\Services\TenantContext;
+use Illuminate\Validation\ValidationException;
 
 final readonly class SaveInventoryItemPrice
 {
-    public function __construct(private AuditLogger $auditLogger, private TenantContext $tenantContext) {}
+    public function __construct(private AuditLogger $auditLogger, private TenantContext $tenantContext, private BranchContext $branchContext) {}
 
     /** @param array<string, mixed> $data */
     public function handle(array $data, InventoryItem $item, User $actor, ?InventoryItemPrice $price = null): InventoryItemPrice
     {
         $tenantId = $this->tenantContext->id();
-        $tier = InventoryPriceTier::query()->whereKey($data['inventory_price_tier_id'])->where('is_active', true)->firstOrFail();
+        $tier = InventoryPriceTier::query()
+            ->whereKey($price instanceof InventoryItemPrice ? $price->inventory_price_tier_id : $data['inventory_price_tier_id'])
+            ->where('is_active', true)
+            ->firstOrFail();
 
-        $branchId = (string) $data['branch_id'];
+        $defaultBranch = $this->branchContext->current($actor) ?? $this->branchContext->operationalDefault($actor);
+        $requestedBranchId = $data['branch_id'] ?? null;
+        $canChangeBranch = $actor->can('inventory.prices.change-branch') && $this->branchContext->accessibleBranches($actor)->count() > 1;
+        $branchId = ($price instanceof InventoryItemPrice ? $price->branch_id : null) ?? ($canChangeBranch && is_string($requestedBranchId) && $requestedBranchId !== ''
+            ? $requestedBranchId
+            : $defaultBranch?->id);
+        if (! is_string($branchId)) {
+            throw ValidationException::withMessages(['branch_id' => 'Select a branch before recording an item price.']);
+        }
+
         $price ??= InventoryItemPrice::query()
             ->where('inventory_item_id', $item->id)
             ->where('inventory_price_tier_id', $tier->id)
             ->where('branch_id', $branchId)
-            ->where('unit_of_measure_id', $data['unit_of_measure_id'])
+            ->where('unit_of_measure_id', $item->stock_unit_id)
             ->first();
         $attributes = [
             'tenant_id' => $tenantId,
             'inventory_item_id' => $item->id,
             'inventory_price_tier_id' => $tier->id,
             'branch_id' => $branchId,
-            'unit_of_measure_id' => $data['unit_of_measure_id'],
+            'unit_of_measure_id' => $item->stock_unit_id,
             'amount' => $data['amount'],
-            'minimum_quantity' => $data['minimum_quantity'] ?? null,
-            'effective_from' => $data['effective_from'] ?? null,
-            'effective_until' => $data['effective_until'] ?? null,
-            'is_active' => $data['is_active'],
+            'minimum_quantity' => null,
+            'effective_from' => null,
+            'effective_until' => null,
+            'is_active' => $price instanceof InventoryItemPrice ? $price->is_active : true,
             'updated_by' => $actor->id,
         ];
         $old = $price?->only(array_keys($attributes)) ?? [];

@@ -33,6 +33,7 @@ final class InventoryStockMovementPolicy
         return match ($type) {
             InventoryMovementType::Issue => $user->can('inventory.stock.issue'),
             InventoryMovementType::Return => $user->can('inventory.stock.return'),
+            InventoryMovementType::TransferIn, InventoryMovementType::TransferOut => $user->can('inventory.stock.transfer'),
             default => $user->can('inventory.stock.adjust'),
         };
     }

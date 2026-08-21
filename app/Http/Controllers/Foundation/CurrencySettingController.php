@@ -9,6 +9,7 @@ use App\Models\Currency;
 use App\Models\ExchangeRate;
 use App\Models\Tenant;
 use App\Models\TenantCurrency;
+use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,10 +24,13 @@ final class CurrencySettingController
         Gate::authorize('viewAny', TenantCurrency::class);
 
         $tenant = resolve(TenantContext::class)->current();
+        $actor = request()->user();
+        abort_unless($actor instanceof User, 403);
         $tenantId = $tenant->id;
         $branchContext = resolve(BranchContext::class);
         $accessibleBranchIds = $branchContext->accessibleBranchIds();
         $canViewAllBranches = $branchContext->canViewAllBranches();
+        $defaultBranch = $branchContext->current() ?? $branchContext->operationalDefault();
 
         $this->ensureDefaultTenantCurrency($tenant);
 
@@ -45,6 +49,8 @@ final class CurrencySettingController
                 'is_multibranch' => $tenant->is_multibranch,
                 'multi_currency_enabled' => $tenant->multi_currency_enabled,
             ],
+            'defaultBranchId' => $defaultBranch?->id,
+            'canManageFacilityWide' => $actor->can('exchange-rates.manage-facility-wide'),
             'currencies' => Currency::query()
                 ->where('is_active', true)
                 ->orderBy('code')

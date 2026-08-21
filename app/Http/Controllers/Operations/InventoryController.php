@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Operations;
 
 use App\Models\Branch;
 use App\Models\Customer;
-use App\Models\EquipmentLocation;
 use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
 use App\Models\InventoryPriceTier;
@@ -83,7 +82,6 @@ final class InventoryController
             'branches' => Branch::query()->whereIn('id', $branchIds)->where('status', 'active')->orderBy('name')->get(['id', 'name', 'code']),
             'projects' => Project::query()->whereIn('branch_id', $branchIds)->where('status', 'active')->orderBy('name')->get(['id', 'branch_id', 'name', 'reference']),
             'sites' => Site::query()->whereIn('branch_id', $branchIds)->where('status', 'active')->orderBy('name')->get(['id', 'branch_id', 'project_id', 'name', 'reference']),
-            'locations' => EquipmentLocation::query()->whereIn('branch_id', $branchIds)->where('is_active', true)->orderBy('name')->get(['id', 'branch_id', 'name', 'code']),
             'suppliers' => Customer::query()->whereIn('type', [Customer::TYPE_SUPPLIER, Customer::TYPE_SUBCONTRACTOR])->where('status', 'active')->orderBy('name')->get(['id', 'name', 'code', 'type']),
             'priceCurrency' => $priceCurrency,
             'can' => [

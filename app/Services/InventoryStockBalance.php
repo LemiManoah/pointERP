@@ -19,11 +19,11 @@ final class InventoryStockBalance
     {
         /** @var Collection<int, InventoryStockMovement> $movements */
         $movements = InventoryStockMovement::query()->where('inventory_store_id', $store->id)->where('inventory_item_id', $item->id)->get(['quantity']);
-        $onHand = $movements->reduce(fn (BigDecimal $total, InventoryStockMovement $movement): BigDecimal => $total->plus($movement->quantity), BigDecimal::zero());
+        $onHand = $movements->reduce(fn (BigDecimal $total, InventoryStockMovement $movement): BigDecimal => $total->plus((string) $movement->quantity), BigDecimal::zero());
 
         /** @var Collection<int, InventoryReservation> $reservations */
         $reservations = InventoryReservation::query()->where('inventory_store_id', $store->id)->where('inventory_item_id', $item->id)->whereIn('status', [InventoryReservationStatus::Active->value, InventoryReservationStatus::PartiallyIssued->value])->get();
-        $reserved = $reservations->reduce(fn (BigDecimal $total, InventoryReservation $reservation): BigDecimal => $total->plus($reservation->reserved_quantity)->minus($reservation->issued_quantity)->minus($reservation->released_quantity), BigDecimal::zero());
+        $reserved = $reservations->reduce(fn (BigDecimal $total, InventoryReservation $reservation): BigDecimal => $total->plus((string) $reservation->reserved_quantity)->minus((string) $reservation->issued_quantity)->minus((string) $reservation->released_quantity), BigDecimal::zero());
 
         return [
             'on_hand' => (string) $onHand->toScale(4),

@@ -121,6 +121,13 @@ final readonly class BranchContext
         return $user instanceof User && $user->can('branches.view-all');
     }
 
+    public function operationalDefault(?User $user = null): ?Branch
+    {
+        $user ??= $this->user();
+
+        return $user instanceof User ? $this->defaultBranch($user) : null;
+    }
+
     public function select(?string $branchId, ?User $user = null): ?Branch
     {
         $user ??= $this->user();

@@ -50,6 +50,8 @@ type Props = {
     referenceCurrencies: ReferenceCurrency[];
     branches: BranchOption[];
     exchangeRates: ExchangeRate[];
+    defaultBranchId: string | null;
+    canManageFacilityWide: boolean;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -63,6 +65,8 @@ export default function CurrencySettingsIndex({
     referenceCurrencies,
     branches,
     exchangeRates,
+    defaultBranchId,
+    canManageFacilityWide,
 }: Props) {
     const confirm = useConfirmDialog();
     const [activeTab, setActiveTab] = useState('settings');
@@ -388,6 +392,10 @@ export default function CurrencySettingsIndex({
                                             isMultiBranch={
                                                 tenant.is_multibranch
                                             }
+                                            defaultBranchId={defaultBranchId}
+                                            canManageFacilityWide={
+                                                canManageFacilityWide
+                                            }
                                         />
                                     </div>
                                 </div>
@@ -409,6 +417,10 @@ export default function CurrencySettingsIndex({
                                     branches={branches}
                                     currencies={exchangeCurrencyOptions}
                                     isMultiBranch={tenant.is_multibranch}
+                                    defaultBranchId={defaultBranchId}
+                                    canManageFacilityWide={
+                                        canManageFacilityWide
+                                    }
                                     confirm={confirm}
                                 />
                             </CardContent>
@@ -564,12 +576,16 @@ function ExchangeRatesTable({
     branches,
     currencies,
     isMultiBranch,
+    defaultBranchId,
+    canManageFacilityWide,
     confirm,
 }: {
     exchangeRates: ExchangeRate[];
     branches: BranchOption[];
     currencies: CurrencyOption[];
     isMultiBranch: boolean;
+    defaultBranchId: string | null;
+    canManageFacilityWide: boolean;
     confirm: ReturnType<typeof useConfirmDialog>;
 }) {
     return (
@@ -616,6 +632,10 @@ function ExchangeRatesTable({
                                         branches={branches}
                                         currencies={currencies}
                                         isMultiBranch={isMultiBranch}
+                                        defaultBranchId={defaultBranchId}
+                                        canManageFacilityWide={
+                                            canManageFacilityWide
+                                        }
                                     />
                                     {rate.status === 'draft' && (
                                         <>

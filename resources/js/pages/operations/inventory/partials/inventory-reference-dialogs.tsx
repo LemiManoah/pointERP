@@ -33,9 +33,11 @@ export function PriceListDialog({ priceList }: { priceList?: PriceList }) {
             preserveScroll: true,
             onSuccess: () => setOpen(false),
         };
-        priceList
-            ? form.put(`/inventory/price-lists/${priceList.id}`, options)
-            : form.post('/inventory/price-lists', options);
+        if (priceList) {
+            form.put(`/inventory/price-lists/${priceList.id}`, options);
+        } else {
+            form.post('/inventory/price-lists', options);
+        }
     }
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -151,15 +153,17 @@ export function GlobalConversionDialog({
             preserveScroll: true,
             onSuccess: () => setOpen(false),
         };
-        conversion
-            ? form.put(
-                  `/inventory/items/${conversion.inventory_item_id}/conversions/${conversion.id}`,
-                  options,
-              )
-            : form.post(
-                  `/inventory/items/${form.data.inventory_item_id}/conversions`,
-                  options,
-              );
+        if (conversion) {
+            form.put(
+                `/inventory/items/${conversion.inventory_item_id}/conversions/${conversion.id}`,
+                options,
+            );
+        } else {
+            form.post(
+                `/inventory/items/${form.data.inventory_item_id}/conversions`,
+                options,
+            );
+        }
     }
     return (
         <Dialog open={open} onOpenChange={setOpen}>

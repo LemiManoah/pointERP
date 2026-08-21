@@ -65,11 +65,7 @@ export default function UsersIndex({
                     user.staff_number ?? '',
                     user.branch_name ?? '',
                     user.position_name ?? '',
-                    ...user.branch_ids.map(
-                        (branchId) =>
-                            branches.find((branch) => branch.id === branchId)
-                                ?.name ?? '',
-                    ),
+                    ...user.branches.map((branch) => branch.name),
                     ...user.roles,
                     ...user.permissions,
                 ]
@@ -79,7 +75,7 @@ export default function UsersIndex({
 
             return matchesStatus && matchesSearch;
         });
-    }, [branches, debouncedSearch, status, users]);
+    }, [debouncedSearch, status, users]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -225,30 +221,21 @@ export default function UsersIndex({
                                             </td>
                                             <td className="py-3 pr-4">
                                                 <div className="flex flex-wrap gap-2">
-                                                    {user.branch_ids.map(
-                                                        (branchId) => {
-                                                            const branch =
-                                                                branches.find(
-                                                                    (item) =>
-                                                                        item.id ===
-                                                                        branchId,
-                                                                );
-
+                                                    {user.branches.map(
+                                                        (branch) => {
                                                             return (
                                                                 <Badge
                                                                     key={
-                                                                        branchId
+                                                                        branch.id
                                                                     }
                                                                     variant={
                                                                         user.default_branch_id ===
-                                                                        branchId
+                                                                        branch.id
                                                                             ? 'default'
                                                                             : 'secondary'
                                                                     }
                                                                 >
-                                                                    {branch
-                                                                        ? `${branch.name} (${branch.code})`
-                                                                        : branchId}
+                                                                    {`${branch.name} (${branch.code})`}
                                                                 </Badge>
                                                             );
                                                         },

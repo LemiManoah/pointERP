@@ -70,7 +70,6 @@ export function StockMovementDialog({
         ...(can.adjustStock
             ? [
                   { value: 'opening_balance', label: 'Opening balance' },
-                  { value: 'receipt', label: 'Controlled receipt' },
                   { value: 'adjustment', label: 'Stock adjustment' },
               ]
             : []),
@@ -97,12 +96,12 @@ export function StockMovementDialog({
             <DialogTrigger asChild>
                 <Button>
                     <Warehouse />
-                    Post movement
+                    Record movement
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
                 <DialogHeader>
-                    <DialogTitle>Post stock movement</DialogTitle>
+                    <DialogTitle>Record stock movement</DialogTitle>
                     <DialogDescription>
                         Posted movements change stock immediately and cannot be
                         edited. Corrections use a reversal.
@@ -246,7 +245,7 @@ export function StockMovementDialog({
                             form.data.inventory_store_id === ''
                         }
                     >
-                        Post movement
+                        Record movement
                     </Button>
                 </form>
             </DialogContent>

@@ -668,15 +668,14 @@ export function StoreDialog({
     branches,
     projects,
     sites,
-    locations,
 }: {
     store?: Store;
     branches: Option[];
     projects: Option[];
     sites: Option[];
-    locations: Option[];
 }) {
     const [open, setOpen] = useState(false);
+    const [codeEdited, setCodeEdited] = useState(store !== undefined);
     const { form, submit } = useModalForm(
         {
             branch_id:
@@ -718,16 +717,6 @@ export function StoreDialog({
             label: row.name,
             description: row.reference,
         }));
-    const locationOptions = locations
-        .filter(
-            (row) =>
-                !form.data.branch_id || row.branch_id === form.data.branch_id,
-        )
-        .map((row) => ({
-            value: row.id,
-            label: row.name,
-            description: row.code,
-        }));
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -763,7 +752,6 @@ export function StoreDialog({
                                     form.setData('branch_id', value);
                                     form.setData('project_id', '');
                                     form.setData('site_id', '');
-                                    form.setData('equipment_location_id', '');
                                 }}
                                 placeholder="Select branch"
                             />
@@ -797,23 +785,31 @@ export function StoreDialog({
                         </Field>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
-                        <Field label="Code" error={form.errors.code}>
-                            <Input
-                                value={form.data.code}
-                                onChange={(e) =>
-                                    form.setData(
-                                        'code',
-                                        e.target.value.toUpperCase(),
-                                    )
-                                }
-                            />
-                        </Field>
                         <Field label="Name" error={form.errors.name}>
                             <Input
                                 value={form.data.name}
-                                onChange={(e) =>
-                                    form.setData('name', e.target.value)
-                                }
+                                onChange={(event) => {
+                                    const name = event.target.value;
+                                    form.setData('name', name);
+                                    if (!codeEdited) {
+                                        form.setData(
+                                            'code',
+                                            generateItemCode(name),
+                                        );
+                                    }
+                                }}
+                            />
+                        </Field>
+                        <Field label="Code" error={form.errors.code}>
+                            <Input
+                                value={form.data.code}
+                                onChange={(event) => {
+                                    setCodeEdited(true);
+                                    form.setData(
+                                        'code',
+                                        event.target.value.toUpperCase(),
+                                    );
+                                }}
                             />
                         </Field>
                     </div>
@@ -849,22 +845,6 @@ export function StoreDialog({
                             />
                         </Field>
                     </div>
-                    <Field
-                        label="Equipment location link"
-                        error={form.errors.equipment_location_id}
-                    >
-                        <SearchableSelect
-                            value={form.data.equipment_location_id}
-                            options={[
-                                { value: '', label: 'No linked location' },
-                                ...locationOptions,
-                            ]}
-                            onValueChange={(value) =>
-                                form.setData('equipment_location_id', value)
-                            }
-                            placeholder="Select location"
-                        />
-                    </Field>
                     <Field label="Address" error={form.errors.address}>
                         <Textarea
                             value={form.data.address}

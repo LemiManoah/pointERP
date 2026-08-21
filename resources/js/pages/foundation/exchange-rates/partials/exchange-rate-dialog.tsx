@@ -21,6 +21,8 @@ type Props = {
     branches: BranchOption[];
     currencies: CurrencyOption[];
     isMultiBranch: boolean;
+    defaultBranchId: string | null;
+    canManageFacilityWide: boolean;
 };
 
 export function ExchangeRateDialog({
@@ -28,6 +30,8 @@ export function ExchangeRateDialog({
     branches,
     currencies,
     isMultiBranch,
+    defaultBranchId,
+    canManageFacilityWide,
 }: Props) {
     const [open, setOpen] = useState(false);
     const isEditing = Boolean(exchangeRate);
@@ -38,7 +42,13 @@ export function ExchangeRateDialog({
                 <Button
                     variant={isEditing ? 'outline' : 'default'}
                     size={isEditing ? 'sm' : 'default'}
-                    disabled={isEditing && exchangeRate?.status !== 'draft'}
+                    disabled={
+                        isEditing &&
+                        (exchangeRate?.status !== 'draft' ||
+                            (exchangeRate.branch_id === null &&
+                                isMultiBranch &&
+                                !canManageFacilityWide))
+                    }
                 >
                     {isEditing ? <Pencil /> : <Plus />}
                     {isEditing ? 'Edit' : 'New rate'}
@@ -58,6 +68,8 @@ export function ExchangeRateDialog({
                     branches={branches}
                     currencies={currencies}
                     isMultiBranch={isMultiBranch}
+                    defaultBranchId={defaultBranchId}
+                    canManageFacilityWide={canManageFacilityWide}
                     onCancel={() => setOpen(false)}
                     onSuccess={() => setOpen(false)}
                 />

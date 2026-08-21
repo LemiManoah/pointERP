@@ -208,6 +208,8 @@ Item price:
 
 The item default selling price supports simple tenants. Tier prices override it when a matching active tier is selected. Customer-specific contract pricing remains a later extension unless the pilot requires it.
 
+Item-linked documents are optional technical records, not stock transactions. They are useful for safety data sheets, product specifications, certificates of conformity, approved material submissions and handling instructions that apply to the item across many receipts. Delivery notes, supplier invoices and inspection evidence belong to the goods receipt or purchase order instead of the item master.
+
 ### 5.4 `inventory_unit_conversions`
 
 - item, from-unit, to-unit;
@@ -414,7 +416,7 @@ Purchase order approved
   -> Receive delivery
   -> Record delivered quantities
   -> Inspect/accept/reject
-  -> Post accepted receipt movement
+  -> Record accepted receipt movement
   -> Update PO outstanding quantity
 ```
 
@@ -426,7 +428,7 @@ The receipt screen must make rejected and accepted quantities visually distinct.
 Approved requisition
   -> Select store and available stock
   -> Issue quantity
-  -> Post stock movement
+  -> Record stock movement
   -> Update reservation and requisition line
   -> Optional return
 ```
@@ -529,7 +531,7 @@ Status: implemented, pending validation. Category, unit, item and store foundati
 - Add permissions and seed roles.
 - Add tests for tenant, branch, inactive records and cost omission.
 
-Acceptance: an authorised manager can define an item and store, configure warning thresholds, conversions, price lists, batches, store settings and documents, and permanently delete only inactive unused reference records; unrelated branches and tenants cannot manage them.
+Acceptance: an authorised manager can define an item and store, configure warning thresholds, conversions, price lists, store availability and optional technical documents, and permanently delete only inactive unused reference records. Batches are created by receiving stock, never from item setup; unrelated branches and tenants cannot manage records.
 
 ### Chunk 3B.2: Stock ledger and balances
 
@@ -543,6 +545,19 @@ Status: implemented, pending validation. The current slice provides append-only 
 
 Acceptance: balances reconcile from movements, negative stock is blocked by default, and reversals leave the original event visible.
 
+### Chunk 3B.2A: Direct receiving and movement workspace
+
+Status: implemented, pending validation.
+
+- The stock balance register reports every quantity in the item's stock unit and shows that unit once in its own column.
+- Direct supplier deliveries use a multi-line goods-receipt cart with supplier, store, delivery reference, source unit/cost, amount paid and automatically calculated supplier balance due.
+- Facility currency and branch default automatically. Branch choice is exposed only to a user with multiple accessible branches and the dedicated change-branch permission.
+- Batch number and expiry are captured while receiving a batch-tracked item. Item setup only declares the tracking rule.
+- Internal opening balances, reconciliations, issues, returns and atomic transfers use the separate Stock movements workspace.
+- User-facing language says `record movement`; `posted` remains the internal immutable ledger state.
+
+Acceptance: one receipt records several items and creates auditable stock movements; a transfer records matching source and destination entries atomically; users cannot bypass their default branch without permission.
+
 ### Chunk 3B.3: Requisitions and internal issues
 
 - Create requisition header/line workflow.
@@ -554,10 +569,16 @@ Acceptance: an approved requisition can be partially issued and the outstanding 
 
 ### Chunk 3B.4: Procurement
 
-- Add quotation capture/comparison and supplier selection.
-- Create purchase-order workflow with line snapshots and cost permission.
-- Link active supplier customers and controlled documents.
-- Add approval separation and partial order status.
+- **3B.4.1 Requisition handoff:** allow approved material requisition lines to be selected for procurement; retain requested, already ordered and remaining quantities.
+- **3B.4.2 Supplier quotations:** capture one or more supplier quotations, quotation documents, validity, delivery lead time, currency and line prices; provide a permission-controlled comparison without losing rejected quotations.
+- **3B.4.3 Purchase-order draft:** create a PO from selected requisition/quotation lines or as a controlled direct PO. Snapshot supplier identity, item description, unit, conversion, quantity, unit price, currency, tax/discount inputs, destination branch/store and terms.
+- **3B.4.4 Approval:** implement `draft -> submitted -> approved/rejected/returned -> cancelled/closed` transitions. Approval is permission-based; an originator may approve only when they hold the explicit approval permission. Every transition records actor, reason and audit values.
+- **3B.4.5 Dispatch and document output:** generate the numbered PO document only after approval, preserve document versions, and prevent commercial line edits after approval. Changes require a revision or cancellation trail.
+- **3B.4.6 Receipt matching:** the goods-receipt cart gains an optional approved PO selector. PO lines populate the cart; the receiver records delivered, accepted and rejected quantities plus batch/expiry. Accepted quantities use the existing goods-receipt and stock-movement services.
+- **3B.4.7 Partial completion:** calculate ordered, accepted, rejected, outstanding and cancelled quantities per line. Keep a PO partially received until all non-cancelled quantities are accepted or formally closed.
+- **3B.4.8 Payment handoff:** expose approved PO commitments and goods-receipt supplier balances to Phase 4. Do not create accounting journals or mark supplier invoices paid from PO approval.
+- Required permissions: view/manage requisitions, manage quotations, create/submit/approve/cancel POs, receive POs, view costs and export.
+- Required tests: tenant/branch isolation, direct-route 403s, authorised self-approval, immutable approved snapshots, quotation comparison cost omission, duplicate receipt idempotency, partial/rejected quantities and over-receipt prevention.
 
 Acceptance: a purchase order does not affect stock until a receipt is accepted and posted.
 
@@ -631,7 +652,7 @@ Tests must prove:
 15. exports using the same authorised filters as the UI.
 16. concurrent issues cannot create negative stock;
 17. server responses and exports omit cost and selling-price fields without cost permission;
-18. batch tracking requires an initial batch number and expiry; unsupported tracked movements are blocked;
+18. batch tracking requires batch identity at receipt time and expiry where configured; item setup itself does not create batches;
 19. store-specific reorder settings override item defaults;
 20. one DSR line can reconcile multiple partial movements without losing its snapshot.
 
@@ -691,7 +712,7 @@ The following decisions are now confirmed for implementation:
 6. DSR stock posting is an explicit reconciliation action after approval, never automatic on draft save.
 7. Cost visibility is separate from quantity visibility. A storekeeper can see item names, units, reorder levels, store balances and movement quantities without seeing supplier prices, unit costs or currency amounts. The server also strips or preserves cost fields according to permission, so hiding a column is not the security control.
 8. Existing `Customer` records of type supplier or subcontractor are the initial supplier master.
-9. Full lot, expiry and serial ledgers are deferred until a real pilot material requires them. The item master records the tracking requirement, and batch items require an initial/default batch reference plus expiry tracking.
+9. The item master records the tracking requirement. Batch identity and expiry are captured from the supplier delivery or PO receipt, because a single item may have many batches; users do not create operational batches directly from item setup.
 10. Inventory tracking type, material class, store type and unit dimension are represented by PHP backed enum classes and stored in ordinary string columns, keeping business validation in code instead of database-specific enum constraints.
 11. Phase 3B stores source costs and operational quantities for traceability. Formal valuation methods, accounting journals, payable recognition, tax and financial reporting belong to Phase 4; inventory must not pretend that a receipt is already a posted accounting transaction.
 12. Item codes are suggested from the item name and remain editable before save. The saved code is stable and tenant-unique.

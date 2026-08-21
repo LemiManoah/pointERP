@@ -1,0 +1,42 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use App\Models\Concerns\BelongsToTenant;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+#[Fillable(['tenant_id', 'inventory_goods_receipt_id', 'inventory_item_id', 'inventory_batch_id', 'inventory_stock_movement_id', 'quantity', 'unit_of_measure_id', 'stock_quantity', 'unit_cost', 'line_total', 'batch_number', 'manufactured_on', 'expires_on'])]
+final class InventoryGoodsReceiptLine extends Model
+{
+    use BelongsToTenant;
+
+    /** @use HasFactory<Factory<InventoryGoodsReceiptLine>> */
+    use HasFactory;
+
+    use HasUuids;
+
+    /** @return array<string, string> */
+    public function casts(): array
+    {
+        return ['quantity' => 'decimal:4', 'stock_quantity' => 'decimal:4', 'unit_cost' => 'decimal:4', 'line_total' => 'decimal:4', 'manufactured_on' => 'date', 'expires_on' => 'date', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
+    }
+
+    /** @return BelongsTo<InventoryGoodsReceipt, $this> */
+    public function receipt(): BelongsTo
+    {
+        return $this->belongsTo(InventoryGoodsReceipt::class, 'inventory_goods_receipt_id');
+    }
+
+    /** @return BelongsTo<InventoryItem, $this> */
+    public function item(): BelongsTo
+    {
+        return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
+    }
+}

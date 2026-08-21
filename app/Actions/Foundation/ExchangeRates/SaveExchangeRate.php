@@ -31,9 +31,9 @@ final readonly class SaveExchangeRate
         throw_if(
             $tenant->is_multibranch
             && ($data['branch_id'] ?? null) === null
-            && ! $actor->can('branches.view-all'),
+            && ! $actor->can('exchange-rates.manage-facility-wide'),
             InvalidArgumentException::class,
-            'Only users with all-branch access can create facility-wide exchange rates.',
+            'You do not have permission to manage facility-wide exchange rates.',
         );
 
         if (($data['branch_id'] ?? null) !== null) {

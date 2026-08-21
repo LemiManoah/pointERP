@@ -63,6 +63,9 @@ final class InventoryItemController
         $branchContext = resolve(BranchContext::class);
         $tenant = resolve(TenantContext::class)->current();
         $branchIds = $branchContext->accessibleBranchIds($actor);
+        $defaultPriceBranch = $branchContext->current($actor) ?? $branchContext->operationalDefault($actor);
+        abort_unless($defaultPriceBranch instanceof Branch, 403);
+        $canChangePriceBranch = $actor->can('inventory.prices.change-branch') && count($branchIds) > 1;
         $inventoryItem->load(['category', 'stockUnit', 'preferredSupplier', 'conversions.fromUnit', 'conversions.toUnit', 'prices.tier', 'prices.unit', 'prices.branch', 'batches.store', 'storeSettings.store.branch']);
         $storeSettings = $inventoryItem->storeSettings->filter(fn (InventoryStoreItem $setting): bool => in_array($setting->store->branch_id, $branchIds, true));
         $movements = InventoryStockMovement::query()->where('inventory_item_id', $inventoryItem->id)->whereIn('branch_id', $branchIds)->with(['store', 'originalUnit', 'batch', 'postedBy'])->latest('posted_at')->limit(100)->get();
@@ -148,7 +151,9 @@ final class InventoryItemController
             ]),
             'units' => UnitOfMeasure::query()->where(fn (Builder $query): Builder => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenant->id))->where('is_active', true)->orderBy('name')->get()->map(fn (UnitOfMeasure $unit): array => ['id' => $unit->id, 'name' => $unit->name, 'code' => $unit->code, 'symbol' => $unit->symbol]),
             'stores' => InventoryStore::query()->visibleTo($actor)->where('is_active', true)->with('branch')->orderBy('name')->get()->map(fn (InventoryStore $store): array => ['id' => $store->id, 'name' => $store->name, 'code' => $store->code, 'branch_name' => $store->branch->name]),
-            'branches' => Branch::query()->whereIn('id', $branchIds)->where('status', 'active')->orderBy('name')->get(['id', 'name', 'default_currency_code']),
+            'branches' => Branch::query()->whereIn('id', $branchIds)->where('status', 'active')->orderBy('name')->get(['id', 'name', 'code', 'default_currency_code']),
+            'defaultPriceBranchId' => $defaultPriceBranch->id,
+            'canChangePriceBranch' => $canChangePriceBranch,
             'priceLists' => $canViewCosts ? InventoryPriceTier::query()->where('is_active', true)->orderBy('priority')->orderBy('name')->get(['id', 'name', 'code']) : [],
             'documents' => $this->linkedDocumentsFor($inventoryItem, $actor),
             ...$this->documentFormOptions($actor),

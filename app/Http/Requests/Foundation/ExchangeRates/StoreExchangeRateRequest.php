@@ -7,6 +7,7 @@ namespace App\Http\Requests\Foundation\ExchangeRates;
 use App\Models\Branch;
 use App\Models\Currency;
 use App\Models\TenantCurrency;
+use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
@@ -42,9 +43,10 @@ final class StoreExchangeRateRequest extends FormRequest
     {
         $validator->after(function (Validator $validator): void {
             $tenant = resolve(TenantContext::class)->current();
+            $actor = $this->user();
 
-            if ($tenant->is_multibranch && $this->input('branch_id') === null && ! resolve(BranchContext::class)->canViewAllBranches()) {
-                $validator->errors()->add('branch_id', 'Only all-branch users can create a facility-wide exchange rate.');
+            if ($tenant->is_multibranch && $this->input('branch_id') === null && (! $actor instanceof User || ! $actor->can('exchange-rates.manage-facility-wide'))) {
+                $validator->errors()->add('branch_id', 'You do not have permission to manage facility-wide exchange rates.');
             }
         });
     }

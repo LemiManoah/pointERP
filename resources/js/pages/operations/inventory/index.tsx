@@ -52,7 +52,6 @@ type Props = {
     branches: Option[];
     projects: Option[];
     sites: Option[];
-    locations: Option[];
     suppliers: Option[];
     priceCurrency: string;
     can: {
@@ -138,7 +137,6 @@ export default function InventoryIndex(props: Props) {
                 branches={props.branches}
                 projects={props.projects}
                 sites={props.sites}
-                locations={props.locations}
             />
         ) : null;
 
@@ -679,7 +677,6 @@ function StoreTable({
                                     branches={props.branches}
                                     projects={props.projects}
                                     sites={props.sites}
-                                    locations={props.locations}
                                 />
                             )}
                             {props.can.manageStores && (

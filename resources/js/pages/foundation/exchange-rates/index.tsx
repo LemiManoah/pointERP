@@ -31,6 +31,8 @@ type Props = {
     exchangeRates: ExchangeRate[];
     branches: BranchOption[];
     currencies: CurrencyOption[];
+    defaultBranchId: string | null;
+    canManageFacilityWide: boolean;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -43,6 +45,8 @@ export default function ExchangeRatesIndex({
     exchangeRates,
     branches,
     currencies,
+    defaultBranchId,
+    canManageFacilityWide,
 }: Props) {
     const confirm = useConfirmDialog();
     const [search, setSearch] = useState('');
@@ -116,6 +120,8 @@ export default function ExchangeRatesIndex({
                             branches={branches}
                             currencies={currencies}
                             isMultiBranch={tenant.is_multibranch}
+                            defaultBranchId={defaultBranchId}
+                            canManageFacilityWide={canManageFacilityWide}
                         />
                     </div>
                 </div>
@@ -188,6 +194,12 @@ export default function ExchangeRatesIndex({
                                                         currencies={currencies}
                                                         isMultiBranch={
                                                             tenant.is_multibranch
+                                                        }
+                                                        defaultBranchId={
+                                                            defaultBranchId
+                                                        }
+                                                        canManageFacilityWide={
+                                                            canManageFacilityWide
                                                         }
                                                     />
                                                     {rate.status ===

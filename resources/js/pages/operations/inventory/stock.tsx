@@ -122,6 +122,7 @@ export default function InventoryStockIndex({
                                     <tr className="border-b text-left text-muted-foreground">
                                         <Th>Item</Th>
                                         <Th>Store</Th>
+                                        <Th>Unit</Th>
                                         <Th>On hand</Th>
                                         <Th>Reserved</Th>
                                         <Th>Available</Th>
@@ -152,22 +153,20 @@ export default function InventoryStockIndex({
                                                     {row.branch_name}
                                                 </div>
                                             </Td>
+                                            <Td>{row.unit}</Td>
+                                            <Td>{formatNumber(row.on_hand)}</Td>
                                             <Td>
-                                                {formatNumber(row.on_hand)}{' '}
-                                                {row.unit}
+                                                {formatNumber(row.reserved)}
                                             </Td>
                                             <Td>
-                                                {formatNumber(row.reserved)}{' '}
-                                                {row.unit}
-                                            </Td>
-                                            <Td>
-                                                {formatNumber(row.available)}{' '}
-                                                {row.unit}
+                                                {formatNumber(row.available)}
                                             </Td>
                                             <Td>
                                                 {row.minimum_stock === null
                                                     ? 'Not set'
-                                                    : `${formatNumber(row.minimum_stock)} ${row.unit}`}
+                                                    : formatNumber(
+                                                          row.minimum_stock,
+                                                      )}
                                             </Td>
                                             <Td>
                                                 {row.is_low_stock ? (
@@ -185,7 +184,7 @@ export default function InventoryStockIndex({
                                     {filtered.length === 0 && (
                                         <tr>
                                             <td
-                                                colSpan={7}
+                                                colSpan={8}
                                                 className="py-12 text-center text-muted-foreground"
                                             >
                                                 No stock balances match these
