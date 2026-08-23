@@ -40,6 +40,7 @@ final readonly class SaveDocument
                 'owner_id' => $data['owner_id'] ?? $actor->id,
                 'title' => $data['title'],
                 'reference' => $data['reference'] ?? null,
+                'external_url' => $data['external_url'] ?? null,
                 'document_number' => $data['document_number'] ?? null,
                 'revision' => $data['revision'] ?? null,
                 'discipline' => $data['discipline'] ?? null,

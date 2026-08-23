@@ -9,12 +9,15 @@ use App\Http\Requests\Operations\Contracts\StoreContractRequest;
 use App\Http\Requests\Operations\Contracts\UpdateContractRequest;
 use App\Models\Branch;
 use App\Models\Contract;
-use App\Models\Currency;
 use App\Models\Customer;
+use App\Models\Document;
+use App\Models\Project;
+use App\Models\TenantCurrency;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
+use App\Support\Operations\PresentsLinkedDocuments;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -22,6 +25,8 @@ use Inertia\Response;
 
 final class ContractController
 {
+    use PresentsLinkedDocuments;
+
     public function index(): Response
     {
         Gate::authorize('viewAny', Contract::class);
@@ -70,11 +75,59 @@ final class ContractController
                 ->orderBy('name')
                 ->get(['id', 'name', 'branch_id'])
                 ->map(fn (Customer $customer): array => ['id' => $customer->id, 'name' => $customer->name, 'branch_id' => $customer->branch_id]),
-            'currencies' => Currency::query()
-                ->where('is_active', true)
-                ->orderBy('code')
-                ->get(['code', 'name'])
-                ->map(fn (Currency $currency): array => ['id' => $currency->code, 'name' => sprintf('%s - %s', $currency->code, $currency->name)]),
+            'currencies' => TenantCurrency::query()
+                ->with('currency')
+                ->where('tenant_id', $tenantId)
+                ->where('is_enabled', true)
+                ->orderBy('currency_code')
+                ->get()
+                ->map(fn (TenantCurrency $currency): array => ['id' => $currency->currency_code, 'name' => sprintf('%s - %s', $currency->currency_code, $currency->currency->name)]),
+            'canManageContracts' => Gate::forUser($user)->allows('create', Contract::class),
+        ]);
+    }
+
+    public function show(Contract $contract): Response
+    {
+        Gate::authorize('view', $contract);
+
+        $user = auth()->user();
+        abort_unless($user instanceof User, 403);
+
+        $contract->load(['branch', 'customer', 'projects.manager']);
+
+        return Inertia::render('operations/contracts/show', [
+            'contract' => [
+                'id' => $contract->id,
+                'branch_id' => $contract->branch_id,
+                'customer_id' => $contract->customer_id,
+                'branch_name' => $contract->branch->name,
+                'customer_name' => $contract->customer->name,
+                'reference' => $contract->reference,
+                'title' => $contract->title,
+                'scope_summary' => $contract->scope_summary,
+                'contract_value' => $contract->contract_value,
+                'currency_code' => $contract->currency_code,
+                'starts_on' => $contract->starts_on?->toDateString(),
+                'ends_on' => $contract->ends_on?->toDateString(),
+                'retention_percent' => $contract->retention_percent,
+                'payment_terms' => $contract->payment_terms,
+                'status' => $contract->status,
+            ],
+            'projects' => $contract->projects->map(fn (Project $project): array => [
+                'id' => $project->id,
+                'reference' => $project->reference,
+                'name' => $project->name,
+                'status' => $project->status,
+                'manager_name' => $project->manager?->name,
+            ])->values(),
+            'documents' => $this->linkedDocumentsFor($contract, $user),
+            'can' => [
+                'update' => Gate::forUser($user)->allows('update', $contract),
+                'archive' => Gate::forUser($user)->allows('delete', $contract),
+                'uploadDocuments' => Gate::forUser($user)->allows('create', Document::class),
+            ],
+            ...$this->contractFormOptions($user),
+            ...$this->documentFormOptions($user),
         ]);
     }
 
@@ -128,5 +181,18 @@ final class ContractController
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Contract status changed.']);
 
         return to_route('contracts.index');
+    }
+
+    /** @return array<string, mixed> */
+    private function contractFormOptions(User $user): array
+    {
+        $tenantId = resolve(TenantContext::class)->id();
+        $branchIds = resolve(BranchContext::class)->accessibleBranchIds($user);
+
+        return [
+            'branches' => Branch::query()->where('tenant_id', $tenantId)->where('status', 'active')->whereIn('id', $branchIds)->orderBy('name')->get(['id', 'name'])->map(fn (Branch $branch): array => ['id' => $branch->id, 'name' => $branch->name]),
+            'customers' => Customer::query()->where('tenant_id', $tenantId)->where('status', 'active')->visibleTo($user)->orderBy('name')->get(['id', 'name', 'branch_id'])->map(fn (Customer $customer): array => ['id' => $customer->id, 'name' => $customer->name, 'branch_id' => $customer->branch_id]),
+            'currencies' => TenantCurrency::query()->with('currency')->where('tenant_id', $tenantId)->where('is_enabled', true)->orderBy('currency_code')->get()->map(fn (TenantCurrency $currency): array => ['id' => $currency->currency_code, 'name' => sprintf('%s - %s', $currency->currency_code, $currency->currency->name)]),
+        ];
     }
 }

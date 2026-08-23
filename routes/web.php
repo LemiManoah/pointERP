@@ -129,7 +129,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('exchange-rates/{exchangeRate}/approve', [ExchangeRateApprovalController::class, 'store'])->name('foundation.exchange-rates.approve');
 
     Route::resource('customers', CustomerController::class)->only(['index', 'store', 'update', 'destroy']);
-    Route::resource('contracts', ContractController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::resource('contracts', ContractController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
     Route::resource('projects', ProjectController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
     Route::resource('sites', SiteController::class)->only(['show', 'store', 'update', 'destroy']);
     Route::resource('project-activities', ProjectActivityController::class)->only(['store', 'update', 'destroy']);

@@ -176,7 +176,9 @@ export function ActivityDialog({
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="name">Name</Label>
+                        <Label htmlFor="name" required>
+                            Name
+                        </Label>
                         <Input
                             id="name"
                             value={form.data.name}
@@ -236,7 +238,7 @@ export function ActivityDialog({
                             />
                         </div>
                         <div className="grid gap-2">
-                            <Label>Status</Label>
+                            <Label required>Status</Label>
                             <NativeSelect
                                 value={form.data.status}
                                 onChange={(event) =>

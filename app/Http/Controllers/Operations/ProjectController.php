@@ -9,13 +9,13 @@ use App\Http\Requests\Operations\Projects\StoreProjectRequest;
 use App\Http\Requests\Operations\Projects\UpdateProjectRequest;
 use App\Models\Branch;
 use App\Models\Contract;
-use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\DailySiteReport;
 use App\Models\Document;
 use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\Site;
+use App\Models\TenantCurrency;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\BranchContext;
@@ -93,6 +93,7 @@ final class ProjectController
             'dsrSummary' => $this->dailySiteReportSummary($project, $this->canViewRates($user)),
             'fleet' => $canViewFleet ? $equipmentSummary->forProject($project, $user) : null,
             'canViewFleet' => $canViewFleet,
+            'canUpdateProject' => Gate::forUser($user)->allows('update', $project),
             'canUploadDocuments' => Gate::forUser($user)->allows('create', Document::class),
             'canViewRates' => $this->canViewRates($user),
             ...$this->formOptions($user),
@@ -188,12 +189,20 @@ final class ProjectController
                 ->whereHas('branches', fn (Builder $query) => $query->whereIn('branches.id', $branchIds))
                 ->orderBy('name')
                 ->get(['id', 'staff_id', 'name', 'email'])
-                ->map(fn (User $optionUser): array => ['id' => $optionUser->id, 'name' => sprintf('%s (%s)', $optionUser->name, $optionUser->email), 'email' => $optionUser->email]),
-            'currencies' => Currency::query()
-                ->where('is_active', true)
-                ->orderBy('code')
-                ->get(['code', 'name'])
-                ->map(fn (Currency $currency): array => ['id' => $currency->code, 'name' => sprintf('%s - %s', $currency->code, $currency->name)]),
+                ->map(fn (User $optionUser): array => [
+                    'id' => $optionUser->id,
+                    'name' => sprintf('%s (%s)', $optionUser->name, $optionUser->email),
+                    'email' => $optionUser->email,
+                    'branch_ids' => $optionUser->branches()->pluck('branches.id')->values()->all(),
+                    'can_view_all_branches' => $optionUser->can('branches.view-all'),
+                ]),
+            'currencies' => TenantCurrency::query()
+                ->with('currency')
+                ->where('tenant_id', $tenantId)
+                ->where('is_enabled', true)
+                ->orderBy('currency_code')
+                ->get()
+                ->map(fn (TenantCurrency $currency): array => ['id' => $currency->currency_code, 'name' => sprintf('%s - %s', $currency->currency_code, $currency->currency->name)]),
         ];
     }
 

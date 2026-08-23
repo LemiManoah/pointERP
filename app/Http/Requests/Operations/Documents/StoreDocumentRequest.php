@@ -30,7 +30,7 @@ final class StoreDocumentRequest extends FormRequest
     {
         return [
             ...$this->metadataRules(),
-            'file' => ['required', 'file', 'max:20480', 'mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png,webp,txt'],
+            'file' => ['nullable', 'required_without:external_url', 'file', 'max:20480', 'mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png,webp,txt'],
             'version_notes' => ['nullable', 'string', 'max:2000'],
         ];
     }
@@ -71,6 +71,24 @@ final class StoreDocumentRequest extends FormRequest
             'owner_id' => ['nullable', 'uuid', Rule::exists((new User)->getTable(), 'id')->where('tenant_id', $tenantId)],
             'title' => ['required', 'string', 'max:255'],
             'reference' => ['nullable', 'string', 'max:255'],
+            'external_url' => [
+                'nullable',
+                'required_without:file',
+                'string',
+                'max:2048',
+                'url:https',
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    if (! is_string($value)) {
+                        return;
+                    }
+
+                    $host = mb_strtolower((string) parse_url($value, PHP_URL_HOST));
+
+                    if (! in_array($host, ['docs.google.com', 'drive.google.com'], true)) {
+                        $fail('Only Google Drive or Google Docs links are allowed.');
+                    }
+                },
+            ],
             'document_number' => ['nullable', 'string', 'max:255'],
             'revision' => ['nullable', 'string', 'max:50'],
             'discipline' => ['nullable', 'string', 'max:100'],

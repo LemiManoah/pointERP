@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { Download, Trash2 } from 'lucide-react';
+import { Download, ExternalLink, Trash2 } from 'lucide-react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,7 @@ type DocumentDetail = DocumentRecord & {
     description: string | null;
     document_date: string | null;
     is_expired: boolean;
+    external_url: string | null;
     current_version: {
         id: string;
         version_number: number;
@@ -112,6 +113,18 @@ export default function DocumentShow({
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                        {document.external_url && (
+                            <Button variant="outline" asChild>
+                                <a
+                                    href={document.external_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    <ExternalLink />
+                                    Open Google file
+                                </a>
+                            </Button>
+                        )}
                         {can.update && (
                             <DocumentDialog
                                 document={document}

@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { Download } from 'lucide-react';
+import { Download, ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ export type LinkedDocumentRow = {
     id: string;
     title: string;
     reference: string | null;
+    external_url?: string | null;
     document_number?: string | null;
     revision?: string | null;
     discipline?: string | null;
@@ -137,6 +138,24 @@ export function DocumentEvidenceTable({
                                                         href={`/documents/${document.id}/versions/${document.current_version.id}/download`}
                                                     >
                                                         <Download />
+                                                    </a>
+                                                </Button>
+                                            )}
+                                            {document.external_url && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    asChild
+                                                >
+                                                    <a
+                                                        href={
+                                                            document.external_url
+                                                        }
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        title="Open Google file"
+                                                    >
+                                                        <ExternalLink />
                                                     </a>
                                                 </Button>
                                             )}

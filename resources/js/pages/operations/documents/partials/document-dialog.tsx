@@ -47,6 +47,7 @@ export type DocumentRecord = {
     id: string;
     title: string;
     reference: string | null;
+    external_url?: string | null;
     document_number?: string | null;
     revision?: string | null;
     discipline?: string | null;
@@ -72,6 +73,7 @@ type FormData = Record<
     document_type_id: string;
     title: string;
     reference: string;
+    external_url: string;
     document_number: string;
     revision: string;
     discipline: string;
@@ -118,6 +120,7 @@ export function DocumentDialog({
             document?.document_type_id ?? documentTypes[0]?.id ?? '',
         title: document?.title ?? '',
         reference: document?.reference ?? '',
+        external_url: document?.external_url ?? '',
         document_number: document?.document_number ?? '',
         revision: document?.revision ?? '',
         discipline: document?.discipline ?? '',
@@ -174,7 +177,7 @@ export function DocumentDialog({
                 <form onSubmit={submit} className="grid gap-5">
                     <div className="grid gap-4 md:grid-cols-3">
                         <div className="grid gap-2">
-                            <Label>Type</Label>
+                            <Label required>Type</Label>
                             <SearchableSelect
                                 value={form.data.document_type_id}
                                 onValueChange={(value) =>
@@ -217,7 +220,7 @@ export function DocumentDialog({
                             <InputError message={form.errors.branch_id} />
                         </div>
                         <div className="grid gap-2">
-                            <Label>Confidentiality</Label>
+                            <Label required>Confidentiality</Label>
                             <NativeSelect
                                 value={form.data.confidentiality}
                                 onChange={(event) =>
@@ -246,7 +249,9 @@ export function DocumentDialog({
 
                     <div className="grid gap-4 md:grid-cols-2">
                         <div className="grid gap-2">
-                            <Label htmlFor="title">Title</Label>
+                            <Label htmlFor="title" required>
+                                Title
+                            </Label>
                             <Input
                                 id="title"
                                 value={form.data.title}
@@ -377,7 +382,7 @@ export function DocumentDialog({
                             <InputError message={form.errors.expires_on} />
                         </div>
                         <div className="grid gap-2">
-                            <Label>Status</Label>
+                            <Label required>Status</Label>
                             <NativeSelect
                                 value={form.data.status}
                                 onChange={(event) =>
@@ -411,10 +416,27 @@ export function DocumentDialog({
                         />
                     </div>
 
+                    <div className="grid min-w-0 gap-2">
+                        <Label htmlFor="external_url">
+                            Protected Google Drive or Docs link
+                        </Label>
+                        <Input
+                            id="external_url"
+                            type="url"
+                            className="min-w-0"
+                            placeholder="https://drive.google.com/..."
+                            value={form.data.external_url}
+                            onChange={(event) =>
+                                form.setData('external_url', event.target.value)
+                            }
+                        />
+                        <InputError message={form.errors.external_url} />
+                    </div>
+
                     {!isEditing && (
                         <>
                             <div className="grid gap-2">
-                                <Label htmlFor="file">File</Label>
+                                <Label htmlFor="file">Upload file</Label>
                                 <Input
                                     id="file"
                                     type="file"

@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Operations;
 use App\Actions\Operations\DailySiteReports\SaveDailySiteReport;
 use App\Http\Requests\Operations\DailySiteReports\StoreDailySiteReportRequest;
 use App\Http\Requests\Operations\DailySiteReports\UpdateDailySiteReportRequest;
-use App\Models\Currency;
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportCorrection;
 use App\Models\DailySiteReportReview;
@@ -16,6 +15,7 @@ use App\Models\Document;
 use App\Models\Equipment;
 use App\Models\ProjectActivity;
 use App\Models\Site;
+use App\Models\TenantCurrency;
 use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
@@ -263,11 +263,13 @@ final class DailySiteReportController
                     'current_meter_reading' => $equipment->current_meter_reading,
                     'meter_type' => $equipment->meter_type,
                 ]),
-            'currencies' => Currency::query()
-                ->where('is_active', true)
-                ->orderBy('code')
-                ->get(['code', 'name'])
-                ->map(fn (Currency $currency): array => ['id' => $currency->code, 'name' => sprintf('%s - %s', $currency->code, $currency->name)]),
+            'currencies' => TenantCurrency::query()
+                ->with('currency')
+                ->where('tenant_id', $tenantId)
+                ->where('is_enabled', true)
+                ->orderBy('currency_code')
+                ->get()
+                ->map(fn (TenantCurrency $currency): array => ['id' => $currency->currency_code, 'name' => sprintf('%s - %s', $currency->currency_code, $currency->currency->name)]),
             'units' => [
                 'No.',
                 'day',

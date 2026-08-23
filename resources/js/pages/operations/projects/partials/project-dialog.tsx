@@ -27,6 +27,8 @@ export type Option = {
     branch_id?: string | null;
     customer_id?: string | null;
     email?: string;
+    branch_ids?: string[];
+    can_view_all_branches?: boolean;
 };
 
 export type Project = {
@@ -116,6 +118,11 @@ export function ProjectDialog({
     const branchContracts = contracts.filter(
         (contract) => contract.branch_id === form.data.branch_id,
     );
+    const branchManagers = users.filter(
+        (user) =>
+            user.can_view_all_branches === true ||
+            user.branch_ids?.includes(form.data.branch_id),
+    );
 
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -163,7 +170,7 @@ export function ProjectDialog({
                 <form onSubmit={submit} className="grid gap-5">
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
-                            <Label>Branch</Label>
+                            <Label required>Branch</Label>
                             <SearchableSelect
                                 value={form.data.branch_id}
                                 onValueChange={(value) =>
@@ -187,7 +194,7 @@ export function ProjectDialog({
                                 }
                                 options={[
                                     { value: '', label: 'No manager' },
-                                    ...users.map((user) => ({
+                                    ...branchManagers.map((user) => ({
                                         value: user.id,
                                         label: user.name,
                                     })),
@@ -242,7 +249,9 @@ export function ProjectDialog({
 
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
-                            <Label htmlFor="reference">Reference</Label>
+                            <Label htmlFor="reference" required>
+                                Reference
+                            </Label>
                             <Input
                                 id="reference"
                                 value={form.data.reference}
@@ -256,7 +265,9 @@ export function ProjectDialog({
                             <InputError message={form.errors.reference} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="name">Name</Label>
+                            <Label htmlFor="name" required>
+                                Name
+                            </Label>
                             <Input
                                 id="name"
                                 value={form.data.name}
@@ -282,7 +293,7 @@ export function ProjectDialog({
 
                     <div className="grid gap-4 sm:grid-cols-4">
                         <div className="grid gap-2">
-                            <Label>Currency</Label>
+                            <Label required>Currency</Label>
                             <SearchableSelect
                                 value={form.data.base_currency_code}
                                 onValueChange={(value) =>
@@ -333,7 +344,7 @@ export function ProjectDialog({
                             />
                         </div>
                         <div className="grid gap-2">
-                            <Label>Status</Label>
+                            <Label required>Status</Label>
                             <NativeSelect
                                 value={form.data.status}
                                 onChange={(event) =>

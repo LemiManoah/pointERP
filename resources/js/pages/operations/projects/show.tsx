@@ -61,6 +61,7 @@ type Props = {
     canViewRates: boolean;
     fleet: EquipmentScopeData | null;
     canViewFleet: boolean;
+    canUpdateProject: boolean;
 };
 
 export default function ProjectShow({
@@ -82,6 +83,7 @@ export default function ProjectShow({
     canViewRates,
     fleet,
     canViewFleet,
+    canUpdateProject,
 }: Props) {
     const confirm = useConfirmDialog();
     const [tab, setTab] = useState('sites');
@@ -126,14 +128,16 @@ export default function ProjectShow({
                             users={users}
                             assignedUsers={assignedUsers}
                         />
-                        <ProjectDialog
-                            project={project}
-                            branches={branches}
-                            customers={customers}
-                            contracts={contracts}
-                            users={users}
-                            currencies={currencies}
-                        />
+                        {canUpdateProject && (
+                            <ProjectDialog
+                                project={project}
+                                branches={branches}
+                                customers={customers}
+                                contracts={contracts}
+                                users={users}
+                                currencies={currencies}
+                            />
+                        )}
                     </div>
                 </div>
 
@@ -470,7 +474,9 @@ function ActivityTable({
                                     Activity
                                 </th>
                                 <th className="py-3 pr-4 font-medium">Site</th>
-                                <th className="py-3 pr-4 font-medium">Qty</th>
+                                <th className="py-3 pr-4 font-medium">
+                                    Approved / planned
+                                </th>
                                 {canViewRates && (
                                     <th className="py-3 pr-4 font-medium">
                                         Rate

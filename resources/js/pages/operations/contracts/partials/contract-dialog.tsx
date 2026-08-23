@@ -140,7 +140,7 @@ export function ContractDialog({
                 <form onSubmit={submit} className="grid gap-5">
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
-                            <Label>Branch</Label>
+                            <Label required>Branch</Label>
                             <SearchableSelect
                                 value={form.data.branch_id}
                                 onValueChange={(value) =>
@@ -156,7 +156,7 @@ export function ContractDialog({
                             <InputError message={form.errors.branch_id} />
                         </div>
                         <div className="grid gap-2">
-                            <Label>Company</Label>
+                            <Label required>Company</Label>
                             <SearchableSelect
                                 value={form.data.customer_id}
                                 onValueChange={(value) =>
@@ -175,7 +175,9 @@ export function ContractDialog({
 
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="grid gap-2">
-                            <Label htmlFor="reference">Reference</Label>
+                            <Label htmlFor="reference" required>
+                                Reference
+                            </Label>
                             <Input
                                 id="reference"
                                 value={form.data.reference}
@@ -189,7 +191,9 @@ export function ContractDialog({
                             <InputError message={form.errors.reference} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="title">Title</Label>
+                            <Label htmlFor="title" required>
+                                Title
+                            </Label>
                             <Input
                                 id="title"
                                 value={form.data.title}
@@ -232,7 +236,7 @@ export function ContractDialog({
                             <InputError message={form.errors.contract_value} />
                         </div>
                         <div className="grid gap-2">
-                            <Label>Currency</Label>
+                            <Label required>Currency</Label>
                             <SearchableSelect
                                 value={form.data.currency_code}
                                 onValueChange={(value) =>
@@ -296,7 +300,9 @@ export function ContractDialog({
                             <InputError message={form.errors.ends_on} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="status">Status</Label>
+                            <Label htmlFor="status" required>
+                                Status
+                            </Label>
                             <NativeSelect
                                 id="status"
                                 value={form.data.status}

@@ -87,7 +87,9 @@ export function StaffForm({
     return (
         <form onSubmit={submit} className="grid gap-5">
             <div className="grid gap-2">
-                <Label htmlFor="branch_id">Branch</Label>
+                <Label htmlFor="branch_id" required>
+                    Branch
+                </Label>
                 <SearchableSelect
                     value={form.data.branch_id}
                     onValueChange={(value) => form.setData('branch_id', value)}
@@ -102,7 +104,9 @@ export function StaffForm({
             </div>
 
             <div className="grid gap-2">
-                <Label htmlFor="staff_position_id">Position</Label>
+                <Label htmlFor="staff_position_id" required>
+                    Position
+                </Label>
                 <SearchableSelect
                     value={form.data.staff_position_id}
                     onValueChange={(value) =>
@@ -129,13 +133,15 @@ export function StaffForm({
                             event.target.value.toUpperCase(),
                         )
                     }
-                    placeholder="POINT-002"
+                    placeholder="Generated automatically"
                 />
                 <InputError message={form.errors.staff_number} />
             </div>
 
             <div className="grid gap-2">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name" required>
+                    Name
+                </Label>
                 <Input
                     id="name"
                     value={form.data.name}
@@ -148,7 +154,9 @@ export function StaffForm({
             </div>
 
             <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" required>
+                    Email
+                </Label>
                 <Input
                     id="email"
                     type="email"
@@ -175,7 +183,9 @@ export function StaffForm({
             </div>
 
             <div className="grid gap-2">
-                <Label htmlFor="status">Status</Label>
+                <Label htmlFor="status" required>
+                    Status
+                </Label>
                 <NativeSelect
                     id="status"
                     value={form.data.status}

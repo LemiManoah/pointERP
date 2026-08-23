@@ -92,6 +92,7 @@ trait PresentsLinkedDocuments
             'id' => $document->id,
             'title' => $document->title,
             'reference' => $document->reference,
+            'external_url' => $document->external_url,
             'document_number' => $document->document_number,
             'revision' => $document->revision,
             'discipline' => $document->discipline,

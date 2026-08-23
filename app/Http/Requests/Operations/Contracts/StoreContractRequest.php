@@ -6,8 +6,8 @@ namespace App\Http\Requests\Operations\Contracts;
 
 use App\Models\Branch;
 use App\Models\Contract;
-use App\Models\Currency;
 use App\Models\Customer;
+use App\Models\TenantCurrency;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
@@ -35,7 +35,7 @@ final class StoreContractRequest extends FormRequest
             'title' => ['required', 'string', 'max:180'],
             'scope_summary' => ['nullable', 'string', 'max:2000'],
             'contract_value' => ['nullable', 'numeric', 'min:0'],
-            'currency_code' => ['required', 'string', 'size:3', Rule::exists((new Currency)->getTable(), 'code')->where('is_active', true)],
+            'currency_code' => ['required', 'string', 'size:3', Rule::exists((new TenantCurrency)->getTable(), 'currency_code')->where('tenant_id', $tenantId)->where('is_enabled', true)],
             'starts_on' => ['nullable', 'date'],
             'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],
             'retention_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],

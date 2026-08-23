@@ -6,9 +6,9 @@ namespace App\Http\Requests\Operations\Projects;
 
 use App\Models\Branch;
 use App\Models\Contract;
-use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\Project;
+use App\Models\TenantCurrency;
 use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
@@ -39,7 +39,7 @@ final class UpdateProjectRequest extends FormRequest
             'name' => ['required', 'string', 'max:180'],
             'description' => ['nullable', 'string', 'max:2000'],
             'manager_id' => ['nullable', 'uuid', Rule::exists((new User)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
-            'base_currency_code' => ['required', 'string', 'size:3', Rule::exists((new Currency)->getTable(), 'code')->where('is_active', true)],
+            'base_currency_code' => ['required', 'string', 'size:3', Rule::exists((new TenantCurrency)->getTable(), 'currency_code')->where('tenant_id', $tenantId)->where('is_enabled', true)],
             'budget_amount' => ['nullable', 'numeric', 'min:0'],
             'starts_on' => ['nullable', 'date'],
             'ends_on' => ['nullable', 'date', 'after_or_equal:starts_on'],

@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string|null $owner_id
  * @property-read string $title
  * @property-read string|null $reference
+ * @property-read string|null $external_url
  * @property-read string|null $document_number
  * @property-read string|null $revision
  * @property-read string|null $discipline
@@ -52,6 +53,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'owner_id',
     'title',
     'reference',
+    'external_url',
     'document_number',
     'revision',
     'discipline',
@@ -103,6 +105,7 @@ final class Document extends Model
             'branch_id' => 'string',
             'document_type_id' => 'string',
             'owner_id' => 'string',
+            'external_url' => 'encrypted',
             'document_date' => 'date',
             'received_on' => 'date',
             'expires_on' => 'date',

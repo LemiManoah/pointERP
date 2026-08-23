@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
@@ -22,6 +22,7 @@ type Props = {
     branches: Option[];
     customers: Option[];
     currencies: Option[];
+    canManageContracts: boolean;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -34,6 +35,7 @@ export default function ContractsIndex({
     branches,
     customers,
     currencies,
+    canManageContracts,
 }: Props) {
     const confirm = useConfirmDialog();
     const [search, setSearch] = useState('');
@@ -88,11 +90,13 @@ export default function ContractsIndex({
                             />
                         </div>
                     </div>
-                    <ContractDialog
-                        branches={branches}
-                        customers={customers}
-                        currencies={currencies}
-                    />
+                    {canManageContracts && (
+                        <ContractDialog
+                            branches={branches}
+                            customers={customers}
+                            currencies={currencies}
+                        />
+                    )}
                 </div>
 
                 <div className="flex justify-end">
@@ -136,9 +140,12 @@ export default function ContractsIndex({
                                             className="border-b last:border-0"
                                         >
                                             <td className="py-3 pr-4">
-                                                <div className="font-medium">
+                                                <Link
+                                                    href={`/contracts/${contract.id}`}
+                                                    className="font-medium hover:underline"
+                                                >
                                                     {contract.reference}
-                                                </div>
+                                                </Link>
                                                 <div>{contract.title}</div>
                                                 <div className="text-muted-foreground">
                                                     {contract.branch_name}
@@ -160,33 +167,42 @@ export default function ContractsIndex({
                                             </td>
                                             <td className="py-3">
                                                 <div className="flex justify-end gap-2">
-                                                    <ContractDialog
-                                                        contract={contract}
-                                                        branches={branches}
-                                                        customers={customers}
-                                                        currencies={currencies}
-                                                    />
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() =>
-                                                            confirm({
-                                                                title: 'Change contract archive status?',
-                                                                description: `${contract.reference} will move between active and archive contract lists.`,
-                                                                confirmLabel:
-                                                                    'Continue',
-                                                                onConfirm: () =>
-                                                                    router.delete(
-                                                                        `/contracts/${contract.id}`,
-                                                                        {
-                                                                            preserveScroll: true,
-                                                                        },
-                                                                    ),
-                                                            })
-                                                        }
-                                                    >
-                                                        Archive
-                                                    </Button>
+                                                    {canManageContracts && (
+                                                        <ContractDialog
+                                                            contract={contract}
+                                                            branches={branches}
+                                                            customers={
+                                                                customers
+                                                            }
+                                                            currencies={
+                                                                currencies
+                                                            }
+                                                        />
+                                                    )}
+                                                    {canManageContracts && (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                confirm({
+                                                                    title: 'Change contract archive status?',
+                                                                    description: `${contract.reference} will move between active and archive contract lists.`,
+                                                                    confirmLabel:
+                                                                        'Continue',
+                                                                    onConfirm:
+                                                                        () =>
+                                                                            router.delete(
+                                                                                `/contracts/${contract.id}`,
+                                                                                {
+                                                                                    preserveScroll: true,
+                                                                                },
+                                                                            ),
+                                                                })
+                                                            }
+                                                        >
+                                                            Archive
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

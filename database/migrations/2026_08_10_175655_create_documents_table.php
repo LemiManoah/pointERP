@@ -18,6 +18,7 @@ return new class extends Migration
             $table->foreignUuid('owner_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('title');
             $table->string('reference')->nullable();
+            $table->text('external_url')->nullable();
             $table->text('description')->nullable();
             $table->date('document_date')->nullable();
             $table->date('expires_on')->nullable();

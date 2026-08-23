@@ -16,7 +16,7 @@ final readonly class SaveStaff
     }
 
     /**
-     * @param  array{branch_id: string, staff_position_id: string, staff_number: string, name: string, email: string, phone?: string|null, status: string}  $data
+     * @param  array{branch_id: string, staff_position_id: string, staff_number?: string|null, name: string, email: string, phone?: string|null, status: string}  $data
      */
     public function handle(array $data, ?Staff $staff = null): Staff
     {
@@ -26,7 +26,7 @@ final readonly class SaveStaff
             'tenant_id' => $tenant->id,
             'branch_id' => $data['branch_id'],
             'staff_position_id' => $data['staff_position_id'],
-            'staff_number' => mb_strtoupper($data['staff_number']),
+            'staff_number' => $this->staffNumber($data['staff_number'] ?? null),
             'name' => $data['name'],
             'email' => Str::lower($data['email']),
             'phone' => $data['phone'] ?? null,
@@ -40,5 +40,20 @@ final readonly class SaveStaff
         }
 
         return Staff::query()->create($attributes);
+    }
+
+    private function staffNumber(?string $requested): string
+    {
+        $requested = mb_strtoupper(mb_trim((string) $requested));
+
+        if ($requested !== '') {
+            return $requested;
+        }
+
+        do {
+            $generated = 'STF-'.Str::upper(Str::random(6));
+        } while (Staff::query()->where('tenant_id', $this->tenantContext->id())->where('staff_number', $generated)->exists());
+
+        return $generated;
     }
 }

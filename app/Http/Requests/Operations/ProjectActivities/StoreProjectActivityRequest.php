@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Operations\ProjectActivities;
 
-use App\Models\Currency;
 use App\Models\Project;
 use App\Models\Site;
+use App\Models\TenantCurrency;
 use App\Services\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -35,7 +35,7 @@ final class StoreProjectActivityRequest extends FormRequest
             'planned_quantity' => ['nullable', 'numeric', 'min:0'],
             'approved_quantity' => ['nullable', 'numeric', 'min:0'],
             'rate_amount' => ['nullable', 'numeric', 'min:0'],
-            'currency_code' => ['nullable', 'string', 'size:3', Rule::exists((new Currency)->getTable(), 'code')->where('is_active', true)],
+            'currency_code' => ['nullable', 'string', 'size:3', Rule::exists((new TenantCurrency)->getTable(), 'currency_code')->where('tenant_id', $tenantId)->where('is_enabled', true)],
             'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ];

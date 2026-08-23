@@ -66,13 +66,15 @@ final class ProjectActivityPolicy
             return true;
         }
 
-        return $project->tenant_id === $user->tenant_id;
+        return $project->tenant_id === $user->tenant_id
+            && $this->canAccessBranch($user, $project->branch_id);
     }
 
     public function update(User $user, ProjectActivity $projectActivity): bool
     {
         return $user->can('project-activities.manage')
-            && $projectActivity->tenant_id === $user->tenant_id;
+            && $projectActivity->tenant_id === $user->tenant_id
+            && $this->canAccessBranch($user, $projectActivity->branch_id);
     }
 
     public function delete(User $user, ProjectActivity $projectActivity): bool

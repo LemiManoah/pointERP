@@ -108,7 +108,7 @@ final class DocumentController
         $data = $request->validated();
         $document = $action->handle($data, $actor);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Document uploaded.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Document saved.']);
 
         return to_route('documents.show', $document);
     }
@@ -253,6 +253,7 @@ final class DocumentController
             'id' => $document->id,
             'title' => $document->title,
             'reference' => $document->reference,
+            'external_url' => $document->external_url,
             'document_number' => $document->document_number,
             'revision' => $document->revision,
             'discipline' => $document->discipline,

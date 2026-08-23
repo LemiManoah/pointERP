@@ -60,12 +60,12 @@ export function SearchableSelect({
                     role="combobox"
                     aria-expanded={open}
                     className={cn(
-                        'w-full justify-between px-3 font-normal',
+                        'w-full max-w-full min-w-0 justify-between overflow-hidden px-3 font-normal',
                         !selectedOption && 'text-muted-foreground',
                         className,
                     )}
                 >
-                    <span className="truncate">
+                    <span className="min-w-0 flex-1 truncate text-left">
                         {selectedOption?.label ?? placeholder}
                     </span>
                     <ChevronsUpDown className="opacity-50" />
