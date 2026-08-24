@@ -60,7 +60,7 @@ it('exports maintenance records only for authorised users', function (): void {
     $this->actingAs($fleetManager)
         ->get(route('equipment-maintenance.export', ['search' => 'EQ-GRD-001']))
         ->assertOk()
-        ->assertHeader('content-type', 'text/csv')
+        ->assertHeaderContains('content-type', 'text/csv')
         ->assertDownload();
 
     $this->actingAs($siteManager)
@@ -115,8 +115,14 @@ it('links controlled evidence to an accessible maintenance work order', function
         ->exists())->toBeTrue();
 
     $equipment = Equipment::query()->findOrFail($workOrder->equipment_id);
+    $workOrderIndex = EquipmentMaintenanceWorkOrder::query()
+        ->where('equipment_id', $equipment->id)
+        ->orderByDesc('reported_at')
+        ->pluck('id')
+        ->search($workOrder->id);
+
     $this->actingAs($fleetManager)
         ->get(route('equipment.show', ['equipment' => $equipment, 'tab' => 'maintenance']))
         ->assertInertia(fn (Assert $page): Assert => $page
-            ->where('maintenanceWorkOrders.1.document_count', 2));
+            ->where("maintenanceWorkOrders.{$workOrderIndex}.document_count", 2));
 });

@@ -255,7 +255,7 @@ final class PointInvestmentSeeder extends Seeder
             );
         }
 
-        $supplier = Customer::query()->where('tenant_id', $tenantId)->whereIn('type', [Customer::TYPE_SUPPLIER, Customer::TYPE_SUBCONTRACTOR])->first();
+        $supplier = Customer::query()->where('tenant_id', $tenantId)->where('code', 'SUP-DEMO')->first();
         if ($supplier === null) {
             $supplier = Customer::query()->create(['tenant_id' => $tenantId, 'branch_id' => $kampalaBranch->id, 'type' => Customer::TYPE_SUPPLIER, 'name' => 'Demo Materials Supplier', 'code' => 'SUP-DEMO', 'status' => 'active', 'created_by' => $director->id, 'updated_by' => $director->id]);
         }

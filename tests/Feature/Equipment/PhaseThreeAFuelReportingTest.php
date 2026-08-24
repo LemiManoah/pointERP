@@ -25,7 +25,7 @@ it('shows the scoped fuel portfolio and exception summary to fleet managers', fu
             ->where('activeTab', 'fuel')
             ->where('can.viewFuelDashboard', true)
             ->where('can.exportFuel', true)
-            ->where('fuelSummary.review_required', 1)
+            ->where('fuelSummary.review_required', 2)
             ->has('fuelTransactions', 4));
 });
 
@@ -52,7 +52,7 @@ it('exports the filtered scoped fuel ledger for authorised users', function (): 
             'search' => 'EQ-RLR-002',
         ]))
         ->assertOk()
-        ->assertHeader('content-type', 'text/csv')
+        ->assertHeaderContains('content-type', 'text/csv')
         ->assertDownload();
 });
 

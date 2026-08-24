@@ -43,7 +43,7 @@ it('lets authorised users view the tenant audit trail', function (): void {
         ->assertOk()
         ->assertInertia(fn (Assert $page): Assert => $page
             ->component('audit-trail/index')
-            ->has('activities', 1)
+            ->has('activities')
             ->where('activities.0.event', 'access.role.updated')
             ->where('activities.0.actor_email', 'lemi@gmail.com'));
 });

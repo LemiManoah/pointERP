@@ -290,7 +290,6 @@ final class RolePermissionSeeder extends Seeder
         'Store Keeper' => [
             'branches.view',
             'equipment.fuel.create',
-            'equipment.view',
             'inventory.stock.adjust',
             'inventory.stock.issue',
             'inventory.stock.return',

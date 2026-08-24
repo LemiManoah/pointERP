@@ -67,7 +67,7 @@ final class InventoryStore extends Model
      * @param  Builder<InventoryStore>  $query
      * @return Builder<InventoryStore>
      */
-    protected function scopeVisibleTo(Builder $query, User $user): Builder
+    public function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->can('branches.view-all')) {
             return $query;
