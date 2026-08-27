@@ -4,7 +4,7 @@
 
 Phase 3B is the next major implementation phase after Phase 3A. It introduces controlled materials, suppliers, procurement and stores while preserving the operational history already captured by Daily Site Reports and the fleet module.
 
-Status: implementation in progress. Chunks 3B.1, 3B.2, 3B.2A and 3B.3 are implemented and awaiting local migration, focused tests, static analysis and UI acceptance before procurement begins in Chunk 3B.4.
+Status: implementation in progress. Chunks 3B.1 through 3B.4 are implemented and awaiting local migration, focused tests and UI acceptance. Procurement intentionally uses a direct purchase-order workflow; RFQs and supplier quotation comparison are deferred unless a real pilot proves they are needed. The core 3B.5 receipt and inspection workflow is implemented; receipt documents and dedicated receipt details remain.
 
 The roadmap and SRS are the authority for this phase. `phase3A.md` remains the authority for equipment, fuel, maintenance, meter, custody and fleet location behaviour. This document owns stock, procurement and material issue workflows.
 
@@ -33,14 +33,13 @@ The phase replaces uncontrolled material names and spreadsheet balances with mas
 - Suppliers using the existing customer/supplier foundation.
 - Warehouses, depots and site stores.
 - Requisitions and approval workflow.
-- Supplier quotation capture and comparison.
-- Purchase orders and line-level commitments.
+- Direct purchase orders and line-level commitments.
 - Goods receipts, inspection outcomes and rejected quantities.
 - Stock issues, returns, transfers, adjustments and stock counts.
 - On-hand, reserved, available and in-transit balances.
 - Reorder levels and low-stock exceptions.
 - DSR material-line linking and approved stock-posting evidence.
-- Document links for requisitions, quotations, orders, receipts and stock events.
+- Document links for requisitions, orders, receipts and stock events.
 - Tenant, branch, project/site, permission, state and audit controls.
 - Low-bandwidth list views, filters, exports, notifications and seed data.
 
@@ -54,6 +53,7 @@ The phase replaces uncontrolled material names and spreadsheet balances with mas
 - Multi-level warehouse bin optimisation.
 - Manufacturing, recipes, production orders and material requirements planning.
 - Automatic stock deduction from every DSR save or submission.
+- RFQs, tender comparison and supplier quotation comparison. These may be introduced later as a separate optional workflow without coupling internal store requisitions to purchase orders.
 
 ## 4. Domain Rules
 
@@ -128,9 +128,9 @@ Every operational record carries `tenant_id`. Store records carry a responsible 
 
 Purchase, receipt and issue costs store the transaction currency and preserve the original amount. Currency must be enabled for the tenant and branch. Conversion for reporting uses the approved exchange-rate service and never overwrites source values.
 
-Cost fields, supplier prices and quotation comparisons require dedicated permissions. Users who cannot view costs may still see quantities, statuses and operational references.
+Cost fields and supplier prices require dedicated permissions. Users who cannot view costs may still see quantities, statuses and operational references.
 
-The item form does not ask users to select a pricing currency and the item table stores no separate currency column. Optional default purchase cost and default selling price are displayed in the active branch/facility default currency; tenant default currency is the fallback only in a legitimate all-branches context. Every quotation, order, receipt, issue with cost, and sale still preserves its own currency and source amount.
+The item form does not ask users to select a pricing currency and the item table stores no separate currency column. Optional default purchase cost and default selling price are displayed in the active branch/facility default currency; tenant default currency is the fallback only in a legitimate all-branches context. Every order, receipt, issue with cost, and sale still preserves its own currency and source amount.
 
 ### 4.9 Tracking and expiry
 
@@ -251,7 +251,7 @@ Header:
 
 Line:
 
-- inventory item or unregistered description;
+- registered inventory item;
 - requested quantity/unit and converted stock quantity;
 - purpose, DSR/project activity reference and notes;
 - approved, issued and outstanding quantities;
@@ -259,29 +259,26 @@ Line:
 
 Recommended statuses: `draft`, `submitted`, `returned`, `approved`, `partially_issued`, `fulfilled`, `rejected`, `cancelled`.
 
-### 5.8 `supplier_quotations` and `supplier_quotation_lines`
+### 5.8 Deferred RFQ and quotation comparison
 
-- supplier/customer, requisition, quotation reference and quotation date;
-- validity date, currency, delivery terms, tax/discount fields reserved for Phase 4;
-- received document and notes;
-- line item, quantity, unit price, lead time, availability and selected status.
+Supplier RFQs and competing quotation comparison are not part of the initial operational workflow. A purchase order is created directly from registered items and their recorded purchase costs. An authorised price-override permission may change a draft line price, and the order records whether the value came from the item master or a manual override.
 
-Quotation comparison is advisory until an authorised user selects a supplier and creates a purchase order. The system must retain non-selected quotations.
+If pilot operations later require formal tender comparison, it must be introduced as an optional module that feeds a draft PO. It must not turn an internal store requisition into a procurement request automatically.
 
 ### 5.9 `purchase_orders` and `purchase_order_lines`
 
 Header:
 
-- supplier, tenant, branch, requisition and project/site;
+- supplier, tenant, branch and receiving store;
 - order number, order date, expected date, currency and delivery store;
 - status and approval evidence;
 - submitted, approved, cancelled and closed users/timestamps.
 
 Line:
 
-- item or controlled description, ordered quantity/unit and stock conversion;
+- registered inventory item, ordered quantity/allowed unit and stock conversion;
 - unit price, line amount, received quantity and outstanding quantity;
-- specification, requested delivery date and notes.
+- recorded-cost or authorised-override price source.
 
 Recommended statuses: `draft`, `submitted`, `approved`, `partially_received`, `received`, `cancelled`, `closed`.
 
@@ -364,9 +361,8 @@ Permissions should be module-specific and action-specific, for example:
 - `inventory.items.view`, `.manage`, `.archive`;
 - `inventory.stores.view`, `.manage`;
 - `inventory.requisitions.create`, `.submit`, `.approve`, `.cancel`;
-- `inventory.quotations.view`, `.manage`, `.select`;
-- `inventory.purchase-orders.create`, `.approve`, `.cancel`, `.view-costs`;
-- `inventory.receipts.create`, `.verify`, `.post`;
+- `inventory.purchase-orders.create`, `.submit`, `.approve`, `.cancel`, `.close`, `.view-costs`, `.override-price`;
+- `inventory.stock.receive`;
 - `inventory.stock.view`, `.issue`, `.return`, `.adjust`, `.reverse`;
 - `inventory.transfers.create`, `.dispatch`, `.receive`, `.cancel`;
 - `inventory.counts.create`, `.approve`;
@@ -395,21 +391,32 @@ Direct routes must return 403 when the interface control is hidden. A requester 
 3. Item is enabled for the tenant/store and reorder settings are confirmed.
 4. Supplier is selected from active supplier customers.
 
-### 7.2 Requisition to purchase order
+### 7.2 Internal requisition
 
 ```text
 Draft requisition
   -> Submit
   -> Approve or Return
-  -> Select supplier/quotation
-  -> Create purchase order
-  -> Submit
-  -> Approve
+  -> Issue available items from the selected store
+  -> Partial issue, return or fulfil
 ```
 
-Approval reserves stock when an existing-store issue is planned. A purchase order does not reserve or increase stock unless the business action explicitly creates a reservation.
+Approval reserves stock for the internal store issue. A requisition does not select a supplier and does not create a purchase order.
 
-### 7.3 Receipt and inspection
+### 7.3 Direct purchase order
+
+```text
+Draft purchase order
+  -> Select supplier, receiving store and registered items
+  -> Use recorded item costs and allowed units
+  -> Submit
+  -> Approve or Return
+  -> Receive against the approved PO
+```
+
+A purchase order is independent from an internal material requisition. It does not reserve or increase stock.
+
+### 7.4 Receipt and inspection
 
 ```text
 Purchase order approved
@@ -422,7 +429,7 @@ Purchase order approved
 
 The receipt screen must make rejected and accepted quantities visually distinct. Partial receipt must be a normal path, not an error state.
 
-### 7.4 Issue and return
+### 7.5 Issue and return
 
 ```text
 Approved requisition
@@ -476,7 +483,6 @@ Add a single `Materials & Stores` navigation group with:
 - Items;
 - Stores;
 - Requisitions;
-- Quotations;
 - Purchase orders;
 - Receipts;
 - Stock ledger;
@@ -550,7 +556,7 @@ Acceptance: balances reconcile from movements, negative stock is blocked by defa
 Status: implemented, pending validation.
 
 - The stock balance register reports every quantity in the item's stock unit and shows that unit once in its own column.
-- Direct supplier deliveries use a multi-line goods-receipt cart with supplier, store, delivery reference, source unit/cost, amount paid and automatically calculated supplier balance due.
+- Supplier deliveries must reference an approved purchase order. Supplier, branch, store, item, unit, currency and price are inherited from the PO and cannot be re-entered during receipt.
 - Facility currency and branch default automatically. Branch choice is exposed only to a user with multiple accessible branches and the dedicated change-branch permission.
 - Batch number and expiry are captured while receiving a batch-tracked item. Item setup only declares the tracking rule.
 - Internal opening balances, reconciliations, issues, returns and atomic transfers use the separate Stock movements workspace.
@@ -560,7 +566,7 @@ Acceptance: one receipt records several items and creates auditable stock moveme
 
 ### Chunk 3B.3: Requisitions and internal issues
 
-Status: implemented, pending validation. The current slice provides draft requisition carts, branch/project/site/store scoping, registered and unregistered material snapshots, permission-based submission and review, explicit self-approval authority, stock-unit approval snapshots, reservations, partial issues, returns, cancellation release, status separation, audit events and seeded open/approved demonstrations.
+Status: implemented, pending validation. The current slice provides draft requisition carts for registered store items, branch/project/site/store scoping, permission-based submission and review, explicit self-approval authority, stock-unit approval snapshots, reservations, partial issues, returns, cancellation release, status separation, audit events and seeded open/approved demonstrations.
 
 - Create requisition header/line workflow.
 - Add approval and reservation lifecycle.
@@ -571,20 +577,24 @@ Acceptance: an approved requisition can be partially issued and the outstanding 
 
 ### Chunk 3B.4: Procurement
 
-- **3B.4.1 Requisition handoff:** allow approved material requisition lines to be selected for procurement; retain requested, already ordered and remaining quantities.
-- **3B.4.2 Supplier quotations:** capture one or more supplier quotations, quotation documents, validity, delivery lead time, currency and line prices; provide a permission-controlled comparison without losing rejected quotations.
-- **3B.4.3 Purchase-order draft:** create a PO from selected requisition/quotation lines or as a controlled direct PO. Snapshot supplier identity, item description, unit, conversion, quantity, unit price, currency, tax/discount inputs, destination branch/store and terms.
+Status: implemented, pending validation. The current slice provides direct purchase-order drafts, recorded item costs and allowed units, controlled price override, permission-based review, immutable approved commercial snapshots, PO-only receiving, accepted/rejected inspection quantities, partial receipt, outstanding quantity tracking and audit events. Printable/versioned PO output remains part of document-control hardening and does not change the stock acceptance boundary.
+
+- **3B.4.1 Workflow boundary:** keep internal store requisitions independent from procurement. A requisition asks a store for stock; a PO commits the company to buy stock from a supplier.
+- **3B.4.2 Purchase-order draft:** create a direct PO from registered items. Snapshot supplier identity, item description, allowed unit, conversion, quantity, recorded unit price, price source, branch currency, destination store and terms.
+- **3B.4.3 Price authority:** load recorded item purchase cost automatically. Only `inventory.purchase-orders.override-price` may change the draft price, and the audit snapshot preserves that choice.
 - **3B.4.4 Approval:** implement `draft -> submitted -> approved/rejected/returned -> cancelled/closed` transitions. Approval is permission-based; an originator may approve only when they hold the explicit approval permission. Every transition records actor, reason and audit values.
 - **3B.4.5 Dispatch and document output:** generate the numbered PO document only after approval, preserve document versions, and prevent commercial line edits after approval. Changes require a revision or cancellation trail.
-- **3B.4.6 Receipt matching:** the goods-receipt cart gains an optional approved PO selector. PO lines populate the cart; the receiver records delivered, accepted and rejected quantities plus batch/expiry. Accepted quantities use the existing goods-receipt and stock-movement services.
+- **3B.4.6 Receipt matching:** every supplier goods receipt requires an approved PO. PO lines populate the inspection form; the receiver records delivered, accepted and rejected quantities plus batch/expiry. Accepted quantities use the existing stock-movement service.
 - **3B.4.7 Partial completion:** calculate ordered, accepted, rejected, outstanding and cancelled quantities per line. Keep a PO partially received until all non-cancelled quantities are accepted or formally closed.
 - **3B.4.8 Payment handoff:** expose approved PO commitments and goods-receipt supplier balances to Phase 4. Do not create accounting journals or mark supplier invoices paid from PO approval.
-- Required permissions: view/manage requisitions, manage quotations, create/submit/approve/cancel POs, receive POs, view costs and export.
-- Required tests: tenant/branch isolation, direct-route 403s, authorised self-approval, immutable approved snapshots, quotation comparison cost omission, duplicate receipt idempotency, partial/rejected quantities and over-receipt prevention.
+- Required permissions: view/manage requisitions, create/submit/approve/cancel POs, override draft price, receive POs, view costs and export.
+- Required tests: tenant/branch isolation, direct-route 403s, authorised self-approval, immutable approved snapshots, cost omission, PO-only receipt enforcement, partial/rejected quantities and over-receipt prevention.
 
 Acceptance: a purchase order does not affect stock until a receipt is accepted and posted.
 
 ### Chunk 3B.5: Receipts and inspection
+
+Status: core workflow implemented, pending validation. Approved-PO selection, partial delivery, accepted/rejected quantities, batch/expiry capture, stock posting, outstanding PO updates and audit logging are present. Dedicated receipt details and delivery-document links remain.
 
 - Add receipt entry, partial delivery, accepted/rejected quantities and verification.
 - Post accepted receipt movements idempotently.
@@ -669,8 +679,7 @@ Extend the existing Point Investment road demo with:
 - Kampala depot, Gulu site store and one inactive historical store;
 - one supplier and one subcontractor supplier;
 - a submitted and approved requisition;
-- two quotations, one selected and one not selected;
-- an approved PO with a partial receipt and rejected quantity;
+- an approved direct PO with a pending delivery;
 - on-hand, reserved, low-stock and in-transit examples;
 - a partial issue to a road site and a returned quantity;
 - a transfer awaiting receipt;

@@ -21,10 +21,7 @@ import {
     NativeSelectOption,
 } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
-import type {
-    RequisitionFormOptions,
-    RequisitionLineForm,
-} from '../types';
+import type { RequisitionFormOptions, RequisitionLineForm } from '../types';
 
 type ExistingRequisition = {
     id: string;
@@ -41,7 +38,6 @@ type ExistingRequisition = {
 
 const emptyLine = (): RequisitionLineForm => ({
     inventory_item_id: '',
-    description: '',
     unit_of_measure_id: '',
     requested_quantity: '',
     project_activity_id: '',
@@ -96,7 +92,10 @@ export function RequisitionDialog({
             onSuccess: () => setOpen(false),
         };
         if (requisition) {
-            form.put(`/inventory/requisitions/${requisition.id}`, requestOptions);
+            form.put(
+                `/inventory/requisitions/${requisition.id}`,
+                requestOptions,
+            );
         } else {
             form.post('/inventory/requisitions', requestOptions);
         }
@@ -125,7 +124,11 @@ export function RequisitionDialog({
                 <form onSubmit={submit} className="grid gap-6">
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                         {options.canChangeBranch && (
-                            <Field label="Branch" required error={form.errors.branch_id}>
+                            <Field
+                                label="Branch"
+                                required
+                                error={form.errors.branch_id}
+                            >
                                 <SearchableSelect
                                     value={form.data.branch_id}
                                     options={options.branches.map((branch) => ({
@@ -142,7 +145,11 @@ export function RequisitionDialog({
                                 />
                             </Field>
                         )}
-                        <Field label="Source store" required error={form.errors.inventory_store_id}>
+                        <Field
+                            label="Source store"
+                            required
+                            error={form.errors.inventory_store_id}
+                        >
                             <SearchableSelect
                                 value={form.data.inventory_store_id}
                                 options={stores.map((store) => ({
@@ -184,7 +191,9 @@ export function RequisitionDialog({
                                         description: site.reference,
                                     })),
                                 ]}
-                                onValueChange={(value) => form.setData('site_id', value)}
+                                onValueChange={(value) =>
+                                    form.setData('site_id', value)
+                                }
                                 disabled={!form.data.project_id}
                             />
                         </Field>
@@ -192,35 +201,61 @@ export function RequisitionDialog({
                             <Input
                                 value={form.data.department}
                                 onChange={(event) =>
-                                    form.setData('department', event.target.value)
+                                    form.setData(
+                                        'department',
+                                        event.target.value,
+                                    )
                                 }
                                 placeholder="e.g. Civil works"
                             />
                         </Field>
-                        <Field label="Required by" required error={form.errors.required_by_date}>
+                        <Field
+                            label="Required by"
+                            required
+                            error={form.errors.required_by_date}
+                        >
                             <Input
                                 type="date"
                                 value={form.data.required_by_date}
                                 onChange={(event) =>
-                                    form.setData('required_by_date', event.target.value)
+                                    form.setData(
+                                        'required_by_date',
+                                        event.target.value,
+                                    )
                                 }
                             />
                         </Field>
-                        <Field label="Priority" required error={form.errors.priority}>
+                        <Field
+                            label="Priority"
+                            required
+                            error={form.errors.priority}
+                        >
                             <NativeSelect
                                 value={form.data.priority}
                                 onChange={(event) =>
                                     form.setData('priority', event.target.value)
                                 }
                             >
-                                <NativeSelectOption value="low">Low</NativeSelectOption>
-                                <NativeSelectOption value="normal">Normal</NativeSelectOption>
-                                <NativeSelectOption value="high">High</NativeSelectOption>
-                                <NativeSelectOption value="urgent">Urgent</NativeSelectOption>
+                                <NativeSelectOption value="low">
+                                    Low
+                                </NativeSelectOption>
+                                <NativeSelectOption value="normal">
+                                    Normal
+                                </NativeSelectOption>
+                                <NativeSelectOption value="high">
+                                    High
+                                </NativeSelectOption>
+                                <NativeSelectOption value="urgent">
+                                    Urgent
+                                </NativeSelectOption>
                             </NativeSelect>
                         </Field>
                     </div>
-                    <Field label="Reason for request" required error={form.errors.reason}>
+                    <Field
+                        label="Reason for request"
+                        required
+                        error={form.errors.reason}
+                    >
                         <Textarea
                             value={form.data.reason}
                             onChange={(event) =>
@@ -231,10 +266,12 @@ export function RequisitionDialog({
                     <section className="grid gap-4 border-t pt-5">
                         <div className="flex items-center justify-between gap-4">
                             <div>
-                                <h3 className="font-medium">Requested materials</h3>
+                                <h3 className="font-medium">
+                                    Requested materials
+                                </h3>
                                 <p className="text-sm text-muted-foreground">
-                                    Select a registered item when available. An
-                                    unregistered description can continue to procurement.
+                                    Select inventory items to request from the
+                                    chosen source store.
                                 </p>
                             </div>
                             <Button
@@ -257,32 +294,52 @@ export function RequisitionDialog({
                             const activities = options.activities.filter(
                                 (activity) =>
                                     !form.data.project_id ||
-                                    activity.project_id === form.data.project_id,
+                                    activity.project_id ===
+                                        form.data.project_id,
                             );
                             return (
                                 <div
                                     key={index}
                                     className="grid min-w-0 gap-3 border-b pb-4 last:border-0 lg:grid-cols-12"
                                 >
-                                    <div className="min-w-0 lg:col-span-3">
-                                        <Field label="Inventory item">
+                                    <div className="min-w-0 lg:col-span-4">
+                                        <Field
+                                            label="Inventory item"
+                                            required
+                                            error={
+                                                form.errors[
+                                                    `lines.${index}.inventory_item_id`
+                                                ]
+                                            }
+                                        >
                                             <SearchableSelect
                                                 value={line.inventory_item_id}
-                                                options={[
-                                                    { value: '', label: 'Unregistered item' },
-                                                    ...options.items.map((row) => ({
+                                                options={options.items
+                                                    .filter(
+                                                        (candidate) =>
+                                                            candidate.id ===
+                                                                line.inventory_item_id ||
+                                                            !form.data.lines.some(
+                                                                (current) =>
+                                                                    current.inventory_item_id ===
+                                                                    candidate.id,
+                                                            ),
+                                                    )
+                                                    .map((row) => ({
                                                         value: row.id,
                                                         label: row.name,
                                                         description: row.code,
-                                                    })),
-                                                ]}
+                                                    }))}
                                                 onValueChange={(value) => {
-                                                    const selected = options.items.find(
-                                                        (row) => row.id === value,
-                                                    );
+                                                    const selected =
+                                                        options.items.find(
+                                                            (row) =>
+                                                                row.id ===
+                                                                value,
+                                                        );
                                                     updateLine(index, {
-                                                        inventory_item_id: value,
-                                                        description: selected?.name ?? line.description,
+                                                        inventory_item_id:
+                                                            value,
                                                         unit_of_measure_id:
                                                             selected?.stock_unit_id ??
                                                             line.unit_of_measure_id,
@@ -292,20 +349,15 @@ export function RequisitionDialog({
                                         </Field>
                                     </div>
                                     <div className="lg:col-span-2">
-                                        <Field label="Description" required={!item}>
-                                            <Input
-                                                value={line.description}
-                                                disabled={Boolean(item)}
-                                                onChange={(event) =>
-                                                    updateLine(index, {
-                                                        description: event.target.value,
-                                                    })
-                                                }
-                                            />
-                                        </Field>
-                                    </div>
-                                    <div className="lg:col-span-2">
-                                        <Field label="Quantity" required>
+                                        <Field
+                                            label="Quantity"
+                                            required
+                                            error={
+                                                form.errors[
+                                                    `lines.${index}.requested_quantity`
+                                                ]
+                                            }
+                                        >
                                             <Input
                                                 type="number"
                                                 min="0.0001"
@@ -313,7 +365,8 @@ export function RequisitionDialog({
                                                 value={line.requested_quantity}
                                                 onChange={(event) =>
                                                     updateLine(index, {
-                                                        requested_quantity: event.target.value,
+                                                        requested_quantity:
+                                                            event.target.value,
                                                     })
                                                 }
                                             />
@@ -321,36 +374,37 @@ export function RequisitionDialog({
                                     </div>
                                     <div className="min-w-0 lg:col-span-2">
                                         <Field label="Unit" required>
-                                            <SearchableSelect
-                                                value={line.unit_of_measure_id}
-                                                options={options.units.map((unit) => ({
-                                                    value: unit.id,
-                                                    label: unit.name,
-                                                    description: unit.symbol ?? unit.code,
-                                                }))}
-                                                onValueChange={(value) =>
-                                                    updateLine(index, {
-                                                        unit_of_measure_id: value,
-                                                    })
+                                            <Input
+                                                value={
+                                                    item?.stock_unit_name ?? ''
                                                 }
+                                                disabled
+                                                placeholder="Select an item"
                                             />
                                         </Field>
                                     </div>
-                                    <div className="min-w-0 lg:col-span-2">
+                                    <div className="min-w-0 lg:col-span-3">
                                         <Field label="Activity">
                                             <SearchableSelect
                                                 value={line.project_activity_id}
                                                 options={[
-                                                    { value: '', label: 'No activity' },
-                                                    ...activities.map((activity) => ({
-                                                        value: activity.id,
-                                                        label: activity.name,
-                                                        description: activity.code,
-                                                    })),
+                                                    {
+                                                        value: '',
+                                                        label: 'No activity',
+                                                    },
+                                                    ...activities.map(
+                                                        (activity) => ({
+                                                            value: activity.id,
+                                                            label: activity.name,
+                                                            description:
+                                                                activity.code,
+                                                        }),
+                                                    ),
                                                 ]}
                                                 onValueChange={(value) =>
                                                     updateLine(index, {
-                                                        project_activity_id: value,
+                                                        project_activity_id:
+                                                            value,
                                                     })
                                                 }
                                             />
@@ -362,12 +416,15 @@ export function RequisitionDialog({
                                             size="icon"
                                             variant="ghost"
                                             title="Remove line"
-                                            disabled={form.data.lines.length === 1}
+                                            disabled={
+                                                form.data.lines.length === 1
+                                            }
                                             onClick={() =>
                                                 form.setData(
                                                     'lines',
                                                     form.data.lines.filter(
-                                                        (_, current) => current !== index,
+                                                        (_, current) =>
+                                                            current !== index,
                                                     ),
                                                 )
                                             }

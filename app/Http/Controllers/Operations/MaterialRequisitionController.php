@@ -11,21 +11,18 @@ use App\Models\Branch;
 use App\Models\InventoryBatch;
 use App\Models\InventoryItem;
 use App\Models\InventoryReservation;
-use App\Models\InventoryStore;
 use App\Models\InventoryStockMovement;
+use App\Models\InventoryStore;
 use App\Models\MaterialRequisition;
 use App\Models\MaterialRequisitionLine;
 use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\Site;
-use App\Models\UnitOfMeasure;
 use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\InventoryStockBalance;
-use App\Services\TenantContext;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -190,7 +187,6 @@ final class MaterialRequisitionController
             'sites' => $sites->map(fn (Site $site): array => $site->only(['id', 'branch_id', 'project_id', 'name', 'reference'])),
             'activities' => ProjectActivity::query()->whereIn('project_id', $projectIds)->where('status', 'active')->orderBy('name')->get(['id', 'project_id', 'name', 'code']),
             'items' => InventoryItem::query()->where('is_active', true)->with('stockUnit')->orderBy('name')->get()->map(fn (InventoryItem $item): array => ['id' => $item->id, 'code' => $item->code, 'name' => $item->name, 'stock_unit_id' => $item->stock_unit_id, 'stock_unit_name' => $item->stockUnit->symbol ?? $item->stockUnit->code]),
-            'units' => UnitOfMeasure::query()->where(fn (Builder $query): Builder => $query->whereNull('tenant_id')->orWhere('tenant_id', resolve(TenantContext::class)->id()))->where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'symbol']),
         ];
     }
 }

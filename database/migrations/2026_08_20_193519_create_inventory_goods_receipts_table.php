@@ -24,8 +24,6 @@ return new class extends Migration
             $table->date('received_on');
             $table->char('currency_code', 3);
             $table->decimal('total_amount', 20, 4);
-            $table->decimal('amount_paid', 20, 4)->default(0);
-            $table->string('payment_status', 20);
             $table->text('notes')->nullable();
             $table->foreignUuid('received_by')->constrained('users')->restrictOnDelete();
             $table->timestamps();

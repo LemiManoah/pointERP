@@ -84,6 +84,7 @@ final readonly class SaveMaterialRequisition
             if (! $requisition->exists) {
                 $requisition->created_by = $actor->id;
             }
+
             $requisition->save();
 
             $requisition->lines()->delete();
@@ -91,6 +92,7 @@ final readonly class SaveMaterialRequisition
                 if (! is_array($lineData)) {
                     continue;
                 }
+
                 $this->createLine($requisition, $lineData, (int) $index);
             }
 
@@ -111,23 +113,23 @@ final readonly class SaveMaterialRequisition
     /** @param array<string, mixed> $data */
     private function createLine(MaterialRequisition $requisition, array $data, int $index): void
     {
-        $item = isset($data['inventory_item_id']) ? InventoryItem::query()->where('is_active', true)->find($data['inventory_item_id']) : null;
+        $item = InventoryItem::query()->where('is_active', true)->findOrFail($data['inventory_item_id']);
         $unit = UnitOfMeasure::query()->where('is_active', true)->findOrFail($data['unit_of_measure_id']);
         $activity = isset($data['project_activity_id']) ? ProjectActivity::query()->find($data['project_activity_id']) : null;
         if ($activity instanceof ProjectActivity && $activity->project_id !== $requisition->project_id) {
-            throw ValidationException::withMessages(["lines.$index.project_activity_id" => 'The activity must belong to the selected project.']);
+            throw ValidationException::withMessages([sprintf('lines.%d.project_activity_id', $index) => 'The activity must belong to the selected project.']);
         }
 
-        $multiplier = $item instanceof InventoryItem ? $this->converter->multiplier($item, $unit->id) : BigDecimal::one();
+        $multiplier = $this->converter->multiplier($item, $unit->id);
         $requested = BigDecimal::of((string) $data['requested_quantity']);
         MaterialRequisitionLine::query()->create([
             'tenant_id' => $requisition->tenant_id,
             'material_requisition_id' => $requisition->id,
-            'inventory_item_id' => $item?->id,
+            'inventory_item_id' => $item->id,
             'unit_of_measure_id' => $unit->id,
             'project_activity_id' => $activity?->id,
-            'item_code_snapshot' => $item?->code,
-            'item_name_snapshot' => $item instanceof InventoryItem ? $item->name : (string) $data['description'],
+            'item_code_snapshot' => $item->code,
+            'item_name_snapshot' => $item->name,
             'unit_code_snapshot' => $unit->code,
             'unit_symbol_snapshot' => $unit->symbol,
             'requested_quantity' => (string) $requested->toScale(4, RoundingMode::HalfUp),

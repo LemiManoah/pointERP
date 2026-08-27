@@ -45,41 +45,62 @@ final class MaterialRequisition extends Model
     }
 
     /** @return BelongsTo<Branch, $this> */
-    public function branch(): BelongsTo { return $this->belongsTo(Branch::class); }
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
 
     /** @return BelongsTo<InventoryStore, $this> */
-    public function store(): BelongsTo { return $this->belongsTo(InventoryStore::class, 'inventory_store_id'); }
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(InventoryStore::class, 'inventory_store_id');
+    }
 
     /** @return BelongsTo<User, $this> */
-    public function requester(): BelongsTo { return $this->belongsTo(User::class, 'requesting_user_id'); }
+    public function requester(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'requesting_user_id');
+    }
 
     /** @return BelongsTo<Project, $this> */
-    public function project(): BelongsTo { return $this->belongsTo(Project::class); }
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class);
+    }
 
     /** @return BelongsTo<Site, $this> */
-    public function site(): BelongsTo { return $this->belongsTo(Site::class); }
+    public function site(): BelongsTo
+    {
+        return $this->belongsTo(Site::class);
+    }
 
     /** @return BelongsTo<User, $this> */
-    public function approver(): BelongsTo { return $this->belongsTo(User::class, 'approved_by'); }
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
 
     /** @return HasMany<MaterialRequisitionLine, $this> */
-    public function lines(): HasMany { return $this->hasMany(MaterialRequisitionLine::class); }
+    public function lines(): HasMany
+    {
+        return $this->hasMany(MaterialRequisitionLine::class);
+    }
+
+    public function isEditable(): bool
+    {
+        return in_array($this->status, [MaterialRequisitionStatus::Draft, MaterialRequisitionStatus::Returned], true);
+    }
 
     /**
-     * @param Builder<MaterialRequisition> $query
+     * @param  Builder<MaterialRequisition>  $query
      * @return Builder<MaterialRequisition>
      */
-    public function scopeVisibleTo(Builder $query, User $user): Builder
+    protected function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->can('branches.view-all')) {
             return $query;
         }
 
         return $query->whereIn('branch_id', $user->branches()->pluck('branches.id'));
-    }
-
-    public function isEditable(): bool
-    {
-        return in_array($this->status, [MaterialRequisitionStatus::Draft, MaterialRequisitionStatus::Returned], true);
     }
 }

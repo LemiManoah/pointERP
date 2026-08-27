@@ -14,6 +14,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
+ * @property-read string $inventory_item_id
+ * @property-read string|null $unit_of_measure_id
+ * @property-read string $item_code_snapshot
+ * @property-read string $item_name_snapshot
+ * @property-read string $unit_code_snapshot
+ * @property-read string $unit_symbol_snapshot
  * @property-read string $requested_quantity
  * @property-read string $conversion_multiplier
  * @property-read string $stock_quantity
@@ -38,16 +44,28 @@ final class MaterialRequisitionLine extends Model
     }
 
     /** @return BelongsTo<MaterialRequisition, $this> */
-    public function requisition(): BelongsTo { return $this->belongsTo(MaterialRequisition::class, 'material_requisition_id'); }
+    public function requisition(): BelongsTo
+    {
+        return $this->belongsTo(MaterialRequisition::class, 'material_requisition_id');
+    }
 
     /** @return BelongsTo<InventoryItem, $this> */
-    public function item(): BelongsTo { return $this->belongsTo(InventoryItem::class, 'inventory_item_id'); }
+    public function item(): BelongsTo
+    {
+        return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
+    }
 
     /** @return BelongsTo<UnitOfMeasure, $this> */
-    public function unit(): BelongsTo { return $this->belongsTo(UnitOfMeasure::class, 'unit_of_measure_id'); }
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class, 'unit_of_measure_id');
+    }
 
     /** @return BelongsTo<ProjectActivity, $this> */
-    public function activity(): BelongsTo { return $this->belongsTo(ProjectActivity::class, 'project_activity_id'); }
+    public function activity(): BelongsTo
+    {
+        return $this->belongsTo(ProjectActivity::class, 'project_activity_id');
+    }
 
     /** @return HasMany<InventoryReservation, $this> */
     public function reservations(): HasMany

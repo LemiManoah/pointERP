@@ -69,7 +69,9 @@ export default function MaterialRequisitionIndex(props: Props) {
             <Head title="Material requisitions" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
                 <div>
-                    <h1 className="text-2xl font-semibold">Material requisitions</h1>
+                    <h1 className="text-2xl font-semibold">
+                        Material requisitions
+                    </h1>
                     <p className="mt-1 text-sm text-muted-foreground">
                         Request, approve, reserve, issue and return materials
                         through controlled store records.
@@ -81,17 +83,30 @@ export default function MaterialRequisitionIndex(props: Props) {
                             <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
                             <Input
                                 value={search}
-                                onChange={(event) => setSearch(event.target.value)}
+                                onChange={(event) =>
+                                    setSearch(event.target.value)
+                                }
                                 placeholder="Search reference, store or requester"
                                 className="pl-9"
                             />
                         </div>
-                        <Tabs value={tab} onValueChange={(value) => setTab(value as StatusTab)}>
+                        <Tabs
+                            value={tab}
+                            onValueChange={(value) =>
+                                setTab(value as StatusTab)
+                            }
+                        >
                             <TabsList className="flex-wrap">
                                 <TabsTrigger value="open">Open</TabsTrigger>
-                                <TabsTrigger value="fulfilled">Fulfilled</TabsTrigger>
-                                <TabsTrigger value="rejected">Rejected</TabsTrigger>
-                                <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+                                <TabsTrigger value="fulfilled">
+                                    Fulfilled
+                                </TabsTrigger>
+                                <TabsTrigger value="rejected">
+                                    Rejected
+                                </TabsTrigger>
+                                <TabsTrigger value="cancelled">
+                                    Cancelled
+                                </TabsTrigger>
                             </TabsList>
                         </Tabs>
                     </div>
@@ -114,7 +129,10 @@ export default function MaterialRequisitionIndex(props: Props) {
                                 </thead>
                                 <tbody>
                                     {filtered.map((row) => (
-                                        <tr key={row.id} className="border-b last:border-0">
+                                        <tr
+                                            key={row.id}
+                                            className="border-b last:border-0"
+                                        >
                                             <Td>
                                                 <Link
                                                     href={`/inventory/requisitions/${row.id}`}
@@ -123,26 +141,50 @@ export default function MaterialRequisitionIndex(props: Props) {
                                                     {row.reference}
                                                 </Link>
                                                 <div className="mt-1 flex gap-2">
-                                                    <Badge variant={row.priority === 'urgent' ? 'destructive' : 'outline'}>
+                                                    <Badge
+                                                        variant={
+                                                            row.priority ===
+                                                            'urgent'
+                                                                ? 'destructive'
+                                                                : 'outline'
+                                                        }
+                                                    >
                                                         {label(row.priority)}
                                                     </Badge>
                                                 </div>
                                             </Td>
                                             <Td>
                                                 {row.store_name}
-                                                <div className="text-muted-foreground">{row.branch_name}</div>
+                                                <div className="text-muted-foreground">
+                                                    {row.branch_name}
+                                                </div>
                                             </Td>
                                             <Td>
-                                                {row.site_name ?? row.project_name ?? 'Department / branch'}
+                                                {row.site_name ??
+                                                    row.project_name ??
+                                                    'Department / branch'}
                                             </Td>
                                             <Td>{row.requester_name}</Td>
                                             <Td>{row.required_by_date}</Td>
-                                            <Td>{formatNumber(row.lines_count)}</Td>
-                                            <Td><StatusBadge status={row.status} /></Td>
+                                            <Td>
+                                                {formatNumber(row.lines_count)}
+                                            </Td>
+                                            <Td>
+                                                <StatusBadge
+                                                    status={row.status}
+                                                />
+                                            </Td>
                                         </tr>
                                     ))}
                                     {filtered.length === 0 && (
-                                        <tr><Td colSpan={7} className="py-12 text-center text-muted-foreground">No requisitions match this view.</Td></tr>
+                                        <tr>
+                                            <Td
+                                                colSpan={7}
+                                                className="py-12 text-center text-muted-foreground"
+                                            >
+                                                No requisitions match this view.
+                                            </Td>
+                                        </tr>
                                     )}
                                 </tbody>
                             </table>
@@ -155,15 +197,34 @@ export default function MaterialRequisitionIndex(props: Props) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-    const variant = status === 'rejected' || status === 'cancelled' ? 'destructive' : status === 'fulfilled' ? 'default' : 'secondary';
+    const variant =
+        status === 'rejected' || status === 'cancelled'
+            ? 'destructive'
+            : status === 'fulfilled'
+              ? 'default'
+              : 'secondary';
     return <Badge variant={variant}>{label(status)}</Badge>;
 }
 function label(value: string) {
-    return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+    return value
+        .replaceAll('_', ' ')
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 function Th({ children }: { children: ReactNode }) {
     return <th className="px-3 py-3 font-medium">{children}</th>;
 }
-function Td({ children, colSpan, className = '' }: { children: ReactNode; colSpan?: number; className?: string }) {
-    return <td colSpan={colSpan} className={`px-3 py-4 align-top ${className}`}>{children}</td>;
+function Td({
+    children,
+    colSpan,
+    className = '',
+}: {
+    children: ReactNode;
+    colSpan?: number;
+    className?: string;
+}) {
+    return (
+        <td colSpan={colSpan} className={`px-3 py-4 align-top ${className}`}>
+            {children}
+        </td>
+    );
 }

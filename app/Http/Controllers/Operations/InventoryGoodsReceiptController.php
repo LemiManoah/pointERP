@@ -6,16 +6,11 @@ namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\Inventory\ReceiveInventoryStock;
 use App\Http\Requests\Operations\Inventory\StoreInventoryGoodsReceiptRequest;
-use App\Models\Branch;
-use App\Models\Customer;
 use App\Models\InventoryGoodsReceipt;
-use App\Models\InventoryItem;
-use App\Models\InventoryStore;
-use App\Models\UnitOfMeasure;
+use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderLine;
 use App\Models\User;
 use App\Services\BranchContext;
-use App\Services\TenantContext;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -30,29 +25,61 @@ final class InventoryGoodsReceiptController
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
         Gate::authorize('viewAny', InventoryGoodsReceipt::class);
-        $context = resolve(BranchContext::class);
-        $branchIds = $context->accessibleBranchIds($actor);
-        $defaultBranch = $context->current($actor) ?? $context->operationalDefault($actor);
-        abort_unless($defaultBranch instanceof Branch, 403);
+
+        $branchIds = resolve(BranchContext::class)->accessibleBranchIds($actor);
         $canViewCosts = $actor->can('inventory.receipts.view-costs');
         /** @var Collection<int, InventoryGoodsReceipt> $receipts */
-        $receipts = InventoryGoodsReceipt::query()->whereIn('branch_id', $branchIds)->with(['store', 'supplier'])->withCount('lines')->latest('received_on')->limit(100)->get();
+        $receipts = InventoryGoodsReceipt::query()
+            ->whereIn('branch_id', $branchIds)
+            ->with(['store', 'supplier', 'purchaseOrder'])
+            ->withCount('lines')
+            ->latest('received_on')
+            ->limit(100)
+            ->get();
 
         return Inertia::render('operations/inventory/receipts', [
             'receipts' => $receipts->map(fn (InventoryGoodsReceipt $receipt): array => [
-                'id' => $receipt->id, 'reference' => $receipt->reference, 'received_on' => $receipt->received_on->toDateString(),
-                'currency_code' => $canViewCosts ? $receipt->currency_code : null, 'total_amount' => $canViewCosts ? $receipt->total_amount : null,
-                'amount_paid' => $canViewCosts ? $receipt->amount_paid : null, 'payment_status' => $canViewCosts ? $receipt->payment_status->value : null,
-                'lines_count' => $receipt->lines_count, 'store' => $receipt->store->only(['id', 'name']), 'supplier' => $receipt->supplier->only(['id', 'name']),
+                'id' => $receipt->id,
+                'reference' => $receipt->reference,
+                'received_on' => $receipt->received_on->toDateString(),
+                'currency_code' => $canViewCosts ? $receipt->currency_code : null,
+                'total_amount' => $canViewCosts ? $receipt->total_amount : null,
+                'inspection_status' => $receipt->inspection_status,
+                'lines_count' => $receipt->lines_count,
+                'store' => $receipt->store->only(['id', 'name']),
+                'supplier' => $receipt->supplier->only(['id', 'name']),
+                'purchase_order' => $receipt->purchaseOrder->only(['id', 'order_number']),
             ]),
-            'branches' => $context->accessibleBranches($actor)->values(),
-            'defaultBranchId' => $defaultBranch->id,
-            'canChangeBranch' => $actor->can('inventory.stock.change-branch') && count($branchIds) > 1,
             'canViewCosts' => $canViewCosts,
-            'stores' => InventoryStore::query()->whereIn('branch_id', $branchIds)->where('is_active', true)->orderBy('name')->get(['id', 'branch_id', 'name', 'code']),
-            'items' => InventoryItem::query()->where('is_active', true)->with('stockUnit')->orderBy('name')->get()->map(fn (InventoryItem $item): array => ['id' => $item->id, 'name' => $item->name, 'code' => $item->code, 'tracking_type' => $item->tracking_type->value, 'is_expires' => $item->is_expires, 'stock_unit_id' => $item->stock_unit_id, 'stock_unit' => $item->stockUnit?->only(['id', 'name', 'symbol'])]),
-            'units' => UnitOfMeasure::query()->where(fn (Builder $query): Builder => $query->whereNull('tenant_id')->orWhere('tenant_id', resolve(TenantContext::class)->id()))->where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'symbol']),
-            'suppliers' => Customer::query()->whereIn('type', [Customer::TYPE_SUPPLIER, Customer::TYPE_SUBCONTRACTOR])->where('status', 'active')->orderBy('name')->get(['id', 'name', 'code']),
+            'purchaseOrders' => PurchaseOrder::query()
+                ->visibleTo($actor)
+                ->whereIn('status', ['approved', 'partially_received'])
+                ->with(['branch', 'store', 'supplier', 'lines.item', 'lines.unit'])
+                ->latest()
+                ->get()
+                ->map(fn (PurchaseOrder $order): array => [
+                    'id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'currency_code' => $order->currency_code,
+                    'branch' => $order->branch->only(['id', 'name', 'code']),
+                    'store' => $order->store->only(['id', 'name', 'code']),
+                    'supplier' => $order->supplier->only(['id', 'name', 'code']),
+                    'lines' => $order->lines
+                        ->filter(fn (PurchaseOrderLine $line): bool => (float) $line->outstandingQuantity() > 0)
+                        ->map(fn (PurchaseOrderLine $line): array => [
+                            'id' => $line->id,
+                            'item_name' => $line->item_name_snapshot,
+                            'item_code' => $line->item_code_snapshot,
+                            'unit_symbol' => $line->unit_symbol_snapshot,
+                            'outstanding_quantity' => $line->outstandingQuantity(),
+                            'unit_cost' => $canViewCosts ? $line->unit_price : null,
+                            'tracking_type' => $line->item->tracking_type->value,
+                            'is_expires' => $line->item->is_expires,
+                        ])
+                        ->values()
+                        ->all(),
+                ]),
+            'selectedPurchaseOrderId' => $request->string('purchase_order_id')->toString(),
         ]);
     }
 
@@ -60,9 +87,12 @@ final class InventoryGoodsReceiptController
     {
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
-        Gate::authorize('create', InventoryGoodsReceipt::class);
-        $action->handle($request->validated(), $actor);
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Stock receipt recorded.']);
+        $data = $request->validated();
+        $purchaseOrder = PurchaseOrder::query()->findOrFail($data['purchase_order_id']);
+        Gate::authorize('receive', $purchaseOrder);
+
+        $action->handle($data, $actor);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Purchase order delivery received.']);
 
         return to_route('inventory.receipts.index');
     }

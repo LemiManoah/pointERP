@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['tenant_id', 'inventory_goods_receipt_id', 'inventory_item_id', 'inventory_batch_id', 'inventory_stock_movement_id', 'quantity', 'unit_of_measure_id', 'stock_quantity', 'unit_cost', 'line_total', 'batch_number', 'manufactured_on', 'expires_on'])]
+#[Fillable(['tenant_id', 'inventory_goods_receipt_id', 'purchase_order_line_id', 'inventory_item_id', 'inventory_batch_id', 'inventory_stock_movement_id', 'quantity', 'accepted_quantity', 'rejected_quantity', 'rejection_reason', 'unit_of_measure_id', 'stock_quantity', 'unit_cost', 'line_total', 'batch_number', 'manufactured_on', 'expires_on'])]
 final class InventoryGoodsReceiptLine extends Model
 {
     use BelongsToTenant;
@@ -25,7 +25,7 @@ final class InventoryGoodsReceiptLine extends Model
     /** @return array<string, string> */
     public function casts(): array
     {
-        return ['quantity' => 'decimal:4', 'stock_quantity' => 'decimal:4', 'unit_cost' => 'decimal:4', 'line_total' => 'decimal:4', 'manufactured_on' => 'date', 'expires_on' => 'date', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
+        return ['quantity' => 'decimal:4', 'accepted_quantity' => 'decimal:4', 'rejected_quantity' => 'decimal:4', 'stock_quantity' => 'decimal:4', 'unit_cost' => 'decimal:4', 'line_total' => 'decimal:4', 'manufactured_on' => 'date', 'expires_on' => 'date', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
     }
 
     /** @return BelongsTo<InventoryGoodsReceipt, $this> */
@@ -38,5 +38,11 @@ final class InventoryGoodsReceiptLine extends Model
     public function item(): BelongsTo
     {
         return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
+    }
+
+    /** @return BelongsTo<PurchaseOrderLine, $this> */
+    public function purchaseOrderLine(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseOrderLine::class);
     }
 }

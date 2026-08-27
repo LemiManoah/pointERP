@@ -54,7 +54,7 @@ type SidebarGroupItem = {
 
 const groups: SidebarGroupItem[] = [
     {
-        title: 'Foundation',
+        title: 'Overview',
         items: [
             {
                 title: 'Dashboard',
@@ -62,6 +62,11 @@ const groups: SidebarGroupItem[] = [
                 icon: Gauge,
                 status: 'ready',
             },
+        ],
+    },
+    {
+        title: 'Administration',
+        items: [
             {
                 title: 'Currency',
                 href: '/currency-settings',
@@ -70,7 +75,7 @@ const groups: SidebarGroupItem[] = [
                 permission: 'currency-settings.manage',
             },
             {
-                title: 'Access control',
+                title: 'Users & Roles',
                 href: '/users',
                 icon: ShieldCheck,
                 status: 'ready',
@@ -185,7 +190,14 @@ const groups: SidebarGroupItem[] = [
                 permission: 'inventory.requisitions.view',
             },
             {
-                title: 'Receive stock',
+                title: 'Purchase orders',
+                href: '/inventory/purchase-orders',
+                icon: ClipboardCheck,
+                status: 'ready',
+                permission: 'inventory.purchase-orders.view',
+            },
+            {
+                title: 'Receive purchase order',
                 href: '/inventory/receipts',
                 icon: ClipboardCheck,
                 status: 'ready',
@@ -198,7 +210,6 @@ const groups: SidebarGroupItem[] = [
                 status: 'ready',
                 permission: 'inventory.stock.view',
             },
-            { title: 'Procurement', href: '#', icon: Package, status: 'later' },
         ],
     },
 ];

@@ -10,11 +10,12 @@ use App\Actions\Operations\Inventory\PostInventoryStockMovement;
 use App\Enums\InventoryBatchStatus;
 use App\Enums\InventoryMaterialClass;
 use App\Enums\InventoryMovementType;
+use App\Enums\InventoryReservationStatus;
 use App\Enums\InventoryStoreType;
 use App\Enums\InventoryTrackingType;
-use App\Enums\InventoryReservationStatus;
 use App\Enums\MaterialRequisitionPriority;
 use App\Enums\MaterialRequisitionStatus;
+use App\Enums\PurchaseOrderStatus;
 use App\Models\Branch;
 use App\Models\BranchCurrency;
 use App\Models\Contract;
@@ -50,14 +51,16 @@ use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
 use App\Models\InventoryItemPrice;
 use App\Models\InventoryPriceTier;
+use App\Models\InventoryReservation;
 use App\Models\InventoryStore;
 use App\Models\InventoryStoreItem;
 use App\Models\InventoryUnitConversion;
-use App\Models\InventoryReservation;
 use App\Models\MaterialRequisition;
 use App\Models\MaterialRequisitionLine;
 use App\Models\Project;
 use App\Models\ProjectActivity;
+use App\Models\PurchaseOrder;
+use App\Models\PurchaseOrderLine;
 use App\Models\ReportingCalendar;
 use App\Models\ReportingCalendarException;
 use App\Models\Role;
@@ -91,6 +94,7 @@ final class PointInvestmentSeeder extends Seeder
             'DIRECTOR' => $this->position('DIRECTOR', 'Director'),
             'ADMINISTRATOR' => $this->position('ADMINISTRATOR', 'Administrator'),
             'PROJECT-MANAGER' => $this->position('PROJECT-MANAGER', 'Project Manager'),
+            'PROCUREMENT-OFFICER' => $this->position('PROCUREMENT-OFFICER', 'Procurement Officer'),
             'ACCOUNTANT' => $this->position('ACCOUNTANT', 'Accountant'),
             'STORE-KEEPER' => $this->position('STORE-KEEPER', 'Store Keeper'),
             'SITE-ENGINEER' => $this->position('SITE-ENGINEER', 'Site Engineer'),
@@ -171,6 +175,17 @@ final class PointInvestmentSeeder extends Seeder
             roleName: 'Accountant',
             branchAccess: [$branches['JUB-HQ'], $branches['KLA-HQ']],
             defaultBranch: $branches['JUB-HQ'],
+        );
+
+        $this->user(
+            staffNumber: 'POINT-010',
+            name: 'Kampala Procurement Officer',
+            email: 'procurement.kla@point.test',
+            branch: $branches['KLA-HQ'],
+            position: $positions['PROCUREMENT-OFFICER'],
+            roleName: 'Procurement Officer',
+            branchAccess: [$branches['KLA-HQ']],
+            defaultBranch: $branches['KLA-HQ'],
         );
 
         $this->user(
@@ -374,6 +389,15 @@ final class PointInvestmentSeeder extends Seeder
         InventoryReservation::query()->updateOrCreate(
             ['tenant_id' => $tenantId, 'source_type' => MaterialRequisitionLine::class, 'source_id' => $approvedLine->id, 'inventory_item_id' => $inventoryItems['PPE-VEST']->id],
             ['branch_id' => $kampalaBranch->id, 'inventory_store_id' => $kampalaStore->id, 'reserved_quantity' => '25.0000', 'issued_quantity' => '0.0000', 'released_quantity' => '0.0000', 'status' => InventoryReservationStatus::Active, 'created_by' => $director->id, 'updated_by' => $director->id],
+        );
+
+        $purchaseOrder = PurchaseOrder::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'order_number' => 'PO-2026-DEMO01'],
+            ['branch_id' => $kampalaBranch->id, 'inventory_store_id' => $kampalaStore->id, 'supplier_id' => $supplier->id, 'order_number' => 'PO-2026-DEMO01', 'supplier_name_snapshot' => $supplier->name, 'supplier_code_snapshot' => $supplier->code, 'order_date' => now()->subDay()->toDateString(), 'expected_date' => now()->addDays(2)->toDateString(), 'currency_code' => 'UGX', 'status' => PurchaseOrderStatus::Approved, 'subtotal' => '450000.0000', 'discount_amount' => '0.0000', 'tax_amount' => '0.0000', 'total_amount' => '450000.0000', 'delivery_terms' => 'Delivery to Kampala Main Materials Store.', 'payment_terms' => 'Payment after accepted delivery.', 'submitted_by' => $director->id, 'submitted_at' => now()->subDay(), 'approved_by' => $director->id, 'approved_at' => now()->subDay(), 'reviewed_by' => $director->id, 'reviewed_at' => now()->subDay(), 'created_by' => $director->id, 'updated_by' => $director->id],
+        );
+        PurchaseOrderLine::query()->updateOrCreate(
+            ['purchase_order_id' => $purchaseOrder->id, 'inventory_item_id' => $inventoryItems['PPE-VEST']->id],
+            ['tenant_id' => $tenantId, 'unit_of_measure_id' => $units['PIECE']->id, 'item_code_snapshot' => 'PPE-VEST', 'item_name_snapshot' => 'High visibility safety vest', 'unit_code_snapshot' => 'PIECE', 'unit_symbol_snapshot' => 'pc', 'ordered_quantity' => '25.0000', 'conversion_multiplier' => '1.0000000000', 'stock_quantity' => '25.0000', 'unit_price' => '18000.0000', 'price_source' => 'recorded_cost', 'line_amount' => '450000.0000', 'accepted_quantity' => '0.0000', 'rejected_quantity' => '0.0000', 'cancelled_quantity' => '0.0000', 'sort_order' => 0],
         );
 
         $itemDocument = Document::query()->where('tenant_id', $tenantId)->first();

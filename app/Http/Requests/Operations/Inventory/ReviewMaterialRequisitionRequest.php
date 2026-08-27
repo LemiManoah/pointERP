@@ -9,7 +9,10 @@ use Illuminate\Validation\Rule;
 
 final class ReviewMaterialRequisitionRequest extends FormRequest
 {
-    public function authorize(): bool { return true; }
+    public function authorize(): bool
+    {
+        return true;
+    }
 
     /** @return array<string, mixed> */
     public function rules(): array

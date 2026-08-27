@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Enums\InventoryPaymentStatus;
 use App\Models\Concerns\BelongsToTenant;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -22,13 +21,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read string $reference
  * @property-read string $currency_code
  * @property-read string $total_amount
- * @property-read string $amount_paid
  * @property-read string|null $notes
- * @property-read InventoryPaymentStatus $payment_status
+ * @property-read string $inspection_status
  * @property-read CarbonInterface $received_on
  * @property-read int $lines_count
  */
-#[Fillable(['tenant_id', 'branch_id', 'inventory_store_id', 'supplier_id', 'reference', 'supplier_reference', 'received_on', 'currency_code', 'total_amount', 'amount_paid', 'payment_status', 'notes', 'received_by'])]
+#[Fillable(['tenant_id', 'branch_id', 'inventory_store_id', 'supplier_id', 'purchase_order_id', 'source_key', 'reference', 'supplier_reference', 'received_on', 'currency_code', 'total_amount', 'inspection_status', 'notes', 'received_by', 'verified_by', 'verified_at'])]
 final class InventoryGoodsReceipt extends Model
 {
     use BelongsToTenant;
@@ -41,7 +39,7 @@ final class InventoryGoodsReceipt extends Model
     /** @return array<string, string> */
     public function casts(): array
     {
-        return ['received_on' => 'date', 'total_amount' => 'decimal:4', 'amount_paid' => 'decimal:4', 'payment_status' => InventoryPaymentStatus::class, 'created_at' => 'datetime', 'updated_at' => 'datetime'];
+        return ['received_on' => 'date', 'total_amount' => 'decimal:4', 'verified_at' => 'datetime', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
     }
 
     /** @return BelongsTo<InventoryStore, $this> */
@@ -54,6 +52,12 @@ final class InventoryGoodsReceipt extends Model
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Customer::class, 'supplier_id');
+    }
+
+    /** @return BelongsTo<PurchaseOrder, $this> */
+    public function purchaseOrder(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseOrder::class);
     }
 
     /** @return HasMany<InventoryGoodsReceiptLine, $this> */

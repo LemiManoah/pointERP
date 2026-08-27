@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Models\AuditActivity;
-use App\Models\Customer;
 use App\Models\InventoryBatch;
 use App\Models\InventoryGoodsReceipt;
 use App\Models\InventoryItem;
@@ -64,30 +63,21 @@ it('forbids stock mutations without the required permission', function (): void 
     $this->actingAs($siteManager)->post(route('inventory.stock-movements.store', [$store, $item]), ['movement_type' => 'adjustment', 'adjustment_direction' => 'increase', 'original_quantity' => '1', 'original_unit_id' => $unit->id, 'source_key' => 'test:forbidden', 'reason' => 'Must not post.'])->assertForbidden();
 });
 
-it('receives several supplier items through one goods receipt', function (): void {
+it('requires an approved purchase order for supplier receipts', function (): void {
     $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
     $store = InventoryStore::query()->where('code', 'KLA-MAIN-STORE')->firstOrFail();
-    $supplier = Customer::query()->where('code', 'SUP-DEMO')->firstOrFail();
     $aggregate = InventoryItem::query()->where('code', 'AGG-20')->firstOrFail();
-    $tonne = UnitOfMeasure::query()->where('code', 'TONNE')->firstOrFail();
+    $before = resolve(InventoryStockBalance::class)->for($store, $aggregate)['on_hand'];
 
     $this->actingAs($director)->post(route('inventory.receipts.store'), [
-        'inventory_store_id' => $store->id,
-        'supplier_id' => $supplier->id,
         'received_on' => now()->toDateString(),
-        'amount_paid' => '100000',
         'lines' => [[
-            'inventory_item_id' => $aggregate->id,
             'quantity' => '2',
-            'unit_of_measure_id' => $tonne->id,
-            'unit_cost' => '130000',
+            'accepted_quantity' => '2',
+            'rejected_quantity' => '0',
         ]],
-    ])->assertRedirect(route('inventory.receipts.index'));
+    ])->assertSessionHasErrors(['purchase_order_id', 'lines.0.purchase_order_line_id']);
 
-    $receipt = InventoryGoodsReceipt::query()->latest()->firstOrFail();
-    expect($receipt->total_amount)->toBe('260000.0000')
-        ->and($receipt->amount_paid)->toBe('100000.0000')
-        ->and($receipt->payment_status->value)->toBe('partially_paid')
-        ->and($receipt->lines)->toHaveCount(1)
-        ->and(resolve(InventoryStockBalance::class)->for($store, $aggregate)['on_hand'])->toBe('182.0000');
+    expect(InventoryGoodsReceipt::query()->count())->toBe(0)
+        ->and(resolve(InventoryStockBalance::class)->for($store, $aggregate)['on_hand'])->toBe($before);
 });

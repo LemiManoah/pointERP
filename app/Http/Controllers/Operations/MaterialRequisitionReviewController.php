@@ -21,7 +21,9 @@ final class MaterialRequisitionReviewController
         abort_unless($actor instanceof User, 403);
         $decision = (string) $request->validated('decision');
         $action->handle($materialRequisition, $request->validated(), $actor);
-        Inertia::flash('toast', ['type' => 'success', 'message' => match ($decision) { 'approve' => 'Material requisition approved and stock reserved.', 'return' => 'Material requisition returned for revision.', default => 'Material requisition rejected.' }]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => match ($decision) {
+            'approve' => 'Material requisition approved and stock reserved.', 'return' => 'Material requisition returned for revision.', default => 'Material requisition rejected.'
+        }]);
 
         return to_route('inventory.requisitions.show', $materialRequisition);
     }

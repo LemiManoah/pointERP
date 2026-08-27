@@ -1,11 +1,12 @@
 import { Head, useForm } from '@inertiajs/react';
-import { Plus, Trash2 } from 'lucide-react';
+import { ClipboardCheck } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useMemo } from 'react';
 import InputError from '@/components/input-error';
 import { SearchableSelect } from '@/components/searchable-select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,192 +14,174 @@ import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyAmount, formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
-type Branch = {
+type Reference = { id: string; name: string; code: string };
+type PurchaseOrderLine = {
     id: string;
-    name: string;
-    code: string;
-    default_currency_code: string;
-};
-type Store = { id: string; branch_id: string; name: string; code: string };
-type Unit = { id: string; name: string; code: string; symbol: string | null };
-type Item = {
-    id: string;
-    name: string;
-    code: string;
+    item_name: string;
+    item_code: string;
+    unit_symbol: string;
+    outstanding_quantity: string;
+    unit_cost: string | null;
     tracking_type: string;
     is_expires: boolean;
-    stock_unit_id: string;
-    stock_unit: Unit | null;
 };
-type Supplier = { id: string; name: string; code: string };
+type PurchaseOrder = {
+    id: string;
+    order_number: string;
+    currency_code: string;
+    branch: Reference;
+    store: Reference;
+    supplier: Reference;
+    lines: PurchaseOrderLine[];
+};
 type Receipt = {
     id: string;
     reference: string;
     received_on: string;
     currency_code: string | null;
     total_amount: string | null;
-    amount_paid: string | null;
-    payment_status: string | null;
+    inspection_status: string;
     lines_count: number;
-    store: Store;
-    supplier: Supplier;
+    store: Pick<Reference, 'id' | 'name'>;
+    supplier: Pick<Reference, 'id' | 'name'>;
+    purchase_order: { id: string; order_number: string };
 };
-type Line = {
-    inventory_item_id: string;
+type ReceiptLine = {
+    receive: boolean;
+    purchase_order_line_id: string;
     quantity: string;
-    unit_of_measure_id: string;
-    unit_cost: string;
+    accepted_quantity: string;
+    rejected_quantity: string;
+    rejection_reason: string;
     batch_number: string;
     manufactured_on: string;
     expires_on: string;
 };
 type Props = {
     receipts: Receipt[];
-    branches: Branch[];
-    defaultBranchId: string;
-    canChangeBranch: boolean;
     canViewCosts: boolean;
-    stores: Store[];
-    items: Item[];
-    units: Unit[];
-    suppliers: Supplier[];
+    purchaseOrders: PurchaseOrder[];
+    selectedPurchaseOrderId: string;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Stock balances', href: '/inventory/stock' },
-    { title: 'Receive stock', href: '/inventory/receipts' },
+    { title: 'Receive purchase order', href: '/inventory/receipts' },
 ];
-const emptyLine = (): Line => ({
-    inventory_item_id: '',
-    quantity: '',
-    unit_of_measure_id: '',
-    unit_cost: '',
-    batch_number: '',
-    manufactured_on: '',
-    expires_on: '',
-});
+
+const receiptLines = (order?: PurchaseOrder): ReceiptLine[] =>
+    order?.lines.map((line) => ({
+        receive: true,
+        purchase_order_line_id: line.id,
+        quantity: line.outstanding_quantity,
+        accepted_quantity: line.outstanding_quantity,
+        rejected_quantity: '0',
+        rejection_reason: '',
+        batch_number: '',
+        manufactured_on: '',
+        expires_on: '',
+    })) ?? [];
 
 export default function InventoryReceipts(props: Props) {
+    const initialOrder = props.purchaseOrders.find(
+        (order) => order.id === props.selectedPurchaseOrderId,
+    );
     const form = useForm({
-        branch_id: props.defaultBranchId,
-        inventory_store_id: '',
-        supplier_id: '',
+        purchase_order_id: initialOrder?.id ?? '',
         supplier_reference: '',
         received_on: new Date().toISOString().slice(0, 10),
-        amount_paid: '0',
         notes: '',
-        lines: [emptyLine()],
+        lines: receiptLines(initialOrder),
     });
-    const branch = props.branches.find((row) => row.id === form.data.branch_id);
-    const stores = props.stores.filter(
-        (row) => row.branch_id === form.data.branch_id,
+    const purchaseOrder = props.purchaseOrders.find(
+        (order) => order.id === form.data.purchase_order_id,
     );
     const total = useMemo(
         () =>
-            form.data.lines.reduce(
-                (sum, line) =>
+            form.data.lines.reduce((sum, line) => {
+                if (!line.receive) return sum;
+                const orderLine = purchaseOrder?.lines.find(
+                    (candidate) => candidate.id === line.purchase_order_line_id,
+                );
+                return (
                     sum +
-                    Number(line.quantity || 0) * Number(line.unit_cost || 0),
-                0,
-            ),
-        [form.data.lines],
+                    Number(line.accepted_quantity || 0) *
+                        Number(orderLine?.unit_cost || 0)
+                );
+            }, 0),
+        [form.data.lines, purchaseOrder],
     );
-    const updateLine = (index: number, values: Partial<Line>) =>
+    const updateLine = (index: number, values: Partial<ReceiptLine>) =>
         form.setData(
             'lines',
             form.data.lines.map((line, current) =>
                 current === index ? { ...line, ...values } : line,
             ),
         );
+    const selectPurchaseOrder = (id: string) => {
+        const order = props.purchaseOrders.find(
+            (candidate) => candidate.id === id,
+        );
+        form.setData((data) => ({
+            ...data,
+            purchase_order_id: id,
+            lines: receiptLines(order),
+        }));
+    };
     const submit = (event: FormEvent) => {
         event.preventDefault();
-        form.post('/inventory/receipts', {
-            preserveScroll: true,
-            onSuccess: () => form.reset(),
-        });
+        form.transform((data) => ({
+            ...data,
+            lines: data.lines
+                .filter((line) => line.receive)
+                .map(({ receive: _receive, ...line }) => line),
+        }));
+        form.post('/inventory/receipts', { preserveScroll: true });
     };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Receive stock" />
+            <Head title="Receive purchase order" />
             <div className="flex h-full flex-1 flex-col gap-6 p-4 md:p-6">
                 <div>
-                    <h1 className="text-2xl font-semibold">Receive stock</h1>
+                    <h1 className="text-2xl font-semibold">
+                        Receive purchase order
+                    </h1>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        Record a direct supplier delivery. Purchase-order
-                        receipts will use this same goods-receipt ledger.
+                        Inspect an approved supplier delivery. Only accepted
+                        quantities increase stock.
                     </p>
                 </div>
+
                 <form onSubmit={submit} className="grid gap-6">
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-base">
-                                Delivery details
+                                Delivery
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                            {props.canChangeBranch && (
-                                <Field
-                                    label="Branch"
-                                    error={form.errors.branch_id}
-                                >
-                                    <SearchableSelect
-                                        value={form.data.branch_id}
-                                        options={props.branches.map((row) => ({
-                                            value: row.id,
-                                            label: row.name,
-                                            description: row.code,
-                                        }))}
-                                        onValueChange={(value) => {
-                                            form.setData('branch_id', value);
-                                            form.setData(
-                                                'inventory_store_id',
-                                                '',
-                                            );
-                                        }}
-                                        placeholder="Select branch"
-                                    />
-                                </Field>
-                            )}
                             <Field
-                                label="Receiving store"
-                                error={form.errors.inventory_store_id}
+                                label="Purchase order"
+                                required
+                                error={form.errors.purchase_order_id}
                             >
                                 <SearchableSelect
-                                    value={form.data.inventory_store_id}
-                                    options={stores.map((row) => ({
-                                        value: row.id,
-                                        label: row.name,
-                                        description: row.code,
-                                    }))}
-                                    onValueChange={(value) =>
-                                        form.setData(
-                                            'inventory_store_id',
-                                            value,
-                                        )
-                                    }
-                                    placeholder="Select store"
-                                />
-                            </Field>
-                            <Field
-                                label="Supplier"
-                                error={form.errors.supplier_id}
-                            >
-                                <SearchableSelect
-                                    value={form.data.supplier_id}
-                                    options={props.suppliers.map((row) => ({
-                                        value: row.id,
-                                        label: row.name,
-                                        description: row.code,
-                                    }))}
-                                    onValueChange={(value) =>
-                                        form.setData('supplier_id', value)
-                                    }
-                                    placeholder="Select supplier"
+                                    value={form.data.purchase_order_id}
+                                    options={props.purchaseOrders.map(
+                                        (order) => ({
+                                            value: order.id,
+                                            label: order.order_number,
+                                            description: `${order.supplier.name} - ${order.store.name}`,
+                                        }),
+                                    )}
+                                    onValueChange={selectPurchaseOrder}
+                                    placeholder="Select approved PO"
                                 />
                             </Field>
                             <Field
                                 label="Delivery date"
+                                required
                                 error={form.errors.received_on}
                             >
                                 <Input
@@ -212,7 +195,7 @@ export default function InventoryReceipts(props: Props) {
                                     }
                                 />
                             </Field>
-                            <Field label="Supplier invoice / delivery note">
+                            <Field label="Supplier delivery note / invoice">
                                 <Input
                                     value={form.data.supplier_reference}
                                     onChange={(event) =>
@@ -223,286 +206,351 @@ export default function InventoryReceipts(props: Props) {
                                     }
                                 />
                             </Field>
+                            {props.canViewCosts && purchaseOrder && (
+                                <div className="grid content-end gap-1 rounded-md border px-3 py-2">
+                                    <span className="text-xs text-muted-foreground">
+                                        Accepted value
+                                    </span>
+                                    <span className="font-semibold">
+                                        {formatCurrencyAmount(
+                                            purchaseOrder.currency_code,
+                                            total,
+                                        )}
+                                    </span>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
+
+                    {purchaseOrder && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-base">
+                                    Purchase order context
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="grid gap-4 sm:grid-cols-3">
+                                <Summary
+                                    label="Supplier"
+                                    value={purchaseOrder.supplier.name}
+                                />
+                                <Summary
+                                    label="Receiving store"
+                                    value={purchaseOrder.store.name}
+                                />
+                                <Summary
+                                    label="Branch"
+                                    value={purchaseOrder.branch.name}
+                                />
+                            </CardContent>
+                        </Card>
+                    )}
+
                     <Card>
-                        <CardHeader className="flex-row items-center justify-between">
+                        <CardHeader>
                             <CardTitle className="text-base">
-                                Received items
+                                Delivery inspection
                             </CardTitle>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() =>
-                                    form.setData('lines', [
-                                        ...form.data.lines,
-                                        emptyLine(),
-                                    ])
-                                }
-                            >
-                                <Plus />
-                                Add item
-                            </Button>
                         </CardHeader>
-                        <CardContent className="grid gap-4">
-                            {form.data.lines.map((line, index) => {
-                                const item = props.items.find(
-                                    (row) => row.id === line.inventory_item_id,
-                                );
-                                return (
-                                    <div
-                                        key={index}
-                                        className="grid gap-4 border-b pb-4 last:border-0 md:grid-cols-2 xl:grid-cols-6"
-                                    >
-                                        <Field
-                                            label="Item"
-                                            error={
-                                                form.errors[
-                                                    `lines.${index}.inventory_item_id`
-                                                ]
-                                            }
-                                        >
-                                            <SearchableSelect
-                                                value={line.inventory_item_id}
-                                                options={props.items.map(
-                                                    (row) => ({
-                                                        value: row.id,
-                                                        label: row.name,
-                                                        description: row.code,
-                                                    }),
-                                                )}
-                                                onValueChange={(value) => {
-                                                    const selected =
-                                                        props.items.find(
-                                                            (row) =>
-                                                                row.id ===
-                                                                value,
-                                                        );
-                                                    updateLine(index, {
-                                                        inventory_item_id:
-                                                            value,
-                                                        unit_of_measure_id:
-                                                            selected?.stock_unit_id ??
-                                                            '',
-                                                        batch_number: '',
-                                                        expires_on: '',
-                                                    });
-                                                }}
-                                                placeholder="Select item"
-                                            />
-                                        </Field>
-                                        <Field
-                                            label="Quantity"
-                                            error={
-                                                form.errors[
-                                                    `lines.${index}.quantity`
-                                                ]
-                                            }
-                                        >
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                step="0.0001"
-                                                value={line.quantity}
-                                                onChange={(event) =>
-                                                    updateLine(index, {
-                                                        quantity:
-                                                            event.target.value,
-                                                    })
+                        <CardContent>
+                            {!purchaseOrder ? (
+                                <div className="flex min-h-40 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+                                    <ClipboardCheck className="size-8" />
+                                    <p>
+                                        Select an approved purchase order to
+                                        inspect its outstanding items.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="grid gap-5">
+                                    {form.data.lines.map((line, index) => {
+                                        const orderLine =
+                                            purchaseOrder.lines.find(
+                                                (candidate) =>
+                                                    candidate.id ===
+                                                    line.purchase_order_line_id,
+                                            );
+                                        if (!orderLine) return null;
+
+                                        return (
+                                            <div
+                                                key={
+                                                    line.purchase_order_line_id
                                                 }
-                                            />
-                                        </Field>
-                                        <Field
-                                            label="Received unit"
-                                            error={
-                                                form.errors[
-                                                    `lines.${index}.unit_of_measure_id`
-                                                ]
-                                            }
-                                        >
-                                            <SearchableSelect
-                                                value={line.unit_of_measure_id}
-                                                options={props.units.map(
-                                                    (row) => ({
-                                                        value: row.id,
-                                                        label: row.name,
-                                                        description:
-                                                            row.symbol ??
-                                                            row.code,
-                                                    }),
-                                                )}
-                                                onValueChange={(value) =>
-                                                    updateLine(index, {
-                                                        unit_of_measure_id:
-                                                            value,
-                                                    })
-                                                }
-                                                placeholder="Select unit"
-                                            />
-                                        </Field>
-                                        {props.canViewCosts && (
-                                            <Field
-                                                label={`Unit cost (${branch?.default_currency_code ?? ''})`}
-                                                error={
-                                                    form.errors[
-                                                        `lines.${index}.unit_cost`
-                                                    ]
-                                                }
+                                                className="grid gap-4 border-b pb-5 last:border-0 xl:grid-cols-[minmax(220px,1.5fr)_repeat(3,minmax(120px,1fr))]"
                                             >
-                                                <Input
-                                                    type="number"
-                                                    min="0"
-                                                    step="0.0001"
-                                                    value={line.unit_cost}
-                                                    onChange={(event) =>
-                                                        updateLine(index, {
-                                                            unit_cost:
-                                                                event.target
-                                                                    .value,
-                                                        })
+                                                <div className="flex gap-3">
+                                                    <Checkbox
+                                                        checked={line.receive}
+                                                        onCheckedChange={(
+                                                            checked,
+                                                        ) =>
+                                                            updateLine(index, {
+                                                                receive:
+                                                                    checked ===
+                                                                    true,
+                                                            })
+                                                        }
+                                                        aria-label={`Receive ${orderLine.item_name}`}
+                                                    />
+                                                    <div className="min-w-0">
+                                                        <div className="truncate font-medium">
+                                                            {
+                                                                orderLine.item_name
+                                                            }
+                                                        </div>
+                                                        <div className="text-sm text-muted-foreground">
+                                                            {
+                                                                orderLine.item_code
+                                                            }{' '}
+                                                            · Outstanding{' '}
+                                                            {formatNumber(
+                                                                orderLine.outstanding_quantity,
+                                                            )}{' '}
+                                                            {
+                                                                orderLine.unit_symbol
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <Field
+                                                    label={`Delivered (${orderLine.unit_symbol})`}
+                                                    required
+                                                    error={
+                                                        form.errors[
+                                                            `lines.${index}.quantity`
+                                                        ]
                                                     }
-                                                />
-                                            </Field>
-                                        )}
-                                        {item?.tracking_type === 'batch' && (
-                                            <>
-                                                <Field label="Batch number">
+                                                >
                                                     <Input
+                                                        type="number"
+                                                        min="0.0001"
+                                                        step="0.0001"
+                                                        disabled={!line.receive}
+                                                        value={line.quantity}
+                                                        onChange={(event) =>
+                                                            updateLine(index, {
+                                                                quantity:
+                                                                    event.target
+                                                                        .value,
+                                                                accepted_quantity:
+                                                                    event.target
+                                                                        .value,
+                                                                rejected_quantity:
+                                                                    '0',
+                                                            })
+                                                        }
+                                                    />
+                                                </Field>
+                                                <Field
+                                                    label={`Accepted (${orderLine.unit_symbol})`}
+                                                    required
+                                                    error={
+                                                        form.errors[
+                                                            `lines.${index}.accepted_quantity`
+                                                        ]
+                                                    }
+                                                >
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.0001"
+                                                        disabled={!line.receive}
                                                         value={
-                                                            line.batch_number
+                                                            line.accepted_quantity
                                                         }
                                                         onChange={(event) =>
                                                             updateLine(index, {
-                                                                batch_number:
+                                                                accepted_quantity:
                                                                     event.target
                                                                         .value,
                                                             })
                                                         }
                                                     />
                                                 </Field>
-                                                {item.is_expires && (
-                                                    <Field label="Expiry date">
-                                                        <Input
-                                                            type="date"
-                                                            value={
-                                                                line.expires_on
-                                                            }
-                                                            onChange={(event) =>
-                                                                updateLine(
-                                                                    index,
-                                                                    {
-                                                                        expires_on:
-                                                                            event
-                                                                                .target
-                                                                                .value,
-                                                                    },
-                                                                )
-                                                            }
-                                                        />
-                                                    </Field>
-                                                )}
-                                            </>
-                                        )}
-                                        <div className="flex items-end">
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                title="Remove item"
-                                                disabled={
-                                                    form.data.lines.length === 1
-                                                }
-                                                onClick={() =>
-                                                    form.setData(
-                                                        'lines',
-                                                        form.data.lines.filter(
-                                                            (_, current) =>
-                                                                current !==
-                                                                index,
-                                                        ),
-                                                    )
-                                                }
-                                            >
-                                                <Trash2 />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                                <Field
+                                                    label={`Rejected (${orderLine.unit_symbol})`}
+                                                    required
+                                                    error={
+                                                        form.errors[
+                                                            `lines.${index}.rejected_quantity`
+                                                        ]
+                                                    }
+                                                >
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.0001"
+                                                        disabled={!line.receive}
+                                                        value={
+                                                            line.rejected_quantity
+                                                        }
+                                                        onChange={(event) =>
+                                                            updateLine(index, {
+                                                                rejected_quantity:
+                                                                    event.target
+                                                                        .value,
+                                                            })
+                                                        }
+                                                    />
+                                                </Field>
+                                                {line.receive &&
+                                                    Number(
+                                                        line.rejected_quantity,
+                                                    ) > 0 && (
+                                                        <div className="xl:col-span-3 xl:col-start-2">
+                                                            <Field
+                                                                label="Rejection reason"
+                                                                required
+                                                                error={
+                                                                    form.errors[
+                                                                        `lines.${index}.rejection_reason`
+                                                                    ]
+                                                                }
+                                                            >
+                                                                <Input
+                                                                    value={
+                                                                        line.rejection_reason
+                                                                    }
+                                                                    onChange={(
+                                                                        event,
+                                                                    ) =>
+                                                                        updateLine(
+                                                                            index,
+                                                                            {
+                                                                                rejection_reason:
+                                                                                    event
+                                                                                        .target
+                                                                                        .value,
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                />
+                                                            </Field>
+                                                        </div>
+                                                    )}
+                                                {line.receive &&
+                                                    Number(
+                                                        line.accepted_quantity,
+                                                    ) > 0 &&
+                                                    orderLine.tracking_type ===
+                                                        'batch' && (
+                                                        <div className="grid gap-4 md:grid-cols-3 xl:col-span-3 xl:col-start-2">
+                                                            <Field
+                                                                label="Batch number"
+                                                                required
+                                                                error={
+                                                                    form.errors[
+                                                                        `lines.${index}.batch_number`
+                                                                    ]
+                                                                }
+                                                            >
+                                                                <Input
+                                                                    value={
+                                                                        line.batch_number
+                                                                    }
+                                                                    onChange={(
+                                                                        event,
+                                                                    ) =>
+                                                                        updateLine(
+                                                                            index,
+                                                                            {
+                                                                                batch_number:
+                                                                                    event
+                                                                                        .target
+                                                                                        .value,
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                />
+                                                            </Field>
+                                                            <Field label="Manufactured on">
+                                                                <Input
+                                                                    type="date"
+                                                                    value={
+                                                                        line.manufactured_on
+                                                                    }
+                                                                    onChange={(
+                                                                        event,
+                                                                    ) =>
+                                                                        updateLine(
+                                                                            index,
+                                                                            {
+                                                                                manufactured_on:
+                                                                                    event
+                                                                                        .target
+                                                                                        .value,
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                />
+                                                            </Field>
+                                                            {orderLine.is_expires && (
+                                                                <Field
+                                                                    label="Expires on"
+                                                                    required
+                                                                    error={
+                                                                        form
+                                                                            .errors[
+                                                                            `lines.${index}.expires_on`
+                                                                        ]
+                                                                    }
+                                                                >
+                                                                    <Input
+                                                                        type="date"
+                                                                        value={
+                                                                            line.expires_on
+                                                                        }
+                                                                        onChange={(
+                                                                            event,
+                                                                        ) =>
+                                                                            updateLine(
+                                                                                index,
+                                                                                {
+                                                                                    expires_on:
+                                                                                        event
+                                                                                            .target
+                                                                                            .value,
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                    />
+                                                                </Field>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                            </div>
+                                        );
+                                    })}
+                                    <InputError message={form.errors.lines} />
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
+
                     <Card>
-                        <CardContent className="grid gap-4 pt-6 md:grid-cols-3">
-                            {props.canViewCosts && (
-                                <>
-                                    <Field
-                                        label="Amount paid"
-                                        error={form.errors.amount_paid}
-                                    >
-                                        <Input
-                                            type="number"
-                                            min="0"
-                                            step="0.0001"
-                                            value={form.data.amount_paid}
-                                            onChange={(event) =>
-                                                form.setData(
-                                                    'amount_paid',
-                                                    event.target.value,
-                                                )
-                                            }
-                                        />
-                                    </Field>
-                                    <div>
-                                        <div className="text-sm text-muted-foreground">
-                                            Receipt total
-                                        </div>
-                                        <div className="mt-2 text-xl font-semibold">
-                                            {formatCurrencyAmount(
-                                                branch?.default_currency_code ??
-                                                    '',
-                                                total,
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div className="text-sm text-muted-foreground">
-                                            Balance due to supplier
-                                        </div>
-                                        <div className="mt-2 text-xl font-semibold">
-                                            {formatCurrencyAmount(
-                                                branch?.default_currency_code ??
-                                                    '',
-                                                Math.max(
-                                                    0,
-                                                    total -
-                                                        Number(
-                                                            form.data
-                                                                .amount_paid ||
-                                                                0,
-                                                        ),
-                                                ),
-                                            )}
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-                            <div className="md:col-span-3">
-                                <Field label="Notes">
-                                    <Textarea
-                                        value={form.data.notes}
-                                        onChange={(event) =>
-                                            form.setData(
-                                                'notes',
-                                                event.target.value,
-                                            )
-                                        }
-                                    />
-                                </Field>
-                            </div>
-                            <div className="flex justify-end md:col-span-3">
+                        <CardContent className="grid gap-4 pt-6">
+                            <Field label="Receipt notes">
+                                <Textarea
+                                    value={form.data.notes}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'notes',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                            </Field>
+                            <div className="flex justify-end">
                                 <Button
                                     type="submit"
-                                    disabled={form.processing}
+                                    disabled={
+                                        form.processing ||
+                                        !purchaseOrder ||
+                                        !form.data.lines.some(
+                                            (line) => line.receive,
+                                        )
+                                    }
                                 >
                                     Record receipt
                                 </Button>
@@ -510,76 +558,67 @@ export default function InventoryReceipts(props: Props) {
                         </CardContent>
                     </Card>
                 </form>
+
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-base">
                             Recent receipts
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b text-left text-muted-foreground">
-                                        <Th>Reference</Th>
-                                        <Th>Supplier</Th>
-                                        <Th>Store</Th>
-                                        <Th>Items</Th>
+                    <CardContent className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b text-left text-muted-foreground">
+                                    <Th>Receipt</Th>
+                                    <Th>Purchase order</Th>
+                                    <Th>Supplier</Th>
+                                    <Th>Store</Th>
+                                    <Th>Items</Th>
+                                    <Th>Inspection</Th>
+                                    {props.canViewCosts && <Th>Total</Th>}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {props.receipts.map((receipt) => (
+                                    <tr
+                                        key={receipt.id}
+                                        className="border-b last:border-0"
+                                    >
+                                        <Td>
+                                            {receipt.reference}
+                                            <div className="text-muted-foreground">
+                                                {receipt.received_on}
+                                            </div>
+                                        </Td>
+                                        <Td>
+                                            {
+                                                receipt.purchase_order
+                                                    .order_number
+                                            }
+                                        </Td>
+                                        <Td>{receipt.supplier.name}</Td>
+                                        <Td>{receipt.store.name}</Td>
+                                        <Td>
+                                            {formatNumber(receipt.lines_count)}
+                                        </Td>
+                                        <Td>
+                                            {receipt.inspection_status.replaceAll(
+                                                '_',
+                                                ' ',
+                                            )}
+                                        </Td>
                                         {props.canViewCosts && (
-                                            <>
-                                                <Th>Total</Th>
-                                                <Th>Paid</Th>
-                                                <Th>Payment</Th>
-                                            </>
-                                        )}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {props.receipts.map((receipt) => (
-                                        <tr
-                                            key={receipt.id}
-                                            className="border-b last:border-0"
-                                        >
                                             <Td>
-                                                {receipt.reference}
-                                                <div className="text-muted-foreground">
-                                                    {receipt.received_on}
-                                                </div>
-                                            </Td>
-                                            <Td>{receipt.supplier.name}</Td>
-                                            <Td>{receipt.store.name}</Td>
-                                            <Td>
-                                                {formatNumber(
-                                                    receipt.lines_count,
+                                                {formatCurrencyAmount(
+                                                    receipt.currency_code,
+                                                    receipt.total_amount,
                                                 )}
                                             </Td>
-                                            {props.canViewCosts && (
-                                                <>
-                                                    <Td>
-                                                        {formatCurrencyAmount(
-                                                            receipt.currency_code,
-                                                            receipt.total_amount,
-                                                        )}
-                                                    </Td>
-                                                    <Td>
-                                                        {formatCurrencyAmount(
-                                                            receipt.currency_code,
-                                                            receipt.amount_paid,
-                                                        )}
-                                                    </Td>
-                                                    <Td>
-                                                        {receipt.payment_status?.replace(
-                                                            '_',
-                                                            ' ',
-                                                        )}
-                                                    </Td>
-                                                </>
-                                            )}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                        )}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </CardContent>
                 </Card>
             </div>
@@ -590,23 +629,42 @@ export default function InventoryReceipts(props: Props) {
 function Field({
     label,
     error,
+    required = false,
     children,
 }: {
     label: string;
     error?: string;
+    required?: boolean;
     children: ReactNode;
 }) {
     return (
-        <div className="grid gap-2">
-            <Label>{label}</Label>
+        <div className="grid min-w-0 gap-2">
+            <Label>
+                {label}
+                {required && <span className="text-destructive"> *</span>}
+            </Label>
             {children}
             <InputError message={error} />
         </div>
     );
 }
+function Summary({ label, value }: { label: string; value: string }) {
+    return (
+        <div>
+            <div className="text-xs text-muted-foreground">{label}</div>
+            <div className="mt-1 font-medium">{value}</div>
+        </div>
+    );
+}
 function Th({ children }: { children: ReactNode }) {
-    return <th className="py-3 pr-4 font-medium">{children}</th>;
+    return (
+        <th className="py-3 pr-4 font-medium whitespace-nowrap">{children}</th>
+    );
 }
 function Td({ children }: { children: ReactNode }) {
-    return <td className="py-3 pr-4 align-top capitalize">{children}</td>;
+    return (
+        <td className="py-3 pr-4 align-top whitespace-nowrap capitalize">
+            {children}
+        </td>
+    );
 }

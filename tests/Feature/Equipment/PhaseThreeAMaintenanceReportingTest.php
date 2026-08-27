@@ -117,12 +117,12 @@ it('links controlled evidence to an accessible maintenance work order', function
     $equipment = Equipment::query()->findOrFail($workOrder->equipment_id);
     $workOrderIndex = EquipmentMaintenanceWorkOrder::query()
         ->where('equipment_id', $equipment->id)
-        ->orderByDesc('reported_at')
+        ->latest('reported_at')
         ->pluck('id')
         ->search($workOrder->id);
 
     $this->actingAs($fleetManager)
         ->get(route('equipment.show', ['equipment' => $equipment, 'tab' => 'maintenance']))
         ->assertInertia(fn (Assert $page): Assert => $page
-            ->where("maintenanceWorkOrders.{$workOrderIndex}.document_count", 2));
+            ->where(sprintf('maintenanceWorkOrders.%s.document_count', $workOrderIndex), 2));
 });

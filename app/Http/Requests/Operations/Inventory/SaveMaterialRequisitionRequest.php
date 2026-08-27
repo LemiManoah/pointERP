@@ -21,7 +21,10 @@ use Illuminate\Validation\Rule;
 
 final class SaveMaterialRequisitionRequest extends FormRequest
 {
-    public function authorize(): bool { return true; }
+    public function authorize(): bool
+    {
+        return true;
+    }
 
     /** @return array<string, mixed> */
     public function rules(): array
@@ -40,8 +43,7 @@ final class SaveMaterialRequisitionRequest extends FormRequest
             'priority' => ['required', Rule::enum(MaterialRequisitionPriority::class)],
             'reason' => ['required', 'string', 'max:3000'],
             'lines' => ['required', 'array', 'min:1', 'max:100'],
-            'lines.*.inventory_item_id' => ['nullable', 'uuid', Rule::exists((new InventoryItem)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
-            'lines.*.description' => ['nullable', 'required_without:lines.*.inventory_item_id', 'string', 'max:255'],
+            'lines.*.inventory_item_id' => ['required', 'uuid', 'distinct', Rule::exists((new InventoryItem)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
             'lines.*.unit_of_measure_id' => ['required', 'uuid', Rule::exists((new UnitOfMeasure)->getTable(), 'id')->where(fn (Builder $query) => $query->where('is_active', true)->where(fn (Builder $query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenantId)))],
             'lines.*.requested_quantity' => ['required', 'numeric', 'gt:0', 'max:999999999999.9999'],
             'lines.*.project_activity_id' => ['nullable', 'uuid', Rule::exists((new ProjectActivity)->getTable(), 'id')->where('tenant_id', $tenantId)],
