@@ -12,19 +12,20 @@ use App\Models\InventoryItem;
 use App\Models\InventoryStockMovement;
 use App\Models\InventoryStore;
 use App\Models\InventoryStoreItem;
-use App\Models\InventoryUnitConversion;
+use App\Models\InventoryReservation;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\InventoryStockBalance;
 use App\Services\TenantContext;
 use Brick\Math\BigDecimal;
+use App\Services\InventoryQuantityConverter;
 use Brick\Math\RoundingMode;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final readonly class PostInventoryStockMovement
 {
-    public function __construct(private TenantContext $tenantContext, private InventoryStockBalance $balances, private AuditLogger $auditLogger) {}
+    public function __construct(private TenantContext $tenantContext, private InventoryStockBalance $balances, private InventoryQuantityConverter $converter, private AuditLogger $auditLogger) {}
 
     /** @param array<string, mixed> $data */
     public function handle(InventoryStore $store, InventoryItem $item, array $data, User $actor): InventoryStockMovement
@@ -46,7 +47,9 @@ final readonly class PostInventoryStockMovement
 
             $type = InventoryMovementType::from((string) $data['movement_type']);
             $original = BigDecimal::of((string) $data['original_quantity']);
-            $multiplier = $this->conversionMultiplier($item, (string) $data['original_unit_id']);
+            $multiplier = isset($data['conversion_multiplier'])
+                ? BigDecimal::of((string) $data['conversion_multiplier'])
+                : $this->converter->multiplier($item, (string) $data['original_unit_id']);
             $stockQuantity = $original->multipliedBy($multiplier);
             $signedQuantity = match ($type) {
                 InventoryMovementType::Issue, InventoryMovementType::TransferOut => $stockQuantity->negated(),
@@ -55,7 +58,28 @@ final readonly class PostInventoryStockMovement
             };
 
             $this->validateBatch($item, $data['inventory_batch_id'] ?? null);
-            $current = BigDecimal::of($this->balances->for($store, $item)['on_hand']);
+            $balance = $this->balances->for($store, $item);
+            $current = BigDecimal::of($balance['on_hand']);
+            if ($type === InventoryMovementType::Issue) {
+                $spendable = BigDecimal::of($balance['available']);
+                $reservationId = $data['reservation_id'] ?? null;
+                if (is_string($reservationId)) {
+                    $reservation = InventoryReservation::query()->lockForUpdate()->find($reservationId);
+                    if (! $reservation instanceof InventoryReservation || $reservation->inventory_store_id !== $store->id || $reservation->inventory_item_id !== $item->id) {
+                        throw ValidationException::withMessages(['reservation' => 'The requisition reservation is not valid for this stock issue.']);
+                    }
+
+                    $spendable = $spendable
+                        ->plus((string) $reservation->reserved_quantity)
+                        ->minus((string) $reservation->issued_quantity)
+                        ->minus((string) $reservation->released_quantity);
+                }
+
+                if ($stockQuantity->isGreaterThan($spendable)) {
+                    throw ValidationException::withMessages(['original_quantity' => 'Only '.$spendable->toScale(4).' stock units are available for this issue after reservations.']);
+                }
+            }
+
             if ($current->plus($signedQuantity)->isNegative()) {
                 throw ValidationException::withMessages(['original_quantity' => 'This movement would create negative stock. Available on-hand quantity is '.$current->toScale(4).'.']);
             }
@@ -76,20 +100,6 @@ final readonly class PostInventoryStockMovement
 
             return $movement;
         });
-    }
-
-    private function conversionMultiplier(InventoryItem $item, string $unitId): BigDecimal
-    {
-        if ($unitId === $item->stock_unit_id) {
-            return BigDecimal::one();
-        }
-
-        $conversion = InventoryUnitConversion::query()->where('inventory_item_id', $item->id)->where('from_unit_id', $unitId)->where('to_unit_id', $item->stock_unit_id)->where('is_active', true)->first();
-        if (! $conversion instanceof InventoryUnitConversion) {
-            throw ValidationException::withMessages(['original_unit_id' => 'No active conversion exists from this unit to the item stock unit.']);
-        }
-
-        return BigDecimal::of((string) $conversion->multiplier)->dividedBy((string) $conversion->divisor, 10, RoundingMode::HalfUp);
     }
 
     private function validateBatch(InventoryItem $item, mixed $batchId): void

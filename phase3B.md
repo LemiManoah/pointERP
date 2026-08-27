@@ -4,7 +4,7 @@
 
 Phase 3B is the next major implementation phase after Phase 3A. It introduces controlled materials, suppliers, procurement and stores while preserving the operational history already captured by Daily Site Reports and the fleet module.
 
-Status: implementation in progress. Chunks 3B.1 and 3B.2 are implemented and awaiting local migration, focused tests, static analysis and UI acceptance before requisitions begin in Chunk 3B.3.
+Status: implementation in progress. Chunks 3B.1, 3B.2, 3B.2A and 3B.3 are implemented and awaiting local migration, focused tests, static analysis and UI acceptance before procurement begins in Chunk 3B.4.
 
 The roadmap and SRS are the authority for this phase. `phase3A.md` remains the authority for equipment, fuel, maintenance, meter, custody and fleet location behaviour. This document owns stock, procurement and material issue workflows.
 
@@ -559,6 +559,8 @@ Status: implemented, pending validation.
 Acceptance: one receipt records several items and creates auditable stock movements; a transfer records matching source and destination entries atomically; users cannot bypass their default branch without permission.
 
 ### Chunk 3B.3: Requisitions and internal issues
+
+Status: implemented, pending validation. The current slice provides draft requisition carts, branch/project/site/store scoping, registered and unregistered material snapshots, permission-based submission and review, explicit self-approval authority, stock-unit approval snapshots, reservations, partial issues, returns, cancellation release, status separation, audit events and seeded open/approved demonstrations.
 
 - Create requisition header/line workflow.
 - Add approval and reservation lifecycle.

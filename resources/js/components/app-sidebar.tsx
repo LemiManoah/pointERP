@@ -8,6 +8,7 @@ import {
     Gauge,
     HardHat,
     Package,
+    ShoppingBasket,
     ScrollText,
     ShieldCheck,
     Users,
@@ -175,6 +176,13 @@ const groups: SidebarGroupItem[] = [
                 icon: Package,
                 status: 'ready',
                 permission: 'inventory.stock.view',
+            },
+            {
+                title: 'Requisitions',
+                href: '/inventory/requisitions',
+                icon: ShoppingBasket,
+                status: 'ready',
+                permission: 'inventory.requisitions.view',
             },
             {
                 title: 'Receive stock',

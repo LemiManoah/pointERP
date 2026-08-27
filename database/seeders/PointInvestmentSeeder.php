@@ -12,6 +12,9 @@ use App\Enums\InventoryMaterialClass;
 use App\Enums\InventoryMovementType;
 use App\Enums\InventoryStoreType;
 use App\Enums\InventoryTrackingType;
+use App\Enums\InventoryReservationStatus;
+use App\Enums\MaterialRequisitionPriority;
+use App\Enums\MaterialRequisitionStatus;
 use App\Models\Branch;
 use App\Models\BranchCurrency;
 use App\Models\Contract;
@@ -50,6 +53,9 @@ use App\Models\InventoryPriceTier;
 use App\Models\InventoryStore;
 use App\Models\InventoryStoreItem;
 use App\Models\InventoryUnitConversion;
+use App\Models\InventoryReservation;
+use App\Models\MaterialRequisition;
+use App\Models\MaterialRequisitionLine;
 use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\ReportingCalendar;
@@ -343,6 +349,32 @@ final class PointInvestmentSeeder extends Seeder
                 'reason' => 'Controlled opening balance for Phase 3B demonstration.',
             ], $director);
         }
+
+        $guluRequester = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();
+        $guluProject = Project::query()->where('branch_id', $guluBranch->id)->first();
+        $guluSite = $guluProject?->sites()->first();
+        $submitted = MaterialRequisition::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'reference' => 'MR-DEMO-GULU'],
+            ['branch_id' => $guluBranch->id, 'inventory_store_id' => $guluStore->id, 'requesting_user_id' => $guluRequester->id, 'project_id' => $guluProject?->id, 'site_id' => $guluSite?->id, 'department' => 'Drainage works', 'required_by_date' => now()->addDays(3)->toDateString(), 'priority' => MaterialRequisitionPriority::High, 'status' => MaterialRequisitionStatus::Submitted, 'reason' => 'Cement required for the next drainage structure pour.', 'submitted_by' => $guluRequester->id, 'submitted_at' => now(), 'created_by' => $guluRequester->id, 'updated_by' => $guluRequester->id],
+        );
+        MaterialRequisitionLine::query()->updateOrCreate(
+            ['material_requisition_id' => $submitted->id, 'inventory_item_id' => $inventoryItems['CEM-42']->id],
+            ['tenant_id' => $tenantId, 'unit_of_measure_id' => $units['BAG']->id, 'item_code_snapshot' => 'CEM-42', 'item_name_snapshot' => 'Portland cement 42.5N', 'unit_code_snapshot' => 'BAG', 'unit_symbol_snapshot' => 'bag', 'requested_quantity' => '80.0000', 'conversion_multiplier' => '1.0000000000', 'stock_quantity' => '80.0000', 'purpose' => 'Culvert headwalls', 'sort_order' => 0],
+        );
+
+        $kampalaRequester = User::query()->where('email', 'admin.kla@point.test')->firstOrFail();
+        $approved = MaterialRequisition::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'reference' => 'MR-DEMO-KLA'],
+            ['branch_id' => $kampalaBranch->id, 'inventory_store_id' => $kampalaStore->id, 'requesting_user_id' => $kampalaRequester->id, 'department' => 'Site safety', 'required_by_date' => now()->addDay()->toDateString(), 'priority' => MaterialRequisitionPriority::Urgent, 'status' => MaterialRequisitionStatus::Approved, 'reason' => 'Issue safety vests to the incoming concrete crew.', 'submitted_by' => $kampalaRequester->id, 'submitted_at' => now()->subHour(), 'approved_by' => $director->id, 'approved_at' => now(), 'reviewed_by' => $director->id, 'reviewed_at' => now(), 'created_by' => $kampalaRequester->id, 'updated_by' => $director->id],
+        );
+        $approvedLine = MaterialRequisitionLine::query()->updateOrCreate(
+            ['material_requisition_id' => $approved->id, 'inventory_item_id' => $inventoryItems['PPE-VEST']->id],
+            ['tenant_id' => $tenantId, 'unit_of_measure_id' => $units['PIECE']->id, 'item_code_snapshot' => 'PPE-VEST', 'item_name_snapshot' => 'High visibility safety vest', 'unit_code_snapshot' => 'PIECE', 'unit_symbol_snapshot' => 'pc', 'requested_quantity' => '25.0000', 'conversion_multiplier' => '1.0000000000', 'stock_quantity' => '25.0000', 'approved_quantity' => '25.0000', 'purpose' => 'New crew mobilisation', 'sort_order' => 0],
+        );
+        InventoryReservation::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'source_type' => MaterialRequisitionLine::class, 'source_id' => $approvedLine->id, 'inventory_item_id' => $inventoryItems['PPE-VEST']->id],
+            ['branch_id' => $kampalaBranch->id, 'inventory_store_id' => $kampalaStore->id, 'reserved_quantity' => '25.0000', 'issued_quantity' => '0.0000', 'released_quantity' => '0.0000', 'status' => InventoryReservationStatus::Active, 'created_by' => $director->id, 'updated_by' => $director->id],
+        );
 
         $itemDocument = Document::query()->where('tenant_id', $tenantId)->first();
         if ($itemDocument instanceof Document) {
