@@ -19,6 +19,7 @@ final class UpdateDailySiteReportRequest extends FormRequest
     public function rules(): array
     {
         $tenantId = resolve(TenantContext::class)->id();
+        $tenantId = resolve(TenantContext::class)->id();
 
         return [
             'site_id' => ['required', 'uuid', Rule::exists((new Site)->getTable(), 'id')->where('tenant_id', $tenantId)],
@@ -85,6 +86,9 @@ final class UpdateDailySiteReportRequest extends FormRequest
             'equipment_lines.*.evidence_note' => ['nullable', 'string', 'max:2000'],
             'material_lines' => ['array'],
             'material_lines.*.material_name' => ['required_with:material_lines', 'string', 'max:255'],
+            'material_lines.*.inventory_item_id' => ['nullable', 'uuid', Rule::exists('inventory_items', 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
+            'material_lines.*.inventory_store_id' => ['nullable', 'uuid', Rule::exists('inventory_stores', 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
+            'material_lines.*.unit_of_measure_id' => ['nullable', 'uuid', Rule::exists('unit_of_measures', 'id')->where(fn ($query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenantId))->where('is_active', true)],
             'material_lines.*.material_type' => ['nullable', 'string', 'max:255'],
             'material_lines.*.quantity' => ['nullable', 'numeric', 'min:0'],
             'material_lines.*.unit' => ['nullable', 'string', 'max:50'],

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Operations\DailySiteReports;
 
+use App\Enums\DsrMaterialReconciliationStatus;
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportCostLine;
 use App\Models\DailySiteReportDelayLine;
@@ -13,12 +14,18 @@ use App\Models\DailySiteReportMaterialLine;
 use App\Models\DailySiteReportWorkLine;
 use App\Models\Equipment;
 use App\Models\ExpectedDailySiteReport;
+use App\Models\InventoryItem;
+use App\Models\InventoryStore;
+use App\Models\InventoryStoreItem;
 use App\Models\ProjectActivity;
 use App\Models\Site;
+use App\Models\UnitOfMeasure;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\InventoryQuantityConverter;
 use App\Services\ReportingCalendarResolver;
 use App\Services\TenantContext;
+use Brick\Math\BigDecimal;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -31,6 +38,7 @@ final readonly class SaveDailySiteReport
         private TenantContext $tenantContext,
         private AuditLogger $auditLogger,
         private ReportingCalendarResolver $calendarResolver,
+        private InventoryQuantityConverter $quantityConverter,
     ) {
         //
     }
@@ -87,7 +95,7 @@ final readonly class SaveDailySiteReport
                 DailySiteReportEquipmentLine::class,
                 $this->normalizeEquipmentLines($report, $data['equipment_lines'] ?? []),
             );
-            $materialCost = $this->syncLines($report, DailySiteReportMaterialLine::class, $data['material_lines'] ?? []);
+            $materialCost = $this->syncLines($report, DailySiteReportMaterialLine::class, $this->normalizeMaterialLines($report, $data['material_lines'] ?? []));
             $otherCost = $this->syncLines($report, DailySiteReportCostLine::class, $data['cost_lines'] ?? []);
             $this->syncLines($report, DailySiteReportDelayLine::class, $data['delay_lines'] ?? []);
 
@@ -186,6 +194,43 @@ final readonly class SaveDailySiteReport
     private function deadlineAt(Site $site, DailySiteReport $report): CarbonInterface
     {
         return $this->calendarResolver->deadlineAt($site, $report->report_date);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function normalizeMaterialLines(DailySiteReport $report, mixed $lines): array
+    {
+        if (! is_array($lines)) {
+            return [];
+        }
+
+        return collect($lines)->filter(fn (mixed $line): bool => is_array($line))->map(function (array $line) use ($report): array {
+            $itemId = $line['inventory_item_id'] ?? null;
+            if (! is_string($itemId) || $itemId === '') {
+                return [...$line, 'inventory_item_id' => null, 'inventory_store_id' => null, 'unit_of_measure_id' => null, 'conversion_multiplier' => null, 'stock_unit_quantity' => null, 'inventory_reconciliation_status' => DsrMaterialReconciliationStatus::NotLinked->value];
+            }
+
+            $item = InventoryItem::query()->where('is_active', true)->with('stockUnit')->findOrFail($itemId);
+            $unitId = $line['unit_of_measure_id'] ?? $item->stock_unit_id;
+            $unit = UnitOfMeasure::query()->where('is_active', true)->findOrFail($unitId);
+            $storeId = $line['inventory_store_id'] ?? null;
+            if (is_string($storeId) && $storeId !== '') {
+                $store = InventoryStore::query()->where('branch_id', $report->branch_id)->where('is_active', true)->findOrFail($storeId);
+                if (! InventoryStoreItem::query()->where('inventory_store_id', $store->id)->where('inventory_item_id', $item->id)->where('is_active', true)->exists()) {
+                    throw ValidationException::withMessages(['material_lines' => $item->name.' is not enabled in the selected store.']);
+                }
+            }
+
+            $multiplier = $this->quantityConverter->multiplier($item, $unit->id);
+            $quantity = BigDecimal::of((string) ($line['quantity'] ?? 0));
+
+            return [
+                ...$line, 'inventory_item_id' => $item->id, 'inventory_store_id' => is_string($storeId) && $storeId !== '' ? $storeId : null,
+                'unit_of_measure_id' => $unit->id, 'conversion_multiplier' => (string) $multiplier->toScale(10),
+                'stock_unit_quantity' => (string) $quantity->multipliedBy($multiplier)->toScale(4),
+                'inventory_reconciliation_status' => DsrMaterialReconciliationStatus::Pending->value,
+                'material_name' => $item->name, 'unit' => $unit->symbol ?? $unit->name,
+            ];
+        })->values()->all();
     }
 
     /** @return list<array<string, mixed>> */

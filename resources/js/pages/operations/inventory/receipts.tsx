@@ -598,7 +598,9 @@ export default function InventoryReceipts(props: Props) {
                                                 {receipt.reference}
                                             </Link>
                                             <div className="text-muted-foreground">
-                                                {formatDate(receipt.received_on)}
+                                                {formatDate(
+                                                    receipt.received_on,
+                                                )}
                                             </div>
                                         </Td>
                                         <Td>
@@ -606,7 +608,10 @@ export default function InventoryReceipts(props: Props) {
                                                 href={`/inventory/purchase-orders/${receipt.purchase_order.id}`}
                                                 className="font-medium hover:underline"
                                             >
-                                                {receipt.purchase_order.order_number}
+                                                {
+                                                    receipt.purchase_order
+                                                        .order_number
+                                                }
                                             </Link>
                                         </Td>
                                         <Td>

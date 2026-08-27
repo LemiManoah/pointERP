@@ -7,6 +7,7 @@ namespace Database\Seeders;
 use App\Actions\EnsureDefaultTenant;
 use App\Actions\Operations\DailySiteReports\PostApprovedDsrEquipmentLines;
 use App\Actions\Operations\Inventory\PostInventoryStockMovement;
+use App\Enums\DsrMaterialReconciliationStatus;
 use App\Enums\InventoryBatchStatus;
 use App\Enums\InventoryMaterialClass;
 use App\Enums\InventoryMovementType;
@@ -363,6 +364,35 @@ final class PointInvestmentSeeder extends Seeder
                 'source_key' => $sourceKey,
                 'reason' => 'Controlled opening balance for Phase 3B demonstration.',
             ], $director);
+        }
+
+        $approvedRoadReport = DailySiteReport::query()
+            ->where('branch_id', $guluBranch->id)
+            ->where('status', DailySiteReport::STATUS_APPROVED)
+            ->first();
+        if ($approvedRoadReport instanceof DailySiteReport) {
+            DailySiteReportMaterialLine::query()->updateOrCreate(
+                [
+                    'daily_site_report_id' => $approvedRoadReport->id,
+                    'delivery_reference' => 'DSR-CEMENT-DEMO',
+                ],
+                [
+                    'tenant_id' => $tenantId,
+                    'branch_id' => $guluBranch->id,
+                    'inventory_item_id' => $inventoryItems['CEM-42']->id,
+                    'inventory_store_id' => $guluStore->id,
+                    'unit_of_measure_id' => $units['BAG']->id,
+                    'conversion_multiplier' => '1.0000000000',
+                    'stock_unit_quantity' => '25.0000',
+                    'inventory_reconciliation_status' => DsrMaterialReconciliationStatus::Pending->value,
+                    'material_name' => $inventoryItems['CEM-42']->name,
+                    'material_type' => 'used',
+                    'quantity' => '25.0000',
+                    'unit' => $units['BAG']->symbol,
+                    'currency_code' => 'UGX',
+                    'sort_order' => 2,
+                ],
+            );
         }
 
         $guluRequester = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();

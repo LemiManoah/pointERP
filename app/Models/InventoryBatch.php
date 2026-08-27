@@ -17,6 +17,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * @property-read string $batch_number
+ * @property-read string $id
+ * @property-read string $tenant_id
+ * @property-read string $inventory_item_id
+ * @property-read string|null $inventory_store_id
  * @property-read CarbonInterface|null $manufactured_on
  * @property-read CarbonInterface|null $expires_on
  * @property-read InventoryBatchStatus $status

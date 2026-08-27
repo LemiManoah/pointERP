@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import InputError from '@/components/input-error';
 import { SearchableSelect } from '@/components/searchable-select';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -63,6 +64,59 @@ type EquipmentOption = {
     meter_type: string;
 };
 
+type InventoryUnitOption = { id: string; name: string; symbol: string | null };
+type InventoryItemOption = {
+    id: string;
+    name: string;
+    code: string;
+    stock_unit_id: string;
+    stock_unit: string;
+    tracking_type: string;
+    store_ids: string[];
+    units: InventoryUnitOption[];
+    batches: Array<{
+        id: string;
+        batch_number: string;
+        inventory_store_id: string | null;
+    }>;
+};
+type InventoryStoreOption = {
+    id: string;
+    branch_id: string;
+    name: string;
+    branch_name: string;
+};
+type MaterialReconciliation = {
+    id: string;
+    material_name: string;
+    inventory_item_id: string | null;
+    inventory_store_id: string | null;
+    status: string;
+    reported_quantity: string | null;
+    reported_unit: string | null;
+    stock_quantity: string | null;
+    stock_unit: string | null;
+    allocated_quantity: string;
+    outstanding_quantity: string;
+    external_reason: string | null;
+    allocations: Array<{
+        id: string;
+        type: string;
+        quantity: string;
+        reason: string;
+    }>;
+    candidate_issues: Array<{
+        id: string;
+        quantity: string;
+        store_name: string;
+        posted_at: string;
+        posted_by: string;
+    }>;
+    can_manage: boolean;
+    can_direct_issue: boolean;
+    can_mark_external: boolean;
+};
+
 const numericLineFields = new Set([
     'quantity',
     'rate_amount',
@@ -96,6 +150,8 @@ const equipmentSnapshotFields = new Set([
     'equipment_name',
     'equipment_identifier',
 ]);
+
+const materialSnapshotFields = new Set(['material_name', 'unit']);
 
 const controlledLineOptions: Record<string, string[]> = {
     side: ['Full width', 'LHS', 'RHS', 'Centreline'],
@@ -227,6 +283,7 @@ type Props = {
         approve: boolean;
         return: boolean;
         correct: boolean;
+        viewMaterialReconciliation: boolean;
     };
     reviews: Review[];
     corrections: Correction[];
@@ -238,6 +295,9 @@ type Props = {
     canUploadDocuments: boolean;
     activities: ActivityOption[];
     equipmentOptions: EquipmentOption[];
+    inventoryItems: InventoryItemOption[];
+    inventoryStores: InventoryStoreOption[];
+    materialReconciliations: MaterialReconciliation[];
     units: string[];
 };
 
@@ -274,6 +334,9 @@ export default function DailySiteReportShow({
     canUploadDocuments,
     activities,
     equipmentOptions,
+    inventoryItems,
+    inventoryStores,
+    materialReconciliations,
     units,
 }: Props) {
     const confirm = useConfirmDialog();
@@ -721,6 +784,9 @@ export default function DailySiteReportShow({
                         disabled={!can.update}
                         lines={form.data.material_lines}
                         fields={[
+                            'inventory_item_id',
+                            'inventory_store_id',
+                            'unit_of_measure_id',
                             'material_name',
                             'material_type',
                             'quantity',
@@ -729,6 +795,10 @@ export default function DailySiteReportShow({
                             ...(canViewCosts ? ['rate_amount'] : []),
                         ]}
                         units={units}
+                        inventoryItems={inventoryItems}
+                        inventoryStores={inventoryStores.filter(
+                            (store) => store.branch_id === report.branch_id,
+                        )}
                         onAdd={() =>
                             form.setData('material_lines', [
                                 ...form.data.material_lines,
@@ -739,6 +809,15 @@ export default function DailySiteReportShow({
                             form.setData('material_lines', lines)
                         }
                     />
+                    {can.viewMaterialReconciliation && (
+                        <MaterialReconciliationCard
+                            lines={materialReconciliations}
+                            stores={inventoryStores.filter(
+                                (store) => store.branch_id === report.branch_id,
+                            )}
+                            items={inventoryItems}
+                        />
+                    )}
                     {canViewCosts && (
                         <LineCard
                             title="Other costs"
@@ -1399,6 +1478,414 @@ function TextAreaField({
     );
 }
 
+function MaterialReconciliationCard({
+    lines,
+    stores,
+    items,
+}: {
+    lines: MaterialReconciliation[];
+    stores: InventoryStoreOption[];
+    items: InventoryItemOption[];
+}) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Material reconciliation</CardTitle>
+                <CardDescription>
+                    Match approved material usage to stock issues. Allocating an
+                    existing issue does not deduct stock again.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+                {lines.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                        This report has no material lines to reconcile.
+                    </p>
+                ) : (
+                    lines.map((line) => (
+                        <div
+                            key={line.id}
+                            className="grid gap-3 rounded-md border p-3 lg:grid-cols-[minmax(0,1.5fr)_repeat(3,minmax(0,.7fr))_auto] lg:items-center"
+                        >
+                            <div className="min-w-0">
+                                <div className="truncate font-medium">
+                                    {line.material_name}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                    Reported{' '}
+                                    {formatNumber(line.reported_quantity ?? 0)}{' '}
+                                    {line.reported_unit ?? ''}
+                                </div>
+                            </div>
+                            <QuantitySummary
+                                label="Stock quantity"
+                                value={line.stock_quantity}
+                                unit={line.stock_unit}
+                            />
+                            <QuantitySummary
+                                label="Allocated"
+                                value={line.allocated_quantity}
+                                unit={line.stock_unit}
+                            />
+                            <QuantitySummary
+                                label="Outstanding"
+                                value={line.outstanding_quantity}
+                                unit={line.stock_unit}
+                            />
+                            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                                <Badge variant="outline">
+                                    {line.status.replaceAll('_', ' ')}
+                                </Badge>
+                                {Number(line.outstanding_quantity) > 0 &&
+                                    line.inventory_item_id !== null &&
+                                    line.can_manage && (
+                                        <AllocationDialog line={line} />
+                                    )}
+                                {Number(line.outstanding_quantity) > 0 &&
+                                    line.inventory_item_id !== null &&
+                                    line.can_direct_issue && (
+                                        <DirectIssueDialog
+                                            line={line}
+                                            stores={stores}
+                                            items={items}
+                                        />
+                                    )}
+                                {Number(line.outstanding_quantity) > 0 &&
+                                    line.can_mark_external &&
+                                    line.allocations.length === 0 && (
+                                        <ExternalMaterialDialog line={line} />
+                                    )}
+                            </div>
+                            {line.external_reason && (
+                                <p className="text-sm text-muted-foreground lg:col-span-5">
+                                    External material: {line.external_reason}
+                                </p>
+                            )}
+                        </div>
+                    ))
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+function QuantitySummary({
+    label,
+    value,
+    unit,
+}: {
+    label: string;
+    value: string | null;
+    unit: string | null;
+}) {
+    return (
+        <div>
+            <div className="text-xs text-muted-foreground">{label}</div>
+            <div className="font-medium tabular-nums">
+                {value === null ? 'Not linked' : formatNumber(value)}{' '}
+                {unit ?? ''}
+            </div>
+        </div>
+    );
+}
+
+function AllocationDialog({ line }: { line: MaterialReconciliation }) {
+    const [open, setOpen] = useState(false);
+    const form = useForm({
+        inventory_stock_movement_id: '',
+        quantity: line.outstanding_quantity,
+        reason: '',
+    });
+
+    function submit() {
+        form.post(`/dsr-material-lines/${line.id}/allocate`, {
+            preserveScroll: true,
+            onSuccess: () => setOpen(false),
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button type="button" size="sm" variant="outline">
+                    Match issue
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Match an existing stock issue</DialogTitle>
+                    <DialogDescription>
+                        Use stock already issued to this project and site. This
+                        creates a link only and does not reduce stock again.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4">
+                    <div className="grid gap-2">
+                        <Label>Stock issue</Label>
+                        <SearchableSelect
+                            value={form.data.inventory_stock_movement_id}
+                            onValueChange={(value) =>
+                                form.setData(
+                                    'inventory_stock_movement_id',
+                                    value,
+                                )
+                            }
+                            options={line.candidate_issues.map((issue) => ({
+                                value: issue.id,
+                                label: `${formatNumber(issue.quantity)} ${line.stock_unit ?? ''} from ${issue.store_name}`,
+                                description: `${issue.posted_at} by ${issue.posted_by}`,
+                            }))}
+                            placeholder="Select an existing issue"
+                            emptyMessage="No matching stock issues were found."
+                        />
+                        <InputError
+                            message={form.errors.inventory_stock_movement_id}
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Quantity to match</Label>
+                        <Input
+                            type="number"
+                            min="0.0001"
+                            step="0.0001"
+                            value={form.data.quantity}
+                            onChange={(event) =>
+                                form.setData('quantity', event.target.value)
+                            }
+                        />
+                        <InputError message={form.errors.quantity} />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label>Reason</Label>
+                        <Textarea
+                            value={form.data.reason}
+                            onChange={(event) =>
+                                form.setData('reason', event.target.value)
+                            }
+                            placeholder="Explain why this issue belongs to the report line"
+                        />
+                        <InputError message={form.errors.reason} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setOpen(false)}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="button"
+                        disabled={form.processing}
+                        onClick={submit}
+                    >
+                        Match issue
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function DirectIssueDialog({
+    line,
+    stores,
+    items,
+}: {
+    line: MaterialReconciliation;
+    stores: InventoryStoreOption[];
+    items: InventoryItemOption[];
+}) {
+    const [open, setOpen] = useState(false);
+    const item = items.find((option) => option.id === line.inventory_item_id);
+    const allowedStores = stores.filter(
+        (store) => item?.store_ids.includes(store.id) ?? false,
+    );
+    const defaultStore = allowedStores.some(
+        (store) => store.id === line.inventory_store_id,
+    )
+        ? (line.inventory_store_id ?? '')
+        : (allowedStores[0]?.id ?? '');
+    const form = useForm({
+        inventory_store_id: defaultStore,
+        inventory_batch_id: '',
+        quantity: line.outstanding_quantity,
+        reason: '',
+    });
+    const batches =
+        item?.batches.filter(
+            (batch) =>
+                batch.inventory_store_id === null ||
+                batch.inventory_store_id === form.data.inventory_store_id,
+        ) ?? [];
+
+    function submit() {
+        form.post(`/dsr-material-lines/${line.id}/direct-issue`, {
+            preserveScroll: true,
+            onSuccess: () => setOpen(false),
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button type="button" size="sm">
+                    Issue balance
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Issue outstanding material</DialogTitle>
+                    <DialogDescription>
+                        This posts a real stock issue for the unmatched
+                        quantity.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-2 sm:col-span-2">
+                        <Label>Store</Label>
+                        <SearchableSelect
+                            value={form.data.inventory_store_id}
+                            onValueChange={(value) =>
+                                form.setData({
+                                    ...form.data,
+                                    inventory_store_id: value,
+                                    inventory_batch_id: '',
+                                })
+                            }
+                            options={allowedStores.map((store) => ({
+                                value: store.id,
+                                label: store.name,
+                                description: store.branch_name,
+                            }))}
+                            placeholder="Select store"
+                        />
+                        <InputError message={form.errors.inventory_store_id} />
+                    </div>
+                    {item?.tracking_type === 'batch' && (
+                        <div className="grid gap-2 sm:col-span-2">
+                            <Label>Batch</Label>
+                            <SearchableSelect
+                                value={form.data.inventory_batch_id}
+                                onValueChange={(value) =>
+                                    form.setData('inventory_batch_id', value)
+                                }
+                                options={batches.map((batch) => ({
+                                    value: batch.id,
+                                    label: batch.batch_number,
+                                }))}
+                                placeholder="Select batch"
+                            />
+                            <InputError
+                                message={form.errors.inventory_batch_id}
+                            />
+                        </div>
+                    )}
+                    <div className="grid gap-2 sm:col-span-2">
+                        <Label>Quantity ({line.stock_unit})</Label>
+                        <Input
+                            type="number"
+                            min="0.0001"
+                            step="0.0001"
+                            value={form.data.quantity}
+                            onChange={(event) =>
+                                form.setData('quantity', event.target.value)
+                            }
+                        />
+                        <InputError message={form.errors.quantity} />
+                    </div>
+                    <div className="grid gap-2 sm:col-span-2">
+                        <Label>Reason</Label>
+                        <Textarea
+                            value={form.data.reason}
+                            onChange={(event) =>
+                                form.setData('reason', event.target.value)
+                            }
+                            placeholder="Explain the direct issue"
+                        />
+                        <InputError message={form.errors.reason} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setOpen(false)}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="button"
+                        disabled={form.processing}
+                        onClick={submit}
+                    >
+                        Issue material
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function ExternalMaterialDialog({ line }: { line: MaterialReconciliation }) {
+    const [open, setOpen] = useState(false);
+    const form = useForm({ reason: '' });
+
+    function submit() {
+        form.post(`/dsr-material-lines/${line.id}/external`, {
+            preserveScroll: true,
+            onSuccess: () => setOpen(false),
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button type="button" size="sm" variant="outline">
+                    External
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-xl">
+                <DialogHeader>
+                    <DialogTitle>Mark as external material</DialogTitle>
+                    <DialogDescription>
+                        Use this only when the material did not come from
+                        company stock. No stock movement will be created.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-2">
+                    <Label>Reason and source</Label>
+                    <Textarea
+                        value={form.data.reason}
+                        onChange={(event) =>
+                            form.setData('reason', event.target.value)
+                        }
+                        placeholder="For example, supplied directly by the subcontractor"
+                    />
+                    <InputError message={form.errors.reason} />
+                </div>
+                <DialogFooter>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setOpen(false)}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="button"
+                        disabled={form.processing}
+                        onClick={submit}
+                    >
+                        Mark external
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function LineCard({
     title,
     description,
@@ -1409,6 +1896,8 @@ function LineCard({
     onChange,
     activities = [],
     equipmentOptions = [],
+    inventoryItems = [],
+    inventoryStores = [],
     units = [],
 }: {
     title: string;
@@ -1420,6 +1909,8 @@ function LineCard({
     onChange: (lines: Line[]) => void;
     activities?: ActivityOption[];
     equipmentOptions?: EquipmentOption[];
+    inventoryItems?: InventoryItemOption[];
+    inventoryStores?: InventoryStoreOption[];
     units?: string[];
 }) {
     function updateLine(index: number, field: string, value: string) {
@@ -1477,6 +1968,49 @@ function LineCard({
         );
     }
 
+    function selectInventoryItem(index: number, itemId: string) {
+        const item = inventoryItems.find((option) => option.id === itemId);
+        const storeId = item?.store_ids.includes(
+            String(lines[index]?.inventory_store_id ?? ''),
+        )
+            ? String(lines[index]?.inventory_store_id ?? '')
+            : (inventoryStores.find((store) =>
+                  item?.store_ids.includes(store.id),
+              )?.id ?? '');
+        onChange(
+            lines.map((line, lineIndex) =>
+                lineIndex === index
+                    ? {
+                          ...line,
+                          inventory_item_id: itemId,
+                          inventory_store_id: storeId,
+                          unit_of_measure_id: item?.stock_unit_id ?? '',
+                          material_name: item?.name ?? '',
+                          unit: item?.stock_unit ?? '',
+                      }
+                    : line,
+            ),
+        );
+    }
+
+    function selectInventoryUnit(index: number, unitId: string) {
+        const item = inventoryItems.find(
+            (option) => option.id === lines[index]?.inventory_item_id,
+        );
+        const unit = item?.units.find((option) => option.id === unitId);
+        onChange(
+            lines.map((line, lineIndex) =>
+                lineIndex === index
+                    ? {
+                          ...line,
+                          unit_of_measure_id: unitId,
+                          unit: unit?.symbol ?? unit?.name ?? '',
+                      }
+                    : line,
+            ),
+        );
+    }
+
     return (
         <Card>
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1503,7 +2037,75 @@ function LineCard({
                                         ? 'BOQ / activity'
                                         : field.replaceAll('_', ' ')}
                                 </Label>
-                                {field === 'project_activity_id' ? (
+                                {field === 'inventory_item_id' ? (
+                                    <SearchableSelect
+                                        value={String(line[field] ?? '')}
+                                        onValueChange={(value) =>
+                                            selectInventoryItem(index, value)
+                                        }
+                                        options={inventoryItems.map((item) => ({
+                                            value: item.id,
+                                            label: item.name,
+                                            description: item.code,
+                                        }))}
+                                        placeholder="Select inventory item"
+                                        searchPlaceholder="Search inventory..."
+                                        disabled={disabled}
+                                    />
+                                ) : field === 'inventory_store_id' ? (
+                                    <SearchableSelect
+                                        value={String(line[field] ?? '')}
+                                        onValueChange={(value) =>
+                                            updateLine(index, field, value)
+                                        }
+                                        options={inventoryStores
+                                            .filter((store) => {
+                                                const item =
+                                                    inventoryItems.find(
+                                                        (option) =>
+                                                            option.id ===
+                                                            line.inventory_item_id,
+                                                    );
+                                                return (
+                                                    item?.store_ids.includes(
+                                                        store.id,
+                                                    ) ?? false
+                                                );
+                                            })
+                                            .map((store) => ({
+                                                value: store.id,
+                                                label: store.name,
+                                                description: store.branch_name,
+                                            }))}
+                                        placeholder="Select source store"
+                                        disabled={
+                                            disabled || !line.inventory_item_id
+                                        }
+                                    />
+                                ) : field === 'unit_of_measure_id' ? (
+                                    <SearchableSelect
+                                        value={String(line[field] ?? '')}
+                                        onValueChange={(value) =>
+                                            selectInventoryUnit(index, value)
+                                        }
+                                        options={(
+                                            inventoryItems.find(
+                                                (item) =>
+                                                    item.id ===
+                                                    line.inventory_item_id,
+                                            )?.units ?? []
+                                        ).map((unit) => ({
+                                            value: unit.id,
+                                            label: unit.name,
+                                            description:
+                                                unit.symbol ?? undefined,
+                                        }))}
+                                        placeholder="Select unit"
+                                        disabled={
+                                            disabled || !line.inventory_item_id
+                                        }
+                                    />
+                                ) : field === 'project_activity_id' ? (
                                     <SearchableSelect
                                         value={String(line[field] ?? '')}
                                         onValueChange={(value) =>
@@ -1621,7 +2223,8 @@ function lineFieldDisabled(
         readOnlyLineFields.has(field) ||
         (Boolean(line.project_activity_id) &&
             activitySnapshotFields.has(field)) ||
-        (Boolean(line.equipment_id) && equipmentSnapshotFields.has(field))
+        (Boolean(line.equipment_id) && equipmentSnapshotFields.has(field)) ||
+        (Boolean(line.inventory_item_id) && materialSnapshotFields.has(field))
     );
 }
 
@@ -1689,6 +2292,9 @@ function emptyEquipmentLine(): Line {
 
 function emptyMaterialLine(): Line {
     return {
+        inventory_item_id: '',
+        inventory_store_id: '',
+        unit_of_measure_id: '',
         material_name: '',
         material_type: '',
         quantity: '',

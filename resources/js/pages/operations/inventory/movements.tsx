@@ -86,9 +86,9 @@ export default function InventoryMovements({ movements, stores, can }: Props) {
                     <div className="flex flex-wrap gap-2">
                         {can.adjust && (
                             <Button asChild variant="outline">
-                                <Link href="/inventory/stock-counts">
+                                <Link href="/inventory/reconciliations">
                                     <ClipboardCheck />
-                                    New stock count
+                                    New reconciliation
                                 </Link>
                             </Button>
                         )}
@@ -112,41 +112,126 @@ export default function InventoryMovements({ movements, stores, can }: Props) {
                             className="pl-9"
                         />
                     </div>
-                    <NativeSelect value={movementType} onChange={(event) => setMovementType(event.target.value)} aria-label="Movement type filter">
-                        <NativeSelectOption value="all">All movements</NativeSelectOption>
-                        {['receipt', 'issue', 'return', 'transfer_out', 'transfer_in', 'adjustment', 'opening_balance', 'reversal'].map((type) => (
-                            <NativeSelectOption key={type} value={type}>{label(type)}</NativeSelectOption>
+                    <NativeSelect
+                        value={movementType}
+                        onChange={(event) =>
+                            setMovementType(event.target.value)
+                        }
+                        aria-label="Movement type filter"
+                    >
+                        <NativeSelectOption value="all">
+                            All movements
+                        </NativeSelectOption>
+                        {[
+                            'receipt',
+                            'issue',
+                            'return',
+                            'transfer_out',
+                            'transfer_in',
+                            'adjustment',
+                            'opening_balance',
+                            'reversal',
+                        ].map((type) => (
+                            <NativeSelectOption key={type} value={type}>
+                                {label(type)}
+                            </NativeSelectOption>
                         ))}
                     </NativeSelect>
-                    <NativeSelect value={storeId} onChange={(event) => setStoreId(event.target.value)} aria-label="Store filter">
-                        <NativeSelectOption value="all">All stores</NativeSelectOption>
-                        {stores.map((store) => <NativeSelectOption key={store.id} value={store.id}>{store.name}</NativeSelectOption>)}
+                    <NativeSelect
+                        value={storeId}
+                        onChange={(event) => setStoreId(event.target.value)}
+                        aria-label="Store filter"
+                    >
+                        <NativeSelectOption value="all">
+                            All stores
+                        </NativeSelectOption>
+                        {stores.map((store) => (
+                            <NativeSelectOption key={store.id} value={store.id}>
+                                {store.name}
+                            </NativeSelectOption>
+                        ))}
                     </NativeSelect>
                     <div className="grid grid-cols-2 gap-2">
-                        <Input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} aria-label="Recorded from" />
-                        <Input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} aria-label="Recorded to" />
+                        <Input
+                            type="date"
+                            value={dateFrom}
+                            onChange={(event) =>
+                                setDateFrom(event.target.value)
+                            }
+                            aria-label="Recorded from"
+                        />
+                        <Input
+                            type="date"
+                            value={dateTo}
+                            onChange={(event) => setDateTo(event.target.value)}
+                            aria-label="Recorded to"
+                        />
                     </div>
                 </div>
                 <Card>
                     <CardContent className="pt-6">
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead><tr className="border-b text-left text-muted-foreground"><Th>Recorded</Th><Th>Item</Th><Th>Store</Th><Th>Movement</Th><Th>Unit</Th><Th>Quantity</Th><Th>Reason</Th><Th>Source</Th><Th>Status</Th></tr></thead>
+                                <thead>
+                                    <tr className="border-b text-left text-muted-foreground">
+                                        <Th>Recorded</Th>
+                                        <Th>Item</Th>
+                                        <Th>Store</Th>
+                                        <Th>Movement</Th>
+                                        <Th>Unit</Th>
+                                        <Th>Quantity</Th>
+                                        <Th>Reason</Th>
+                                        <Th>Source</Th>
+                                        <Th>Status</Th>
+                                    </tr>
+                                </thead>
                                 <tbody>
                                     {filtered.map((row) => (
-                                        <tr key={row.id} className="border-b last:border-0">
-                                            <Td>{formatDateTime(row.posted_at)}<div className="text-muted-foreground">{row.posted_by.name}</div></Td>
-                                            <Td>{row.item.name}<div className="text-muted-foreground">{row.item.code}</div></Td>
+                                        <tr
+                                            key={row.id}
+                                            className="border-b last:border-0"
+                                        >
+                                            <Td>
+                                                {formatDateTime(row.posted_at)}
+                                                <div className="text-muted-foreground">
+                                                    {row.posted_by.name}
+                                                </div>
+                                            </Td>
+                                            <Td>
+                                                {row.item.name}
+                                                <div className="text-muted-foreground">
+                                                    {row.item.code}
+                                                </div>
+                                            </Td>
                                             <Td>{row.store.name}</Td>
-                                            <Td><Badge variant="outline">{label(row.movement_type)}</Badge></Td>
-                                            <Td>{row.item.stock_unit?.symbol ?? row.item.stock_unit?.name}</Td>
-                                            <Td>{formatNumber(row.quantity)}</Td>
+                                            <Td>
+                                                <Badge variant="outline">
+                                                    {label(row.movement_type)}
+                                                </Badge>
+                                            </Td>
+                                            <Td>
+                                                {row.item.stock_unit?.symbol ??
+                                                    row.item.stock_unit?.name}
+                                            </Td>
+                                            <Td>
+                                                {formatNumber(row.quantity)}
+                                            </Td>
                                             <Td>{row.reason}</Td>
                                             <Td>{row.source}</Td>
                                             <Td>{label(row.status)}</Td>
                                         </tr>
                                     ))}
-                                    {filtered.length === 0 && <tr><td colSpan={9} className="py-12 text-center text-muted-foreground">No stock movements match these filters.</td></tr>}
+                                    {filtered.length === 0 && (
+                                        <tr>
+                                            <td
+                                                colSpan={9}
+                                                className="py-12 text-center text-muted-foreground"
+                                            >
+                                                No stock movements match these
+                                                filters.
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -157,6 +242,13 @@ export default function InventoryMovements({ movements, stores, can }: Props) {
     );
 }
 
-const label = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
-function Th({ children }: { children: ReactNode }) { return <th className="py-3 pr-4 font-medium">{children}</th>; }
-function Td({ children }: { children: ReactNode }) { return <td className="py-3 pr-4 align-top">{children}</td>; }
+const label = (value: string) =>
+    value
+        .replaceAll('_', ' ')
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+function Th({ children }: { children: ReactNode }) {
+    return <th className="py-3 pr-4 font-medium">{children}</th>;
+}
+function Td({ children }: { children: ReactNode }) {
+    return <td className="py-3 pr-4 align-top">{children}</td>;
+}

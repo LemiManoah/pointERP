@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\Inventory\ReconcileInventoryStockCount;
-use App\Enums\InventoryMovementType;
 use App\Http\Requests\Operations\Inventory\StoreInventoryStockCountRequest;
-use App\Models\InventoryStockMovement;
+use App\Models\InventoryReconciliation;
 use App\Models\InventoryStore;
 use App\Models\User;
 use App\Services\InventoryStoreStockOptions;
@@ -23,11 +22,20 @@ final class InventoryStockCountController
     public function index(Request $request, InventoryStoreStockOptions $options): Response
     {
         $actor = $request->user();
-        abort_unless($actor instanceof User && $actor->can('inventory.stock.adjust'), 403);
+        abort_unless($actor instanceof User, 403);
+        Gate::authorize('viewAny', InventoryReconciliation::class);
 
         return Inertia::render('operations/inventory/stock-counts/index', [
             'stores' => $options->stores($actor),
             'countKey' => Str::uuid()->toString(),
+            'reconciliations' => InventoryReconciliation::query()->whereIn('inventory_store_id', $options->accessibleStoreIds($actor))->with(['store', 'requester', 'lines'])->latest('requested_at')->limit(100)->get()->map(fn (InventoryReconciliation $reconciliation): array => [
+                'id' => $reconciliation->id, 'reference' => $reconciliation->reference, 'status' => $reconciliation->status->value,
+                'reason' => $reconciliation->reason, 'decision_reason' => $reconciliation->decision_reason,
+                'store' => $reconciliation->store->name, 'requested_by' => $reconciliation->requester->name,
+                'requested_at' => $reconciliation->requested_at->format('d M Y, H:i'), 'lines_count' => $reconciliation->lines->count(),
+                'can_approve' => Gate::forUser($actor)->allows('approve', $reconciliation), 'can_reject' => Gate::forUser($actor)->allows('reject', $reconciliation),
+            ]),
+            'canCreate' => Gate::forUser($actor)->allows('create', InventoryReconciliation::class),
         ]);
     }
 
@@ -35,16 +43,12 @@ final class InventoryStockCountController
     {
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
+        Gate::authorize('create', InventoryReconciliation::class);
         $store = InventoryStore::query()->findOrFail((string) $request->validated('inventory_store_id'));
         abort_unless($options->accessibleStoreIds($actor)->contains($store->id), 403);
-        Gate::forUser($actor)->authorize('post', [InventoryStockMovement::class, $store, InventoryMovementType::Adjustment]);
+        $action->handle($store, $request->validated(), $actor);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Reconciliation submitted for approval. Stock has not changed yet.']);
 
-        $posted = $action->handle($store, $request->validated(), $actor);
-        Inertia::flash('toast', [
-            'type' => 'success',
-            'message' => $posted === 0 ? 'Count recorded. No stock variance was found.' : sprintf('%d stock variance%s reconciled.', $posted, $posted === 1 ? '' : 's'),
-        ]);
-
-        return to_route('inventory.movements.index');
+        return to_route('inventory.stock-counts.index');
     }
 }

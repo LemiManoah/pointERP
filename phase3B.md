@@ -4,7 +4,7 @@
 
 Phase 3B is the next major implementation phase after Phase 3A. It introduces controlled materials, suppliers, procurement and stores while preserving the operational history already captured by Daily Site Reports and the fleet module.
 
-Status: implementation in progress. Chunks 3B.1 through 3B.4 are implemented and awaiting local migration, focused tests and UI acceptance. Procurement intentionally uses a direct purchase-order workflow; RFQs and supplier quotation comparison are deferred unless a real pilot proves they are needed. The core 3B.5 receipt and inspection workflow is implemented; receipt documents and dedicated receipt details remain.
+Status: implementation in progress. Chunks 3B.1 through 3B.7 are implemented and awaiting complete local regression and UI acceptance. Procurement intentionally uses a direct purchase-order workflow; RFQs and supplier quotation comparison are deferred unless a real pilot proves they are needed. Chunk 3B.8 reporting, seed completion and hardening remains.
 
 The roadmap and SRS are the authority for this phase. `phase3A.md` remains the authority for equipment, fuel, maintenance, meter, custody and fleet location behaviour. This document owns stock, procurement and material issue workflows.
 
@@ -17,7 +17,7 @@ At the end of Phase 3B, a construction company should be able to answer:
 3. What has been requested, approved, ordered, received, inspected, issued, returned or transferred?
 4. Which supplier and purchase order supports a receipt?
 5. Which project, site, activity or equipment received a material issue?
-6. What quantity is on hand, reserved, available, in transit or rejected?
+6. What quantity is on hand, reserved, available, transferred or rejected?
 7. Which stock is below its reorder level or cannot be issued?
 8. Which approved DSR material lines are supported by stock movements, and which remain an external or unregistered snapshot?
 9. Who approved, changed or posted each procurement and stock event?
@@ -35,8 +35,8 @@ The phase replaces uncontrolled material names and spreadsheet balances with mas
 - Requisitions and approval workflow.
 - Direct purchase orders and line-level commitments.
 - Goods receipts, inspection outcomes and rejected quantities.
-- Stock issues, returns, transfers, adjustments and stock counts.
-- On-hand, reserved, available and in-transit balances.
+- Stock issues, returns, transfers, adjustments and stock reconciliations.
+- On-hand, reserved and available balances, plus completed transfer evidence.
 - Reorder levels and low-stock exceptions.
 - DSR material-line linking and approved stock-posting evidence.
 - Document links for requisitions, orders, receipts and stock events.
@@ -49,7 +49,7 @@ The phase replaces uncontrolled material names and spreadsheet balances with mas
 - Full cost accounting, project actuals and financial forecasting; Phase 4 owns these.
 - Automatic supplier price selection without approval.
 - Barcode scanners, RFID and warehouse automation.
-- Quantity-bearing lot/batch/serial stock ledgers in the first slice. Chunk 3B.1 records batch references and expiry metadata; Chunk 3B.2 movements will own batch quantities and balances.
+- Serial-number custody and advanced lot genealogy. Batch-tracked quantities and expiry references are supported, but full warehouse lot genealogy remains deferred.
 - Multi-level warehouse bin optimisation.
 - Manufacturing, recipes, production orders and material requirements planning.
 - Automatic stock deduction from every DSR save or submission.
@@ -325,11 +325,11 @@ Reservations must not reduce physical on-hand. They reduce available stock and a
 
 ### 5.13 Deferred transfer documents
 
-The initial release does not require transfer header/line tables. It records immediate transfers directly through paired ledger entries with one source key. Add transfer documents, dispatch/receipt separation and in-transit stock only when stores genuinely need independent handover confirmation.
+Use transfer header and line tables to preserve the request, item/unit/batch snapshots and approval decision. Approval records paired ledger entries with stable source keys. Add dispatch/receipt separation and in-transit stock only when stores genuinely need independent handover confirmation.
 
 ### 5.14 Deferred count documents
 
-The initial release does not require count header/line tables. An authorised physical-count action compares the submitted system snapshot with the current ledger balance and immediately records only the variance. Add saved count sheets, independent verification and approval only when pilot controls require them.
+Use reconciliation header and line tables to preserve the server-calculated ledger snapshot, physical count, variance and approval decision. Approval rechecks the snapshot and records only the variance. Saved multi-stage count sheets remain deferred.
 
 ### 5.15 DSR integration fields
 
@@ -355,9 +355,9 @@ Permissions should be module-specific and action-specific, for example:
 - `inventory.purchase-orders.create`, `.submit`, `.approve`, `.cancel`, `.close`, `.view-costs`, `.override-price`;
 - `inventory.stock.receive`;
 - `inventory.stock.view`, `.issue`, `.return`, `.adjust`, `.reverse`;
-- `inventory.transfers.create`, `.dispatch`, `.receive`, `.cancel`;
-- `inventory.counts.create`, `.approve`;
-- `inventory.dsr-posting.view`, `.post`, `.correct`;
+- `inventory.transfers.view`, `.create`, `.approve`, `.reject`;
+- `inventory.reconciliations.view`, `.create`, `.approve`, `.reject`;
+- `inventory.dsr-reconciliation.view`, `.manage`, `.direct-issue`, `.mark-external`, `.export`;
 - `inventory.reports.export`.
 
 Policies must check:
@@ -433,33 +433,33 @@ Approved requisition
 
 An issue requires sufficient available stock unless an authorised adjustment/negative-stock policy applies. Returns reference the original issue where possible.
 
-### 7.5 Transfer
+### 7.6 Transfer
 
 ```text
-Draft transfer -> Submit -> Approve -> Dispatch -> Receive
+Select source and destination stores -> Add items -> Submit -> Approve or reject
 ```
 
-Dispatch moves stock to in-transit. Receipt creates destination stock. A rejected or short-received transfer records the difference and requires a resolution.
+Submitting a transfer does not change stock. Approval is permission guarded and records matching `transfer_out` and `transfer_in` movements atomically. Rejection requires a reason. The approved request and both immutable ledger movements form the custody evidence. Dispatch and separate destination receipt states remain deferred until a pilot proves that stores need an in-transit workflow.
 
-### 7.6 Stock count
+### 7.7 Stock reconciliation
 
 ```text
-Open count -> Enter physical quantity -> Review variance -> Approve -> Post adjustment
+Select store -> Enter physical quantity -> Submit -> Approve or reject -> Post variance
 ```
 
-The count snapshot and approval remain immutable evidence. A later recount is a new count.
+Submission records the ledger snapshot, physical count and proposed variance without changing stock. An authorised approver verifies that the live balance still matches the snapshot, then posts only the variance. A stale snapshot is rejected and must be recounted. Rejection requires a reason. The approved reconciliation, adjustment movement and audit events are the immutable evidence.
 
-### 7.7 DSR material reconciliation
+### 7.8 DSR material reconciliation
 
 After DSR approval:
 
 1. Display item-linked and unlinked material lines.
 2. Show required stock unit conversion.
-3. Let an authorised store/project user select the source store and post an issue, or mark the line as externally supplied/non-stock with a reason.
-4. Create one or more idempotent stock movements linked to the DSR line through their source identity.
-5. Prevent duplicate source posting, support partial fulfilment and use additive correction for later changes.
+3. Allocate existing requisition issues first; allocation does not post stock again.
+4. Let an authorised store/project user explicitly post only an unmatched direct issue, or mark the line externally supplied/non-stock with a reason.
+5. Preserve allocations in reconciliation rows, prevent duplicate source posting, support partial fulfilment and use additive correction for later changes.
 
-### 7.8 Phase 3A stock integration
+### 7.9 Phase 3A stock integration
 
 - An equipment fuel transaction may link to an inventory item, source store and stock movement without replacing its existing fuel snapshot.
 - A maintenance part line may link to an inventory item and issue movement without replacing its part-name, quantity and cost snapshot.
@@ -469,17 +469,17 @@ After DSR approval:
 
 ### 8.1 Navigation
 
-Add a single `Materials & Stores` navigation group with:
+Keep a single `Materials & Stores` navigation group with:
 
-- Items;
-- Stores;
+- item/category/unit/store setup;
+- inventory operations dashboard after 3B.8;
+- stock balances, including the low-stock tab;
 - Requisitions;
 - Purchase orders;
 - Receipts;
-- Stock ledger;
-- Transfers;
-- Stock counts;
-- Low-stock exceptions.
+- Stock movements as the read-only ledger.
+
+Expose **New transfer** and **New reconciliation** as permission-controlled actions from the stock-movement page instead of adding more sidebar entries.
 
 Keep list pages consistent with the existing app: heading/description, search and filters beneath the heading, primary action at the far right, separate active/inactive tabs, modal forms where appropriate, comboboxes for large controlled selections, confirmation dialog for destructive or posting actions, and Sonner toasts for success/failure.
 
@@ -487,9 +487,9 @@ Keep list pages consistent with the existing app: heading/description, search an
 
 Show identity, category, stock unit, active state, reorder policy, preferred suppliers, recent stock balance and linked documents. Costs are omitted unless the user has cost permission.
 
-### 8.3 Store dashboard
+### 8.3 Inventory operations dashboard
 
-Show on-hand, reserved, available, in-transit, low-stock and pending-receipt summaries. Each metric drills into the same authorised query used by the export.
+Show on-hand, reserved, available, low-stock, outstanding requisition, outstanding PO/receipt and DSR reconciliation summaries. Each metric drills into the same authorised query used by the corresponding register and export.
 
 ### 8.4 Transaction pages
 
@@ -507,11 +507,11 @@ Notifications:
 - low stock and unavailable issue;
 - purchase order awaiting approval;
 - delivery received and partially rejected;
-- transfer dispatched, received or short;
-- stock count variance awaiting approval;
+- transfer submitted, approved or rejected;
+- physical count variance recorded;
 - DSR material line unlinked or awaiting stock reconciliation.
 
-Audit events should include actor, tenant, branch, event, record type/id, old/new values, reason, IP/user agent where applicable and timestamp. Important events include item/store changes, approval decisions, supplier selection, PO changes, receipt inspection, stock posting/reversal, transfers, count approval and DSR reconciliation.
+Audit events should include actor, tenant, branch, event, record type/id, old/new values, reason, IP/user agent where applicable and timestamp. Important events include item/store changes, approval decisions, supplier selection, PO changes, receipt inspection, stock posting/reversal, transfers, physical-count variances and DSR reconciliation.
 
 ## 10. Implementation Chunks
 
@@ -550,7 +550,7 @@ Status: implemented, pending validation.
 - Supplier deliveries must reference an approved purchase order. Supplier, branch, store, item, unit, currency and price are inherited from the PO and cannot be re-entered during receipt.
 - Facility currency and branch default automatically. Branch choice is exposed only to a user with multiple accessible branches and the dedicated change-branch permission.
 - Batch number and expiry are captured while receiving a batch-tracked item. Item setup only declares the tracking rule.
-- Opening quantities and corrections use physical stock counts, issues and returns use requisitions, and transfers use the dedicated transfer page. The Stock movements workspace is their read-only ledger.
+- Opening quantities and corrections use stock reconciliation, issues and returns use requisitions, and transfers use the dedicated transfer page. The Stock movements workspace is their read-only ledger.
 - User-facing language says `record movement`; `posted` remains the internal immutable ledger state.
 
 Acceptance: one receipt records several items and creates auditable stock movements; a transfer records matching source and destination entries atomically; users cannot bypass their default branch without permission.
@@ -594,38 +594,264 @@ Status: core workflow implemented, pending validation. Approved-PO selection, pa
 
 Acceptance: rejected quantity is excluded from on-hand and the order remains open when partially received.
 
-### Chunk 3B.6: Transfers and stock counts
+### Chunk 3B.6: Transfers and stock reconciliation
 
-Status: implemented, pending local validation.
+Status: implemented, pending local validation. Transfers and physical reconciliations are now request-and-approval workflows. Submission does not affect stock; an authorised approval creates the immutable ledger entries, and rejection records a mandatory decision reason. Approval remains permission based, so the requester may self-approve only when they explicitly hold the approval permission.
 
-- Add an immediate, multi-item store-transfer page. One save records matching source and destination movements atomically; no separate dispatch, transit or receipt states are introduced until a real operating need is confirmed.
-- Add a direct physical-count page. Authorised users enter counted quantities in each item's stock unit and the system posts only the variance through the immutable movement ledger.
+- Add a multi-item store-transfer request page. Submission preserves item/unit/batch snapshots; approval records matching source and destination movements atomically.
+- Add a physical reconciliation page. Submission captures the server-calculated ledger snapshot and counted quantity; approval rechecks the snapshot and posts only the variance.
 - Keep the stock-movements page as a read-only operational and audit register. Supplier receipts come from approved POs, site issues and returns come from requisitions, transfers come from the transfer page, and corrections come from physical counts.
 - Apply the existing branch-change permission when exposing stores, require batch selection for batch-tracked transfers and counts, reject stale count snapshots, block negative item and batch balances, and keep source keys idempotent.
-- Defer transfer-in-transit, dispatch/receive separation, count-sheet approval and discrepancy notifications until pilot evidence shows that the immediate workflow is insufficient.
+- Defer transfer-in-transit, dispatch/receive separation and discrepancy notifications until pilot evidence shows that the approval workflow is insufficient.
 
 Acceptance: a transfer updates both stores or neither store; a physical count posts only its variance; repeating the same source key does not duplicate stock; unauthorised and out-of-scope requests receive 403.
 
 ### Chunk 3B.7: DSR material integration
 
-- Add nullable item/store/posting fields to DSR material lines.
-- Add item selectors and conversion preview to DSR draft UI.
-- Add approved-line reconciliation and stock issue posting.
-- Add external/non-stock reason and additive correction path.
-- Add project/site material summaries and exception indicators.
-- Link fuel transactions and maintenance part lines to inventory issues while retaining their Phase 3A snapshots.
+Status: core workflow implemented, pending local regression and UI acceptance.
 
-Acceptance: the approved DSR snapshot remains unchanged, partial and multiple source movements can reconcile one line, duplicate posting is blocked, Phase 3A snapshots remain unchanged and users can distinguish reported quantity from posted stock.
+The DSR material form now links a reported material snapshot to an inventory item, allowed unit and optional source store. The system stores the conversion multiplier and stock-unit quantity with the DSR line so later reference-data edits do not rewrite history. After report approval, a separate permission-guarded reconciliation panel supports three explicit outcomes:
+
+1. match an existing issue for the same item, project and site without deducting stock again;
+2. issue only the unmatched balance from an authorised store, creating one idempotent stock movement;
+3. classify externally supplied or non-stock material with a mandatory reason and no stock movement.
+
+Partial allocations are supported, every allocation is retained as its own audit row, and the DSR displays reported, allocated and outstanding quantities in the item stock unit. Draft saving and DSR approval never deduct inventory automatically.
+
+The lean 3B.7 release deliberately defers return-allocation links, material-line correction allocations and reconciliation export to the reporting/hardening work. Those paths need a pilot-approved rule for whether returned material corrects the DSR, the requisition, or both. Existing Phase 3A fuel and maintenance inventory links remain unchanged; automatic cross-linking is deferred to avoid creating a second stock deduction path.
+
+#### 3B.7.1 Purpose and accounting boundary
+
+The DSR records what the site says was used during the reporting day. The stock ledger records what physically entered or left a store. They are related records, but they are not interchangeable.
+
+- Do not change inventory while a DSR is a draft, submitted or returned.
+- DSR approval makes the reported material snapshot eligible for reconciliation; approval itself does not post stock.
+- Reconcile an existing requisition issue before considering a new direct issue. Linking an existing issue does not change stock again.
+- Post a direct DSR issue only for an approved, unmatched quantity and only through an explicit user action protected by a dedicated permission.
+- Allow an approved line to be marked external/non-stock when the material came from a subcontractor, client, petty purchase or another source outside the managed stores. Require a reason and do not create a stock movement.
+- Keep inventory valuation and accounting journals outside this workflow. Phase 4 may consume the source cost already preserved on inventory transactions.
+
+#### 3B.7.2 Data model
+
+Extend `daily_site_report_material_lines` through a focused migration with nullable integration fields while preserving the existing description, quantity, unit, rate and amount snapshots:
+
+- `inventory_item_id` and `inventory_store_id`;
+- `unit_of_measure_id` for the selected transaction unit;
+- `conversion_multiplier` copied when the line is saved;
+- `stock_unit_quantity`, the reported quantity converted into the item's stock unit;
+- `inventory_reconciliation_status`, backed by a PHP enum with `not_linked`, `pending`, `partial`, `reconciled`, `external` and `exception` values;
+- `external_material_reason`, nullable except when status is `external`;
+- `reconciled_at` and `reconciled_by` for the latest completed state.
+
+Create `dsr_material_reconciliations` as the many-to-many allocation record between reported usage and stock evidence:
+
+- UUID, tenant, branch and DSR material-line IDs;
+- optional inventory movement and requisition-line IDs;
+- reconciliation type backed by a PHP enum: `requisition_issue`, `direct_issue`, `external_non_stock`, `return`, `correction`;
+- allocated quantity in the item's stock unit;
+- source quantity/unit and conversion snapshot where applicable;
+- reason, actor and timestamp;
+- a stable source key with a tenant-unique constraint for idempotency.
+
+Do not place a single `inventory_stock_movement_id` on the DSR line. One reported line may be covered by several partial requisition issues, batches, stores or approved corrections. Reconciliation rows preserve those allocations without rewriting the approved DSR snapshot.
+
+Add tenant/branch indexes and foreign keys with explicit short names. Foreign keys should restrict deletion of operational evidence. DSR material lines and stock movements remain append-only once approved/posted.
+
+#### 3B.7.3 Model and service layer
+
+- Add item, store, unit and reconciliation relationships to `DailySiteReportMaterialLine`.
+- Add a `DsrMaterialReconciliation` model using tenant scope, UUIDs, enum casts and audit logging.
+- Add `DsrMaterialReconciliationSummary` to calculate reported, linked, directly posted, returned and outstanding stock-unit quantities from reconciliation rows.
+- Add `ReconcileDsrMaterialLine` as the transaction boundary. It must lock the DSR line and candidate movement rows, verify approval and scope, reject over-allocation, use stable source keys and refresh the reconciliation status.
+- Reuse `PostInventoryStockMovement` for an authorised unmatched direct issue. Use `DailySiteReportMaterialLine::class` as `source_type`, the DSR line ID as `source_id`, and include project/site/store/batch context.
+- Never call `PostInventoryStockMovement` when allocating an existing requisition issue. That operation creates only a reconciliation row.
+- Add an explicit `MarkDsrMaterialExternal` action that requires a reason and proves the line has no inventory allocations.
+- Add an additive correction action for approved DSR corrections. It creates new reconciliation evidence and never edits or deletes an earlier allocation.
+
+When an approved correction reduces reported usage below previously reconciled stock, do not silently return stock. Mark the line as `exception`. A physical return must use the requisition return workflow or another explicit authorised movement, after which that return can be linked to the reconciliation.
+
+#### 3B.7.4 DSR form and review UI
+
+On editable DSR material rows:
+
+- offer a searchable inventory-item combobox limited to active items available to the DSR branch/site context;
+- allow `External/non-stock material` as an explicit alternative instead of forcing every free-text material into inventory;
+- when an item is selected, default its stock unit, show allowed conversions and display the converted stock quantity before save;
+- copy the selected item name, code and unit into the existing DSR snapshot fields;
+- default the site/store from the report context and expose another accessible store only to a user with branch/store authority;
+- keep rate and amount fields governed by the existing DSR cost-visibility permission.
+
+On the approved DSR details page, add a **Material reconciliation** section showing:
+
+- reported quantity and stock-unit equivalent;
+- existing candidate issues filtered to the same tenant, branch access, project/site, item and sensible date range;
+- allocations already linked, outstanding quantity and reconciliation status;
+- actions to allocate an issue, post an unmatched direct issue, mark external, or link a return;
+- source links back to the requisition, movement register and inventory item;
+- clear exceptions for over-issued, under-reconciled, missing conversion, inactive item or inaccessible store conditions.
+
+The UI may hide unavailable actions, but every endpoint must independently authorize and validate the operation.
+
+#### 3B.7.5 Policies and permissions
+
+Add permissions without reusing broad item-management authority:
+
+- `inventory.dsr-reconciliation.view`;
+- `inventory.dsr-reconciliation.manage` for allocating existing evidence;
+- `inventory.dsr-reconciliation.direct-issue` for posting unmatched stock;
+- `inventory.dsr-reconciliation.mark-external`;
+- `inventory.dsr-reconciliation.export`.
+
+The policy must verify tenant, branch access, project/site access, approved DSR state, item/store compatibility and the requested operation. A project manager may reconcile only projects/sites they can access. Cost visibility remains separate from quantity and reconciliation visibility.
+
+#### 3B.7.6 Fuel and maintenance integration
+
+Preserve the Phase 3A operational snapshots and add optional inventory references rather than replacing them:
+
+- an equipment fuel transaction may reference its fuel inventory item, store and issue movement;
+- a maintenance-part line may reference an inventory item and issue movement while retaining part name, quantity, unit and cost snapshots;
+- if fuel or a part was already issued through a requisition, link that existing issue instead of posting it again;
+- if an approved DSR generated the operational fuel transaction, use one stable reconciliation path so the DSR, fuel transaction and stock movement cannot each deduct the same fuel;
+- equipment meter, usage, fuel and maintenance state remain owned by Phase 3A; inventory owns only quantities held and moved through stores.
+
+#### 3B.7.7 Routes, controllers and tests
+
+Use focused invokable controllers for allocation, direct issue, external classification and return linking. Keep query/presentation work in dedicated services rather than expanding `DailySiteReportController` further.
+
+Create `PhaseThreeBMaterialReconciliationTest.php` to prove:
+
+1. draft, submitted and returned DSRs cannot reconcile stock;
+2. an approved line can allocate several partial requisition issues;
+3. allocating an existing issue does not create another movement;
+4. an authorised direct issue posts only the unmatched quantity and is idempotent;
+5. over-allocation and negative stock are rejected;
+6. external material requires a reason and creates no movement;
+7. tenant, branch, project and site boundaries return 403;
+8. cost fields are omitted without cost permission;
+9. approved corrections are additive and the original DSR snapshot remains unchanged;
+10. fuel and maintenance links do not duplicate stock deductions.
+
+Acceptance: users can explain every approved DSR material quantity as existing issued stock, an explicit direct issue, a return/correction or external material. The approved report remains immutable, multiple allocations are supported and duplicate stock deduction is impossible.
 
 ### Chunk 3B.8: Reporting, seed data and hardening
 
-- Add store and procurement dashboards.
-- Add low-stock, outstanding PO, unfulfilled requisition and DSR reconciliation exports.
-- Add notifications, audit views and direct-route authorization tests.
-- Add realistic road-project seed data with aggregates and branch separation.
-- Complete mobile/empty/loading/error states and accessibility review.
+Status: planned. This is the Phase 3B completion and pilot-readiness chunk.
 
-Acceptance: a seeded company can follow one material from requisition through PO, receipt, store issue and DSR reconciliation.
+#### 3B.8.1 Inventory operations dashboard
+
+Create one operational inventory dashboard rather than separate decorative dashboards. It should reuse the existing stock, requisition, PO, receipt and DSR reconciliation query services and apply the same authorization scopes as their index pages.
+
+Top-level metrics:
+
+- active stores and stocked item locations;
+- items below their store-specific minimum stock;
+- on-hand, reserved and available quantities;
+- submitted requisitions awaiting review and approved requisitions awaiting issue;
+- approved/partially received POs with outstanding quantities;
+- overdue expected deliveries;
+- rejected receipt quantities requiring supplier follow-up;
+- approved DSR material lines that are pending, partial or in exception.
+
+Operational tables should show the highest-priority low-stock items, overdue POs, unfulfilled requisitions and unreconciled DSR materials with links to their detail pages. Use charts only where they communicate a useful comparison; tables remain the primary operating surface. Quantity viewers must not automatically receive supplier costs or financial totals.
+
+Filters must include accessible branch, store, project/site, item/category, supplier, status and date range where relevant. A single-branch user receives their working branch automatically and cannot change it. Server-side queries, exports and dashboard totals must share the same filter objects to prevent conflicting figures.
+
+#### 3B.8.2 Reports and exports
+
+Add focused CSV/XLSX exports with predictable columns and generated-at/filter metadata:
+
+- stock balance and low-stock report by store and stock unit;
+- immutable movement ledger with source references and reversal status;
+- requisition fulfilment report showing requested, approved, issued, returned and outstanding quantities;
+- PO commitment and delivery report showing ordered, accepted, rejected and outstanding quantities;
+- receipt inspection report;
+- DSR material reconciliation report showing reported, allocated, directly issued, returned, external and outstanding quantities;
+- supplier delivery-performance summary derived from approved POs and receipts.
+
+Do not calculate formal accounting inventory valuation in these reports. Cost-enabled users may see source unit costs and commercial PO/receipt amounts; users without cost permission receive no cost keys in server payloads or export rows.
+
+Use `inventory.reports.export` for operational quantity reports, existing PO/receipt cost permissions for commercial columns, and `inventory.dsr-reconciliation.export` for DSR reconciliation exports. Export endpoints must reject unauthorised direct requests and use the same tenant/branch/project filters as the UI.
+
+#### 3B.8.3 Notifications and scheduled checks
+
+Add actionable notifications with links to the affected record:
+
+- stock falls to or below the store minimum;
+- a previously low-stock item recovers, closing the warning state;
+- a requisition is submitted, approved, returned, cancelled or remains unfulfilled past its required date;
+- a PO is submitted, approved, returned, rejected, nearing its expected date or overdue with outstanding quantity;
+- a receipt contains rejected/damaged/spoilt quantity;
+- a DSR material line remains unreconciled after the configured period or enters exception status.
+
+Avoid one notification per page view or scheduler run. Use stable deduplication keys and notify again only after a meaningful state transition, threshold recovery/re-entry or configured reminder interval. Respect the existing notification preferences and branch/project visibility rules.
+
+#### 3B.8.4 Audit and operational traceability
+
+Ensure the audit trail records:
+
+- inventory item, unit conversion, price, category and store-setting changes;
+- requisition submission, review, issue, return and cancellation;
+- PO creation, commercial changes, submission, review, close and cancellation;
+- receipt inspection and rejected-quantity reasons;
+- transfer, physical count, reversal and negative-stock rejection context where appropriate;
+- DSR allocation, direct issue, external classification, correction and exception resolution.
+
+Audit records must preserve actor, tenant, branch, event, model type/ID, old/new values, reason and timestamp. Keep the audit trail separate from user notifications and business activity feeds. Add source links from audit details when the viewer is still authorized to open the underlying record.
+
+#### 3B.8.5 Demo seed scenario
+
+Extend `PointInvestmentSeeder` idempotently so `migrate:fresh --seed` demonstrates the complete story without manual database work:
+
+1. Kampala creates an approved PO for cement and PPE from an active supplier.
+2. A partial PO receipt accepts usable quantity, rejects a damaged quantity and updates Kampala store stock.
+3. An approved transfer moves part of the accepted cement to the Gulu site store.
+4. A site requisition is submitted, approved and partially issued against the road project/site.
+5. One approved DSR material line allocates that issue fully.
+6. A second DSR line is only partially reconciled and appears as an exception/dashboard task.
+7. A third DSR material line is classified as subcontractor-supplied external material.
+8. A physical stock count records a small, explained variance.
+9. Low-stock, overdue PO and rejected-receipt examples appear in reports without corrupting the core balances.
+
+Seed users must demonstrate director, procurement officer, Kampala storekeeper, project manager and Gulu site manager permissions. The seeded story must remain tenant/branch separated and be safe to rerun through `updateOrCreate` or stable source keys.
+
+#### 3B.8.6 Performance and data integrity
+
+- Add composite indexes for the actual report filters: tenant/branch/store/item/status/date and source type/source ID/source key.
+- Keep all stock mutations inside database transactions and lock store-item rows before balance-sensitive posting.
+- Avoid N+1 queries on dashboards and exports; preload relationships or use grouped aggregate queries.
+- Paginate operational registers instead of loading an arbitrary large client-side history.
+- Preserve decimal quantities and conversion snapshots; do not use floating-point arithmetic for posting decisions.
+- Keep append-only ledger and reconciliation evidence. Corrections use reversals or additive records.
+- Verify all long MySQL index and foreign-key names explicitly before migration execution.
+
+#### 3B.8.7 UI and accessibility hardening
+
+- Apply the established equipment/index table pattern, consistent page headings, left-side search/filters and right-side primary actions.
+- Keep active/inactive tabs aligned with existing page tabs and never mix inactive records into active lists.
+- Use searchable comboboxes for database-backed choices and constrain selected text so it cannot resize or overlap neighbouring fields.
+- Keep large forms as full pages; use modals only for short decisions or small edits.
+- Add mobile-safe table overflow, wrapped dashboard legends, stable control widths, skeleton/loading states, empty states and useful server-error messages.
+- Mark required fields with a red asterisk and connect labels, errors and descriptions accessibly.
+- Use the global confirmation dialog for destructive/status actions and Sonner for success, failure, information and warning feedback.
+- Verify desktop and mobile workflows for requisition, PO, receipt, transfer, count and DSR reconciliation.
+
+#### 3B.8.8 Security and completion tests
+
+Extend `PhaseThreeBAccessIsolationTest.php` and the focused feature suites to cover direct-route 403s, tenant/branch leakage, project/site scope, cost-field omission, stale state transitions, duplicate source keys and cross-branch mutations. Add concurrency tests for competing issues/transfers where the database driver supports locking semantics.
+
+Final Phase 3B validation should include:
+
+```powershell
+php artisan migrate:fresh --seed
+php vendor/bin/pest tests/Feature/Inventory --compact
+vendor/bin/phpstan analyse
+composer lint
+bun run test:types
+```
+
+Also run the existing Phase 2 DSR and Phase 3A equipment suites because 3B.7 touches their contracts. Record any database-driver limitation when SQLite cannot prove the same locking behaviour as MySQL, and complete the transfer/count/DSR flows manually with the seeded roles.
+
+Acceptance: a seeded authorized user can trace one material from item setup through PO, accepted receipt, store transfer, requisition issue and approved DSR reconciliation; quantities agree across every screen and export; costs remain permission-separated; audit and notifications identify the important actions; and unauthorized direct requests return 403.
 
 ## 11. Test Contract
 
@@ -677,7 +903,7 @@ Extend the existing Point Investment road demo with:
 - an approved direct PO with a pending delivery;
 - on-hand, reserved and low-stock examples;
 - a partial issue to a road site and a returned quantity;
-- a completed immediate store transfer;
+- a completed approved store transfer;
 - a completed physical-count variance;
 - an approved DSR material line linked to an issue;
 - an approved DSR material line intentionally left as external/non-stock;

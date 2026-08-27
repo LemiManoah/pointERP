@@ -151,479 +151,424 @@ export function PurchaseOrderForm({
 
     return (
         <form onSubmit={submit} className="grid gap-6">
-                    <Section
-                        title="Order details"
-                        description="Choose the supplier, receiving store and expected delivery date."
+            <Section
+                title="Order details"
+                description="Choose the supplier, receiving store and expected delivery date."
+            >
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    {options.canChangeBranch && (
+                        <Field
+                            label="Branch"
+                            required
+                            error={form.errors.branch_id}
+                        >
+                            <SearchableSelect
+                                value={form.data.branch_id}
+                                options={options.branches.map((row) => ({
+                                    value: row.id,
+                                    label: row.name,
+                                    description: row.code,
+                                }))}
+                                onValueChange={(value) => {
+                                    const selected = options.branches.find(
+                                        (row) => row.id === value,
+                                    );
+                                    form.setData((data) => ({
+                                        ...data,
+                                        branch_id: value,
+                                        inventory_store_id: '',
+                                        supplier_id: '',
+                                        currency_code:
+                                            selected?.default_currency_code ??
+                                            '',
+                                        lines: [emptyLine()],
+                                    }));
+                                }}
+                                placeholder="Select branch"
+                            />
+                        </Field>
+                    )}
+                    <Field
+                        label="Receiving store"
+                        required
+                        error={form.errors.inventory_store_id}
                     >
-                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                            {options.canChangeBranch && (
-                                <Field
-                                    label="Branch"
-                                    required
-                                    error={form.errors.branch_id}
-                                >
-                                    <SearchableSelect
-                                        value={form.data.branch_id}
-                                        options={options.branches.map(
-                                            (row) => ({
-                                                value: row.id,
-                                                label: row.name,
-                                                description: row.code,
-                                            }),
-                                        )}
-                                        onValueChange={(value) => {
-                                            const selected =
-                                                options.branches.find(
-                                                    (row) => row.id === value,
-                                                );
-                                            form.setData((data) => ({
-                                                ...data,
-                                                branch_id: value,
-                                                inventory_store_id: '',
-                                                supplier_id: '',
-                                                currency_code:
-                                                    selected?.default_currency_code ??
-                                                    '',
-                                                lines: [emptyLine()],
-                                            }));
-                                        }}
-                                        placeholder="Select branch"
-                                    />
-                                </Field>
-                            )}
-                            <Field
-                                label="Receiving store"
-                                required
-                                error={form.errors.inventory_store_id}
-                            >
-                                <SearchableSelect
-                                    value={form.data.inventory_store_id}
-                                    options={stores.map((row) => ({
-                                        value: row.id,
-                                        label: row.name,
-                                        description: row.code,
-                                    }))}
-                                    onValueChange={(value) =>
-                                        form.setData(
-                                            'inventory_store_id',
-                                            value,
-                                        )
-                                    }
-                                    placeholder="Select store"
-                                />
-                            </Field>
-                            <Field
-                                label="Supplier"
-                                required
-                                error={form.errors.supplier_id}
-                            >
-                                <SearchableSelect
-                                    value={form.data.supplier_id}
-                                    options={suppliers.map((row) => ({
-                                        value: row.id,
-                                        label: row.name,
-                                        description: row.code,
-                                    }))}
-                                    onValueChange={(value) =>
-                                        form.setData('supplier_id', value)
-                                    }
-                                    placeholder="Select supplier"
-                                />
-                            </Field>
-                            <Field label="Currency">
-                                <Input
-                                    value={branch?.default_currency_code ?? ''}
-                                    disabled
-                                />
-                            </Field>
-                            <Field
-                                label="Order date"
-                                required
-                                error={form.errors.order_date}
-                            >
-                                <Input
-                                    type="date"
-                                    value={form.data.order_date}
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'order_date',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                            </Field>
-                            <Field
-                                label="Expected delivery"
-                                error={form.errors.expected_date}
-                            >
-                                <Input
-                                    type="date"
-                                    value={form.data.expected_date}
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'expected_date',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                            </Field>
-                        </div>
-                    </Section>
+                        <SearchableSelect
+                            value={form.data.inventory_store_id}
+                            options={stores.map((row) => ({
+                                value: row.id,
+                                label: row.name,
+                                description: row.code,
+                            }))}
+                            onValueChange={(value) =>
+                                form.setData('inventory_store_id', value)
+                            }
+                            placeholder="Select store"
+                        />
+                    </Field>
+                    <Field
+                        label="Supplier"
+                        required
+                        error={form.errors.supplier_id}
+                    >
+                        <SearchableSelect
+                            value={form.data.supplier_id}
+                            options={suppliers.map((row) => ({
+                                value: row.id,
+                                label: row.name,
+                                description: row.code,
+                            }))}
+                            onValueChange={(value) =>
+                                form.setData('supplier_id', value)
+                            }
+                            placeholder="Select supplier"
+                        />
+                    </Field>
+                    <Field label="Currency">
+                        <Input
+                            value={branch?.default_currency_code ?? ''}
+                            disabled
+                        />
+                    </Field>
+                    <Field
+                        label="Order date"
+                        required
+                        error={form.errors.order_date}
+                    >
+                        <Input
+                            type="date"
+                            value={form.data.order_date}
+                            onChange={(event) =>
+                                form.setData('order_date', event.target.value)
+                            }
+                        />
+                    </Field>
+                    <Field
+                        label="Expected delivery"
+                        error={form.errors.expected_date}
+                    >
+                        <Input
+                            type="date"
+                            value={form.data.expected_date}
+                            onChange={(event) =>
+                                form.setData(
+                                    'expected_date',
+                                    event.target.value,
+                                )
+                            }
+                        />
+                    </Field>
+                </div>
+            </Section>
 
-                    <Section
-                        title="Items to purchase"
-                        description="Prices and stock units come from the inventory item record. Allowed conversions are applied automatically."
-                        action={
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() =>
-                                    form.setData('lines', [
-                                        ...form.data.lines,
-                                        emptyLine(),
-                                    ])
-                                }
-                            >
-                                <Plus />
-                                Add item
-                            </Button>
+            <Section
+                title="Items to purchase"
+                description="Prices and stock units come from the inventory item record. Allowed conversions are applied automatically."
+                action={
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() =>
+                            form.setData('lines', [
+                                ...form.data.lines,
+                                emptyLine(),
+                            ])
                         }
                     >
-                        <div className="overflow-x-auto rounded-md border">
-                            <table className="w-full min-w-[850px] table-fixed text-sm">
-                                <thead>
-                                    <tr className="border-b text-left text-muted-foreground">
-                                        <Th className="w-[34%]">Item</Th>
-                                        <Th className="w-[20%]">Unit</Th>
-                                        <Th className="w-[15%]">Quantity</Th>
+                        <Plus />
+                        Add item
+                    </Button>
+                }
+            >
+                <div className="overflow-x-auto rounded-md border">
+                    <table className="w-full min-w-[850px] table-fixed text-sm">
+                        <thead>
+                            <tr className="border-b text-left text-muted-foreground">
+                                <Th className="w-[34%]">Item</Th>
+                                <Th className="w-[20%]">Unit</Th>
+                                <Th className="w-[15%]">Quantity</Th>
+                                {options.canViewCosts && (
+                                    <>
+                                        <Th className="w-[18%]">Unit price</Th>
+                                        <Th className="w-[10%]">Total</Th>
+                                    </>
+                                )}
+                                <Th className="w-12">
+                                    <span className="sr-only">Actions</span>
+                                </Th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {form.data.lines.map((line, index) => {
+                                const item = options.items.find(
+                                    (row) => row.id === line.inventory_item_id,
+                                );
+                                return (
+                                    <tr
+                                        key={index}
+                                        className="border-b last:border-0"
+                                    >
+                                        <Td>
+                                            <SearchableSelect
+                                                value={line.inventory_item_id}
+                                                options={options.items
+                                                    .filter(
+                                                        (candidate) =>
+                                                            candidate.id ===
+                                                                line.inventory_item_id ||
+                                                            !form.data.lines.some(
+                                                                (current) =>
+                                                                    current.inventory_item_id ===
+                                                                    candidate.id,
+                                                            ),
+                                                    )
+                                                    .map((row) => ({
+                                                        value: row.id,
+                                                        label: row.name,
+                                                        description: row.code,
+                                                    }))}
+                                                onValueChange={(value) =>
+                                                    selectItem(index, value)
+                                                }
+                                                placeholder="Select inventory item"
+                                            />
+                                            <InputError
+                                                message={
+                                                    form.errors[
+                                                        `lines.${index}.inventory_item_id`
+                                                    ]
+                                                }
+                                            />
+                                        </Td>
+                                        <Td>
+                                            <SearchableSelect
+                                                value={line.unit_of_measure_id}
+                                                options={allowedUnits(
+                                                    item,
+                                                    options,
+                                                ).map((row) => ({
+                                                    value: row.id,
+                                                    label: row.name,
+                                                    description:
+                                                        row.symbol ?? row.code,
+                                                }))}
+                                                onValueChange={(value) =>
+                                                    item &&
+                                                    selectUnit(
+                                                        index,
+                                                        item,
+                                                        value,
+                                                    )
+                                                }
+                                                placeholder="Select unit"
+                                                disabled={!item}
+                                            />
+                                            <InputError
+                                                message={
+                                                    form.errors[
+                                                        `lines.${index}.unit_of_measure_id`
+                                                    ]
+                                                }
+                                            />
+                                        </Td>
+                                        <Td>
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                step="0.0001"
+                                                value={line.ordered_quantity}
+                                                onChange={(event) =>
+                                                    updateLine(index, {
+                                                        ordered_quantity:
+                                                            event.target.value,
+                                                    })
+                                                }
+                                            />
+                                            <InputError
+                                                message={
+                                                    form.errors[
+                                                        `lines.${index}.ordered_quantity`
+                                                    ]
+                                                }
+                                            />
+                                        </Td>
                                         {options.canViewCosts && (
                                             <>
-                                                <Th className="w-[18%]">
-                                                    Unit price
-                                                </Th>
-                                                <Th className="w-[10%]">
-                                                    Total
-                                                </Th>
-                                            </>
-                                        )}
-                                        <Th className="w-12">
-                                            <span className="sr-only">
-                                                Actions
-                                            </span>
-                                        </Th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {form.data.lines.map((line, index) => {
-                                        const item = options.items.find(
-                                            (row) =>
-                                                row.id ===
-                                                line.inventory_item_id,
-                                        );
-                                        return (
-                                            <tr
-                                                key={index}
-                                                className="border-b last:border-0"
-                                            >
-                                                <Td>
-                                                    <SearchableSelect
-                                                        value={
-                                                            line.inventory_item_id
-                                                        }
-                                                        options={options.items
-                                                            .filter(
-                                                                (candidate) =>
-                                                                    candidate.id ===
-                                                                        line.inventory_item_id ||
-                                                                    !form.data.lines.some(
-                                                                        (
-                                                                            current,
-                                                                        ) =>
-                                                                            current.inventory_item_id ===
-                                                                            candidate.id,
-                                                                    ),
-                                                            )
-                                                            .map((row) => ({
-                                                                value: row.id,
-                                                                label: row.name,
-                                                                description:
-                                                                    row.code,
-                                                            }))}
-                                                        onValueChange={(
-                                                            value,
-                                                        ) =>
-                                                            selectItem(
-                                                                index,
-                                                                value,
-                                                            )
-                                                        }
-                                                        placeholder="Select inventory item"
-                                                    />
-                                                    <InputError
-                                                        message={
-                                                            form.errors[
-                                                                `lines.${index}.inventory_item_id`
-                                                            ]
-                                                        }
-                                                    />
-                                                </Td>
-                                                <Td>
-                                                    <SearchableSelect
-                                                        value={
-                                                            line.unit_of_measure_id
-                                                        }
-                                                        options={allowedUnits(
-                                                            item,
-                                                            options,
-                                                        ).map((row) => ({
-                                                            value: row.id,
-                                                            label: row.name,
-                                                            description:
-                                                                row.symbol ??
-                                                                row.code,
-                                                        }))}
-                                                        onValueChange={(
-                                                            value,
-                                                        ) =>
-                                                            item &&
-                                                            selectUnit(
-                                                                index,
-                                                                item,
-                                                                value,
-                                                            )
-                                                        }
-                                                        placeholder="Select unit"
-                                                        disabled={!item}
-                                                    />
-                                                    <InputError
-                                                        message={
-                                                            form.errors[
-                                                                `lines.${index}.unit_of_measure_id`
-                                                            ]
-                                                        }
-                                                    />
-                                                </Td>
                                                 <Td>
                                                     <Input
                                                         type="number"
                                                         min="0"
                                                         step="0.0001"
-                                                        value={
-                                                            line.ordered_quantity
-                                                        }
+                                                        value={line.unit_price}
                                                         onChange={(event) =>
                                                             updateLine(index, {
-                                                                ordered_quantity:
+                                                                unit_price:
                                                                     event.target
                                                                         .value,
                                                             })
+                                                        }
+                                                        disabled={
+                                                            !options.canOverridePrice
                                                         }
                                                     />
                                                     <InputError
                                                         message={
                                                             form.errors[
-                                                                `lines.${index}.ordered_quantity`
+                                                                `lines.${index}.unit_price`
                                                             ]
                                                         }
                                                     />
                                                 </Td>
-                                                {options.canViewCosts && (
-                                                    <>
-                                                        <Td>
-                                                            <Input
-                                                                type="number"
-                                                                min="0"
-                                                                step="0.0001"
-                                                                value={
-                                                                    line.unit_price
-                                                                }
-                                                                onChange={(
-                                                                    event,
-                                                                ) =>
-                                                                    updateLine(
-                                                                        index,
-                                                                        {
-                                                                            unit_price:
-                                                                                event
-                                                                                    .target
-                                                                                    .value,
-                                                                        },
-                                                                    )
-                                                                }
-                                                                disabled={
-                                                                    !options.canOverridePrice
-                                                                }
-                                                            />
-                                                            <InputError
-                                                                message={
-                                                                    form.errors[
-                                                                        `lines.${index}.unit_price`
-                                                                    ]
-                                                                }
-                                                            />
-                                                        </Td>
-                                                        <Td className="font-medium">
-                                                            {formatCurrencyAmount(
-                                                                form.data
-                                                                    .currency_code,
-                                                                Number(
-                                                                    line.ordered_quantity ||
-                                                                        0,
-                                                                ) *
-                                                                    Number(
-                                                                        line.unit_price ||
-                                                                            0,
-                                                                    ),
-                                                            )}
-                                                        </Td>
-                                                    </>
-                                                )}
-                                                <Td>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        title="Remove item"
-                                                        disabled={
-                                                            form.data.lines
-                                                                .length === 1
-                                                        }
-                                                        onClick={() =>
-                                                            form.setData(
-                                                                'lines',
-                                                                form.data.lines.filter(
-                                                                    (
-                                                                        _,
-                                                                        current,
-                                                                    ) =>
-                                                                        current !==
-                                                                        index,
-                                                                ),
-                                                            )
-                                                        }
-                                                    >
-                                                        <Trash2 />
-                                                    </Button>
+                                                <Td className="font-medium">
+                                                    {formatCurrencyAmount(
+                                                        form.data.currency_code,
+                                                        Number(
+                                                            line.ordered_quantity ||
+                                                                0,
+                                                        ) *
+                                                            Number(
+                                                                line.unit_price ||
+                                                                    0,
+                                                            ),
+                                                    )}
                                                 </Td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </Section>
+                                            </>
+                                        )}
+                                        <Td>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                title="Remove item"
+                                                disabled={
+                                                    form.data.lines.length === 1
+                                                }
+                                                onClick={() =>
+                                                    form.setData(
+                                                        'lines',
+                                                        form.data.lines.filter(
+                                                            (_, current) =>
+                                                                current !==
+                                                                index,
+                                                        ),
+                                                    )
+                                                }
+                                            >
+                                                <Trash2 />
+                                            </Button>
+                                        </Td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </Section>
 
-                    <Section
-                        title="Commercial terms"
-                        description="Optional tax, discount and supplier delivery terms."
-                    >
-                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                            {options.canViewCosts && (
-                                <>
-                                    <Field label="Discount">
-                                        <Input
-                                            type="number"
-                                            min="0"
-                                            step="0.0001"
-                                            value={form.data.discount_amount}
-                                            onChange={(event) =>
-                                                form.setData(
-                                                    'discount_amount',
-                                                    event.target.value,
-                                                )
-                                            }
-                                        />
-                                    </Field>
-                                    <Field label="Tax">
-                                        <Input
-                                            type="number"
-                                            min="0"
-                                            step="0.0001"
-                                            value={form.data.tax_amount}
-                                            onChange={(event) =>
-                                                form.setData(
-                                                    'tax_amount',
-                                                    event.target.value,
-                                                )
-                                            }
-                                        />
-                                    </Field>
-                                </>
-                            )}
-                            <Field label="Delivery terms">
-                                <Textarea
-                                    value={form.data.delivery_terms}
+            <Section
+                title="Commercial terms"
+                description="Optional tax, discount and supplier delivery terms."
+            >
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    {options.canViewCosts && (
+                        <>
+                            <Field label="Discount">
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.0001"
+                                    value={form.data.discount_amount}
                                     onChange={(event) =>
                                         form.setData(
-                                            'delivery_terms',
+                                            'discount_amount',
                                             event.target.value,
                                         )
                                     }
                                 />
                             </Field>
-                            <Field label="Payment terms">
-                                <Textarea
-                                    value={form.data.payment_terms}
+                            <Field label="Tax">
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.0001"
+                                    value={form.data.tax_amount}
                                     onChange={(event) =>
                                         form.setData(
-                                            'payment_terms',
+                                            'tax_amount',
                                             event.target.value,
                                         )
                                     }
                                 />
                             </Field>
-                            <div className="md:col-span-2 xl:col-span-4">
-                                <Field label="Notes">
-                                    <Textarea
-                                        value={form.data.notes}
-                                        onChange={(event) =>
-                                            form.setData(
-                                                'notes',
-                                                event.target.value,
-                                            )
-                                        }
-                                    />
-                                </Field>
-                            </div>
-                        </div>
-                        {options.canViewCosts && (
-                            <div className="mt-5 flex justify-end">
-                                <div className="grid w-full max-w-sm gap-2 text-sm">
-                                    <Total
-                                        label="Subtotal"
-                                        value={subtotal}
-                                        currency={form.data.currency_code}
-                                    />
-                                    <Total
-                                        label="Discount"
-                                        value={Number(
-                                            form.data.discount_amount || 0,
-                                        )}
-                                        currency={form.data.currency_code}
-                                    />
-                                    <Total
-                                        label="Tax"
-                                        value={Number(
-                                            form.data.tax_amount || 0,
-                                        )}
-                                        currency={form.data.currency_code}
-                                    />
-                                    <Total
-                                        label="Order total"
-                                        value={total}
-                                        currency={form.data.currency_code}
-                                        strong
-                                    />
-                                </div>
-                            </div>
-                        )}
-                    </Section>
-
-                    <div className="flex justify-end border-t pt-5">
-                        <Button type="submit" disabled={form.processing}>
-                            {purchaseOrder ? 'Save changes' : 'Save draft'}
-                        </Button>
+                        </>
+                    )}
+                    <Field label="Delivery terms">
+                        <Textarea
+                            value={form.data.delivery_terms}
+                            onChange={(event) =>
+                                form.setData(
+                                    'delivery_terms',
+                                    event.target.value,
+                                )
+                            }
+                        />
+                    </Field>
+                    <Field label="Payment terms">
+                        <Textarea
+                            value={form.data.payment_terms}
+                            onChange={(event) =>
+                                form.setData(
+                                    'payment_terms',
+                                    event.target.value,
+                                )
+                            }
+                        />
+                    </Field>
+                    <div className="md:col-span-2 xl:col-span-4">
+                        <Field label="Notes">
+                            <Textarea
+                                value={form.data.notes}
+                                onChange={(event) =>
+                                    form.setData('notes', event.target.value)
+                                }
+                            />
+                        </Field>
                     </div>
+                </div>
+                {options.canViewCosts && (
+                    <div className="mt-5 flex justify-end">
+                        <div className="grid w-full max-w-sm gap-2 text-sm">
+                            <Total
+                                label="Subtotal"
+                                value={subtotal}
+                                currency={form.data.currency_code}
+                            />
+                            <Total
+                                label="Discount"
+                                value={Number(form.data.discount_amount || 0)}
+                                currency={form.data.currency_code}
+                            />
+                            <Total
+                                label="Tax"
+                                value={Number(form.data.tax_amount || 0)}
+                                currency={form.data.currency_code}
+                            />
+                            <Total
+                                label="Order total"
+                                value={total}
+                                currency={form.data.currency_code}
+                                strong
+                            />
+                        </div>
+                    </div>
+                )}
+            </Section>
+
+            <div className="flex justify-end border-t pt-5">
+                <Button type="submit" disabled={form.processing}>
+                    {purchaseOrder ? 'Save changes' : 'Save draft'}
+                </Button>
+            </div>
         </form>
     );
 }

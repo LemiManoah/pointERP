@@ -6,6 +6,7 @@ use App\Models\AuditActivity;
 use App\Models\InventoryBatch;
 use App\Models\InventoryGoodsReceipt;
 use App\Models\InventoryItem;
+use App\Models\InventoryReconciliation;
 use App\Models\InventoryStockMovement;
 use App\Models\InventoryStore;
 use App\Models\User;
@@ -35,7 +36,14 @@ it('records an idempotent physical count reconciliation', function (): void {
     $this->actingAs($storeKeeper)->post(route('inventory.stock-counts.store'), $payload)->assertRedirect();
     $this->actingAs($storeKeeper)->post(route('inventory.stock-counts.store'), $payload)->assertRedirect();
 
-    expect(InventoryStockMovement::query()->where('source_key', 'stock-count:test-cement-count-001:'.$item->id.':'.$batch->id)->count())->toBe(1)
+    $reconciliation = InventoryReconciliation::query()->where('request_key', 'test-cement-count-001')->firstOrFail();
+    expect(InventoryReconciliation::query()->where('request_key', 'test-cement-count-001')->count())->toBe(1)
+        ->and(resolve(InventoryStockBalance::class)->for($store, $item)['on_hand'])->toBe('1200.0000');
+
+    $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
+    $this->actingAs($director)->post(route('inventory.reconciliations.approve', $reconciliation))->assertRedirect();
+
+    expect(InventoryStockMovement::query()->where('source_id', $reconciliation->id)->count())->toBe(1)
         ->and(resolve(InventoryStockBalance::class)->for($store, $item)['on_hand'])->toBe('1100.0000');
 });
 

@@ -13,6 +13,7 @@ use App\Models\InventoryBatch;
 use App\Models\InventoryGoodsReceipt;
 use App\Models\InventoryGoodsReceiptLine;
 use App\Models\InventoryItem;
+use App\Models\InventoryStockMovement;
 use App\Models\InventoryStore;
 use App\Models\InventoryStoreItem;
 use App\Models\PurchaseOrder;
@@ -130,7 +131,7 @@ final readonly class ReceiveInventoryStock
                     'rejected_quantity' => (string) $rejected,
                     'rejection_reason' => $line['rejection_reason'] ?? null,
                     'unit_of_measure_id' => $purchaseOrderLine->unit_of_measure_id,
-                    'stock_quantity' => $movement === null ? '0.0000' : $movement->quantity,
+                    'stock_quantity' => $movement instanceof InventoryStockMovement ? $movement->quantity : '0.0000',
                     'unit_cost' => $purchaseOrderLine->unit_price,
                     'line_total' => (string) $lineTotal,
                     'batch_number' => $batch?->batch_number,

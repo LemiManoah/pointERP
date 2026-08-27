@@ -52,7 +52,7 @@ final class InventoryController
                 'inventory_category_id' => $item->inventory_category_id,
                 'stock_unit_id' => $item->stock_unit_id,
                 'category' => $item->category?->only(['id', 'name', 'description', 'is_active']),
-                'stock_unit' => $item->stockUnit?->only(['id', 'code', 'name', 'symbol', 'quantity_dimension', 'is_base_unit', 'is_active']),
+                'stock_unit' => $item->stockUnit->only(['id', 'code', 'name', 'symbol', 'quantity_dimension', 'is_base_unit', 'is_active']),
                 'preferred_supplier' => $item->preferredSupplier?->only(['id', 'name', 'code', 'type']),
                 'minimum_stock' => $item->minimum_stock,
                 'reorder_quantity' => $item->reorder_quantity,

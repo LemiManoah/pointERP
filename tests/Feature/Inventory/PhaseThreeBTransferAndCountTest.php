@@ -6,6 +6,7 @@ use App\Models\InventoryBatch;
 use App\Models\InventoryItem;
 use App\Models\InventoryStockMovement;
 use App\Models\InventoryStore;
+use App\Models\InventoryTransfer;
 use App\Models\User;
 use App\Services\InventoryStockBalance;
 use App\Services\TenantContext;
@@ -18,7 +19,7 @@ beforeEach(function (): void {
     resolve(TenantContext::class)->set(User::query()->where('email', 'lemi@gmail.com')->firstOrFail()->tenant);
 });
 
-it('records an immediate multi-store transfer atomically', function (): void {
+it('records a multi-store transfer atomically after approval', function (): void {
     $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
     $source = InventoryStore::query()->where('code', 'KLA-MAIN-STORE')->firstOrFail();
     $destination = InventoryStore::query()->where('code', 'GUL-SITE-STORE')->firstOrFail();
@@ -36,12 +37,18 @@ it('records an immediate multi-store transfer atomically', function (): void {
             'inventory_batch_id' => $batch->id,
             'quantity' => '20',
         ]],
-    ])->assertRedirect(route('inventory.movements.index'));
+    ])->assertRedirect(route('inventory.transfers.index'));
+
+    $transfer = InventoryTransfer::query()->where('request_key', 'test-transfer-001')->firstOrFail();
+
+    expect(resolve(InventoryStockBalance::class)->for($source, $cement)['on_hand'])->toBe('1200.0000')
+        ->and(resolve(InventoryStockBalance::class)->for($destination, $cement)['on_hand'])->toBe('0.0000');
+
+    $this->actingAs($director)->post(route('inventory.transfers.approve', $transfer))->assertRedirect();
 
     expect(resolve(InventoryStockBalance::class)->for($source, $cement)['on_hand'])->toBe('1180.0000')
         ->and(resolve(InventoryStockBalance::class)->for($destination, $cement)['on_hand'])->toBe('20.0000')
-        ->and(InventoryStockMovement::query()->where('source_key', 'store-transfer:test-transfer-001:0:out')->exists())->toBeTrue()
-        ->and(InventoryStockMovement::query()->where('source_key', 'store-transfer:test-transfer-001:0:in')->exists())->toBeTrue();
+        ->and(InventoryStockMovement::query()->where('source_id', $transfer->id)->count())->toBe(2);
 });
 
 it('rejects a transfer that exceeds the selected batch balance', function (): void {
@@ -62,7 +69,10 @@ it('rejects a transfer that exceeds the selected batch balance', function (): vo
             'inventory_batch_id' => $batch->id,
             'quantity' => '2000',
         ]],
-    ])->assertSessionHasErrors('lines.0.quantity');
+    ])->assertRedirect(route('inventory.transfers.index'));
+
+    $transfer = InventoryTransfer::query()->where('request_key', 'test-transfer-too-large')->firstOrFail();
+    $this->actingAs($director)->post(route('inventory.transfers.approve', $transfer))->assertSessionHasErrors();
 
     expect(resolve(InventoryStockBalance::class)->for($source, $cement)['on_hand'])->toBe('1200.0000')
         ->and(resolve(InventoryStockBalance::class)->for($destination, $cement)['on_hand'])->toBe('0.0000');

@@ -18,6 +18,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * @property-read string $code
+ * @property-read string $id
+ * @property-read string $tenant_id
+ * @property-read string $stock_unit_id
  * @property-read string $name
  * @property-read string|null $description
  * @property-read InventoryMaterialClass $material_class
@@ -30,6 +33,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read float|null $default_unit_cost
  * @property-read float|null $default_selling_price
  * @property-read bool $is_active
+ * @property-read UnitOfMeasure $stockUnit
  */
 #[Fillable([
     'tenant_id', 'inventory_category_id', 'stock_unit_id', 'preferred_supplier_id',

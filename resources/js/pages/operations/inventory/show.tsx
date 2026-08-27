@@ -7,7 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
-import { formatCurrencyAmount, formatDateTime, formatNumber } from '@/lib/utils';
+import {
+    formatCurrencyAmount,
+    formatDateTime,
+    formatNumber,
+} from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import { DocumentDialog } from '../documents/partials/document-dialog';
 import type {
@@ -583,7 +587,9 @@ export default function InventoryItemShow(props: Props) {
                                         (movement) => [
                                             <div key={`${movement.id}-posted`}>
                                                 <span className="font-medium">
-                                                    {formatDateTime(movement.posted_at)}
+                                                    {formatDateTime(
+                                                        movement.posted_at,
+                                                    )}
                                                 </span>
                                                 <div className="text-muted-foreground">
                                                     {movement.posted_by}

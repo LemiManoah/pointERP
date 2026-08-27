@@ -87,7 +87,7 @@ final class InventoryItemController
                 'default_selling_price' => $canViewCosts ? $inventoryItem->default_selling_price : null,
                 'is_active' => $inventoryItem->is_active,
                 'category' => $inventoryItem->category?->only(['id', 'name']),
-                'stock_unit' => $inventoryItem->stockUnit?->only(['id', 'name', 'symbol']),
+                'stock_unit' => $inventoryItem->stockUnit->only(['id', 'name', 'symbol']),
                 'preferred_supplier' => $inventoryItem->preferredSupplier?->only(['id', 'name']),
             ],
             'conversions' => $inventoryItem->conversions->map(fn (InventoryUnitConversion $conversion): array => [

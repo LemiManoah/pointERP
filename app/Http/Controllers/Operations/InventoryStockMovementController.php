@@ -42,7 +42,7 @@ final class InventoryStockMovementController
                 'store' => $movement->store->only(['id', 'branch_id', 'name']),
                 'item' => [
                     ...$movement->item->only(['id', 'name', 'code']),
-                    'stock_unit' => $movement->item->stockUnit?->only(['id', 'name', 'symbol']),
+                    'stock_unit' => $movement->item->stockUnit->only(['id', 'name', 'symbol']),
                 ],
                 'posted_by' => $movement->postedBy->only(['id', 'name']),
             ]),
@@ -62,7 +62,7 @@ final class InventoryStockMovementController
         }
 
         if ($sourceType === 'physical_stock_count') {
-            return 'Physical stock count';
+            return 'Stock reconciliation';
         }
 
         return match (class_basename($sourceType)) {

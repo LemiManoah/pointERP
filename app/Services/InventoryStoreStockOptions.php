@@ -35,7 +35,8 @@ final readonly class InventoryStoreStockOptions
     /** @return Collection<int, array<string, mixed>> */
     public function stores(User $actor): Collection
     {
-        return InventoryStore::query()
+        /** @var Collection<int, array<string, mixed>> $stores */
+        $stores = InventoryStore::query()
             ->whereIn('id', $this->accessibleStoreIds($actor))
             ->with(['branch', 'storeSettings.item.stockUnit'])
             ->orderBy('name')
@@ -49,8 +50,11 @@ final readonly class InventoryStoreStockOptions
                 'items' => $store->storeSettings
                     ->filter(fn (InventoryStoreItem $setting): bool => $setting->is_active && $setting->item->is_active)
                     ->map(fn (InventoryStoreItem $setting): array => $this->itemOption($store, $setting))
-                    ->values(),
+                    ->values()
+                    ->all(),
             ]);
+
+        return $stores;
     }
 
     /** @return array<string, mixed> */

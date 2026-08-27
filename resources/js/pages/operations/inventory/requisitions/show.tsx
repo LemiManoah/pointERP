@@ -384,7 +384,9 @@ export default function MaterialRequisitionShow(props: Props) {
                                                 {line.stock_unit_name}
                                             </span>
                                             <div className="text-sm text-muted-foreground">
-                                                {formatDateTime(movement.posted_at)}
+                                                {formatDateTime(
+                                                    movement.posted_at,
+                                                )}
                                             </div>
                                         </div>
                                     </div>

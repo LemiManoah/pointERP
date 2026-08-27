@@ -64,10 +64,7 @@ type Props = {
         viewCosts: boolean;
     };
 };
-export default function PurchaseOrderShow({
-    purchaseOrder: po,
-    can,
-}: Props) {
+export default function PurchaseOrderShow({ purchaseOrder: po, can }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Purchase orders', href: '/inventory/purchase-orders' },
         { title: po.order_number, href: `/inventory/purchase-orders/${po.id}` },
@@ -93,7 +90,9 @@ export default function PurchaseOrderShow({
                     <div className="flex flex-wrap gap-2">
                         {can.update && (
                             <Button variant="outline" asChild>
-                                <Link href={`/inventory/purchase-orders/${po.id}/edit`}>
+                                <Link
+                                    href={`/inventory/purchase-orders/${po.id}/edit`}
+                                >
                                     Edit draft
                                 </Link>
                             </Button>

@@ -5,14 +5,22 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\DailySiteReports\SaveDailySiteReport;
+use App\Enums\InventoryMovementType;
 use App\Http\Requests\Operations\DailySiteReports\StoreDailySiteReportRequest;
 use App\Http\Requests\Operations\DailySiteReports\UpdateDailySiteReportRequest;
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportCorrection;
+use App\Models\DailySiteReportMaterialLine;
 use App\Models\DailySiteReportReview;
 use App\Models\DailySiteReportWorkLine;
 use App\Models\Document;
+use App\Models\DsrMaterialReconciliation;
 use App\Models\Equipment;
+use App\Models\InventoryBatch;
+use App\Models\InventoryItem;
+use App\Models\InventoryStockMovement;
+use App\Models\InventoryStore;
+use App\Models\InventoryUnitConversion;
 use App\Models\ProjectActivity;
 use App\Models\Site;
 use App\Models\TenantCurrency;
@@ -21,6 +29,7 @@ use App\Services\BranchContext;
 use App\Services\TenantContext;
 use App\Support\Operations\PresentsLinkedDocuments;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -80,10 +89,15 @@ final class DailySiteReportController
             'labourLines',
             'equipmentLines',
             'materialLines',
+            'materialLines.item.stockUnit',
+            'materialLines.store',
+            'materialLines.reconciliations.movement',
             'costLines',
             'delayLines',
         ]);
         $canViewCosts = $this->canViewRates($user);
+        $canViewMaterialReconciliation = $user->can('inventory.dsr-reconciliation.view')
+            && $dailySiteReport->isApproved();
         $linkedDocuments = $this->linkedDocumentsFor($dailySiteReport, $user);
 
         return Inertia::render('operations/daily-site-reports/show', [
@@ -118,7 +132,39 @@ final class DailySiteReportController
                 'approve' => Gate::forUser($user)->allows('approve', $dailySiteReport),
                 'return' => Gate::forUser($user)->allows('return', $dailySiteReport),
                 'correct' => Gate::forUser($user)->allows('correct', $dailySiteReport),
+                'viewMaterialReconciliation' => $canViewMaterialReconciliation,
             ],
+            'materialReconciliations' => $canViewMaterialReconciliation ? $dailySiteReport->materialLines->map(function (DailySiteReportMaterialLine $line) use ($dailySiteReport, $user): array {
+                $reported = (float) ($line->stock_unit_quantity ?? $line->quantity ?? 0);
+                $allocated = (float) $line->reconciliations->sum('allocated_quantity');
+                $stockUnitLabel = $line->inventory_item_id === null
+                    ? $line->unit
+                    : ($line->item->stockUnit->symbol ?? $line->item->stockUnit->name);
+                /** @var EloquentCollection<int, InventoryStockMovement> $candidates */
+                $candidates = $line->inventory_item_id === null ? new EloquentCollection : InventoryStockMovement::query()
+                    ->where('inventory_item_id', $line->inventory_item_id)->where('movement_type', InventoryMovementType::Issue->value)
+                    ->where('project_id', $dailySiteReport->project_id)->where('site_id', $dailySiteReport->site_id)
+                    ->whereBetween('posted_at', [$dailySiteReport->report_date->copy()->subDays(30)->startOfDay(), $dailySiteReport->report_date->copy()->addDays(7)->endOfDay()])
+                    ->with(['store', 'postedBy'])->latest('posted_at')->limit(30)->get();
+
+                return [
+                    'id' => $line->id, 'material_name' => $line->material_name, 'inventory_item_id' => $line->inventory_item_id,
+                    'inventory_store_id' => $line->inventory_store_id, 'status' => $line->inventory_reconciliation_status->value,
+                    'reported_quantity' => $line->quantity, 'reported_unit' => $line->unit,
+                    'stock_quantity' => $line->stock_unit_quantity ?? $line->quantity, 'stock_unit' => $stockUnitLabel,
+                    'allocated_quantity' => (string) $allocated, 'outstanding_quantity' => (string) max(0, $reported - $allocated),
+                    'external_reason' => $line->external_material_reason,
+                    'allocations' => $line->reconciliations->map(fn (DsrMaterialReconciliation $allocation): array => ['id' => $allocation->id, 'type' => $allocation->type->value, 'quantity' => $allocation->allocated_quantity, 'reason' => $allocation->reason])->values()->all(),
+                    'candidate_issues' => $candidates->map(function (InventoryStockMovement $movement): array {
+                        $allocated = (float) DsrMaterialReconciliation::query()->where('inventory_stock_movement_id', $movement->id)->sum('allocated_quantity');
+
+                        return ['id' => $movement->id, 'quantity' => (string) max(0, abs((float) $movement->quantity) - $allocated), 'store_name' => $movement->store->name, 'posted_at' => $movement->posted_at->format('d M Y, H:i'), 'posted_by' => $movement->postedBy->name];
+                    })->filter(fn (array $movement): bool => (float) $movement['quantity'] > 0)->values()->all(),
+                    'can_manage' => Gate::forUser($user)->allows('manage', $line),
+                    'can_direct_issue' => Gate::forUser($user)->allows('directIssue', $line),
+                    'can_mark_external' => Gate::forUser($user)->allows('markExternal', $line),
+                ];
+            })->values()->all() : [],
             'canViewCosts' => $canViewCosts,
             'reviews' => $dailySiteReport->reviews
                 ->sortByDesc('created_at')
@@ -263,6 +309,15 @@ final class DailySiteReportController
                     'current_meter_reading' => $equipment->current_meter_reading,
                     'meter_type' => $equipment->meter_type,
                 ]),
+            'inventoryItems' => InventoryItem::query()->where('is_active', true)->with(['stockUnit', 'conversions.fromUnit', 'storeSettings', 'batches'])->orderBy('name')->get()->map(fn (InventoryItem $item): array => [
+                'id' => $item->id, 'name' => $item->name, 'code' => $item->code, 'stock_unit_id' => $item->stock_unit_id,
+                'stock_unit' => $item->stockUnit->symbol ?? $item->stockUnit->name,
+                'tracking_type' => $item->tracking_type->value,
+                'store_ids' => $item->storeSettings->where('is_active', true)->pluck('inventory_store_id')->values()->all(),
+                'units' => collect([['id' => $item->stockUnit->id, 'name' => $item->stockUnit->name, 'symbol' => $item->stockUnit->symbol]])->merge($item->conversions->where('is_active', true)->map(fn (InventoryUnitConversion $conversion): array => ['id' => $conversion->fromUnit->id, 'name' => $conversion->fromUnit->name, 'symbol' => $conversion->fromUnit->symbol]))->unique('id')->values()->all(),
+                'batches' => $item->batches->where('is_active', true)->map(fn (InventoryBatch $batch): array => ['id' => $batch->id, 'batch_number' => $batch->batch_number, 'inventory_store_id' => $batch->inventory_store_id])->values()->all(),
+            ]),
+            'inventoryStores' => InventoryStore::query()->whereIn('branch_id', $branchIds)->where('is_active', true)->with('branch')->orderBy('name')->get()->map(fn (InventoryStore $store): array => ['id' => $store->id, 'branch_id' => $store->branch_id, 'name' => $store->name, 'branch_name' => $store->branch->name]),
             'currencies' => TenantCurrency::query()
                 ->with('currency')
                 ->where('tenant_id', $tenantId)

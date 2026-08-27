@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 /**
  * @property-read string $id
@@ -25,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read string $inspection_status
  * @property-read CarbonInterface $received_on
  * @property-read int $lines_count
+ * @property-read Collection<int, InventoryGoodsReceiptLine> $lines
  */
 #[Fillable(['tenant_id', 'branch_id', 'inventory_store_id', 'supplier_id', 'purchase_order_id', 'source_key', 'reference', 'supplier_reference', 'received_on', 'currency_code', 'total_amount', 'inspection_status', 'notes', 'received_by', 'verified_by', 'verified_at'])]
 final class InventoryGoodsReceipt extends Model

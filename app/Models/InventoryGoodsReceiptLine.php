@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -12,6 +13,19 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property-read string $id
+ * @property-read string $quantity
+ * @property-read string $accepted_quantity
+ * @property-read string $rejected_quantity
+ * @property-read string|null $rejection_reason
+ * @property-read string|null $batch_number
+ * @property-read CarbonInterface|null $expires_on
+ * @property-read string|null $unit_cost
+ * @property-read string|null $line_total
+ * @property-read InventoryItem $item
+ * @property-read UnitOfMeasure $unit
+ */
 #[Fillable(['tenant_id', 'inventory_goods_receipt_id', 'purchase_order_line_id', 'inventory_item_id', 'inventory_batch_id', 'inventory_stock_movement_id', 'quantity', 'accepted_quantity', 'rejected_quantity', 'rejection_reason', 'unit_of_measure_id', 'stock_quantity', 'unit_cost', 'line_total', 'batch_number', 'manufactured_on', 'expires_on'])]
 final class InventoryGoodsReceiptLine extends Model
 {
