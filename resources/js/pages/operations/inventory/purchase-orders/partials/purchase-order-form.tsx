@@ -1,19 +1,10 @@
 import { useForm } from '@inertiajs/react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
+import { useMemo } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import InputError from '@/components/input-error';
 import { SearchableSelect } from '@/components/searchable-select';
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -53,14 +44,13 @@ const emptyLine = (): Line => ({
     unit_price: '',
 });
 
-export function PurchaseOrderDialog({
+export function PurchaseOrderForm({
     options,
     purchaseOrder,
 }: {
     options: ProcurementOptions;
     purchaseOrder?: EditablePurchaseOrder;
 }) {
-    const [open, setOpen] = useState(false);
     const defaultBranch = options.branches.find(
         (branch) => branch.id === options.defaultBranchId,
     );
@@ -150,10 +140,6 @@ export function PurchaseOrderDialog({
         event.preventDefault();
         const options = {
             preserveScroll: true,
-            onSuccess: () => {
-                setOpen(false);
-                if (!purchaseOrder) form.reset();
-            },
         };
         if (purchaseOrder) {
             form.put(`/inventory/purchase-orders/${purchaseOrder.id}`, options);
@@ -164,27 +150,7 @@ export function PurchaseOrderDialog({
     };
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button variant={purchaseOrder ? 'outline' : 'default'}>
-                    {purchaseOrder ? <Pencil /> : <Plus />}
-                    {purchaseOrder ? 'Edit draft' : 'New purchase order'}
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="max-h-[94dvh] overflow-y-auto p-5 sm:max-w-[calc(100vw-2rem)] md:p-6 lg:max-w-6xl xl:max-w-7xl">
-                <form onSubmit={submit} className="grid gap-6">
-                    <DialogHeader className="sticky -top-5 z-10 -mx-5 border-b bg-background px-5 pb-5 md:-top-6 md:-mx-6 md:px-6 md:pb-6">
-                        <DialogTitle>
-                            {purchaseOrder
-                                ? 'Edit purchase order'
-                                : 'Create purchase order'}
-                        </DialogTitle>
-                        <DialogDescription>
-                            Create a direct order for inventory items that will
-                            be delivered into a company store.
-                        </DialogDescription>
-                    </DialogHeader>
-
+        <form onSubmit={submit} className="grid gap-6">
                     <Section
                         title="Order details"
                         description="Choose the supplier, receiving store and expected delivery date."
@@ -653,14 +619,12 @@ export function PurchaseOrderDialog({
                         )}
                     </Section>
 
-                    <DialogFooter className="sticky -bottom-5 z-10 -mx-5 border-t bg-background px-5 pt-5 md:-bottom-6 md:-mx-6 md:px-6 md:pt-6">
+                    <div className="flex justify-end border-t pt-5">
                         <Button type="submit" disabled={form.processing}>
                             {purchaseOrder ? 'Save changes' : 'Save draft'}
                         </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
+                    </div>
+        </form>
     );
 }
 

@@ -94,7 +94,7 @@ final class MaterialRequisitionController
                 'notes' => $line->notes,
                 'available_stock' => $balance['available'] ?? null,
                 'reserved_quantity' => $reservation?->reserved_quantity,
-                'movements' => $line->stockMovements->map(fn (InventoryStockMovement $movement): array => ['id' => $movement->id, 'type' => $movement->movement_type->value, 'quantity' => $movement->quantity, 'original_quantity' => $movement->original_quantity, 'posted_at' => $movement->posted_at->toDateTimeString(), 'posted_by' => $movement->postedBy->name]),
+                'movements' => $line->stockMovements->map(fn (InventoryStockMovement $movement): array => ['id' => $movement->id, 'type' => $movement->movement_type->value, 'quantity' => $movement->quantity, 'original_quantity' => $movement->original_quantity, 'posted_at' => $movement->posted_at->format('d M Y, H:i'), 'posted_by' => $movement->postedBy->name]),
             ];
         });
 

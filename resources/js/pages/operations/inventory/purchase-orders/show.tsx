@@ -4,10 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
-import { formatCurrencyAmount, formatNumber } from '@/lib/utils';
+import { formatCurrencyAmount, formatDate, formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
-import type { ProcurementOptions } from '../procurement-types';
-import { PurchaseOrderDialog } from './partials/purchase-order-dialog';
 
 type Line = {
     id: string;
@@ -56,7 +54,6 @@ type Order = {
 };
 type Props = {
     purchaseOrder: Order;
-    procurementOptions: ProcurementOptions;
     can: {
         update: boolean;
         submit: boolean;
@@ -69,7 +66,6 @@ type Props = {
 };
 export default function PurchaseOrderShow({
     purchaseOrder: po,
-    procurementOptions,
     can,
 }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
@@ -96,20 +92,11 @@ export default function PurchaseOrderShow({
                     </div>
                     <div className="flex flex-wrap gap-2">
                         {can.update && (
-                            <PurchaseOrderDialog
-                                options={procurementOptions}
-                                purchaseOrder={{
-                                    ...po,
-                                    lines: po.lines.map((line) => ({
-                                        inventory_item_id:
-                                            line.inventory_item_id,
-                                        unit_of_measure_id:
-                                            line.unit_of_measure_id,
-                                        ordered_quantity: line.ordered_quantity,
-                                        unit_price: line.unit_price ?? '0',
-                                    })),
-                                }}
-                            />
+                            <Button variant="outline" asChild>
+                                <Link href={`/inventory/purchase-orders/${po.id}/edit`}>
+                                    Edit draft
+                                </Link>
+                            </Button>
                         )}
                         {can.submit && (
                             <Button
@@ -333,7 +320,7 @@ export default function PurchaseOrderShow({
                                 >
                                     <span>{receipt.reference}</span>
                                     <span className="text-muted-foreground">
-                                        {receipt.received_on} ·{' '}
+                                        {formatDate(receipt.received_on)} ·{' '}
                                         {label(receipt.inspection_status)}
                                     </span>
                                 </div>

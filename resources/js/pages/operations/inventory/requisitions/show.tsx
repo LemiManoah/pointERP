@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
-import { formatNumber } from '@/lib/utils';
+import { formatDateTime, formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import {
     CancelRequisitionDialog,
@@ -384,7 +384,7 @@ export default function MaterialRequisitionShow(props: Props) {
                                                 {line.stock_unit_name}
                                             </span>
                                             <div className="text-sm text-muted-foreground">
-                                                {movement.posted_at}
+                                                {formatDateTime(movement.posted_at)}
                                             </div>
                                         </div>
                                     </div>

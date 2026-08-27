@@ -45,4 +45,10 @@ final class InventoryGoodsReceiptLine extends Model
     {
         return $this->belongsTo(PurchaseOrderLine::class);
     }
+
+    /** @return BelongsTo<UnitOfMeasure, $this> */
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(UnitOfMeasure::class, 'unit_of_measure_id');
+    }
 }

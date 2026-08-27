@@ -313,7 +313,7 @@ The immutable stock ledger:
 
 Posted movements are append-only. A reversal points to the original movement and records a reason.
 
-The ledger must enforce source idempotency with a stable source key and use locked store-item rows when posting. A transfer dispatch and receipt are separate movements joined by the transfer line, and their posting occurs through transactional domain actions only.
+The ledger must enforce source idempotency with a stable source key and use locked store-item rows when posting. In the initial workflow, one transfer action records its matching `transfer_out` and `transfer_in` entries in a single database transaction.
 
 ### 5.12 `inventory_reservations`
 
@@ -323,22 +323,13 @@ The ledger must enforce source idempotency with a stable source key and use lock
 
 Reservations must not reduce physical on-hand. They reduce available stock and are released when a requisition is cancelled, fulfilled or expires.
 
-### 5.13 `inventory_transfers` and `inventory_transfer_lines`
+### 5.13 Deferred transfer documents
 
-- source/destination stores and branches;
-- transfer reference, reason and expected date;
-- dispatch, receipt, rejection and cancellation lifecycle;
-- item quantities, unit conversion and condition snapshots.
+The initial release does not require transfer header/line tables. It records immediate transfers directly through paired ledger entries with one source key. Add transfer documents, dispatch/receipt separation and in-transit stock only when stores genuinely need independent handover confirmation.
 
-Dispatch creates `transfer_out`; receipt creates `transfer_in`. A dispatched transfer is in transit and is not available at the destination until received.
+### 5.14 Deferred count documents
 
-### 5.14 `inventory_counts` and `inventory_count_lines`
-
-- store, count date, counter, verifier and status;
-- item, system quantity, counted quantity, variance and reason;
-- approval and resulting adjustment movement.
-
-Count entry does not change stock. Only approval posts the variance.
+The initial release does not require count header/line tables. An authorised physical-count action compares the submitted system snapshot with the current ledger balance and immediately records only the variance. Add saved count sheets, independent verification and approval only when pilot controls require them.
 
 ### 5.15 DSR integration fields
 
@@ -559,7 +550,7 @@ Status: implemented, pending validation.
 - Supplier deliveries must reference an approved purchase order. Supplier, branch, store, item, unit, currency and price are inherited from the PO and cannot be re-entered during receipt.
 - Facility currency and branch default automatically. Branch choice is exposed only to a user with multiple accessible branches and the dedicated change-branch permission.
 - Batch number and expiry are captured while receiving a batch-tracked item. Item setup only declares the tracking rule.
-- Internal opening balances, reconciliations, issues, returns and atomic transfers use the separate Stock movements workspace.
+- Opening quantities and corrections use physical stock counts, issues and returns use requisitions, and transfers use the dedicated transfer page. The Stock movements workspace is their read-only ledger.
 - User-facing language says `record movement`; `posted` remains the internal immutable ledger state.
 
 Acceptance: one receipt records several items and creates auditable stock movements; a transfer records matching source and destination entries atomically; users cannot bypass their default branch without permission.
@@ -594,7 +585,7 @@ Acceptance: a purchase order does not affect stock until a receipt is accepted a
 
 ### Chunk 3B.5: Receipts and inspection
 
-Status: core workflow implemented, pending validation. Approved-PO selection, partial delivery, accepted/rejected quantities, batch/expiry capture, stock posting, outstanding PO updates and audit logging are present. Dedicated receipt details and delivery-document links remain.
+Status: core workflow implemented, pending validation. Approved-PO selection, partial delivery, accepted/rejected quantities, batch/expiry capture, stock posting, outstanding PO updates, printable receipt details and audit logging are present. Delivery-document links remain.
 
 - Add receipt entry, partial delivery, accepted/rejected quantities and verification.
 - Post accepted receipt movements idempotently.
@@ -605,11 +596,15 @@ Acceptance: rejected quantity is excluded from on-hand and the order remains ope
 
 ### Chunk 3B.6: Transfers and stock counts
 
-- Add store transfers with dispatch/receive separation.
-- Add count sheets, variance approval and adjustment posting.
-- Add short/failed transfer resolution and notifications.
+Status: implemented, pending local validation.
 
-Acceptance: dispatched stock is in transit, not destination on-hand; count entry alone never changes stock.
+- Add an immediate, multi-item store-transfer page. One save records matching source and destination movements atomically; no separate dispatch, transit or receipt states are introduced until a real operating need is confirmed.
+- Add a direct physical-count page. Authorised users enter counted quantities in each item's stock unit and the system posts only the variance through the immutable movement ledger.
+- Keep the stock-movements page as a read-only operational and audit register. Supplier receipts come from approved POs, site issues and returns come from requisitions, transfers come from the transfer page, and corrections come from physical counts.
+- Apply the existing branch-change permission when exposing stores, require batch selection for batch-tracked transfers and counts, reject stale count snapshots, block negative item and batch balances, and keep source keys idempotent.
+- Defer transfer-in-transit, dispatch/receive separation, count-sheet approval and discrepancy notifications until pilot evidence shows that the immediate workflow is insufficient.
+
+Acceptance: a transfer updates both stores or neither store; a physical count posts only its variance; repeating the same source key does not duplicate stock; unauthorised and out-of-scope requests receive 403.
 
 ### Chunk 3B.7: DSR material integration
 
@@ -657,7 +652,7 @@ Tests must prove:
 8. partial receipt and rejected quantity accounting;
 9. reservation versus available balance;
 10. issue, return, transfer and reversal arithmetic;
-11. count approval before adjustment posting;
+11. stale physical-count snapshots are rejected before variance posting;
 12. idempotent source-linked movements;
 13. DSR snapshot immutability and correction rules;
 14. audit and notification creation;
@@ -680,10 +675,10 @@ Extend the existing Point Investment road demo with:
 - one supplier and one subcontractor supplier;
 - a submitted and approved requisition;
 - an approved direct PO with a pending delivery;
-- on-hand, reserved, low-stock and in-transit examples;
+- on-hand, reserved and low-stock examples;
 - a partial issue to a road site and a returned quantity;
-- a transfer awaiting receipt;
-- a stock count with a pending variance;
+- a completed immediate store transfer;
+- a completed physical-count variance;
 - an approved DSR material line linked to an issue;
 - an approved DSR material line intentionally left as external/non-stock;
 - users showing storekeeper, procurement officer, project manager, site manager and director separation.

@@ -3,6 +3,7 @@ import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,7 +12,6 @@ import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyAmount, formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import type { ProcurementOptions } from '../procurement-types';
-import { PurchaseOrderDialog } from './partials/purchase-order-dialog';
 
 type Row = {
     id: string;
@@ -99,7 +99,13 @@ export default function PurchaseOrdersIndex(props: Props) {
                             </TabsList>
                         </Tabs>
                     </div>
-                    {props.canCreate && <PurchaseOrderDialog options={props} />}
+                    {props.canCreate && (
+                        <Button asChild>
+                            <Link href="/inventory/purchase-orders/create">
+                                New purchase order
+                            </Link>
+                        </Button>
+                    )}
                 </div>
                 <Card>
                     <CardContent className="pt-6">

@@ -48,7 +48,19 @@ final class PurchaseOrderController
         ]);
     }
 
-    public function show(PurchaseOrder $purchaseOrder, ProcurementFormOptions $options): Response
+    public function create(Request $request, ProcurementFormOptions $options): Response
+    {
+        Gate::authorize('create', PurchaseOrder::class);
+        $actor = $request->user();
+        abort_unless($actor instanceof User, 403);
+
+        return Inertia::render('operations/inventory/purchase-orders/form', [
+            'purchaseOrder' => null,
+            'options' => $options->for($actor),
+        ]);
+    }
+
+    public function show(PurchaseOrder $purchaseOrder): Response
     {
         Gate::authorize('view', $purchaseOrder);
         $actor = auth()->user();
@@ -75,9 +87,11 @@ final class PurchaseOrderController
                     'line_amount' => $canViewCosts ? $line->line_amount : null,
                     'outstanding_quantity' => $line->outstandingQuantity(),
                 ]),
-                'receipts' => $purchaseOrder->receipts->map(fn (InventoryGoodsReceipt $receipt): array => $receipt->only(['id', 'reference', 'received_on', 'inspection_status'])),
+                'receipts' => $purchaseOrder->receipts->map(fn (InventoryGoodsReceipt $receipt): array => [
+                    ...$receipt->only(['id', 'reference', 'inspection_status']),
+                    'received_on' => $receipt->received_on->format('d M Y'),
+                ]),
             ],
-            'procurementOptions' => $options->for($actor),
             'can' => [
                 'update' => Gate::forUser($actor)->allows('update', $purchaseOrder),
                 'submit' => Gate::forUser($actor)->allows('submit', $purchaseOrder),
@@ -87,6 +101,25 @@ final class PurchaseOrderController
                 'receive' => Gate::forUser($actor)->allows('receive', $purchaseOrder),
                 'viewCosts' => $canViewCosts,
             ],
+        ]);
+    }
+
+    public function edit(Request $request, PurchaseOrder $purchaseOrder, ProcurementFormOptions $options): Response
+    {
+        Gate::authorize('update', $purchaseOrder);
+        $actor = $request->user();
+        abort_unless($actor instanceof User, 403);
+        $purchaseOrder->load('lines');
+
+        return Inertia::render('operations/inventory/purchase-orders/form', [
+            'purchaseOrder' => [
+                ...$purchaseOrder->only(['id', 'branch_id', 'inventory_store_id', 'supplier_id', 'currency_code', 'discount_amount', 'tax_amount', 'delivery_terms', 'payment_terms', 'notes']),
+                'order_number' => $purchaseOrder->order_number,
+                'order_date' => $purchaseOrder->order_date->toDateString(),
+                'expected_date' => $purchaseOrder->expected_date?->toDateString(),
+                'lines' => $purchaseOrder->lines->map(fn (PurchaseOrderLine $line): array => $line->only(['inventory_item_id', 'unit_of_measure_id', 'ordered_quantity', 'unit_price']))->values()->all(),
+            ],
+            'options' => $options->for($actor),
         ]);
     }
 

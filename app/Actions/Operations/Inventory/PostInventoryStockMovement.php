@@ -84,6 +84,14 @@ final readonly class PostInventoryStockMovement
                 throw ValidationException::withMessages(['original_quantity' => 'This movement would create negative stock. Available on-hand quantity is '.$current->toScale(4).'.']);
             }
 
+            $batchId = $data['inventory_batch_id'] ?? null;
+            if (is_string($batchId) && $signedQuantity->isNegative()) {
+                $batchBalance = BigDecimal::of($this->balances->forBatch($store, $item, $batchId));
+                if ($batchBalance->plus($signedQuantity)->isNegative()) {
+                    throw ValidationException::withMessages(['original_quantity' => 'This movement would create negative stock for the selected batch. Available batch quantity is '.$batchBalance->toScale(4).'.']);
+                }
+            }
+
             $movement = InventoryStockMovement::query()->create([
                 'tenant_id' => $this->tenantContext->id(), 'branch_id' => $store->branch_id,
                 'inventory_store_id' => $store->id, 'inventory_item_id' => $item->id,

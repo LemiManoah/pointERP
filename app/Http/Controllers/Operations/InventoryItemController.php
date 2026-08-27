@@ -146,7 +146,7 @@ final class InventoryItemController
                 'id' => $movement->id, 'store_name' => $movement->store->name, 'movement_type' => $movement->movement_type->value,
                 'status' => $movement->status->value, 'quantity' => $movement->quantity, 'original_quantity' => $movement->original_quantity,
                 'original_unit' => $movement->originalUnit->symbol ?? $movement->originalUnit->name, 'batch_number' => $movement->batch?->batch_number,
-                'reason' => $movement->reason, 'posted_by' => $movement->postedBy->name, 'posted_at' => $movement->posted_at->toDateTimeString(),
+                'reason' => $movement->reason, 'posted_by' => $movement->postedBy->name, 'posted_at' => $movement->posted_at->format('d M Y, H:i'),
                 'reversed_at' => $movement->reversed_at?->toDateTimeString(),
             ]),
             'units' => UnitOfMeasure::query()->where(fn (Builder $query): Builder => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenant->id))->where('is_active', true)->orderBy('name')->get()->map(fn (UnitOfMeasure $unit): array => ['id' => $unit->id, 'name' => $unit->name, 'code' => $unit->code, 'symbol' => $unit->symbol]),

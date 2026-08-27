@@ -48,6 +48,12 @@ final class InventoryGoodsReceipt extends Model
         return $this->belongsTo(InventoryStore::class, 'inventory_store_id');
     }
 
+    /** @return BelongsTo<Branch, $this> */
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
     /** @return BelongsTo<Customer, $this> */
     public function supplier(): BelongsTo
     {
@@ -58,6 +64,18 @@ final class InventoryGoodsReceipt extends Model
     public function purchaseOrder(): BelongsTo
     {
         return $this->belongsTo(PurchaseOrder::class);
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function receiver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'received_by');
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function verifier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'verified_by');
     }
 
     /** @return HasMany<InventoryGoodsReceiptLine, $this> */

@@ -1,4 +1,4 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { ClipboardCheck } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useMemo } from 'react';
@@ -10,8 +10,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
-import { formatCurrencyAmount, formatNumber } from '@/lib/utils';
+import { formatCurrencyAmount, formatDate, formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
 type Reference = { id: string; name: string; code: string };
@@ -409,6 +414,7 @@ export default function InventoryReceipts(props: Props) {
                                                                 }
                                                             >
                                                                 <Input
+                                                                    placeholder="e.g. damaged in transit, spoilt or wrong specification"
                                                                     value={
                                                                         line.rejection_reason
                                                                     }
@@ -585,18 +591,36 @@ export default function InventoryReceipts(props: Props) {
                                         className="border-b last:border-0"
                                     >
                                         <Td>
-                                            {receipt.reference}
+                                            <Link
+                                                href={`/inventory/receipts/${receipt.id}`}
+                                                className="font-medium hover:underline"
+                                            >
+                                                {receipt.reference}
+                                            </Link>
                                             <div className="text-muted-foreground">
-                                                {receipt.received_on}
+                                                {formatDate(receipt.received_on)}
                                             </div>
                                         </Td>
                                         <Td>
-                                            {
-                                                receipt.purchase_order
-                                                    .order_number
-                                            }
+                                            <Link
+                                                href={`/inventory/purchase-orders/${receipt.purchase_order.id}`}
+                                                className="font-medium hover:underline"
+                                            >
+                                                {receipt.purchase_order.order_number}
+                                            </Link>
                                         </Td>
-                                        <Td>{receipt.supplier.name}</Td>
+                                        <Td>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <span className="block max-w-48 truncate">
+                                                        {receipt.supplier.name}
+                                                    </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    {receipt.supplier.name}
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </Td>
                                         <Td>{receipt.store.name}</Td>
                                         <Td>
                                             {formatNumber(receipt.lines_count)}

@@ -30,7 +30,7 @@ final readonly class ProcurementFormOptions
             'defaultBranchId' => $defaultBranch->id,
             'canChangeBranch' => $actor->can('inventory.stock.change-branch') && count($branchIds) > 1,
             'stores' => InventoryStore::query()->whereIn('branch_id', $branchIds)->where('is_active', true)->orderBy('name')->get(['id', 'branch_id', 'name', 'code']),
-            'suppliers' => Customer::query()->whereIn('type', [Customer::TYPE_SUPPLIER, Customer::TYPE_SUBCONTRACTOR])->where('status', 'active')->orderBy('name')->get(['id', 'branch_id', 'name', 'code']),
+            'suppliers' => Customer::query()->where('type', Customer::TYPE_SUPPLIER)->where('status', 'active')->orderBy('name')->get(['id', 'branch_id', 'name', 'code']),
             'items' => InventoryItem::query()->where('is_active', true)->with('conversions')->orderBy('name')->get(['id', 'name', 'code', 'stock_unit_id', 'preferred_supplier_id', 'default_unit_cost'])->map(fn (InventoryItem $item): array => [
                 'id' => $item->id,
                 'name' => $item->name,

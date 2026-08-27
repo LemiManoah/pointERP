@@ -44,3 +44,33 @@ export function formatCurrencyAmount(
 
     return `${currencyCode ?? ''} ${formatNumber(value)}`.trim();
 }
+
+export function formatDate(value: string | null | undefined): string {
+    if (!value) return 'Not recorded';
+    if (!value.includes('T')) return value;
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+        ? value
+        : new Intl.DateTimeFormat('en-GB', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+          }).format(date);
+}
+
+export function formatDateTime(value: string | null | undefined): string {
+    if (!value) return 'Not recorded';
+    if (!value.includes('T')) return value;
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+        ? value
+        : new Intl.DateTimeFormat('en-GB', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+          }).format(date);
+}

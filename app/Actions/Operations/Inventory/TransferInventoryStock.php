@@ -23,7 +23,7 @@ final readonly class TransferInventoryStock
         }
 
         DB::transaction(function () use ($actor, $data, $destination, $item, $source): void {
-            $base = [...$data, 'source_type' => 'manual_transfer'];
+            $base = [...$data, 'source_type' => 'store_transfer'];
             $this->postMovement->handle($source, $item, [...$base, 'movement_type' => InventoryMovementType::TransferOut->value, 'source_key' => $data['source_key'].':out'], $actor);
             $this->postMovement->handle($destination, $item, [...$base, 'movement_type' => InventoryMovementType::TransferIn->value, 'source_key' => $data['source_key'].':in'], $actor);
         });

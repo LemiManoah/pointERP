@@ -8,7 +8,6 @@ use App\Models\InventoryGoodsReceipt;
 use App\Models\InventoryItem;
 use App\Models\InventoryStockMovement;
 use App\Models\InventoryStore;
-use App\Models\UnitOfMeasure;
 use App\Models\User;
 use App\Services\InventoryStockBalance;
 use App\Services\TenantContext;
@@ -21,21 +20,23 @@ beforeEach(function (): void {
     resolve(TenantContext::class)->set(User::query()->where('email', 'lemi@gmail.com')->firstOrFail()->tenant);
 });
 
-it('posts an idempotent issue and blocks negative stock', function (): void {
+it('records an idempotent physical count reconciliation', function (): void {
     $storeKeeper = User::query()->where('email', 'store.kla@point.test')->firstOrFail();
     $store = InventoryStore::query()->where('code', 'KLA-MAIN-STORE')->firstOrFail();
     $item = InventoryItem::query()->where('code', 'CEM-42')->firstOrFail();
-    $unit = UnitOfMeasure::query()->where('code', 'BAG')->firstOrFail();
     $batch = InventoryBatch::query()->where('inventory_item_id', $item->id)->firstOrFail();
-    $payload = ['movement_type' => 'issue', 'original_quantity' => '100', 'original_unit_id' => $unit->id, 'inventory_batch_id' => $batch->id, 'source_key' => 'test:cement:issue:001', 'reason' => 'Issue cement for drainage works.'];
+    $payload = ['inventory_store_id' => $store->id, 'count_key' => 'test-cement-count-001', 'reason' => 'Physical count reconciliation.', 'lines' => [[
+        'inventory_item_id' => $item->id,
+        'inventory_batch_id' => $batch->id,
+        'system_quantity' => '1200.0000',
+        'counted_quantity' => '1100.0000',
+    ]]];
 
-    $this->actingAs($storeKeeper)->post(route('inventory.stock-movements.store', [$store, $item]), $payload)->assertRedirect();
-    $this->actingAs($storeKeeper)->post(route('inventory.stock-movements.store', [$store, $item]), $payload)->assertRedirect();
+    $this->actingAs($storeKeeper)->post(route('inventory.stock-counts.store'), $payload)->assertRedirect();
+    $this->actingAs($storeKeeper)->post(route('inventory.stock-counts.store'), $payload)->assertRedirect();
 
-    expect(InventoryStockMovement::query()->where('source_key', 'test:cement:issue:001')->count())->toBe(1)
+    expect(InventoryStockMovement::query()->where('source_key', 'stock-count:test-cement-count-001:'.$item->id.':'.$batch->id)->count())->toBe(1)
         ->and(resolve(InventoryStockBalance::class)->for($store, $item)['on_hand'])->toBe('1100.0000');
-
-    $this->actingAs($storeKeeper)->post(route('inventory.stock-movements.store', [$store, $item]), [...$payload, 'source_key' => 'test:cement:issue:negative', 'original_quantity' => '2000'])->assertSessionHasErrors('original_quantity');
 });
 
 it('reverses by posting an opposite movement and preserves the original', function (): void {
@@ -58,9 +59,12 @@ it('forbids stock mutations without the required permission', function (): void 
     $siteManager = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();
     $store = InventoryStore::query()->where('code', 'KLA-MAIN-STORE')->firstOrFail();
     $item = InventoryItem::query()->where('code', 'AGG-20')->firstOrFail();
-    $unit = UnitOfMeasure::query()->where('code', 'TONNE')->firstOrFail();
-
-    $this->actingAs($siteManager)->post(route('inventory.stock-movements.store', [$store, $item]), ['movement_type' => 'adjustment', 'adjustment_direction' => 'increase', 'original_quantity' => '1', 'original_unit_id' => $unit->id, 'source_key' => 'test:forbidden', 'reason' => 'Must not post.'])->assertForbidden();
+    $this->actingAs($siteManager)->post(route('inventory.stock-counts.store'), ['inventory_store_id' => $store->id, 'count_key' => 'test-forbidden', 'reason' => 'Must not post.', 'lines' => [[
+        'inventory_item_id' => $item->id,
+        'inventory_batch_id' => null,
+        'system_quantity' => '180.0000',
+        'counted_quantity' => '181.0000',
+    ]]])->assertForbidden();
 });
 
 it('requires an approved purchase order for supplier receipts', function (): void {
