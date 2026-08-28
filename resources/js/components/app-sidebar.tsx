@@ -155,6 +155,13 @@ const groups: SidebarGroupItem[] = [
         title: 'Resources',
         items: [
             {
+                title: 'Inventory dashboard',
+                href: '/inventory-dashboard',
+                icon: Gauge,
+                status: 'ready',
+                permission: 'inventory.stock.view',
+            },
+            {
                 title: 'Staff',
                 href: '/staff',
                 icon: Users,
@@ -195,13 +202,6 @@ const groups: SidebarGroupItem[] = [
                 icon: ClipboardCheck,
                 status: 'ready',
                 permission: 'inventory.purchase-orders.view',
-            },
-            {
-                title: 'Receive purchase order',
-                href: '/inventory/receipts',
-                icon: ClipboardCheck,
-                status: 'ready',
-                permission: 'inventory.stock.receive',
             },
             {
                 title: 'Stock movements',

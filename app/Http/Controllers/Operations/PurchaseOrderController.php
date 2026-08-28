@@ -12,6 +12,7 @@ use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\User;
 use App\Services\ProcurementFormOptions;
+use App\Services\PurchaseOrderReceiptOptions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -20,13 +21,16 @@ use Inertia\Response;
 
 final class PurchaseOrderController
 {
-    public function index(Request $request, ProcurementFormOptions $options): Response
+    public function index(Request $request, ProcurementFormOptions $formOptions, PurchaseOrderReceiptOptions $receiptOptions): Response
     {
         Gate::authorize('viewAny', PurchaseOrder::class);
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
         $canViewCosts = $actor->can('inventory.purchase-orders.view-costs');
         $orders = PurchaseOrder::query()->visibleTo($actor)->with(['branch', 'store', 'supplier'])->withCount('lines')->latest('order_date')->limit(200)->get();
+
+        $canCreate = Gate::forUser($actor)->allows('create', PurchaseOrder::class);
+        $canReceive = Gate::forUser($actor)->allows('create', InventoryGoodsReceipt::class);
 
         return Inertia::render('operations/inventory/purchase-orders/index', [
             'purchaseOrders' => $orders->map(fn (PurchaseOrder $order): array => [
@@ -42,9 +46,11 @@ final class PurchaseOrderController
                 'status' => $order->status->value,
                 'lines_count' => $order->lines_count,
             ]),
-            ...$options->for($actor),
-            'canCreate' => Gate::forUser($actor)->allows('create', PurchaseOrder::class),
+            'canCreate' => $canCreate,
+            'canReceive' => $canReceive,
             'canViewCosts' => $canViewCosts,
+            'purchaseOrderOptions' => $canCreate ? $formOptions->for($actor) : null,
+            'receiptOptions' => $canReceive ? $receiptOptions->for($actor, $request->string('purchase_order_id')->toString()) : null,
         ]);
     }
 

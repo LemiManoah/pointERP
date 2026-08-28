@@ -4,7 +4,7 @@
 
 Phase 3B is the next major implementation phase after Phase 3A. It introduces controlled materials, suppliers, procurement and stores while preserving the operational history already captured by Daily Site Reports and the fleet module.
 
-Status: implementation in progress. Chunks 3B.1 through 3B.7 are implemented and awaiting complete local regression and UI acceptance. Procurement intentionally uses a direct purchase-order workflow; RFQs and supplier quotation comparison are deferred unless a real pilot proves they are needed. Chunk 3B.8 reporting, seed completion and hardening remains.
+Status: implementation complete, pending local regression and UI acceptance. Chunks 3B.1 through 3B.8 are implemented. Procurement intentionally uses a direct purchase-order workflow; RFQs and supplier quotation comparison remain deferred unless a real pilot proves they are needed.
 
 The roadmap and SRS are the authority for this phase. `phase3A.md` remains the authority for equipment, fuel, maintenance, meter, custody and fleet location behaviour. This document owns stock, procurement and material issue workflows.
 
@@ -735,7 +735,17 @@ Acceptance: users can explain every approved DSR material quantity as existing i
 
 ### Chunk 3B.8: Reporting, seed data and hardening
 
-Status: planned. This is the Phase 3B completion and pilot-readiness chunk.
+Status: implemented, pending local validation. This is the Phase 3B completion and pilot-readiness chunk.
+
+The implemented slice adds an `Inventory operations` dashboard at `/inventory-dashboard`, shared server-side filters and seven permission-guarded CSV/PDF reports. Cost columns are added only when the viewer has the relevant PO or receipt cost permission. The dashboard exposes low stock, outstanding requisitions, overdue purchase orders, rejected receipt quantities and approved DSR material reconciliation exceptions with links to the underlying records.
+
+Filters cover accessible branch, store, project, supplier, category, item and date range. A user with one accessible branch receives that branch as the effective locked selection. Dashboard and export queries use the same `InventoryOperationsReport` service so an identical filter set has one scope definition.
+
+`inventory:process-alerts` now runs daily and sends branch-scoped notifications for low-stock/recovery transitions, overdue POs and DSR material lines left unreconciled for two days. Stable alert keys, state markers and seven-day reminder windows prevent a scheduler run from producing repeated notifications. The existing notification center, preference and delivery pipeline remain the only notification mechanism.
+
+`PointInvestmentSeeder` now includes a separate pilot story that does not mutate the fixtures used by earlier chunk tests: `PO-2026-PILOT01`, a partially accepted/rejected delivery, an approved Kampala-to-Gulu transfer, `MR-PILOT-GULU`, fully reconciled and partial DSR evidence, an external subcontractor-supplied line, an approved physical-count variance, low stock and an overdue order. Dedicated pilot cement keeps prior cement opening-balance tests deterministic.
+
+Focused composite indexes cover PO due-date operations, supplier receipt dates and branch/reconciliation status. `PhaseThreeBReportingAndAlertsTest` covers dashboard exception data, cost-column omission, direct export authorization and scheduled-alert deduplication.
 
 #### 3B.8.1 Inventory operations dashboard
 

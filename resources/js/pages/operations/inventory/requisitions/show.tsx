@@ -75,6 +75,7 @@ type Props = RequisitionFormOptions & {
         inventory_item_id: string;
         batch_number: string;
         expires_on: string | null;
+        available_quantity: string;
     }[];
     can: {
         update: boolean;

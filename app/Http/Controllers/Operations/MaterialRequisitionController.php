@@ -13,6 +13,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryReservation;
 use App\Models\InventoryStockMovement;
 use App\Models\InventoryStore;
+use App\Models\InventoryStoreItem;
 use App\Models\MaterialRequisition;
 use App\Models\MaterialRequisitionLine;
 use App\Models\Project;
@@ -97,6 +98,29 @@ final class MaterialRequisitionController
                 'movements' => $line->stockMovements->map(fn (InventoryStockMovement $movement): array => ['id' => $movement->id, 'type' => $movement->movement_type->value, 'quantity' => $movement->quantity, 'original_quantity' => $movement->original_quantity, 'posted_at' => $movement->posted_at->format('d M Y, H:i'), 'posted_by' => $movement->postedBy->name]),
             ];
         });
+        $lineItemIds = $materialRequisition->lines->pluck('inventory_item_id')->filter()->unique()->values()->all();
+        $batches = InventoryBatch::query()
+            ->whereIn('inventory_item_id', $lineItemIds)
+            ->where('is_active', true)
+            ->with('item')
+            ->get()
+            ->map(function (InventoryBatch $batch) use ($balances, $materialRequisition): array {
+                return [
+                    'id' => $batch->id,
+                    'inventory_item_id' => $batch->inventory_item_id,
+                    'batch_number' => $batch->batch_number,
+                    'expires_on' => $batch->expires_on?->toDateString(),
+                    'available_quantity' => $balances->forBatch($materialRequisition->store, $batch->item, $batch->id),
+                    'has_store_movement' => InventoryStockMovement::query()
+                        ->where('inventory_store_id', $materialRequisition->inventory_store_id)
+                        ->where('inventory_item_id', $batch->inventory_item_id)
+                        ->where('inventory_batch_id', $batch->id)
+                        ->exists(),
+                ];
+            })
+            ->filter(fn (array $batch): bool => $batch['has_store_movement'])
+            ->map(fn (array $batch): array => collect($batch)->except('has_store_movement')->all())
+            ->values();
 
         return Inertia::render('operations/inventory/requisitions/show', [
             'requisition' => [
@@ -120,7 +144,7 @@ final class MaterialRequisitionController
                 'approved_by' => $materialRequisition->approver?->name,
                 'lines' => $lines,
             ],
-            'batches' => InventoryBatch::query()->where('inventory_store_id', $materialRequisition->inventory_store_id)->where('is_active', true)->get(['id', 'inventory_item_id', 'batch_number', 'expires_on']),
+            'batches' => $batches,
             'can' => [
                 'update' => Gate::forUser($actor)->allows('update', $materialRequisition),
                 'submit' => Gate::forUser($actor)->allows('submit', $materialRequisition),
@@ -177,16 +201,44 @@ final class MaterialRequisitionController
         $projects = Project::query()->whereIn('branch_id', $branchIds)->where('status', 'active')->orderBy('name')->get()->filter(fn (Project $project): bool => Gate::forUser($actor)->allows('view', $project))->values();
         $projectIds = $projects->pluck('id')->all();
         $sites = Site::query()->whereIn('project_id', $projectIds)->where('status', 'active')->orderBy('name')->get()->filter(fn (Site $site): bool => Gate::forUser($actor)->allows('view', $site))->values();
+        $stores = InventoryStore::query()->visibleTo($actor)->where('is_active', true)->orderBy('name')->get(['id', 'branch_id', 'name', 'code']);
+        $balances = resolve(InventoryStockBalance::class);
+        $storeItems = InventoryStoreItem::query()
+            ->whereIn('inventory_store_id', $stores->pluck('id'))
+            ->where('is_active', true)
+            ->with(['item.stockUnit', 'store'])
+            ->get()
+            ->filter(fn (InventoryStoreItem $setting): bool => $setting->item->is_active);
 
         return [
             'branches' => $context->accessibleBranches($actor)->values(),
             'defaultBranchId' => $defaultBranch->id,
             'canChangeBranch' => $actor->can('inventory.stock.change-branch') && count($branchIds) > 1,
-            'stores' => InventoryStore::query()->visibleTo($actor)->where('is_active', true)->orderBy('name')->get(['id', 'branch_id', 'name', 'code']),
+            'stores' => $stores,
             'projects' => $projects->map(fn (Project $project): array => $project->only(['id', 'branch_id', 'name', 'reference'])),
             'sites' => $sites->map(fn (Site $site): array => $site->only(['id', 'branch_id', 'project_id', 'name', 'reference'])),
             'activities' => ProjectActivity::query()->whereIn('project_id', $projectIds)->where('status', 'active')->orderBy('name')->get(['id', 'project_id', 'name', 'code']),
-            'items' => InventoryItem::query()->where('is_active', true)->with('stockUnit')->orderBy('name')->get()->map(fn (InventoryItem $item): array => ['id' => $item->id, 'code' => $item->code, 'name' => $item->name, 'stock_unit_id' => $item->stock_unit_id, 'stock_unit_name' => $item->stockUnit->symbol ?? $item->stockUnit->code]),
+            'items' => $storeItems
+                ->groupBy('inventory_item_id')
+                ->map(function ($settings) use ($balances): array {
+                    /** @var InventoryStoreItem $first */
+                    $first = $settings->first();
+                    $item = $first->item;
+
+                    return [
+                        'id' => $item->id,
+                        'code' => $item->code,
+                        'name' => $item->name,
+                        'stock_unit_id' => $item->stock_unit_id,
+                        'stock_unit_name' => $item->stockUnit->symbol ?? $item->stockUnit->code,
+                        'store_availability' => $settings->map(fn (InventoryStoreItem $setting): array => [
+                            'store_id' => $setting->inventory_store_id,
+                            'available' => $balances->for($setting->store, $item)['available'],
+                        ])->values(),
+                    ];
+                })
+                ->sortBy('name')
+                ->values(),
         ];
     }
 }

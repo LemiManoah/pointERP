@@ -1,17 +1,27 @@
 import { Head, Link } from '@inertiajs/react';
-import { Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import { SearchableSelect } from '@/components/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TabsContent } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyAmount, formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import type { ProcurementOptions } from '../procurement-types';
+import {
+    PurchaseOrderReceiptForm,
+    type PurchaseOrderReceiptOptions,
+} from '../receipts';
+import { PurchaseOrderForm } from './partials/purchase-order-form';
+import {
+    PurchaseOrderTabs,
+    type PurchaseOrderTab,
+} from './partials/purchase-order-tabs';
 
 type Row = {
     id: string;
@@ -26,38 +36,50 @@ type Row = {
     status: string;
     lines_count: number;
 };
-type Props = ProcurementOptions & {
+type Props = {
     purchaseOrders: Row[];
     canCreate: boolean;
+    canReceive: boolean;
     canViewCosts: boolean;
+    purchaseOrderOptions: ProcurementOptions | null;
+    receiptOptions: PurchaseOrderReceiptOptions | null;
 };
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Purchase orders', href: '/inventory/purchase-orders' },
 ];
-const active = [
+const statusOptions = [
+    'all',
     'draft',
     'submitted',
     'returned',
     'approved',
     'partially_received',
-];
+    'received',
+    'closed',
+    'rejected',
+    'cancelled',
+].map((value) => ({
+    value,
+    label: value === 'all' ? 'All statuses' : label(value),
+}));
+
 export default function PurchaseOrdersIndex(props: Props) {
+    const [workspaceTab, setWorkspaceTab] =
+        useState<PurchaseOrderTab>('orders');
     const [search, setSearch] = useState('');
-    const [tab, setTab] = useState('active');
+    const [status, setStatus] = useState('all');
     const term = useDebouncedValue(search).trim().toLowerCase();
     const rows = useMemo(
         () =>
             props.purchaseOrders.filter(
                 (row) =>
-                    (tab === 'active'
-                        ? active.includes(row.status)
-                        : row.status === tab) &&
+                    (status === 'all' || row.status === status) &&
                     (!term ||
                         `${row.order_number} ${row.supplier_name} ${row.store_name}`
                             .toLowerCase()
                             .includes(term)),
             ),
-        [props.purchaseOrders, tab, term],
+        [props.purchaseOrders, status, term],
     );
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -70,132 +92,159 @@ export default function PurchaseOrdersIndex(props: Props) {
                         progress.
                     </p>
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex w-full flex-wrap items-center gap-3 lg:w-auto">
-                        <div className="relative w-full max-w-md">
-                            <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
-                            <Input
-                                value={search}
-                                onChange={(event) =>
-                                    setSearch(event.target.value)
-                                }
-                                placeholder="Search PO, supplier or store"
-                                className="pl-9"
-                            />
+                <PurchaseOrderTabs
+                    active={workspaceTab}
+                    canReceive={props.canReceive}
+                    canCreate={props.canCreate}
+                    onValueChange={setWorkspaceTab}
+                >
+                    <TabsContent value="orders" className="grid gap-6">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div className="relative w-full md:max-w-md">
+                                <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
+                                <Input
+                                    value={search}
+                                    onChange={(event) =>
+                                        setSearch(event.target.value)
+                                    }
+                                    placeholder="Search PO, supplier or store"
+                                    className="pl-9"
+                                />
+                            </div>
+                            <div className="flex w-full items-center gap-3 md:w-auto">
+                                <SearchableSelect
+                                    value={status}
+                                    options={statusOptions}
+                                    onValueChange={setStatus}
+                                    placeholder="All statuses"
+                                    searchPlaceholder="Search statuses..."
+                                    className="min-w-0 flex-1 md:w-52 md:flex-none"
+                                />
+                                {props.canCreate && (
+                                    <Button
+                                        type="button"
+                                        className="shrink-0"
+                                        onClick={() =>
+                                            setWorkspaceTab('create')
+                                        }
+                                    >
+                                        <Plus />
+                                        New purchase order
+                                    </Button>
+                                )}
+                            </div>
                         </div>
-                        <Tabs value={tab} onValueChange={setTab}>
-                            <TabsList>
-                                <TabsTrigger value="active">Active</TabsTrigger>
-                                <TabsTrigger value="received">
-                                    Received
-                                </TabsTrigger>
-                                <TabsTrigger value="closed">Closed</TabsTrigger>
-                                <TabsTrigger value="rejected">
-                                    Rejected
-                                </TabsTrigger>
-                                <TabsTrigger value="cancelled">
-                                    Cancelled
-                                </TabsTrigger>
-                            </TabsList>
-                        </Tabs>
-                    </div>
-                    {props.canCreate && (
-                        <Button asChild>
-                            <Link href="/inventory/purchase-orders/create">
-                                New purchase order
-                            </Link>
-                        </Button>
-                    )}
-                </div>
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="overflow-x-auto">
-                            <table className="w-full min-w-[900px] text-sm">
-                                <thead>
-                                    <tr className="border-b text-left text-muted-foreground">
-                                        <Th>Purchase order</Th>
-                                        <Th>Supplier</Th>
-                                        <Th>Store</Th>
-                                        <Th>Delivery</Th>
-                                        <Th>Lines</Th>
-                                        {props.canViewCosts && <Th>Total</Th>}
-                                        <Th>Status</Th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {rows.map((row) => (
-                                        <tr
-                                            key={row.id}
-                                            className="border-b last:border-0"
-                                        >
-                                            <Td>
-                                                <Link
-                                                    href={`/inventory/purchase-orders/${row.id}`}
-                                                    className="font-medium hover:underline"
+                        <Card>
+                            <CardContent className="pt-6">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full min-w-[900px] text-sm">
+                                        <thead>
+                                            <tr className="border-b text-left text-muted-foreground">
+                                                <Th>Purchase order</Th>
+                                                <Th>Supplier</Th>
+                                                <Th>Store</Th>
+                                                <Th>Delivery</Th>
+                                                <Th>Lines</Th>
+                                                {props.canViewCosts && (
+                                                    <Th>Total</Th>
+                                                )}
+                                                <Th>Status</Th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {rows.map((row) => (
+                                                <tr
+                                                    key={row.id}
+                                                    className="border-b last:border-0"
                                                 >
-                                                    {row.order_number}
-                                                </Link>
-                                                <div className="text-muted-foreground">
-                                                    {row.order_date}
-                                                </div>
-                                            </Td>
-                                            <Td>{row.supplier_name}</Td>
-                                            <Td>
-                                                {row.store_name}
-                                                <div className="text-muted-foreground">
-                                                    {row.branch_name}
-                                                </div>
-                                            </Td>
-                                            <Td>
-                                                {row.expected_date ??
-                                                    'Not specified'}
-                                            </Td>
-                                            <Td>
-                                                {formatNumber(row.lines_count)}
-                                            </Td>
-                                            {props.canViewCosts && (
-                                                <Td>
-                                                    {formatCurrencyAmount(
-                                                        row.currency_code,
-                                                        row.total_amount,
+                                                    <Td>
+                                                        <Link
+                                                            href={`/inventory/purchase-orders/${row.id}`}
+                                                            className="font-medium hover:underline"
+                                                        >
+                                                            {row.order_number}
+                                                        </Link>
+                                                        <div className="text-muted-foreground">
+                                                            {row.order_date}
+                                                        </div>
+                                                    </Td>
+                                                    <Td>{row.supplier_name}</Td>
+                                                    <Td>
+                                                        {row.store_name}
+                                                        <div className="text-muted-foreground">
+                                                            {row.branch_name}
+                                                        </div>
+                                                    </Td>
+                                                    <Td>
+                                                        {row.expected_date ??
+                                                            'Not specified'}
+                                                    </Td>
+                                                    <Td>
+                                                        {formatNumber(
+                                                            row.lines_count,
+                                                        )}
+                                                    </Td>
+                                                    {props.canViewCosts && (
+                                                        <Td>
+                                                            {formatCurrencyAmount(
+                                                                row.currency_code,
+                                                                row.total_amount,
+                                                            )}
+                                                        </Td>
                                                     )}
-                                                </Td>
+                                                    <Td>
+                                                        <Badge
+                                                            variant={
+                                                                [
+                                                                    'rejected',
+                                                                    'cancelled',
+                                                                ].includes(
+                                                                    row.status,
+                                                                )
+                                                                    ? 'destructive'
+                                                                    : row.status ===
+                                                                        'received'
+                                                                      ? 'default'
+                                                                      : 'secondary'
+                                                            }
+                                                        >
+                                                            {label(row.status)}
+                                                        </Badge>
+                                                    </Td>
+                                                </tr>
+                                            ))}
+                                            {rows.length === 0 && (
+                                                <tr>
+                                                    <td
+                                                        colSpan={7}
+                                                        className="py-12 text-center text-muted-foreground"
+                                                    >
+                                                        No purchase orders match
+                                                        this view.
+                                                    </td>
+                                                </tr>
                                             )}
-                                            <Td>
-                                                <Badge
-                                                    variant={
-                                                        [
-                                                            'rejected',
-                                                            'cancelled',
-                                                        ].includes(row.status)
-                                                            ? 'destructive'
-                                                            : row.status ===
-                                                                'received'
-                                                              ? 'default'
-                                                              : 'secondary'
-                                                    }
-                                                >
-                                                    {label(row.status)}
-                                                </Badge>
-                                            </Td>
-                                        </tr>
-                                    ))}
-                                    {rows.length === 0 && (
-                                        <tr>
-                                            <td
-                                                colSpan={7}
-                                                className="py-12 text-center text-muted-foreground"
-                                            >
-                                                No purchase orders match this
-                                                view.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </CardContent>
-                </Card>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                    {props.canReceive && props.receiptOptions && (
+                        <TabsContent value="receive">
+                            <PurchaseOrderReceiptForm
+                                {...props.receiptOptions}
+                            />
+                        </TabsContent>
+                    )}
+                    {props.canCreate && props.purchaseOrderOptions && (
+                        <TabsContent value="create">
+                            <PurchaseOrderForm
+                                options={props.purchaseOrderOptions}
+                            />
+                        </TabsContent>
+                    )}
+                </PurchaseOrderTabs>
             </div>
         </AppLayout>
     );

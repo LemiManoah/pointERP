@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatNumber } from '@/lib/utils';
+import { createUuid } from '@/lib/uuid';
 
 type Line = {
     id: string;
@@ -37,12 +38,14 @@ type Line = {
     returned_quantity: string;
     outstanding_quantity: string;
     outstanding_request_unit_quantity: string;
+    available_stock: string | null;
 };
 type Batch = {
     id: string;
     inventory_item_id: string;
     batch_number: string;
     expires_on: string | null;
+    available_quantity: string;
 };
 
 export function ReviewRequisitionDialog({
@@ -58,7 +61,12 @@ export function ReviewRequisitionDialog({
         reason: '',
         lines: lines.map((line) => ({
             id: line.id,
-            approved_quantity: line.stock_quantity,
+            approved_quantity: String(
+                Math.min(
+                    Number(line.stock_quantity),
+                    Number(line.available_stock ?? 0),
+                ),
+            ),
         })),
     });
     const submit = (event: FormEvent) => {
@@ -124,11 +132,20 @@ export function ReviewRequisitionDialog({
                                             {formatNumber(line.stock_quantity)}{' '}
                                             {line.stock_unit_name}
                                         </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {formatNumber(
+                                                line.available_stock ?? 0,
+                                            )}{' '}
+                                            {line.stock_unit_name} available
+                                        </p>
                                     </div>
                                     <Input
                                         type="number"
                                         min="0"
-                                        max={line.stock_quantity}
+                                        max={Math.min(
+                                            Number(line.stock_quantity),
+                                            Number(line.available_stock ?? 0),
+                                        )}
                                         step="0.0001"
                                         value={
                                             form.data.lines[index]
@@ -154,6 +171,7 @@ export function ReviewRequisitionDialog({
                                     />
                                 </div>
                             ))}
+                            <InputError message={form.errors.lines} />
                         </div>
                     )}
                     <Field
@@ -201,10 +219,15 @@ export function IssueLineDialog({
         quantity: line.outstanding_request_unit_quantity,
         inventory_batch_id: '',
         reason: `Issue for requisition ${requisitionId}`,
-        source_key: crypto.randomUUID(),
+        source_key: createUuid(),
     });
     const itemBatches = batches.filter(
-        (batch) => batch.inventory_item_id === line.inventory_item_id,
+        (batch) =>
+            batch.inventory_item_id === line.inventory_item_id &&
+            Number(batch.available_quantity) > 0,
+    );
+    const selectedBatch = itemBatches.find(
+        (batch) => batch.id === form.data.inventory_batch_id,
     );
     const submit = (event: FormEvent) => {
         event.preventDefault();
@@ -214,7 +237,7 @@ export function IssueLineDialog({
                 preserveScroll: true,
                 onSuccess: () => {
                     setOpen(false);
-                    form.setData('source_key', crypto.randomUUID());
+                    form.setData('source_key', createUuid());
                 },
             },
         );
@@ -253,7 +276,13 @@ export function IssueLineDialog({
                             type="number"
                             min="0.0001"
                             step="0.0001"
-                            max={line.outstanding_request_unit_quantity}
+                            max={Math.min(
+                                Number(line.outstanding_request_unit_quantity),
+                                Number(
+                                    selectedBatch?.available_quantity ??
+                                        line.outstanding_request_unit_quantity,
+                                ),
+                            )}
                             value={form.data.quantity}
                             onChange={(event) =>
                                 form.setData('quantity', event.target.value)
@@ -272,8 +301,8 @@ export function IssueLineDialog({
                                     value: batch.id,
                                     label: batch.batch_number,
                                     description: batch.expires_on
-                                        ? `Expires ${batch.expires_on}`
-                                        : undefined,
+                                        ? `${formatNumber(batch.available_quantity)} available - expires ${batch.expires_on}`
+                                        : `${formatNumber(batch.available_quantity)} available`,
                                 }))}
                                 onValueChange={(value) =>
                                     form.setData('inventory_batch_id', value)
@@ -322,7 +351,7 @@ export function ReturnLineDialog({
         quantity: '',
         inventory_batch_id: '',
         reason: '',
-        source_key: crypto.randomUUID(),
+        source_key: createUuid(),
     });
     const itemBatches = batches.filter(
         (batch) => batch.inventory_item_id === line.inventory_item_id,
@@ -336,7 +365,7 @@ export function ReturnLineDialog({
                 onSuccess: () => {
                     setOpen(false);
                     form.reset('quantity', 'reason', 'inventory_batch_id');
-                    form.setData('source_key', crypto.randomUUID());
+                    form.setData('source_key', createUuid());
                 },
             },
         );

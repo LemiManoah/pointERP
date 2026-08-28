@@ -33,7 +33,10 @@ final class InventoryController
         $branchContext = resolve(BranchContext::class);
         $branchIds = $branchContext->accessibleBranchIds($actor);
         $canViewCosts = Gate::allows('viewCosts', InventoryItem::class);
-        $priceCurrency = $branchContext->current($actor)->default_currency_code;
+        $currentBranch = $branchContext->current($actor) ?? $branchContext->operationalDefault($actor);
+        $priceCurrency = $currentBranch instanceof Branch
+            ? $currentBranch->default_currency_code
+            : resolve(TenantContext::class)->current()->default_currency_code;
 
         $items = InventoryItem::query()
             ->with(['category', 'stockUnit', 'preferredSupplier'])

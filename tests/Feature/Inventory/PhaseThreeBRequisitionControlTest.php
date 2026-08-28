@@ -15,6 +15,7 @@ use App\Services\TenantContext;
 use Database\Seeders\PointInvestmentSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Support\Str;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function (): void {
     $this->seed(RolePermissionSeeder::class);
@@ -25,16 +26,74 @@ beforeEach(function (): void {
 it('lets an authorised project manager approve a submitted branch requisition', function (): void {
     $projectManager = User::query()->where('email', 'pm.gulu@point.test')->firstOrFail();
     $requisition = MaterialRequisition::query()->where('reference', 'MR-DEMO-GULU')->firstOrFail();
+    $line = $requisition->lines()->firstOrFail();
+    $pilotCement = InventoryItem::query()->where('code', 'CEM-PILOT')->firstOrFail();
+    $line->forceFill([
+        'inventory_item_id' => $pilotCement->id,
+        'item_code_snapshot' => $pilotCement->code,
+        'item_name_snapshot' => $pilotCement->name,
+        'requested_quantity' => '10.0000',
+        'stock_quantity' => '10.0000',
+    ])->save();
 
     $this->actingAs($projectManager)->post(route('inventory.requisitions.review', $requisition), [
         'decision' => 'approve',
         'reason' => 'Required for the planned drainage pour.',
     ])->assertRedirect(route('inventory.requisitions.show', $requisition));
 
-    $line = $requisition->lines()->firstOrFail();
     expect($requisition->refresh()->status)->toBe(MaterialRequisitionStatus::Approved)
-        ->and($line->refresh()->approved_quantity)->toBe('80.0000')
-        ->and(InventoryReservation::query()->where('source_id', $line->id)->value('reserved_quantity'))->toBe('80.0000');
+        ->and($line->refresh()->approved_quantity)->toBe('10.0000')
+        ->and(InventoryReservation::query()->where('source_id', $line->id)->value('reserved_quantity'))->toBe('10.0000');
+});
+
+it('does not save a store requisition above currently available stock', function (): void {
+    $siteManager = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();
+    $demo = MaterialRequisition::query()->where('reference', 'MR-PILOT-GULU')->firstOrFail();
+    $item = InventoryItem::query()->where('code', 'CEM-PILOT')->firstOrFail();
+    $unit = UnitOfMeasure::query()->where('code', 'BAG')->firstOrFail();
+    $available = resolve(InventoryStockBalance::class)->for($demo->store, $item)['available'];
+
+    $this->actingAs($siteManager)->post(route('inventory.requisitions.store'), [
+        'branch_id' => $demo->branch_id,
+        'inventory_store_id' => $demo->inventory_store_id,
+        'required_by_date' => now()->addWeek()->toDateString(),
+        'priority' => 'normal',
+        'reason' => 'This request deliberately exceeds current availability.',
+        'lines' => [[
+            'inventory_item_id' => $item->id,
+            'unit_of_measure_id' => $unit->id,
+            'requested_quantity' => (string) ((float) $available + 1),
+        ]],
+    ])->assertSessionHasErrors('lines.0.requested_quantity');
+
+    expect(MaterialRequisition::query()->where('reason', 'This request deliberately exceeds current availability.')->exists())->toBeFalse();
+});
+
+it('does not approve more stock than the source store can reserve', function (): void {
+    $projectManager = User::query()->where('email', 'pm.gulu@point.test')->firstOrFail();
+    $requisition = MaterialRequisition::query()->where('reference', 'MR-DEMO-GULU')->firstOrFail();
+    $line = $requisition->lines()->firstOrFail();
+
+    $this->actingAs($projectManager)->post(route('inventory.requisitions.review', $requisition), [
+        'decision' => 'approve',
+        'lines' => [['id' => $line->id, 'approved_quantity' => $line->stock_quantity]],
+    ])->assertSessionHasErrors('lines');
+
+    expect($requisition->refresh()->status)->toBe(MaterialRequisitionStatus::Submitted)
+        ->and(InventoryReservation::query()->where('source_id', $line->id)->exists())->toBeFalse();
+});
+
+it('shows transferred batch stock in the destination store issue options', function (): void {
+    $siteManager = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();
+    $requisition = MaterialRequisition::query()->where('reference', 'MR-PILOT-GULU')->firstOrFail();
+
+    $this->actingAs($siteManager)
+        ->get(route('inventory.requisitions.show', $requisition))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page): Assert => $page
+            ->has('batches', 1)
+            ->where('batches.0.batch_number', 'CEM-PILOT-DELIVERY')
+            ->where('batches.0.inventory_item_id', $requisition->lines()->firstOrFail()->inventory_item_id));
 });
 
 it('partially issues and fulfils an approved requisition without losing its reservation history', function (): void {
@@ -43,6 +102,7 @@ it('partially issues and fulfils an approved requisition without losing its rese
     $line = $requisition->lines()->firstOrFail();
     $store = $requisition->store;
     $item = InventoryItem::query()->where('code', 'PPE-VEST')->firstOrFail();
+    $before = resolve(InventoryStockBalance::class)->for($store, $item)['on_hand'];
 
     $this->actingAs($storeKeeper)->post(route('inventory.requisitions.lines.issue', [$requisition, $line]), [
         'quantity' => '10',
@@ -52,7 +112,7 @@ it('partially issues and fulfils an approved requisition without losing its rese
 
     expect($requisition->refresh()->status)->toBe(MaterialRequisitionStatus::PartiallyIssued)
         ->and($line->refresh()->issued_quantity)->toBe('10.0000')
-        ->and(resolve(InventoryStockBalance::class)->for($store, $item)['on_hand'])->toBe('65.0000');
+        ->and(resolve(InventoryStockBalance::class)->for($store, $item)['on_hand'])->toBe(number_format((float) $before - 10, 4, '.', ''));
 
     $this->actingAs($storeKeeper)->post(route('inventory.requisitions.lines.issue', [$requisition, $line]), [
         'quantity' => '15',
@@ -92,7 +152,7 @@ it('forbids users without issue authority and users outside the requisition bran
 it('creates and submits a material requisition through the user interface endpoints', function (): void {
     $siteManager = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();
     $demo = MaterialRequisition::query()->where('reference', 'MR-DEMO-GULU')->with(['store', 'project', 'site'])->firstOrFail();
-    $item = InventoryItem::query()->where('code', 'CEM-42')->firstOrFail();
+    $item = InventoryItem::query()->where('code', 'CEM-PILOT')->firstOrFail();
     $unit = UnitOfMeasure::query()->where('code', 'BAG')->firstOrFail();
 
     $this->actingAs($siteManager)->post(route('inventory.requisitions.store'), [

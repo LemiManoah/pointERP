@@ -50,6 +50,7 @@ return new class extends Migration
 
             $table->unique(['tenant_id', 'order_number'], 'po_tenant_number_uq');
             $table->index(['tenant_id', 'branch_id', 'status'], 'po_scope_status_idx');
+            $table->index(['tenant_id', 'branch_id', 'inventory_store_id', 'status', 'expected_date'], 'po_ops_due_idx');
             $table->index(['supplier_id', 'status'], 'po_supplier_status_idx');
         });
     }

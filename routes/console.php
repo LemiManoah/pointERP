@@ -28,4 +28,5 @@ Schedule::command('dsr:generate-expected')->dailyAt('00:10')->withoutOverlapping
 Schedule::command('dsr:process-overdue')->hourly()->withoutOverlapping();
 Schedule::command('documents:notify-expiring')->dailyAt('07:00')->withoutOverlapping();
 Schedule::command('equipment:process-maintenance-due')->dailyAt('06:45')->withoutOverlapping();
+Schedule::command('inventory:process-alerts')->dailyAt('06:55')->withoutOverlapping();
 Schedule::command('notifications:send-digests')->dailyAt('07:15')->withoutOverlapping();

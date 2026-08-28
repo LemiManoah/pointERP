@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\BranchContext;
 use App\Services\InventoryQuantityConverter;
+use App\Services\InventoryStockBalance;
 use App\Services\TenantContext;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
@@ -32,6 +33,7 @@ final readonly class SaveMaterialRequisition
         private TenantContext $tenantContext,
         private BranchContext $branchContext,
         private InventoryQuantityConverter $converter,
+        private InventoryStockBalance $balances,
         private AuditLogger $auditLogger,
     ) {}
 
@@ -122,6 +124,15 @@ final readonly class SaveMaterialRequisition
 
         $multiplier = $this->converter->multiplier($item, $unit->id);
         $requested = BigDecimal::of((string) $data['requested_quantity']);
+        $stockQuantity = $requested->multipliedBy($multiplier);
+        $available = BigDecimal::of($this->balances->for($requisition->store, $item)['available']);
+        if ($stockQuantity->isGreaterThan($available)) {
+            $stockUnit = $item->stockUnit->symbol ?? $item->stockUnit->name;
+            throw ValidationException::withMessages([
+                sprintf('lines.%d.requested_quantity', $index) => 'Only '.$available->toScale(4).' '.$stockUnit.' are currently available in '.$requisition->store->name.'.',
+            ]);
+        }
+
         MaterialRequisitionLine::query()->create([
             'tenant_id' => $requisition->tenant_id,
             'material_requisition_id' => $requisition->id,
@@ -134,7 +145,7 @@ final readonly class SaveMaterialRequisition
             'unit_symbol_snapshot' => $unit->symbol,
             'requested_quantity' => (string) $requested->toScale(4, RoundingMode::HalfUp),
             'conversion_multiplier' => (string) $multiplier->toScale(10),
-            'stock_quantity' => (string) $requested->multipliedBy($multiplier)->toScale(4, RoundingMode::HalfUp),
+            'stock_quantity' => (string) $stockQuantity->toScale(4, RoundingMode::HalfUp),
             'purpose' => $data['purpose'] ?? null,
             'notes' => $data['notes'] ?? null,
             'sort_order' => $index,

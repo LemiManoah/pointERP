@@ -30,6 +30,10 @@ export type ItemOption = {
     name: string;
     stock_unit_id: string;
     stock_unit_name: string | null;
+    store_availability: {
+        store_id: string;
+        available: string;
+    }[];
 };
 export type RequisitionLineForm = {
     inventory_item_id: string;

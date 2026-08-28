@@ -24,6 +24,7 @@ return new class extends Migration
             $table->foreignUuid('reconciled_by')->nullable()->after('external_material_reason')->constrained('users', 'id', 'dsr_mat_actor_fk')->nullOnDelete();
             $table->timestamp('reconciled_at')->nullable()->after('reconciled_by');
             $table->index(['tenant_id', 'inventory_reconciliation_status'], 'dsr_mat_reconcile_status_idx');
+            $table->index(['tenant_id', 'branch_id', 'inventory_reconciliation_status'], 'dsr_mat_scope_status_idx');
         });
     }
 
@@ -38,6 +39,7 @@ return new class extends Migration
             $table->dropForeign('dsr_mat_unit_fk');
             $table->dropForeign('dsr_mat_store_fk');
             $table->dropForeign('dsr_mat_item_fk');
+            $table->dropIndex('dsr_mat_scope_status_idx');
             $table->dropColumn(['reconciled_by', 'unit_of_measure_id', 'inventory_store_id', 'inventory_item_id']);
             $table->dropColumn(['conversion_multiplier', 'stock_unit_quantity', 'inventory_reconciliation_status', 'external_material_reason', 'reconciled_at']);
         });

@@ -80,6 +80,7 @@ it('requires an approved purchase order for supplier receipts', function (): voi
     $store = InventoryStore::query()->where('code', 'KLA-MAIN-STORE')->firstOrFail();
     $aggregate = InventoryItem::query()->where('code', 'AGG-20')->firstOrFail();
     $before = resolve(InventoryStockBalance::class)->for($store, $aggregate)['on_hand'];
+    $receiptCount = InventoryGoodsReceipt::query()->count();
 
     $this->actingAs($director)->post(route('inventory.receipts.store'), [
         'received_on' => now()->toDateString(),
@@ -90,6 +91,6 @@ it('requires an approved purchase order for supplier receipts', function (): voi
         ]],
     ])->assertSessionHasErrors(['purchase_order_id', 'lines.0.purchase_order_line_id']);
 
-    expect(InventoryGoodsReceipt::query()->count())->toBe(0)
+    expect(InventoryGoodsReceipt::query()->count())->toBe($receiptCount)
         ->and(resolve(InventoryStockBalance::class)->for($store, $aggregate)['on_hand'])->toBe($before);
 });

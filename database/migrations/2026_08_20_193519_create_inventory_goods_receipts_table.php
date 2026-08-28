@@ -29,6 +29,7 @@ return new class extends Migration
             $table->timestamps();
             $table->unique(['tenant_id', 'reference'], 'inv_receipt_reference_uq');
             $table->index(['tenant_id', 'branch_id', 'received_on'], 'inv_receipt_scope_date_idx');
+            $table->index(['tenant_id', 'supplier_id', 'received_on'], 'inv_receipt_supplier_date_idx');
         });
     }
 

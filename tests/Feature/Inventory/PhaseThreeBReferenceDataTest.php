@@ -22,13 +22,14 @@ beforeEach(function (): void {
 
 it('shows material masters and stores to an authorised quantity user without costs', function (): void {
     $storeKeeper = User::query()->where('email', 'store.kla@point.test')->firstOrFail();
+    $itemCount = InventoryItem::query()->count();
 
     $this->actingAs($storeKeeper)
         ->get(route('inventory.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page): Assert => $page
             ->component('operations/inventory/index')
-            ->has('items', 3)
+            ->has('items', $itemCount)
             ->has('stores', 1)
             ->where('can.manageItems', false)
             ->where('can.viewCosts', false)

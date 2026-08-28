@@ -21,6 +21,7 @@ import {
     NativeSelectOption,
 } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
+import { formatNumber } from '@/lib/utils';
 import type { RequisitionFormOptions, RequisitionLineForm } from '../types';
 
 type ExistingRequisition = {
@@ -77,6 +78,12 @@ export function RequisitionDialog({
         (site) =>
             site.branch_id === form.data.branch_id &&
             (!form.data.project_id || site.project_id === form.data.project_id),
+    );
+    const items = options.items.filter((item) =>
+        item.store_availability.some(
+            (availability) =>
+                availability.store_id === form.data.inventory_store_id,
+        ),
     );
     const updateLine = (index: number, values: Partial<RequisitionLineForm>) =>
         form.setData(
@@ -141,6 +148,7 @@ export function RequisitionDialog({
                                         form.setData('inventory_store_id', '');
                                         form.setData('project_id', '');
                                         form.setData('site_id', '');
+                                        form.setData('lines', [emptyLine()]);
                                     }}
                                 />
                             </Field>
@@ -157,9 +165,10 @@ export function RequisitionDialog({
                                     label: store.name,
                                     description: store.code,
                                 }))}
-                                onValueChange={(value) =>
-                                    form.setData('inventory_store_id', value)
-                                }
+                                onValueChange={(value) => {
+                                    form.setData('inventory_store_id', value);
+                                    form.setData('lines', [emptyLine()]);
+                                }}
                                 placeholder="Select source store"
                             />
                         </Field>
@@ -291,6 +300,11 @@ export function RequisitionDialog({
                             const item = options.items.find(
                                 (row) => row.id === line.inventory_item_id,
                             );
+                            const availability = item?.store_availability.find(
+                                (row) =>
+                                    row.store_id ===
+                                    form.data.inventory_store_id,
+                            );
                             const activities = options.activities.filter(
                                 (activity) =>
                                     !form.data.project_id ||
@@ -314,7 +328,7 @@ export function RequisitionDialog({
                                         >
                                             <SearchableSelect
                                                 value={line.inventory_item_id}
-                                                options={options.items
+                                                options={items
                                                     .filter(
                                                         (candidate) =>
                                                             candidate.id ===
@@ -362,6 +376,7 @@ export function RequisitionDialog({
                                                 type="number"
                                                 min="0.0001"
                                                 step="0.0001"
+                                                max={availability?.available}
                                                 value={line.requested_quantity}
                                                 onChange={(event) =>
                                                     updateLine(index, {
@@ -370,6 +385,15 @@ export function RequisitionDialog({
                                                     })
                                                 }
                                             />
+                                            {availability && (
+                                                <p className="text-xs text-muted-foreground">
+                                                    {formatNumber(
+                                                        availability.available,
+                                                    )}{' '}
+                                                    {item?.stock_unit_name}{' '}
+                                                    available
+                                                </p>
+                                            )}
                                         </Field>
                                     </div>
                                     <div className="min-w-0 lg:col-span-2">
