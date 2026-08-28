@@ -66,6 +66,7 @@ use App\Http\Controllers\Operations\InventoryCategoryController;
 use App\Http\Controllers\Operations\InventoryCategoryPermanentDeleteController;
 use App\Http\Controllers\Operations\InventoryController;
 use App\Http\Controllers\Operations\InventoryGoodsReceiptController;
+use App\Http\Controllers\Operations\InventoryDirectReceiptController;
 use App\Http\Controllers\Operations\InventoryItemController;
 use App\Http\Controllers\Operations\InventoryItemPermanentDeleteController;
 use App\Http\Controllers\Operations\InventoryItemPriceController;
@@ -185,6 +186,9 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('inventory/receipts', [InventoryGoodsReceiptController::class, 'store'])->name('inventory.receipts.store');
     Route::get('inventory/receipts/{inventoryGoodsReceipt}', [InventoryGoodsReceiptController::class, 'show'])->name('inventory.receipts.show');
     Route::get('inventory/stock-movements', [InventoryStockMovementController::class, 'index'])->name('inventory.movements.index');
+    Route::get('inventory/add-stock', [InventoryDirectReceiptController::class, 'create'])->name('inventory.direct-receipts.create');
+    Route::post('inventory/add-stock', [InventoryDirectReceiptController::class, 'store'])->name('inventory.direct-receipts.store');
+    Route::get('inventory/add-stock/{inventoryDirectReceipt}', [InventoryDirectReceiptController::class, 'show'])->name('inventory.direct-receipts.show');
     Route::get('inventory/transfers', [InventoryTransferController::class, 'index'])->name('inventory.transfers.index');
     Route::post('inventory/transfers', [InventoryTransferController::class, 'store'])->name('inventory.transfers.store');
     Route::post('inventory/transfers/{inventoryTransfer}/approve', InventoryTransferApprovalController::class)->name('inventory.transfers.approve');

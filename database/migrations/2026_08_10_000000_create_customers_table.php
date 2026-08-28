@@ -19,7 +19,6 @@ return new class extends Migration
             $table->string('code');
             $table->string('email')->nullable();
             $table->string('phone')->nullable();
-            $table->string('tax_number')->nullable();
             $table->text('address')->nullable();
             $table->string('status')->default('active');
             $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();

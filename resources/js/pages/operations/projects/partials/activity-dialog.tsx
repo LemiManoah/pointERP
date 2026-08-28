@@ -149,7 +149,9 @@ export function ActivityDialog({
                             <InputError message={form.errors.site_id} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="boq_item_number">BOQ item</Label>
+                            <Label htmlFor="boq_item_number">
+                                BOQ reference
+                            </Label>
                             <Input
                                 id="boq_item_number"
                                 value={form.data.boq_item_number}
@@ -159,11 +161,12 @@ export function ActivityDialog({
                                         event.target.value,
                                     )
                                 }
+                                placeholder="e.g. 31.01(b)(i)"
                             />
                             <InputError message={form.errors.boq_item_number} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="code">Code</Label>
+                            <Label htmlFor="code">Internal code</Label>
                             <Input
                                 id="code"
                                 value={form.data.code}
@@ -221,7 +224,7 @@ export function ActivityDialog({
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="approved_quantity">
-                                Approved qty
+                                Approved progress
                             </Label>
                             <Input
                                 id="approved_quantity"

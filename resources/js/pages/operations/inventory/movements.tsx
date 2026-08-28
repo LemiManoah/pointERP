@@ -1,5 +1,10 @@
 import { Head, Link } from '@inertiajs/react';
-import { ArrowRightLeft, ClipboardCheck, Search } from 'lucide-react';
+import {
+    ArrowRightLeft,
+    ClipboardCheck,
+    PackagePlus,
+    Search,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +30,7 @@ type Movement = {
     posted_on: string;
     status: string;
     source: string;
+    source_url: string | null;
     store: Store;
     item: {
         id: string;
@@ -37,7 +43,12 @@ type Movement = {
 type Props = {
     movements: Movement[];
     stores: Store[];
-    can: { adjust: boolean; transfer: boolean; reverse: boolean };
+    can: {
+        addStock: boolean;
+        adjust: boolean;
+        transfer: boolean;
+        reverse: boolean;
+    };
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -84,6 +95,14 @@ export default function InventoryMovements({ movements, stores, can }: Props) {
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                        {can.addStock && (
+                            <Button asChild>
+                                <Link href="/inventory/add-stock?return_to=/inventory/stock-movements">
+                                    <PackagePlus />
+                                    Add new stock
+                                </Link>
+                            </Button>
+                        )}
                         {can.adjust && (
                             <Button asChild variant="outline">
                                 <Link href="/inventory/reconciliations">
@@ -217,7 +236,18 @@ export default function InventoryMovements({ movements, stores, can }: Props) {
                                                 {formatNumber(row.quantity)}
                                             </Td>
                                             <Td>{row.reason}</Td>
-                                            <Td>{row.source}</Td>
+                                            <Td>
+                                                {row.source_url ? (
+                                                    <Link
+                                                        href={row.source_url}
+                                                        className="font-medium text-primary hover:underline"
+                                                    >
+                                                        {row.source}
+                                                    </Link>
+                                                ) : (
+                                                    row.source
+                                                )}
+                                            </Td>
                                             <Td>{label(row.status)}</Td>
                                         </tr>
                                     ))}

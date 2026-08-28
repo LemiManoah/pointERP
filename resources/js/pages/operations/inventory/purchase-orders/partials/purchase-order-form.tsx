@@ -213,7 +213,7 @@ export function PurchaseOrderForm({
                                 />
                             </Field>
                             <Field
-                                label="Supplier"
+                                label="Supplier company"
                                 required
                                 error={form.errors.supplier_id}
                             >
@@ -222,7 +222,7 @@ export function PurchaseOrderForm({
                                     options={suppliers.map((row) => ({
                                         value: row.id,
                                         label: row.name,
-                                        description: row.code,
+                                        description: `${row.code} · ${row.type.replaceAll('_', ' ')}`,
                                     }))}
                                     onValueChange={(value) =>
                                         form.setData('supplier_id', value)

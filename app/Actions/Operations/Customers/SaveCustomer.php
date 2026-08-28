@@ -20,7 +20,7 @@ final readonly class SaveCustomer
     }
 
     /**
-     * @param  array{branch_id?: string|null, type: string, name: string, code: string, email?: string|null, phone?: string|null, tax_number?: string|null, address?: string|null, status: string}  $data
+     * @param  array{branch_id?: string|null, type: string, name: string, code?: string|null, email?: string|null, phone?: string|null, address?: string|null, status: string}  $data
      */
     public function handle(array $data, User $actor, ?Customer $customer = null): Customer
     {
@@ -29,10 +29,9 @@ final readonly class SaveCustomer
             'branch_id' => $data['branch_id'] ?? null,
             'type' => $data['type'],
             'name' => $data['name'],
-            'code' => Str::upper($data['code']),
+            'code' => $this->code($data['name'], $data['code'] ?? null, $customer),
             'email' => isset($data['email']) ? Str::lower($data['email']) : null,
             'phone' => $data['phone'] ?? null,
-            'tax_number' => $data['tax_number'] ?? null,
             'address' => $data['address'] ?? null,
             'status' => $data['status'],
             'updated_by' => $actor->id,
@@ -51,5 +50,30 @@ final readonly class SaveCustomer
         $this->auditLogger->record($event, $customer, $actor, $oldValues, $customer->fresh()?->toArray() ?? []);
 
         return $customer;
+    }
+
+    private function code(string $name, ?string $requestedCode, ?Customer $customer): string
+    {
+        $requested = Str::upper(Str::slug($requestedCode ?? '', '-'));
+        $base = $requested !== '' ? $requested : Str::upper(Str::slug($name, '-'));
+        $base = Str::limit($base !== '' ? $base : 'COMPANY', 60, '');
+        $code = $base;
+        $suffix = 2;
+
+        $codeExists = function (string $candidate) use ($customer): bool {
+            $query = Customer::query()->where('code', $candidate);
+            if ($customer instanceof Customer) {
+                $query->whereKeyNot($customer->id);
+            }
+
+            return $query->exists();
+        };
+
+        while ($codeExists($code)) {
+            $ending = '-'.$suffix++;
+            $code = Str::limit($base, 60 - mb_strlen($ending), '').$ending;
+        }
+
+        return $code;
     }
 }

@@ -375,7 +375,6 @@ name               string
 code               string
 email              string nullable
 phone              string nullable
-tax_number         string nullable
 address            text nullable
 status             string default active
 created_by         uuid nullable

@@ -1,5 +1,12 @@
 import { Link } from '@inertiajs/react';
 import { Badge } from '@/components/ui/badge';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import { formatNumber } from '@/lib/utils';
 
 export type EquipmentScopeData = {
@@ -47,169 +54,185 @@ export type EquipmentScopeData = {
 
 export function EquipmentScopePanel({ fleet }: { fleet: EquipmentScopeData }) {
     return (
-        <div className="grid gap-8">
-            <div className="grid gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-2 lg:grid-cols-5">
-                <Metric
-                    label="Currently deployed"
-                    value={fleet.summary.deployed}
-                />
-                <Metric
-                    label="Under maintenance"
-                    value={fleet.summary.under_maintenance}
-                />
-                <Metric
-                    label="Out of service"
-                    value={fleet.summary.out_of_service}
-                />
-                <Metric
-                    label="Working hours (30d)"
-                    value={fleet.summary.working_hours_30d}
-                />
-                <Metric
-                    label="Fuel litres (30d)"
-                    value={fleet.summary.fuel_litres_30d}
-                />
-                <Metric
-                    label="Open maintenance"
-                    value={fleet.summary.open_maintenance}
-                />
-                <Metric
-                    label="DSR lines posted"
-                    value={fleet.summary.dsr_posted}
-                />
-                <Metric
-                    label="DSR lines unposted"
-                    value={fleet.summary.dsr_unposted}
-                />
-                <Metric
-                    label="Unlinked snapshots"
-                    value={fleet.summary.unlinked_snapshots}
-                />
-                <Metric
-                    label="Fuel exceptions"
-                    value={fleet.summary.fuel_exceptions}
-                />
-                <Metric
-                    label="Approved corrections"
-                    value={fleet.summary.fleet_adjustments}
-                />
-            </div>
+        <div className="grid gap-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Equipment overview</CardTitle>
+                    <CardDescription>
+                        Current deployment, recent usage and unresolved fleet
+                        controls for this project.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                    <Metric
+                        label="Currently deployed"
+                        value={fleet.summary.deployed}
+                    />
+                    <Metric
+                        label="Under maintenance"
+                        value={fleet.summary.under_maintenance}
+                    />
+                    <Metric
+                        label="Out of service"
+                        value={fleet.summary.out_of_service}
+                    />
+                    <Metric
+                        label="Working hours (30d)"
+                        value={fleet.summary.working_hours_30d}
+                    />
+                    <Metric
+                        label="Fuel litres (30d)"
+                        value={fleet.summary.fuel_litres_30d}
+                    />
+                    <Metric
+                        label="Open maintenance"
+                        value={fleet.summary.open_maintenance}
+                    />
+                    <Metric
+                        label="DSR lines posted"
+                        value={fleet.summary.dsr_posted}
+                    />
+                    <Metric
+                        label="DSR lines unposted"
+                        value={fleet.summary.dsr_unposted}
+                    />
+                    <Metric
+                        label="Unlinked snapshots"
+                        value={fleet.summary.unlinked_snapshots}
+                    />
+                    <Metric
+                        label="Fuel exceptions"
+                        value={fleet.summary.fuel_exceptions}
+                    />
+                    <Metric
+                        label="Approved corrections"
+                        value={fleet.summary.fleet_adjustments}
+                    />
+                </CardContent>
+            </Card>
 
-            <section className="grid gap-3">
-                <div>
-                    <h3 className="font-semibold">Current deployment</h3>
-                    <p className="text-sm text-muted-foreground">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Current deployment</CardTitle>
+                    <CardDescription>
                         Assets whose accepted custody and location currently
                         point to this scope.
-                    </p>
-                </div>
-                <div className="overflow-x-auto rounded-md border">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b bg-muted/40 text-left text-muted-foreground">
-                                <th className="px-3 py-2 font-medium">Asset</th>
-                                <th className="px-3 py-2 font-medium">
-                                    Location / custodian
-                                </th>
-                                <th className="px-3 py-2 font-medium">Meter</th>
-                                <th className="px-3 py-2 font-medium">
-                                    Status
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {fleet.equipment.map((equipment) => (
-                                <tr
-                                    key={equipment.id}
-                                    className="border-b align-top last:border-0"
-                                >
-                                    <td className="px-3 py-3">
-                                        <Link
-                                            href={`/equipment/${equipment.id}`}
-                                            className="font-medium hover:underline"
-                                        >
-                                            {equipment.asset_code}
-                                        </Link>
-                                        <div>{equipment.name}</div>
-                                        <div className="text-muted-foreground">
-                                            {equipment.category_name}
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-3">
-                                        {equipment.location_name ??
-                                            'Location not confirmed'}
-                                        <div className="text-muted-foreground">
-                                            {equipment.custodian_name ??
-                                                'No current custodian'}
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-3">
-                                        {equipment.meter_type === 'none'
-                                            ? 'No meter'
-                                            : formatNumber(
-                                                  equipment.current_meter_reading,
-                                              )}
-                                        <div className="text-muted-foreground">
-                                            {title(equipment.meter_type)}
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-3">
-                                        <Badge
-                                            variant={
-                                                equipment.current_status ===
-                                                'out_of_service'
-                                                    ? 'destructive'
-                                                    : equipment.current_status ===
-                                                        'under_maintenance'
-                                                      ? 'outline'
-                                                      : 'secondary'
-                                            }
-                                        >
-                                            {title(equipment.current_status)}
-                                        </Badge>
-                                        {equipment.condition_summary && (
-                                            <div className="mt-1 max-w-64 text-muted-foreground">
-                                                {equipment.condition_summary}
-                                            </div>
-                                        )}
-                                    </td>
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b text-left text-muted-foreground">
+                                    <th className="py-3 pr-4 font-medium">
+                                        Asset
+                                    </th>
+                                    <th className="py-3 pr-4 font-medium">
+                                        Location / custodian
+                                    </th>
+                                    <th className="py-3 pr-4 font-medium">
+                                        Meter
+                                    </th>
+                                    <th className="py-3 font-medium">Status</th>
                                 </tr>
-                            ))}
-                            {fleet.equipment.length === 0 && (
-                                <Empty
-                                    colSpan={4}
-                                    text="No equipment is currently deployed here."
-                                />
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
+                            </thead>
+                            <tbody>
+                                {fleet.equipment.map((equipment) => (
+                                    <tr
+                                        key={equipment.id}
+                                        className="border-b align-top last:border-0"
+                                    >
+                                        <td className="py-3 pr-4">
+                                            <Link
+                                                href={`/equipment/${equipment.id}`}
+                                                className="font-medium hover:underline"
+                                            >
+                                                {equipment.asset_code}
+                                            </Link>
+                                            <div>{equipment.name}</div>
+                                            <div className="text-muted-foreground">
+                                                {equipment.category_name}
+                                            </div>
+                                        </td>
+                                        <td className="py-3 pr-4">
+                                            {equipment.location_name ??
+                                                'Location not confirmed'}
+                                            <div className="text-muted-foreground">
+                                                {equipment.custodian_name ??
+                                                    'No current custodian'}
+                                            </div>
+                                        </td>
+                                        <td className="py-3 pr-4">
+                                            {equipment.meter_type === 'none'
+                                                ? 'No meter'
+                                                : formatNumber(
+                                                      equipment.current_meter_reading,
+                                                  )}
+                                            <div className="text-muted-foreground">
+                                                {title(equipment.meter_type)}
+                                            </div>
+                                        </td>
+                                        <td className="py-3">
+                                            <Badge
+                                                variant={
+                                                    equipment.current_status ===
+                                                    'out_of_service'
+                                                        ? 'destructive'
+                                                        : equipment.current_status ===
+                                                            'under_maintenance'
+                                                          ? 'outline'
+                                                          : 'secondary'
+                                                }
+                                            >
+                                                {title(
+                                                    equipment.current_status,
+                                                )}
+                                            </Badge>
+                                            {equipment.condition_summary && (
+                                                <div className="mt-1 max-w-64 text-muted-foreground">
+                                                    {
+                                                        equipment.condition_summary
+                                                    }
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {fleet.equipment.length === 0 && (
+                                    <Empty
+                                        colSpan={4}
+                                        text="No equipment is currently deployed here."
+                                    />
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </CardContent>
+            </Card>
 
-            <section className="grid gap-3">
-                <div>
-                    <h3 className="font-semibold">
-                        Approved DSR reconciliation
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Approved DSR reconciliation</CardTitle>
+                    <CardDescription>
                         Recent approved report lines and the fleet-ledger result
                         created from each snapshot.
-                    </p>
-                </div>
-                <div className="overflow-x-auto rounded-md border">
-                    <table className="w-full text-sm">
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
                         <thead>
-                            <tr className="border-b bg-muted/40 text-left text-muted-foreground">
-                                <th className="px-3 py-2 font-medium">
+                            <tr className="border-b text-left text-muted-foreground">
+                                <th className="py-3 pr-4 font-medium">
                                     Report
                                 </th>
-                                <th className="px-3 py-2 font-medium">
+                                <th className="py-3 pr-4 font-medium">
                                     Equipment snapshot
                                 </th>
-                                <th className="px-3 py-2 font-medium">
+                                <th className="py-3 pr-4 font-medium">
                                     Usage / fuel
                                 </th>
-                                <th className="px-3 py-2 font-medium">
+                                <th className="py-3 font-medium">
                                     Fleet result
                                 </th>
                             </tr>
@@ -220,7 +243,7 @@ export function EquipmentScopePanel({ fleet }: { fleet: EquipmentScopeData }) {
                                     key={line.id}
                                     className="border-b align-top last:border-0"
                                 >
-                                    <td className="px-3 py-3">
+                                    <td className="py-3 pr-4">
                                         <Link
                                             href={`/daily-site-reports/${line.report_id}`}
                                             className="font-medium hover:underline"
@@ -231,7 +254,7 @@ export function EquipmentScopePanel({ fleet }: { fleet: EquipmentScopeData }) {
                                             {line.report_date}
                                         </div>
                                     </td>
-                                    <td className="px-3 py-3">
+                                    <td className="py-3 pr-4">
                                         {line.equipment_id ? (
                                             <Link
                                                 href={`/equipment/${line.equipment_id}`}
@@ -250,7 +273,7 @@ export function EquipmentScopePanel({ fleet }: { fleet: EquipmentScopeData }) {
                                             {line.equipment_name}
                                         </div>
                                     </td>
-                                    <td className="px-3 py-3">
+                                    <td className="py-3 pr-4">
                                         {formatNumber(line.working_hours)}{' '}
                                         working hours
                                         <div className="text-muted-foreground">
@@ -267,7 +290,7 @@ export function EquipmentScopePanel({ fleet }: { fleet: EquipmentScopeData }) {
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-3 py-3">
+                                    <td className="py-3">
                                         <Badge
                                             variant={postingVariant(
                                                 line.fleet_posting_status,
@@ -295,16 +318,17 @@ export function EquipmentScopePanel({ fleet }: { fleet: EquipmentScopeData }) {
                                 />
                             )}
                         </tbody>
-                    </table>
-                </div>
-            </section>
+                        </table>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }
 
 function Metric({ label, value }: { label: string; value: number }) {
     return (
-        <div className="bg-background px-3 py-3">
+        <div className="rounded-md border px-3 py-3">
             <div className="text-xs text-muted-foreground">{label}</div>
             <div className="mt-1 text-lg font-semibold">
                 {formatNumber(value)}

@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { Download, Search } from 'lucide-react';
+import { Download, PackagePlus, Search } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,7 @@ type Props = {
     rows: Row[];
     summary: { stocked_items: number; stores: number; low_stock: number };
     canExport: boolean;
+    canAddStock: boolean;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -40,6 +41,7 @@ export default function InventoryStockIndex({
     rows,
     summary,
     canExport,
+    canAddStock,
 }: Props) {
     const [status, setStatus] = useState<'all' | 'low'>('all');
     const [search, setSearch] = useState('');
@@ -71,14 +73,24 @@ export default function InventoryStockIndex({
                             operational store.
                         </p>
                     </div>
-                    {canExport && (
-                        <Button asChild variant="outline">
-                            <a href="/inventory/stock/export">
-                                <Download />
-                                Export ledger
-                            </a>
-                        </Button>
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                        {canExport && (
+                            <Button asChild variant="outline">
+                                <a href="/inventory/stock/export">
+                                    <Download />
+                                    Export ledger
+                                </a>
+                            </Button>
+                        )}
+                        {canAddStock && (
+                            <Button asChild>
+                                <Link href="/inventory/add-stock?return_to=/inventory/stock">
+                                    <PackagePlus />
+                                    Add new stock
+                                </Link>
+                            </Button>
+                        )}
+                    </div>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-3">
                     <Metric

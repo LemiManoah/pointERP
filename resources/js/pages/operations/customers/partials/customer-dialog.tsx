@@ -35,7 +35,6 @@ export type Customer = {
     code: string;
     email: string | null;
     phone: string | null;
-    tax_number: string | null;
     address: string | null;
     status: 'active' | 'inactive';
 };
@@ -47,7 +46,6 @@ type CustomerFormData = Record<string, string> & {
     code: string;
     email: string;
     phone: string;
-    tax_number: string;
     address: string;
     status: Customer['status'];
 };
@@ -70,7 +68,6 @@ export function CustomerDialog({ customer, branches }: Props) {
         code: customer?.code ?? '',
         email: customer?.email ?? '',
         phone: customer?.phone ?? '',
-        tax_number: customer?.tax_number ?? '',
         address: customer?.address ?? '',
         status: customer?.status ?? 'active',
     });
@@ -178,9 +175,18 @@ export function CustomerDialog({ customer, branches }: Props) {
                             <Input
                                 id="name"
                                 value={form.data.name}
-                                onChange={(event) =>
-                                    form.setData('name', event.target.value)
-                                }
+                                onChange={(event) => {
+                                    const name = event.target.value;
+                                    form.setData((data) => ({
+                                        ...data,
+                                        name,
+                                        code:
+                                            data.code ===
+                                            companyCode(data.name)
+                                                ? companyCode(name)
+                                                : data.code,
+                                    }));
+                                }}
                             />
                             <InputError message={form.errors.name} />
                         </div>
@@ -223,18 +229,6 @@ export function CustomerDialog({ customer, branches }: Props) {
                             />
                             <InputError message={form.errors.phone} />
                         </div>
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="tax_number">Tax number</Label>
-                        <Input
-                            id="tax_number"
-                            value={form.data.tax_number}
-                            onChange={(event) =>
-                                form.setData('tax_number', event.target.value)
-                            }
-                        />
-                        <InputError message={form.errors.tax_number} />
                     </div>
 
                     <div className="grid gap-2">
@@ -288,4 +282,13 @@ export function CustomerDialog({ customer, branches }: Props) {
             </DialogContent>
         </Dialog>
     );
+}
+
+function companyCode(name: string): string {
+    return name
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 60);
 }

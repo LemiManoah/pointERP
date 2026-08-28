@@ -46,7 +46,6 @@ final class CustomerController
                     'code' => $customer->code,
                     'email' => $customer->email,
                     'phone' => $customer->phone,
-                    'tax_number' => $customer->tax_number,
                     'address' => $customer->address,
                     'status' => $customer->status,
                 ]),
@@ -67,7 +66,7 @@ final class CustomerController
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
 
-        /** @var array{branch_id?: string|null, type: string, name: string, code: string, email?: string|null, phone?: string|null, tax_number?: string|null, address?: string|null, status: string} $data */
+        /** @var array{branch_id?: string|null, type: string, name: string, code?: string|null, email?: string|null, phone?: string|null, address?: string|null, status: string} $data */
         $data = $request->validated();
         $action->handle($data, $actor);
 
@@ -83,7 +82,7 @@ final class CustomerController
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
 
-        /** @var array{branch_id?: string|null, type: string, name: string, code: string, email?: string|null, phone?: string|null, tax_number?: string|null, address?: string|null, status: string} $data */
+        /** @var array{branch_id?: string|null, type: string, name: string, code: string, email?: string|null, phone?: string|null, address?: string|null, status: string} $data */
         $data = $request->validated();
         $action->handle($data, $actor, $customer);
 
@@ -106,7 +105,6 @@ final class CustomerController
             'code' => $customer->code,
             'email' => $customer->email,
             'phone' => $customer->phone,
-            'tax_number' => $customer->tax_number,
             'address' => $customer->address,
             'status' => $customer->status === 'active' ? 'inactive' : 'active',
         ], $actor, $customer);

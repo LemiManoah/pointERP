@@ -51,11 +51,13 @@ final class ProjectPolicy
 
     public function update(User $user, Project $project): bool
     {
-        if (! $this->belongsToSameTenant($user, $project->tenant_id) || ! $this->canAccessBranch($user, $project->branch_id)) {
+        if (! $this->belongsToSameTenant($user, $project->tenant_id)
+            || ! $this->canAccessBranch($user, $project->branch_id)
+            || ! $user->can('projects.update')) {
             return false;
         }
 
-        if ($user->can('projects.view-all') || $user->can('projects.update')) {
+        if ($user->can('projects.view-all') || $user->can('branches.view-all')) {
             return true;
         }
 

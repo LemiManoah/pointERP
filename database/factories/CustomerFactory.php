@@ -24,7 +24,6 @@ final class CustomerFactory extends Factory
             'code' => mb_strtoupper(fake()->unique()->lexify('????')),
             'email' => fake()->safeEmail(),
             'phone' => fake()->phoneNumber(),
-            'tax_number' => null,
             'address' => fake()->address(),
             'status' => 'active',
             'created_by' => null,

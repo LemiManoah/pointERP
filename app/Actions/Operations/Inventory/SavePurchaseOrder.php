@@ -30,7 +30,7 @@ final readonly class SavePurchaseOrder
     public function handle(array $data, User $actor, ?PurchaseOrder $purchaseOrder = null): PurchaseOrder
     {
         return DB::transaction(function () use ($actor, $data, $purchaseOrder): PurchaseOrder {
-            $supplier = Customer::query()->where('type', Customer::TYPE_SUPPLIER)->where('status', 'active')->findOrFail($data['supplier_id']);
+            $supplier = Customer::query()->where('status', 'active')->findOrFail($data['supplier_id']);
             $store = InventoryStore::query()->where('branch_id', $data['branch_id'])->where('is_active', true)->findOrFail($data['inventory_store_id']);
             if ($supplier->branch_id !== null && $supplier->branch_id !== $store->branch_id) {
                 throw ValidationException::withMessages(['supplier_id' => 'Select a supplier available to this branch.']);

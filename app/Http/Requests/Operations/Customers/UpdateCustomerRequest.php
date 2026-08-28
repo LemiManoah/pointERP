@@ -34,7 +34,6 @@ final class UpdateCustomerRequest extends FormRequest
             'code' => ['required', 'string', 'max:60', Rule::unique((new Customer)->getTable(), 'code')->where('tenant_id', $tenantId)->ignore($customer instanceof Customer ? $customer->id : null)],
             'email' => ['nullable', 'string', 'lowercase', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:60'],
-            'tax_number' => ['nullable', 'string', 'max:80'],
             'address' => ['nullable', 'string', 'max:1000'],
             'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
         ];

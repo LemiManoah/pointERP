@@ -39,6 +39,7 @@ final class InventoryStockMovementController
                 'posted_on' => $movement->posted_at->toDateString(),
                 'status' => $movement->status->value,
                 'source' => $this->sourceLabel($movement->source_type),
+                'source_url' => $this->sourceUrl($movement->source_type, $movement->source_id),
                 'store' => $movement->store->only(['id', 'branch_id', 'name']),
                 'item' => [
                     ...$movement->item->only(['id', 'name', 'code']),
@@ -47,7 +48,7 @@ final class InventoryStockMovementController
                 'posted_by' => $movement->postedBy->only(['id', 'name']),
             ]),
             'stores' => InventoryStore::query()->whereIn('branch_id', $branchIds)->where('is_active', true)->orderBy('name')->get(['id', 'branch_id', 'name']),
-            'can' => ['adjust' => $actor->can('inventory.stock.adjust'), 'transfer' => $actor->can('inventory.stock.transfer'), 'reverse' => $actor->can('inventory.stock.reverse')],
+            'can' => ['addStock' => $actor->can('inventory.stock.add'), 'adjust' => $actor->can('inventory.stock.adjust'), 'transfer' => $actor->can('inventory.stock.transfer'), 'reverse' => $actor->can('inventory.stock.reverse')],
         ]);
     }
 
@@ -67,10 +68,24 @@ final class InventoryStockMovementController
 
         return match (class_basename($sourceType)) {
             'InventoryGoodsReceipt' => 'PO goods receipt',
+            'InventoryDirectReceipt' => 'Added stock',
             'MaterialRequisitionLine' => 'Material requisition',
             'InventoryTransfer' => 'Store transfer',
             'DailySiteReportMaterialLine' => 'Daily site report',
             default => str(class_basename($sourceType))->headline()->toString(),
+        };
+    }
+
+    private function sourceUrl(?string $sourceType, ?string $sourceId): ?string
+    {
+        if ($sourceId === null) {
+            return null;
+        }
+
+        return match (class_basename($sourceType ?? '')) {
+            'InventoryGoodsReceipt' => route('inventory.receipts.show', $sourceId),
+            'InventoryDirectReceipt' => route('inventory.direct-receipts.show', $sourceId),
+            default => null,
         };
     }
 }

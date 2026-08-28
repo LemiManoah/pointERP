@@ -1,7 +1,10 @@
 export type Option = { id: string; name: string; code: string };
 export type BranchOption = Option & { default_currency_code: string };
 export type StoreOption = Option & { branch_id: string };
-export type SupplierOption = Option & { branch_id: string | null };
+export type SupplierOption = Option & {
+    branch_id: string | null;
+    type: string;
+};
 export type UnitOption = Option & { symbol: string | null };
 export type ProcurementItemOption = Option & {
     stock_unit_id: string;

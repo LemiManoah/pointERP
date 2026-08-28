@@ -8,6 +8,7 @@ import {
     Gauge,
     HardHat,
     Package,
+    PackagePlus,
     ShoppingBasket,
     ScrollText,
     ShieldCheck,
@@ -190,6 +191,13 @@ const groups: SidebarGroupItem[] = [
                 permission: 'inventory.stock.view',
             },
             {
+                title: 'Add new stock',
+                href: '/inventory/add-stock?return_to=/inventory/stock',
+                icon: PackagePlus,
+                status: 'ready',
+                permission: 'inventory.stock.add',
+            },
+            {
                 title: 'Requisitions',
                 href: '/inventory/requisitions',
                 icon: ShoppingBasket,
@@ -239,7 +247,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         auth: Auth;
         currentTenant: CurrentTenant | null;
     }>().props;
-    const { isCurrentUrl } = useCurrentUrl();
+    const { currentUrl, isCurrentUrl } = useCurrentUrl();
     const permissions = auth.user.permissions ?? [];
     const can = (permission?: string) =>
         !permission || permissions.includes(permission);
@@ -294,6 +302,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                                 const Icon = item.icon;
                                                 const disabled =
                                                     item.href === '#';
+                                                const href =
+                                                    item.title ===
+                                                    'Add new stock'
+                                                        ? `/inventory/add-stock?return_to=${encodeURIComponent(currentUrl === '/inventory/add-stock' ? '/inventory/stock' : currentUrl)}`
+                                                        : item.href;
 
                                                 return (
                                                     <SidebarMenuItem
@@ -305,7 +318,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                                             isActive={
                                                                 !disabled &&
                                                                 isCurrentUrl(
-                                                                    item.href,
+                                                                    item.title ===
+                                                                        'Add new stock'
+                                                                        ? '/inventory/add-stock'
+                                                                        : href,
                                                                 )
                                                             }
                                                             tooltip={{
@@ -330,7 +346,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                                             ) : (
                                                                 <Link
                                                                     href={
-                                                                        item.href
+                                                                        href
                                                                     }
                                                                     prefetch
                                                                 >

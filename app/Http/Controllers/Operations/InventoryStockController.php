@@ -35,6 +35,7 @@ final class InventoryStockController
             'rows' => $rows,
             'summary' => ['stocked_items' => $rows->count(), 'stores' => $rows->pluck('store_name')->unique()->count(), 'low_stock' => $rows->where('is_low_stock', true)->count()],
             'canExport' => $actor->can('inventory.reports.export'),
+            'canAddStock' => $actor->can('inventory.stock.add'),
         ]);
     }
 }

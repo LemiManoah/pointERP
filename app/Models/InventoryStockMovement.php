@@ -21,6 +21,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read string $quantity
  * @property-read string $original_quantity
  * @property-read string $conversion_multiplier
+ * @property-read string|null $source_type
+ * @property-read string|null $source_id
  * @property-read InventoryMovementType $movement_type
  * @property-read InventoryMovementStatus $status
  * @property-read CarbonInterface $posted_at

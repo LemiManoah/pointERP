@@ -265,37 +265,60 @@ export default function ProjectShow({
                                 <CardTitle>Assigned users</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid gap-3">
-                                    {assignedUsers.map((user) => (
-                                        <div
-                                            key={user.id}
-                                            className="flex items-center justify-between rounded-md border p-3 text-sm"
-                                        >
-                                            <div>
-                                                <div className="font-medium">
-                                                    {user.name}
-                                                </div>
-                                                <div className="text-muted-foreground">
-                                                    {user.email}
-                                                </div>
-                                            </div>
-                                            <div className="text-right text-muted-foreground">
-                                                <div>
-                                                    {user.role ?? 'Member'}
-                                                </div>
-                                                <div>
-                                                    {user.can_manage
-                                                        ? 'Can manage'
-                                                        : 'View only'}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {assignedUsers.length === 0 && (
-                                        <div className="py-8 text-center text-sm text-muted-foreground">
-                                            No project users assigned.
-                                        </div>
-                                    )}
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b text-left text-muted-foreground">
+                                                <th className="py-3 pr-4 font-medium">
+                                                    User
+                                                </th>
+                                                <th className="py-3 pr-4 font-medium">
+                                                    Role
+                                                </th>
+                                                <th className="py-3 font-medium">
+                                                    Project access
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {assignedUsers.map((user) => (
+                                                <tr
+                                                    key={user.id}
+                                                    className="border-b last:border-0"
+                                                >
+                                                    <td className="py-3 pr-4">
+                                                        <div className="font-medium">
+                                                            {user.name}
+                                                        </div>
+                                                        <div className="text-muted-foreground">
+                                                            {user.email}
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-3 pr-4">
+                                                        {user.role ?? 'Member'}
+                                                    </td>
+                                                    <td className="py-3">
+                                                        <Badge variant="outline">
+                                                            {user.can_manage
+                                                                ? 'Can manage'
+                                                                : 'View only'}
+                                                        </Badge>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {assignedUsers.length === 0 && (
+                                                <tr>
+                                                    <td
+                                                        colSpan={3}
+                                                        className="py-8 text-center text-muted-foreground"
+                                                    >
+                                                        No project users
+                                                        assigned.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </CardContent>
                         </Card>
@@ -470,12 +493,13 @@ function ActivityTable({
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b text-left text-muted-foreground">
+                                <th className="py-3 pr-4 font-medium">Activity</th>
                                 <th className="py-3 pr-4 font-medium">
-                                    Activity
+                                    BOQ reference
                                 </th>
                                 <th className="py-3 pr-4 font-medium">Site</th>
                                 <th className="py-3 pr-4 font-medium">
-                                    Approved / planned
+                                    Approved progress / planned
                                 </th>
                                 {canViewRates && (
                                     <th className="py-3 pr-4 font-medium">
@@ -497,11 +521,14 @@ function ActivityTable({
                                         <div className="font-medium">
                                             {activity.name}
                                         </div>
-                                        <div className="text-muted-foreground">
-                                            {activity.boq_item_number ??
-                                                activity.code ??
-                                                'No BOQ item'}
-                                        </div>
+                                        {activity.code && (
+                                            <div className="text-muted-foreground">
+                                                {activity.code}
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td className="py-3 pr-4">
+                                        {activity.boq_item_number ?? 'Not linked'}
                                     </td>
                                     <td className="py-3 pr-4">
                                         {activity.site_name ?? 'Project-wide'}
@@ -542,7 +569,7 @@ function ActivityTable({
                             {activities.length === 0 && (
                                 <tr>
                                     <td
-                                        colSpan={canViewRates ? 5 : 4}
+                                        colSpan={canViewRates ? 6 : 5}
                                         className="py-8 text-center text-muted-foreground"
                                     >
                                         No activities in this section.

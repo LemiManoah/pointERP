@@ -156,7 +156,6 @@ name
 code
 email nullable
 phone nullable
-tax_number nullable
 address nullable
 status active/inactive
 created_by

@@ -25,7 +25,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string $code
  * @property-read string|null $email
  * @property-read string|null $phone
- * @property-read string|null $tax_number
  * @property-read string|null $address
  * @property-read string $status
  * @property-read string|null $created_by
@@ -42,7 +41,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'code',
     'email',
     'phone',
-    'tax_number',
     'address',
     'status',
     'created_by',
@@ -80,7 +78,6 @@ final class Customer extends Model
             'code' => 'string',
             'email' => 'string',
             'phone' => 'string',
-            'tax_number' => 'string',
             'address' => 'string',
             'status' => 'string',
             'created_by' => 'string',

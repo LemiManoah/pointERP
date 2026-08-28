@@ -9,6 +9,7 @@ use App\Models\Branch;
 use App\Models\InventoryBatch;
 use App\Models\InventoryStore;
 use App\Models\InventoryStoreItem;
+use App\Models\InventoryUnitConversion;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
@@ -38,7 +39,7 @@ final readonly class InventoryStoreStockOptions
         /** @var Collection<int, array<string, mixed>> $stores */
         $stores = InventoryStore::query()
             ->whereIn('id', $this->accessibleStoreIds($actor))
-            ->with(['branch', 'storeSettings.item.stockUnit'])
+            ->with(['branch', 'storeSettings.item.stockUnit', 'storeSettings.item.conversions.fromUnit'])
             ->orderBy('name')
             ->get()
             ->map(fn (InventoryStore $store): array => [
@@ -69,6 +70,16 @@ final readonly class InventoryStoreStockOptions
             'stock_unit_id' => $item->stock_unit_id,
             'unit' => $item->stockUnit->symbol ?? $item->stockUnit->name,
             'tracking_type' => $item->tracking_type->value,
+            'is_expires' => $item->is_expires,
+            'units' => collect([[
+                'id' => $item->stockUnit->id,
+                'name' => $item->stockUnit->name,
+                'symbol' => $item->stockUnit->symbol,
+            ]])->merge($item->conversions->where('is_active', true)->map(fn (InventoryUnitConversion $conversion): array => [
+                'id' => $conversion->fromUnit->id,
+                'name' => $conversion->fromUnit->name,
+                'symbol' => $conversion->fromUnit->symbol,
+            ]))->unique('id')->values()->all(),
             'system_quantity' => $this->balances->for($store, $item)['on_hand'],
             'batches' => $item->tracking_type === InventoryTrackingType::Batch
                 ? InventoryBatch::query()->where('inventory_item_id', $item->id)->where('is_active', true)->orderBy('batch_number')->get()->map(fn (InventoryBatch $batch): array => [

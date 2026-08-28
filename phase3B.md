@@ -15,7 +15,7 @@ At the end of Phase 3B, a construction company should be able to answer:
 1. What materials and consumables are defined, and in what units?
 2. What stock is physically held at each depot, warehouse or site store?
 3. What has been requested, approved, ordered, received, inspected, issued, returned or transferred?
-4. Which supplier and purchase order supports a receipt?
+4. Which company and purchase order or authorised direct receipt supports incoming stock?
 5. Which project, site, activity or equipment received a material issue?
 6. What quantity is on hand, reserved, available, transferred or rejected?
 7. Which stock is below its reorder level or cannot be issued?
@@ -34,7 +34,7 @@ The phase replaces uncontrolled material names and spreadsheet balances with mas
 - Warehouses, depots and site stores.
 - Requisitions and approval workflow.
 - Direct purchase orders and line-level commitments.
-- Goods receipts, inspection outcomes and rejected quantities.
+- PO goods receipts, inspection outcomes, rejected quantities and permission-guarded direct stock receipts.
 - Stock issues, returns, transfers, adjustments and stock reconciliations.
 - On-hand, reserved and available balances, plus completed transfer evidence.
 - Reorder levels and low-stock exceptions.
@@ -93,7 +93,9 @@ The UI must show these as separate values. `available = 0` is not the same as mi
 
 ### 4.5 Procurement is not receipt
 
-A purchase order is a supplier commitment. It does not increase stock. Stock increases only when a receipt is posted after quantity and inspection checks.
+A purchase order is a supplier commitment. It does not increase stock. PO stock increases only when a receipt is posted after quantity and inspection checks.
+
+Stock received outside procurement uses the separate **Add new stock** workflow. It requires the `inventory.stock.add` permission, posts immediately without approval, records a mandatory reason, and may identify any active company as its source. It creates an immutable direct-receipt header and lines so its ledger movements cannot be confused with PO goods receipts. Batch identity and expiry remain mandatory where the item requires them.
 
 Partial receipts, over-receipts, rejected quantities and backorders must be represented explicitly. The remaining purchase-order commitment stays open until completed, cancelled or closed by an authorised user.
 
@@ -803,6 +805,7 @@ Ensure the audit trail records:
 - requisition submission, review, issue, return and cancellation;
 - PO creation, commercial changes, submission, review, close and cancellation;
 - receipt inspection and rejected-quantity reasons;
+- direct stock receipts, their source company, destination store and reason;
 - transfer, physical count, reversal and negative-stock rejection context where appropriate;
 - DSR allocation, direct issue, external classification, correction and exception resolution.
 
@@ -898,6 +901,7 @@ Tests must prove:
 18. batch tracking requires batch identity at receipt time and expiry where configured; item setup itself does not create batches;
 19. store-specific reorder settings override item defaults;
 20. one DSR line can reconcile multiple partial movements without losing its snapshot.
+21. direct stock receipt routes require `inventory.stock.add`, are idempotent, preserve their source record and post batch-aware receipt movements without a PO.
 
 ## 12. Seed Scenario
 
@@ -953,7 +957,7 @@ The following decisions are now confirmed for implementation:
 5. One store may serve several sites. Every movement still names its store and project/site context where applicable.
 6. DSR stock posting is an explicit reconciliation action after approval, never automatic on draft save.
 7. Cost visibility is separate from quantity visibility. A storekeeper can see item names, units, reorder levels, store balances and movement quantities without seeing supplier prices, unit costs or currency amounts. The server also strips or preserves cost fields according to permission, so hiding a column is not the security control.
-8. Existing `Customer` records of type supplier or subcontractor are the initial supplier master.
+8. Existing active `Customer` records are the company master. Any company type may be selected as a PO supplier or direct-stock source because a client or subcontractor may also supply materials on a project.
 9. The item master records the tracking requirement. Batch identity and expiry are captured from the supplier delivery or PO receipt, because a single item may have many batches; users do not create operational batches directly from item setup.
 10. Inventory tracking type, material class, store type and unit dimension are represented by PHP backed enum classes and stored in ordinary string columns, keeping business validation in code instead of database-specific enum constraints.
 11. Phase 3B stores source costs and operational quantities for traceability. Formal valuation methods, accounting journals, payable recognition, tax and financial reporting belong to Phase 4; inventory must not pretend that a receipt is already a posted accounting transaction.
