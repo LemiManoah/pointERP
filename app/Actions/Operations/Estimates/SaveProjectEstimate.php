@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Actions\Operations\Estimates;
 
 use App\Enums\ProjectEstimateStatus;
-use App\Http\Requests\Operations\Estimates\StoreProjectEstimateRequest;
 use App\Models\Project;
 use App\Models\ProjectEstimate;
 use App\Models\ProjectEstimateLine;
@@ -16,7 +15,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
-/** @phpstan-import-type ProjectEstimatePayload from StoreProjectEstimateRequest */
+/**
+ * @phpstan-type EstimateResourcePayload array{resource_type: string, inventory_item_id?: string|null, unit_of_measure_id?: string|null, name: string, quantity_per_work_unit: numeric-string, estimated_unit_cost?: numeric-string|null, notes?: string|null}
+ * @phpstan-type EstimateLinePayload array{work_item_key?: string|null, site_id?: string|null, unit_of_measure_id: string, boq_reference?: string|null, code?: string|null, name: string, planned_quantity: numeric-string, selling_rate?: numeric-string|null, estimated_unit_cost?: numeric-string|null, notes?: string|null, resources?: list<EstimateResourcePayload>}
+ * @phpstan-type ProjectEstimatePayload array{title: string, currency_code: string, notes?: string|null, lines: list<EstimateLinePayload>}
+ */
 final readonly class SaveProjectEstimate
 {
     public function __construct(private AuditLogger $auditLogger)

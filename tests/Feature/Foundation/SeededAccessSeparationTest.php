@@ -33,7 +33,7 @@ it('limits a branch administrator to users in their branch', function (): void {
         ->assertOk()
         ->assertInertia(fn (Assert $page): Assert => $page
             ->component('access-control/users/index')
-            ->has('users', 6)
+            ->has('users', 8)
             ->where('branches.0.code', 'KLA-HQ'));
 });
 

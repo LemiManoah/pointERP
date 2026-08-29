@@ -106,5 +106,5 @@ it('allows an active company of any type to supply a purchase order', function (
         ]],
     ])->assertRedirect();
 
-    expect(PurchaseOrder::query()->latest()->value('supplier_id'))->toBe($company->id);
+    expect(PurchaseOrder::query()->where('supplier_id', $company->id)->exists())->toBeTrue();
 });

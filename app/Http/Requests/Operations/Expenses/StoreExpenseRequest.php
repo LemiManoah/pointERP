@@ -20,6 +20,7 @@ use App\Services\BranchContext;
 use App\Services\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -31,7 +32,16 @@ final class StoreExpenseRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+        if (! $user instanceof User) {
+            return false;
+        }
+
+        $expense = $this->route('expense');
+
+        return $expense instanceof Expense
+            ? Gate::forUser($user)->allows('update', $expense)
+            : Gate::forUser($user)->allows('create', Expense::class);
     }
 
     /** @return array<string, mixed> */
