@@ -11,6 +11,7 @@ import {
     PackagePlus,
     ReceiptText,
     ShoppingBasket,
+    ShoppingCart,
     ScrollText,
     ShieldCheck,
     Users,
@@ -190,6 +191,13 @@ const groups: SidebarGroupItem[] = [
                 icon: Warehouse,
                 status: 'ready',
                 permission: 'inventory.items.view',
+            },
+            {
+                title: 'POS',
+                href: '/pos',
+                icon: ShoppingCart,
+                status: 'ready',
+                permission: 'pos.view',
             },
             {
                 title: 'Stock balances',

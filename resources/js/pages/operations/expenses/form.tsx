@@ -123,9 +123,6 @@ export default function ExpenseForm(props: Props) {
     const [draft, setDraft] = useState<Line>(blankLine());
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [categoryId, setCategoryId] = useState('');
-    const selectedBranch = props.branches.find(
-        (branch) => branch.value === form.data.branch_id,
-    );
     const availableItems = props.expenseItems.filter(
         (item) => item.is_active && item.expense_category_id === categoryId,
     );

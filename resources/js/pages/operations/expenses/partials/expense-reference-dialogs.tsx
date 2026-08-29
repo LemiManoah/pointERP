@@ -59,7 +59,8 @@ export function ExpenseCategoryDialog({
                         {category ? 'Edit expense type' : 'New expense type'}
                     </DialogTitle>
                     <DialogDescription>
-                        Expense types group reusable expense items for reporting.
+                        Expense types group reusable expense items for
+                        reporting.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={submit} className="grid gap-4">

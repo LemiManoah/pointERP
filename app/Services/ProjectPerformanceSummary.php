@@ -6,7 +6,6 @@ namespace App\Services;
 
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportMaterialLine;
-use App\Models\EstimateResourceLine;
 use App\Models\ExpenseLine;
 use App\Models\Project;
 use App\Models\ProjectActivity;
@@ -87,10 +86,6 @@ final class ProjectPerformanceSummary
             $approved = $activity instanceof ProjectActivity ? (float) $activity->approved_quantity : 0.0;
 
             foreach ($line->resources as $resource) {
-                if (! $resource instanceof EstimateResourceLine) {
-                    continue;
-                }
-
                 if ($resource->resource_type->value !== 'material') {
                     continue;
                 }
@@ -103,8 +98,8 @@ final class ProjectPerformanceSummary
                 $quantityPerUnit = (float) $resource->quantity_per_work_unit;
                 $current = $resourceRows[$key] ?? [
                     'inventory_item_id' => $key,
-                    'name' => $resource->inventoryItem?->name ?? $resource->name,
-                    'unit' => $resource->unit?->symbol ?? $resource->inventoryItem?->stockUnit->symbol ?? '',
+                    'name' => $resource->inventoryItem->name,
+                    'unit' => $resource->unit->symbol ?? $resource->inventoryItem->stockUnit->symbol ?? '',
                     'planned_quantity' => 0.0,
                     'expected_to_date' => 0.0,
                     'actual_quantity' => (float) ($materialActuals->get($key) ?? 0),

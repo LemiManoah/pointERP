@@ -110,6 +110,7 @@ use App\Http\Controllers\Operations\MaterialRequisitionReturnController;
 use App\Http\Controllers\Operations\MaterialRequisitionReviewController;
 use App\Http\Controllers\Operations\MaterialRequisitionSubmissionController;
 use App\Http\Controllers\Operations\OperationsDashboardController;
+use App\Http\Controllers\Operations\PosSaleController;
 use App\Http\Controllers\Operations\ProjectActivityController;
 use App\Http\Controllers\Operations\ProjectController;
 use App\Http\Controllers\Operations\ProjectEstimateApprovalController;
@@ -214,6 +215,9 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::resource('equipment-locations', EquipmentLocationController::class)->only(['store', 'update', 'destroy']);
     Route::get('inventory', [InventoryController::class, 'index'])->name('inventory.index');
     Route::get('inventory-dashboard', InventoryOperationsDashboardController::class)->name('inventory.dashboard');
+    Route::get('pos', [PosSaleController::class, 'index'])->name('pos.index');
+    Route::post('pos', [PosSaleController::class, 'store'])->name('pos.store');
+    Route::get('pos/{posSale}', [PosSaleController::class, 'show'])->name('pos.show');
     Route::get('inventory/reports/{report}', InventoryReportExportController::class)->name('inventory.reports.export');
     Route::get('inventory/reports/{report}/pdf', InventoryReportPdfController::class)->name('inventory.reports.pdf');
     Route::get('inventory/stock', [InventoryStockController::class, 'index'])->name('inventory.stock.index');

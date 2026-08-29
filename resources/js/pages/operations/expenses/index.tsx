@@ -83,9 +83,7 @@ export default function ExpenseIndex(props: Props) {
     const categories = props.categories.filter(
         (row) =>
             row.is_active === (recordState === 'active') &&
-            `${row.name} ${row.code}`
-                .toLowerCase()
-                .includes(term),
+            `${row.name} ${row.code}`.toLowerCase().includes(term),
     );
     const items = props.expenseItems.filter(
         (row) =>

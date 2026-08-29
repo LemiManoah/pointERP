@@ -122,6 +122,7 @@ final class PointInvestmentSeeder extends Seeder
             'PROCUREMENT-OFFICER' => $this->position('PROCUREMENT-OFFICER', 'Procurement Officer'),
             'ACCOUNTANT' => $this->position('ACCOUNTANT', 'Accountant'),
             'STORE-KEEPER' => $this->position('STORE-KEEPER', 'Store Keeper'),
+            'CASHIER' => $this->position('CASHIER', 'Cashier'),
             'SITE-ENGINEER' => $this->position('SITE-ENGINEER', 'Site Engineer'),
             'SITE-MANAGER' => $this->position('SITE-MANAGER', 'Site Manager'),
             'AUDITOR' => $this->position('AUDITOR', 'Auditor'),
@@ -220,6 +221,17 @@ final class PointInvestmentSeeder extends Seeder
             branch: $branches['KLA-HQ'],
             position: $positions['STORE-KEEPER'],
             roleName: 'Store Keeper',
+            branchAccess: [$branches['KLA-HQ']],
+            defaultBranch: $branches['KLA-HQ'],
+        );
+
+        $this->user(
+            staffNumber: 'POINT-011',
+            name: 'Kampala Cashier',
+            email: 'cashier.kla@point.test',
+            branch: $branches['KLA-HQ'],
+            position: $positions['CASHIER'],
+            roleName: 'Cashier',
             branchAccess: [$branches['KLA-HQ']],
             defaultBranch: $branches['KLA-HQ'],
         );

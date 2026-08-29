@@ -43,7 +43,7 @@ final readonly class SaveProjectActivity
             'name' => $data['name'],
             'unit' => $data['unit'] ?? null,
             'planned_quantity' => $data['planned_quantity'] ?? null,
-            'approved_quantity' => $projectActivity?->approved_quantity ?? '0',
+            'approved_quantity' => $projectActivity instanceof ProjectActivity ? $projectActivity->approved_quantity : '0',
             'rate_amount' => $data['rate_amount'] ?? null,
             'currency_code' => $data['currency_code'] ?? null,
             'status' => $data['status'],

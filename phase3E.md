@@ -365,6 +365,8 @@ Use a details page with printable receipt content, payment table, stock allocati
 
 ### 3E.1 POS Foundation and Catalogue
 
+Status: implemented, pending local validation. The first slice includes generated schema files, typed domain models/enums, tenant-and-branch policy boundaries, seeded Cashier access, a responsive sellable-stock catalogue, deterministic price-list/unit resolution and the working cart.
+
 - Add enum classes, migrations, models, relationships and factories.
 - Add permissions, policies, routes and sidebar entry.
 - Build the POS option service scoped by tenant, branch and store.
@@ -374,6 +376,8 @@ Use a details page with printable receipt content, payment table, stock allocati
 Acceptance: an authorized cashier sees only sellable, active, store-enabled items in accessible branches and receives a deterministic current price.
 
 ### 3E.2 Atomic Checkout and Receipt
+
+Status: implemented, pending local validation. Checkout recalculates prices and decimal totals on the server, requires full payment, allocates valid batches using FEFO, posts idempotent inventory issues in the same transaction and opens a printable immutable receipt with sales history.
 
 - Save/hold draft carts.
 - Validate totals server-side using decimal arithmetic.
@@ -387,6 +391,8 @@ Acceptance: an authorized cashier sees only sellable, active, store-enabled item
 Acceptance: completing a sale exactly once records the receipt, payments and matching stock reduction, and a checkout failure records none of them.
 
 ### 3E.3 Returns and Reversals
+
+Status: planned. The return schema and model boundaries exist, but return authorization, refund and restocking actions are intentionally left for the next implementation chunk.
 
 - Add return request and authorization flow.
 - Enforce remaining returnable quantity.

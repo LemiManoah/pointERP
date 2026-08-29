@@ -1882,6 +1882,7 @@ function ExternalMaterialDialog({ line }: { line: MaterialReconciliation }) {
 
 function LineCard({
     title,
+    description,
     disabled,
     lines,
     fields,
