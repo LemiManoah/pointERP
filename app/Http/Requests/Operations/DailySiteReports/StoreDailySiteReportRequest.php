@@ -8,8 +8,8 @@ use App\Models\Equipment;
 use App\Models\ProjectActivity;
 use App\Models\Site;
 use App\Services\TenantContext;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 final class StoreDailySiteReportRequest extends FormRequest

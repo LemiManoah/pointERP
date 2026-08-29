@@ -222,21 +222,21 @@ final class MaterialRequisitionController
                 ->map(
                     /** @param Collection<int, InventoryStoreItem> $settings */
                     function (Collection $settings) use ($balances): array {
-                    /** @var InventoryStoreItem $first */
-                    $first = $settings->first();
-                    $item = $first->item;
+                        /** @var InventoryStoreItem $first */
+                        $first = $settings->first();
+                        $item = $first->item;
 
-                    return [
-                        'id' => $item->id,
-                        'code' => $item->code,
-                        'name' => $item->name,
-                        'stock_unit_id' => $item->stock_unit_id,
-                        'stock_unit_name' => $item->stockUnit->symbol ?? $item->stockUnit->code,
-                        'store_availability' => $settings->map(fn (InventoryStoreItem $setting): array => [
-                            'store_id' => $setting->inventory_store_id,
-                            'available' => $balances->for($setting->store, $item)['available'],
-                        ])->values(),
-                    ];
+                        return [
+                            'id' => $item->id,
+                            'code' => $item->code,
+                            'name' => $item->name,
+                            'stock_unit_id' => $item->stock_unit_id,
+                            'stock_unit_name' => $item->stockUnit->symbol ?? $item->stockUnit->code,
+                            'store_availability' => $settings->map(fn (InventoryStoreItem $setting): array => [
+                                'store_id' => $setting->inventory_store_id,
+                                'available' => $balances->for($setting->store, $item)['available'],
+                            ])->values(),
+                        ];
                     },
                 )
                 ->sortBy('name')
