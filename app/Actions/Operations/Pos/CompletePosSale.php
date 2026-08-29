@@ -123,7 +123,6 @@ final readonly class CompletePosSale
     }
 
     /**
-     * @param  mixed  $lines
      * @return list<array{
      *     item: InventoryItem,
      *     unit: UnitOfMeasure,

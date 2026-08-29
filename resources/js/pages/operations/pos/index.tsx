@@ -331,9 +331,7 @@ export default function PosIndex(props: Props) {
                                 onUpdate={update}
                                 onRemove={(index) =>
                                     setCart(
-                                        cart.filter(
-                                            (_, row) => row !== index,
-                                        ),
+                                        cart.filter((_, row) => row !== index),
                                     )
                                 }
                                 onCheckout={checkout}
@@ -348,9 +346,7 @@ export default function PosIndex(props: Props) {
                                             className="pl-9"
                                             value={search}
                                             onChange={(event) =>
-                                                setSearch(
-                                                    event.target.value,
-                                                )
+                                                setSearch(event.target.value)
                                             }
                                             placeholder="Search sellable items..."
                                         />
@@ -374,9 +370,7 @@ export default function PosIndex(props: Props) {
                                                 key={item.id}
                                                 onClick={() => add(item)}
                                                 disabled={
-                                                    Number(
-                                                        unit.available,
-                                                    ) <= 0
+                                                    Number(unit.available) <= 0
                                                 }
                                                 className="min-w-0 rounded-md border bg-background p-3 text-left transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                                             >
@@ -590,7 +584,7 @@ function PosCartDrawer({
                                     <div className="flex min-w-0 items-start justify-between gap-4">
                                         <div className="min-w-0 flex-1">
                                             <div
-                                                className="line-clamp-2 font-medium leading-snug"
+                                                className="line-clamp-2 leading-snug font-medium"
                                                 title={item.name}
                                             >
                                                 {item.name}
@@ -697,7 +691,9 @@ function PosCartDrawer({
                                                         value={
                                                             line.unit_of_measure_id
                                                         }
-                                                        onValueChange={(value) =>
+                                                        onValueChange={(
+                                                            value,
+                                                        ) =>
                                                             onUpdate(index, {
                                                                 unit_of_measure_id:
                                                                     value,
