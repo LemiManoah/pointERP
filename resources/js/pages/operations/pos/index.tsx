@@ -63,6 +63,10 @@ type Sale = {
     status_label: string;
     currency_code: string;
     total_amount: string;
+    amount_paid: string;
+    balance_due: string;
+    payment_status: string;
+    payment_status_label: string;
     line_count: number;
     completed_at: string | null;
     payments: { method: string; amount: string }[];
@@ -100,6 +104,7 @@ type Props = {
         changeStore: boolean;
         changePriceList: boolean;
         discount: boolean;
+        sellOnCredit: boolean;
     };
 };
 
@@ -113,6 +118,7 @@ export default function PosIndex(props: Props) {
     const [customerId, setCustomerId] = useState('');
     const [method, setMethod] = useState('cash');
     const [reference, setReference] = useState('');
+    const [paymentAmount, setPaymentAmount] = useState<string | null>(null);
     const [cart, setCart] = useState<CartLine[]>([]);
     const form = useForm({
         checkout_key: props.checkoutKey,
@@ -166,6 +172,12 @@ export default function PosIndex(props: Props) {
         0,
     );
     const total = Math.max(subtotal - discount, 0);
+    const enteredPaymentAmount =
+        paymentAmount === null ? total : Number(paymentAmount || 0);
+    const paidAmount = Number.isFinite(enteredPaymentAmount)
+        ? enteredPaymentAmount
+        : 0;
+    const balanceDue = Math.max(total - paidAmount, 0);
     const itemCount = details.reduce(
         (sum, row) => sum + Number(row.line.quantity || 0),
         0,
@@ -231,14 +243,23 @@ export default function PosIndex(props: Props) {
         if (cart.length === 0 || total <= 0) return;
         confirm({
             title: 'Complete this sale?',
-            description: `${cart.length} item line${cart.length === 1 ? '' : 's'} will reduce stock and record ${formatCurrencyAmount(props.selected.currency_code, total)} as paid.`,
+            description: `${cart.length} item line${cart.length === 1 ? '' : 's'} will reduce stock. ${formatCurrencyAmount(props.selected.currency_code, paidAmount)} will be collected now${balanceDue > 0 ? ` and ${formatCurrencyAmount(props.selected.currency_code, balanceDue)} will remain due` : ''}.`,
             confirmLabel: 'Complete sale',
             onConfirm: () => {
                 form.transform((data) => ({
                     ...data,
                     customer_id: customerId,
                     lines: cart,
-                    payments: [{ method, amount: total.toFixed(4), reference }],
+                    payments:
+                        paidAmount > 0
+                            ? [
+                                  {
+                                      method,
+                                      amount: paidAmount.toFixed(4),
+                                      reference,
+                                  },
+                              ]
+                            : [],
                 }));
                 form.post('/pos', { preserveScroll: true });
             },
@@ -306,15 +327,20 @@ export default function PosIndex(props: Props) {
                                 discount={discount}
                                 total={total}
                                 canDiscount={props.can.discount}
+                                canSellOnCredit={props.can.sellOnCredit}
                                 customers={props.customers}
                                 paymentMethods={props.paymentMethods}
                                 customerId={customerId}
                                 method={method}
                                 reference={reference}
+                                paymentAmount={paymentAmount}
+                                paidAmount={paidAmount}
+                                balanceDue={balanceDue}
                                 processing={form.processing}
                                 error={
                                     form.errors.lines ??
                                     form.errors.payments ??
+                                    form.errors.customer_id ??
                                     form.errors.inventory_store_id
                                 }
                                 checkoutDisabled={
@@ -322,12 +348,19 @@ export default function PosIndex(props: Props) {
                                     total <= 0 ||
                                     !props.selected.store_id ||
                                     !props.selected.price_list_id ||
-                                    (method !== 'cash' &&
-                                        reference.trim() === '')
+                                    (paidAmount > 0 &&
+                                        method !== 'cash' &&
+                                        reference.trim() === '') ||
+                                    paidAmount < 0 ||
+                                    paidAmount > total ||
+                                    (balanceDue > 0 &&
+                                        (!props.can.sellOnCredit ||
+                                            customerId === ''))
                                 }
                                 onCustomerChange={setCustomerId}
                                 onMethodChange={setMethod}
                                 onReferenceChange={setReference}
+                                onPaymentAmountChange={setPaymentAmount}
                                 onUpdate={update}
                                 onRemove={(index) =>
                                     setCart(
@@ -426,7 +459,7 @@ export default function PosIndex(props: Props) {
                                             Total
                                         </TableHead>
                                         <TableHead>Payment</TableHead>
-                                        <TableHead>Status</TableHead>
+                                        <TableHead>Sale</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -464,12 +497,26 @@ export default function PosIndex(props: Props) {
                                                 )}
                                             </TableCell>
                                             <TableCell>
-                                                {sale.payments
-                                                    .map(
-                                                        (payment) =>
-                                                            payment.method,
-                                                    )
-                                                    .join(', ') || 'Restricted'}
+                                                <Badge
+                                                    variant={
+                                                        sale.payment_status ===
+                                                        'paid'
+                                                            ? 'default'
+                                                            : 'secondary'
+                                                    }
+                                                >
+                                                    {sale.payment_status_label}
+                                                </Badge>
+                                                {Number(sale.balance_due) >
+                                                    0 && (
+                                                    <div className="mt-1 text-xs text-muted-foreground">
+                                                        {formatCurrencyAmount(
+                                                            sale.currency_code,
+                                                            sale.balance_due,
+                                                        )}{' '}
+                                                        due
+                                                    </div>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge>
@@ -506,17 +553,22 @@ function PosCartDrawer({
     discount,
     total,
     canDiscount,
+    canSellOnCredit,
     customers,
     paymentMethods,
     customerId,
     method,
     reference,
+    paymentAmount,
+    paidAmount,
+    balanceDue,
     processing,
     error,
     checkoutDisabled,
     onCustomerChange,
     onMethodChange,
     onReferenceChange,
+    onPaymentAmountChange,
     onUpdate,
     onRemove,
     onCheckout,
@@ -528,17 +580,22 @@ function PosCartDrawer({
     discount: number;
     total: number;
     canDiscount: boolean;
+    canSellOnCredit: boolean;
     customers: Option[];
     paymentMethods: Option[];
     customerId: string;
     method: string;
     reference: string;
+    paymentAmount: string | null;
+    paidAmount: number;
+    balanceDue: number;
     processing: boolean;
     error?: string;
     checkoutDisabled: boolean;
     onCustomerChange: (value: string) => void;
     onMethodChange: (value: string) => void;
     onReferenceChange: (value: string) => void;
+    onPaymentAmountChange: (value: string | null) => void;
     onUpdate: (index: number, values: Partial<CartLine>) => void;
     onRemove: (index: number) => void;
     onCheckout: () => void;
@@ -784,30 +841,75 @@ function PosCartDrawer({
                                 placeholder="Walk-in customer"
                             />
                         </Field>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                            <Field label="Payment method">
-                                <SearchableSelect
-                                    value={method}
-                                    onValueChange={onMethodChange}
-                                    options={paymentMethods}
-                                />
-                            </Field>
-                            <Field
-                                label="Payment reference"
-                                required={method !== 'cash'}
-                            >
-                                <Input
-                                    value={reference}
-                                    onChange={(event) =>
-                                        onReferenceChange(event.target.value)
-                                    }
-                                    placeholder={
-                                        method === 'cash'
-                                            ? 'Optional'
-                                            : 'Required'
-                                    }
-                                />
-                            </Field>
+                        <Field label="Amount paid" required>
+                            <Input
+                                type="number"
+                                min="0"
+                                max={total}
+                                step="0.01"
+                                value={
+                                    paymentAmount ??
+                                    (total > 0 ? total.toFixed(2) : '')
+                                }
+                                onChange={(event) =>
+                                    onPaymentAmountChange(event.target.value)
+                                }
+                            />
+                            {balanceDue > 0 && (
+                                <p
+                                    className={`text-xs ${canSellOnCredit ? 'text-muted-foreground' : 'text-destructive'}`}
+                                >
+                                    {canSellOnCredit
+                                        ? `The remaining ${formatCurrencyAmount(currencyCode, balanceDue)} will be recorded as customer credit.`
+                                        : 'You do not have permission to leave a customer balance.'}
+                                </p>
+                            )}
+                        </Field>
+                        {paidAmount > 0 && (
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <Field label="Payment method">
+                                    <SearchableSelect
+                                        value={method}
+                                        onValueChange={onMethodChange}
+                                        options={paymentMethods}
+                                    />
+                                </Field>
+                                <Field
+                                    label="Payment reference"
+                                    required={method !== 'cash'}
+                                >
+                                    <Input
+                                        value={reference}
+                                        onChange={(event) =>
+                                            onReferenceChange(
+                                                event.target.value,
+                                            )
+                                        }
+                                        placeholder={
+                                            method === 'cash'
+                                                ? 'Optional'
+                                                : 'Required'
+                                        }
+                                    />
+                                </Field>
+                            </div>
+                        )}
+                        <div className="space-y-1 border-t pt-3 text-sm">
+                            <Total
+                                label="Paid now"
+                                value={formatCurrencyAmount(
+                                    currencyCode,
+                                    paidAmount,
+                                )}
+                            />
+                            <Total
+                                label="Balance due"
+                                value={formatCurrencyAmount(
+                                    currencyCode,
+                                    balanceDue,
+                                )}
+                                strong={balanceDue > 0}
+                            />
                         </div>
                         <InputError message={error} />
                         <Button

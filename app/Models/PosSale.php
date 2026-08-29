@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\PosSalePaymentStatus;
 use App\Enums\PosSaleStatus;
 use App\Models\Concerns\BelongsToTenant;
 use Carbon\CarbonInterface;
@@ -30,11 +31,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read string $total_amount
  * @property-read string $subtotal
  * @property-read string $discount_total
+ * @property-read string $amount_paid
+ * @property-read string $balance_due
+ * @property-read PosSalePaymentStatus $payment_status
  * @property-read string|null $notes
  * @property-read int $lines_count
  * @property-read CarbonInterface|null $completed_at
  */
-#[Fillable(['tenant_id', 'branch_id', 'inventory_store_id', 'customer_id', 'inventory_price_tier_id', 'sale_number', 'checkout_key', 'status', 'currency_code', 'subtotal', 'discount_total', 'total_amount', 'notes', 'sold_by', 'completed_by', 'completed_at', 'cancelled_by', 'cancelled_at', 'cancellation_reason'])]
+#[Fillable(['tenant_id', 'branch_id', 'inventory_store_id', 'customer_id', 'inventory_price_tier_id', 'sale_number', 'checkout_key', 'status', 'currency_code', 'subtotal', 'discount_total', 'total_amount', 'amount_paid', 'balance_due', 'payment_status', 'notes', 'sold_by', 'completed_by', 'completed_at', 'cancelled_by', 'cancelled_at', 'cancellation_reason'])]
 final class PosSale extends Model
 {
     use BelongsToTenant;
@@ -47,7 +51,7 @@ final class PosSale extends Model
     /** @return array<string, string> */
     public function casts(): array
     {
-        return ['status' => PosSaleStatus::class, 'subtotal' => 'decimal:4', 'discount_total' => 'decimal:4', 'total_amount' => 'decimal:4', 'completed_at' => 'datetime', 'cancelled_at' => 'datetime', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
+        return ['status' => PosSaleStatus::class, 'payment_status' => PosSalePaymentStatus::class, 'subtotal' => 'decimal:4', 'discount_total' => 'decimal:4', 'total_amount' => 'decimal:4', 'amount_paid' => 'decimal:4', 'balance_due' => 'decimal:4', 'completed_at' => 'datetime', 'cancelled_at' => 'datetime', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
     }
 
     /** @return BelongsTo<Branch, $this> */

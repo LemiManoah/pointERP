@@ -17,6 +17,7 @@ import {
     formatDateTime,
     formatNumber,
 } from '@/lib/utils';
+import { RecordPaymentDialog } from '@/pages/operations/pos/partials/record-payment-dialog';
 import type { BreadcrumbItem } from '@/types';
 
 type Sale = {
@@ -32,6 +33,10 @@ type Sale = {
     subtotal: string;
     discount_total: string;
     total_amount: string;
+    amount_paid: string;
+    balance_due: string;
+    payment_status: string;
+    payment_status_label: string;
     notes: string | null;
     completed_at: string | null;
     lines: {
@@ -54,7 +59,17 @@ type Sale = {
     }[];
 };
 
-export default function PosShow({ sale }: { sale: Sale }) {
+type Option = { value: string; label: string };
+
+export default function PosShow({
+    sale,
+    can,
+    paymentMethods,
+}: {
+    sale: Sale;
+    can: { recordPayment: boolean };
+    paymentMethods: Option[];
+}) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'POS', href: '/pos' },
         { title: sale.sale_number, href: `/pos/${sale.id}` },
@@ -75,10 +90,20 @@ export default function PosShow({ sale }: { sale: Sale }) {
                             Sales receipt
                         </h1>
                     </div>
-                    <Button onClick={() => window.print()}>
-                        <Printer />
-                        Print receipt
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                        {can.recordPayment && (
+                            <RecordPaymentDialog
+                                saleId={sale.id}
+                                currencyCode={sale.currency_code}
+                                balanceDue={sale.balance_due}
+                                paymentMethods={paymentMethods}
+                            />
+                        )}
+                        <Button onClick={() => window.print()}>
+                            <Printer />
+                            Print receipt
+                        </Button>
+                    </div>
                 </div>
                 <Card className="mx-auto w-full max-w-4xl">
                     <CardHeader className="border-b">
@@ -108,6 +133,10 @@ export default function PosShow({ sale }: { sale: Sale }) {
                         <div className="grid gap-4 text-sm sm:grid-cols-2">
                             <Info label="Customer" value={sale.customer} />
                             <Info label="Cashier" value={sale.cashier} />
+                            <Info
+                                label="Payment status"
+                                value={sale.payment_status_label}
+                            />
                         </div>
                         <Table>
                             <TableHeader>
@@ -181,12 +210,27 @@ export default function PosShow({ sale }: { sale: Sale }) {
                                 )}
                             />
                             <Row
-                                label="Total paid"
+                                label="Sale total"
                                 value={formatCurrencyAmount(
                                     sale.currency_code,
                                     sale.total_amount,
                                 )}
                                 strong
+                            />
+                            <Row
+                                label="Amount paid"
+                                value={formatCurrencyAmount(
+                                    sale.currency_code,
+                                    sale.amount_paid,
+                                )}
+                            />
+                            <Row
+                                label="Balance due"
+                                value={formatCurrencyAmount(
+                                    sale.currency_code,
+                                    sale.balance_due,
+                                )}
+                                strong={Number(sale.balance_due) > 0}
                             />
                         </div>
                         {sale.payments.length > 0 && (
@@ -197,6 +241,7 @@ export default function PosShow({ sale }: { sale: Sale }) {
                                         <TableRow>
                                             <TableHead>Method</TableHead>
                                             <TableHead>Reference</TableHead>
+                                            <TableHead>Recorded</TableHead>
                                             <TableHead className="text-right">
                                                 Amount
                                             </TableHead>
@@ -210,6 +255,11 @@ export default function PosShow({ sale }: { sale: Sale }) {
                                                 </TableCell>
                                                 <TableCell>
                                                     {payment.reference ?? '—'}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {formatDateTime(
+                                                        payment.recorded_at,
+                                                    )}
                                                 </TableCell>
                                                 <TableCell className="text-right tabular-nums">
                                                     {formatCurrencyAmount(

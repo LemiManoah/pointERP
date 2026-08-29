@@ -20,7 +20,7 @@ The POS is a sales interface over inventory. Inventory remains the source of tru
 
 ## 2. Recommended First Release
 
-The first release should support counter sales that are fully paid at checkout.
+The first release supports ordinary counter sales plus controlled partial and credit sales for known customers.
 
 It should include:
 
@@ -30,12 +30,12 @@ It should include:
 4. A persistent cart with quantity, selling unit, resolved unit price and optional permitted discount.
 5. Retail, wholesale or another existing price list selected for the sale.
 6. Batch allocation using earliest-expiring stock first, with the allocation visible to the cashier.
-7. Cash, mobile money, card or bank payment, including split payment if the total remains fully settled.
+7. Cash, mobile money, card or bank payment, including an initial partial payment or no initial payment when credit is authorised.
 8. Atomic checkout: sale, payments and stock issues either all succeed or all fail.
 9. Printable receipt and searchable sales history.
 10. Controlled full or partial returns against the original sale.
 
-Do not include credit sales in this release. A credit sale creates a debtor balance, credit limits, collections and ageing requirements. That belongs with accounts receivable in Phase 4. Do not label the initial receipt a tax invoice until VAT and local fiscal compliance have been designed.
+This phase includes only a bounded POS receivable: known customer, immutable payment records, amount paid and balance due. Credit limits, payment schedules, statements, ageing, collection allocation across invoices and accounting entries remain Phase 4 concerns. Do not label the receipt a tax invoice until VAT and local fiscal compliance have been designed.
 
 ## 3. User Flow
 
@@ -110,14 +110,14 @@ At checkout the user sees a compact confirmation dialog containing:
 - payment methods and entered amounts;
 - warning that completing the sale reduces stock and creates an immutable receipt.
 
-The payment total must equal the sale total in Phase 3E. Cash change may be calculated and displayed but is not stored as a payment. Non-cash payments require a reference where appropriate.
+Checkout has one payment amount field, defaulted to the sale total. If an authorised user enters less than the total for a known customer, the system automatically records the remainder as customer credit. Walk-in customers must pay in full. Users with `pos.record-payment` may record later collections without reposting stock. Cash change may be calculated and displayed but is not stored as a payment. Non-cash payments require a reference.
 
 Completion runs in one database transaction:
 
 1. lock and revalidate the draft sale;
 2. revalidate item saleability, prices, units and batches;
 3. lock store-item balances and prevent negative stock;
-4. create immutable payment records;
+4. create immutable payment records and snapshot the sale's amount paid, balance due and payment status;
 5. post one inventory `Issue` movement per stock allocation using `PostInventoryStockMovement`;
 6. mark the sale completed;
 7. write the audit events;
@@ -377,7 +377,7 @@ Acceptance: an authorized cashier sees only sellable, active, store-enabled item
 
 ### 3E.2 Atomic Checkout and Receipt
 
-Status: implemented, pending local validation. Checkout recalculates prices and decimal totals on the server, requires full payment, allocates valid batches using FEFO, posts idempotent inventory issues in the same transaction and opens a printable immutable receipt with sales history.
+Status: implemented, pending local validation. Checkout recalculates prices and decimal totals on the server, allocates valid batches using FEFO, posts idempotent inventory issues in the same transaction and opens a printable immutable receipt with sales history.
 
 - Save/hold draft carts.
 - Validate totals server-side using decimal arithmetic.
@@ -389,6 +389,20 @@ Status: implemented, pending local validation. Checkout recalculates prices and 
 - Add sales history and filters.
 
 Acceptance: completing a sale exactly once records the receipt, payments and matching stock reduction, and a checkout failure records none of them.
+
+### 3E.2A Controlled Credit and Collections
+
+Status: implemented, pending local validation.
+
+- Require full payment for walk-in sales.
+- Permit partial or credit sales only for a known customer and a user with `pos.sell-on-credit`.
+- Infer paid, partially paid or unpaid status directly from the entered payment amount.
+- Store `amount_paid`, `balance_due` and a typed payment status on the sale.
+- Record later permission-guarded payments against the original receipt under a database lock.
+- Block overpayment and require references for non-cash collections.
+- Keep stock posting tied to sale completion; later payments never move stock again.
+
+Acceptance: an authorised credit sale creates one stock issue and a visible customer balance, and later collections reduce only that balance until it is paid.
 
 ### 3E.3 Returns and Reversals
 
@@ -441,7 +455,7 @@ Acceptance: managers can reconcile sales totals to payment records and inventory
 
 ## 11. Deferred Features
 
-- customer credit and accounts receivable;
+- full accounts receivable: credit limits, statements, ageing, collection allocation and accounting entries;
 - quotations, layaway and sales orders;
 - VAT calculation and fiscal/e-invoicing integration;
 - loyalty points and promotions engine;
@@ -459,11 +473,11 @@ These are not rejected ideas. They are separated so the first POS remains unders
 
 The recommended defaults are:
 
-1. Full payment is required at checkout; credit sales wait for Phase 4.
+1. Walk-in sales require full payment; bounded credit is allowed only for known customers and authorised users.
 2. Branch default currency only.
 3. Retail is the default price list, with permitted switching to Wholesale or another list.
 4. Walk-in customer is allowed.
-5. Multiple payment methods may settle one sale, but their sum must equal the total.
+5. Initial and later payments may settle one sale; their sum may never exceed the total.
 6. Batch selection is automatic FEFO with supervisor override.
 7. Discounts require permission; price overrides require stronger permission and a reason.
 8. Only restockable returns affect inventory automatically.

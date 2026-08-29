@@ -321,10 +321,12 @@ export function DocumentDialog({
                                 }
                                 options={[
                                     { value: '', label: 'Not specified' },
-                                    ...linkOptions.disciplines.map((option) => ({
-                                        value: option.id,
-                                        label: option.name,
-                                    })),
+                                    ...linkOptions.disciplines.map(
+                                        (option) => ({
+                                            value: option.id,
+                                            label: option.name,
+                                        }),
+                                    ),
                                 ]}
                                 placeholder="Select discipline"
                             />

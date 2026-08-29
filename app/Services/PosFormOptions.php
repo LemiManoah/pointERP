@@ -48,7 +48,7 @@ final readonly class PosFormOptions
             'paymentMethods' => collect(PosPaymentMethod::cases())->map(fn (PosPaymentMethod $method): array => ['value' => $method->value, 'label' => $method->label()]),
             'checkoutKey' => Str::uuid()->toString(),
             'selected' => ['branch_id' => $branch->id, 'store_id' => $store?->id, 'price_list_id' => $tier?->id, 'currency_code' => $branch->default_currency_code],
-            'can' => ['changeBranch' => $user->can('pos.change-branch') && $branches->count() > 1, 'changeStore' => $user->can('pos.change-store') && $stores->count() > 1, 'changePriceList' => $user->can('pos.change-price-list') && $tiers->count() > 1, 'discount' => $user->can('pos.apply-discount')],
+            'can' => ['changeBranch' => $user->can('pos.change-branch') && $branches->count() > 1, 'changeStore' => $user->can('pos.change-store') && $stores->count() > 1, 'changePriceList' => $user->can('pos.change-price-list') && $tiers->count() > 1, 'discount' => $user->can('pos.apply-discount'), 'sellOnCredit' => $user->can('pos.sell-on-credit')],
             'items' => $store instanceof InventoryStore && $tier instanceof InventoryPriceTier ? $this->items($store, $tier, $branch) : [],
         ];
     }

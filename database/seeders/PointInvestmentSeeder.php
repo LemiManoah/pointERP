@@ -13,9 +13,9 @@ use App\Actions\Operations\Inventory\ReconcileInventoryStockCount;
 use App\Actions\Operations\Inventory\ReviewInventoryReconciliation;
 use App\Actions\Operations\Inventory\ReviewInventoryTransfer;
 use App\Actions\Operations\Inventory\TransferInventoryItems;
-use App\Enums\DsrMaterialReconciliationStatus;
 use App\Enums\DocumentDiscipline;
 use App\Enums\DocumentRevision;
+use App\Enums\DsrMaterialReconciliationStatus;
 use App\Enums\EstimateResourceType;
 use App\Enums\ExpensePayeeType;
 use App\Enums\ExpensePaymentMethod;
@@ -2358,7 +2358,7 @@ final class PointInvestmentSeeder extends Seeder
         );
         $revisionValue = $revision === null
             ? null
-            : (DocumentRevision::tryFrom($revision)?->value ?? DocumentRevision::Initial->value);
+            : (DocumentRevision::tryFrom($revision) ?? DocumentRevision::Initial)->value;
         $disciplineValue = $discipline === null ? null : match (mb_strtolower($discipline)) {
             'commercial' => DocumentDiscipline::Commercial->value,
             'roadworks', 'earthworks', 'traffic' => DocumentDiscipline::Civil->value,

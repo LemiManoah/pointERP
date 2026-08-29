@@ -39,7 +39,7 @@ final class CompletePosSaleRequest extends FormRequest
             'lines.*.unit_of_measure_id' => ['required', 'uuid', Rule::exists((new UnitOfMeasure)->getTable(), 'id')->where('is_active', true)],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0', 'decimal:0,4'],
             'lines.*.discount_amount' => ['required', 'numeric', 'min:0', 'decimal:0,4'],
-            'payments' => ['required', 'array', 'min:1'],
+            'payments' => ['present', 'array'],
             'payments.*.method' => ['required', Rule::enum(PosPaymentMethod::class)],
             'payments.*.amount' => ['required', 'numeric', 'gt:0', 'decimal:0,4'],
             'payments.*.reference' => ['nullable', 'string', 'max:150'],

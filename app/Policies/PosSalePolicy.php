@@ -29,4 +29,12 @@ final class PosSalePolicy
     {
         return $user->can('pos.sell');
     }
+
+    public function recordPayment(User $user, PosSale $sale): bool
+    {
+        return $this->view($user, $sale)
+            && $user->can('pos.record-payment')
+            && $sale->status->value === 'completed'
+            && (float) $sale->balance_due > 0;
+    }
 }

@@ -27,6 +27,9 @@ return new class extends Migration
             $table->decimal('subtotal', 20, 4);
             $table->decimal('discount_total', 20, 4)->default(0);
             $table->decimal('total_amount', 20, 4);
+            $table->decimal('amount_paid', 20, 4)->default(0);
+            $table->decimal('balance_due', 20, 4)->default(0);
+            $table->string('payment_status', 30)->default('unpaid');
             $table->text('notes')->nullable();
             $table->uuid('sold_by');
             $table->uuid('completed_by')->nullable();
@@ -48,6 +51,7 @@ return new class extends Migration
             $table->unique(['tenant_id', 'sale_number'], 'pos_sale_tenant_number_uq');
             $table->unique(['tenant_id', 'checkout_key'], 'pos_sale_tenant_checkout_uq');
             $table->index(['tenant_id', 'branch_id', 'status', 'completed_at'], 'pos_sale_scope_status_idx');
+            $table->index(['tenant_id', 'branch_id', 'payment_status'], 'pos_sale_payment_status_idx');
         });
     }
 

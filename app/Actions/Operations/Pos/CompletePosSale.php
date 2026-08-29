@@ -10,6 +10,7 @@ use App\Enums\InventoryMovementType;
 use App\Enums\InventoryTrackingType;
 use App\Enums\PosPaymentMethod;
 use App\Enums\PosPaymentStatus;
+use App\Enums\PosSalePaymentStatus;
 use App\Enums\PosSaleStatus;
 use App\Models\Branch;
 use App\Models\Customer;
@@ -69,14 +70,19 @@ final readonly class CompletePosSale
         $subtotal = collect($prepared)->reduce(fn (BigDecimal $sum, array $line): BigDecimal => $sum->plus($line['gross']), BigDecimal::zero());
         $discount = collect($prepared)->reduce(fn (BigDecimal $sum, array $line): BigDecimal => $sum->plus($line['discount']), BigDecimal::zero());
         $total = $subtotal->minus($discount);
-        $this->validatePayments($payments, $total);
+        $paid = $this->validatePayments($payments, $total);
+        $balance = $total->minus($paid);
+        $this->validateCredit($balance, $customer, $actor);
+        $paymentStatus = $this->paymentStatus($paid, $total);
 
-        return DB::transaction(function () use ($actor, $branch, $customer, $data, $discount, $payments, $prepared, $store, $subtotal, $tier, $total): PosSale {
+        return DB::transaction(function () use ($actor, $balance, $branch, $customer, $data, $discount, $paid, $paymentStatus, $payments, $prepared, $store, $subtotal, $tier, $total): PosSale {
             $sale = PosSale::query()->create([
                 'tenant_id' => $this->tenantContext->id(), 'branch_id' => $branch->id, 'inventory_store_id' => $store->id,
                 'customer_id' => $customer?->id, 'inventory_price_tier_id' => $tier->id, 'sale_number' => $this->number('POS'), 'checkout_key' => $data['checkout_key'],
                 'status' => PosSaleStatus::Draft, 'currency_code' => $branch->default_currency_code,
                 'subtotal' => (string) $subtotal->toScale(4), 'discount_total' => (string) $discount->toScale(4), 'total_amount' => (string) $total->toScale(4),
+                'amount_paid' => (string) $paid->toScale(4), 'balance_due' => (string) $balance->toScale(4),
+                'payment_status' => $paymentStatus,
                 'notes' => $data['notes'] ?? null, 'sold_by' => $actor->id,
             ]);
 
@@ -212,7 +218,7 @@ final readonly class CompletePosSale
     }
 
     /** @param list<PosPaymentData> $payments */
-    private function validatePayments(array $payments, BigDecimal $total): void
+    private function validatePayments(array $payments, BigDecimal $total): BigDecimal
     {
         $paid = BigDecimal::zero();
         foreach ($payments as $index => $payment) {
@@ -224,9 +230,38 @@ final readonly class CompletePosSale
             $paid = $paid->plus((string) $payment['amount']);
         }
 
-        if (! $paid->isEqualTo($total)) {
-            throw ValidationException::withMessages(['payments' => 'Payments must equal the sale total of '.$total->toScale(4).'.']);
+        if ($paid->isGreaterThan($total)) {
+            throw ValidationException::withMessages(['payments' => 'Payments cannot exceed the sale total of '.$total->toScale(4).'.']);
         }
+
+        return $paid;
+    }
+
+    private function validateCredit(BigDecimal $balance, ?Customer $customer, User $actor): void
+    {
+        if (! $balance->isPositive()) {
+            return;
+        }
+
+        if (! $customer instanceof Customer) {
+            throw ValidationException::withMessages(['customer_id' => 'Select a known customer for a partial or credit sale.']);
+        }
+
+        if (! $actor->can('pos.sell-on-credit')) {
+            throw ValidationException::withMessages(['payments' => 'You do not have permission to complete a sale with an outstanding balance.']);
+        }
+
+    }
+
+    private function paymentStatus(BigDecimal $paid, BigDecimal $total): PosSalePaymentStatus
+    {
+        if ($paid->isZero()) {
+            return PosSalePaymentStatus::Unpaid;
+        }
+
+        return $paid->isEqualTo($total)
+            ? PosSalePaymentStatus::Paid
+            : PosSalePaymentStatus::PartiallyPaid;
     }
 
     private function number(string $prefix): string

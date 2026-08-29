@@ -537,7 +537,7 @@ final class RolePermissionSeeder extends Seeder
             $this->roles[$role] = [...$this->roles[$role], ...$fullExpenseAccess,
                 'pos.apply-discount', 'pos.change-branch', 'pos.change-price-list', 'pos.change-store', 'pos.drafts.manage',
                 'pos.reports.export', 'pos.reports.view', 'pos.returns.approve', 'pos.returns.create', 'pos.sell',
-                'pos.view', 'pos.view-all-sales', 'pos.view-payments',
+                'pos.record-payment', 'pos.sell-on-credit', 'pos.view', 'pos.view-all-sales', 'pos.view-payments',
             ];
         }
 
@@ -545,7 +545,7 @@ final class RolePermissionSeeder extends Seeder
         $this->roles['Project Manager'] = [...$this->roles['Project Manager'], 'expense-payments.view', 'expenses.approve', 'expenses.cancel', 'expenses.create', 'expenses.reconcile-dsr', 'expenses.reject', 'expenses.submit', 'expenses.update', 'expenses.view', 'expenses.view-costs'];
         $this->roles['Site Manager'] = [...$this->roles['Site Manager'], 'expenses.cancel', 'expenses.create', 'expenses.submit', 'expenses.update', 'expenses.view'];
         $this->roles['Auditor'] = [...$this->roles['Auditor'], 'expense-payments.view', 'expenses.export', 'expenses.view', 'expenses.view-all', 'expenses.view-costs'];
-        $this->roles['Cashier'] = ['customers.view', 'pos.sell', 'pos.view', 'pos.view-payments'];
+        $this->roles['Cashier'] = ['customers.view', 'pos.record-payment', 'pos.sell', 'pos.view', 'pos.view-payments'];
 
         resolve(PermissionRegistrar::class)->forgetCachedPermissions();
 
