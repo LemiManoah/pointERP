@@ -26,6 +26,7 @@ use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -218,7 +219,9 @@ final class MaterialRequisitionController
             'activities' => ProjectActivity::query()->whereIn('project_id', $projectIds)->where('status', 'active')->orderBy('name')->get(['id', 'project_id', 'name', 'code']),
             'items' => $storeItems
                 ->groupBy('inventory_item_id')
-                ->map(function ($settings) use ($balances): array {
+                ->map(
+                    /** @param Collection<int, InventoryStoreItem> $settings */
+                    function (Collection $settings) use ($balances): array {
                     /** @var InventoryStoreItem $first */
                     $first = $settings->first();
                     $item = $first->item;
@@ -234,7 +237,8 @@ final class MaterialRequisitionController
                             'available' => $balances->for($setting->store, $item)['available'],
                         ])->values(),
                     ];
-                })
+                    },
+                )
                 ->sortBy('name')
                 ->values(),
         ];
