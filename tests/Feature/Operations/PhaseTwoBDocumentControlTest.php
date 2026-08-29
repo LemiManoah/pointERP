@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\DocumentDiscipline;
 use App\Models\DailySiteReport;
 use App\Models\Document;
 use App\Models\DocumentType;
@@ -121,10 +122,8 @@ it('supersedes older active drawing records with the same document number', func
             'reference' => 'BKH-TEST-DWG-001-REV-B',
             'document_number' => 'BKH-TEST-DWG-001',
             'revision' => 'B',
-            'discipline' => 'Roadworks',
-            'issuer' => 'Point Design Office',
+            'discipline' => DocumentDiscipline::Civil->value,
             'document_date' => now()->toDateString(),
-            'received_on' => now()->toDateString(),
             'confidentiality' => Document::CONFIDENTIALITY_NORMAL,
             'status' => Document::STATUS_ACTIVE,
             'file' => UploadedFile::fake()->create('drawing-rev-b.pdf', 100, 'application/pdf'),

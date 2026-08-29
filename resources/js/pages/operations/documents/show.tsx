@@ -163,14 +163,10 @@ export default function DocumentShow({
                     </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-4">
+                <div className="grid gap-4 md:grid-cols-3">
                     <InfoCard
                         label="Document date"
                         value={document.document_date ?? 'None'}
-                    />
-                    <InfoCard
-                        label="Received"
-                        value={document.received_on ?? 'None'}
                     />
                     <InfoCard
                         label="Expiry"

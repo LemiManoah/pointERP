@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\TenantContext;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 final readonly class SaveDocument
 {
@@ -41,13 +42,14 @@ final readonly class SaveDocument
                 'title' => $data['title'],
                 'reference' => $data['reference'] ?? null,
                 'external_url' => $data['external_url'] ?? null,
-                'document_number' => $data['document_number'] ?? null,
+                'document_number' => filled($data['document_number'] ?? null)
+                    ? Str::upper((string) $data['document_number'])
+                    : ($document->document_number ?? $this->documentNumber()),
                 'revision' => $data['revision'] ?? null,
                 'discipline' => $data['discipline'] ?? null,
-                'issuer' => $data['issuer'] ?? null,
+                'issuer_id' => $data['issuer_id'] ?? null,
                 'description' => $data['description'] ?? null,
                 'document_date' => $data['document_date'] ?? null,
-                'received_on' => $data['received_on'] ?? null,
                 'expires_on' => $data['expires_on'] ?? null,
                 'confidentiality' => $data['confidentiality'],
                 'status' => $data['status'] ?? Document::STATUS_ACTIVE,
@@ -93,6 +95,15 @@ final readonly class SaveDocument
 
             return $document->refresh();
         });
+    }
+
+    private function documentNumber(): string
+    {
+        do {
+            $number = 'DOC-'.now()->format('Y').'-'.Str::upper(Str::random(6));
+        } while (Document::query()->where('document_number', $number)->exists());
+
+        return $number;
     }
 
     private function supersedeOlderDrawingRevisions(Document $document, User $actor): void

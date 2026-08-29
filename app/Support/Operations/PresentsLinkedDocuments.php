@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace App\Support\Operations;
 
+use App\Enums\DocumentConfidentiality;
+use App\Enums\DocumentDiscipline;
+use App\Enums\DocumentRevision;
 use App\Models\Branch;
 use App\Models\Contract;
+use App\Models\Customer;
 use App\Models\DailySiteReport;
 use App\Models\Document;
 use App\Models\DocumentLink;
@@ -63,6 +67,18 @@ trait PresentsLinkedDocuments
                 'maintenanceWorkOrders' => $this->documentMaintenanceWorkOrderOptions($user, $tenantId),
                 'inventoryItems' => $this->documentInventoryItemOptions($user, $tenantId),
                 'expenses' => $this->documentExpenseOptions($user, $tenantId),
+                'companies' => Customer::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('status', 'active')
+                    ->visibleTo($user)
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(fn (Customer $company): array => ['id' => $company->id, 'name' => $company->name])
+                    ->values()
+                    ->all(),
+                'revisions' => array_map(fn (DocumentRevision $revision): array => ['id' => $revision->value, 'name' => $revision->label()], DocumentRevision::cases()),
+                'disciplines' => array_map(fn (DocumentDiscipline $discipline): array => ['id' => $discipline->value, 'name' => $discipline->label()], DocumentDiscipline::cases()),
+                'confidentialities' => array_map(fn (DocumentConfidentiality $confidentiality): array => ['id' => $confidentiality->value, 'name' => $confidentiality->label()], DocumentConfidentiality::cases()),
             ],
         ];
     }
@@ -73,7 +89,7 @@ trait PresentsLinkedDocuments
     private function linkedDocumentsFor(Model $target, User $user): array
     {
         return Document::query()
-            ->with(['type', 'branch', 'currentVersion', 'links.linkable'])
+            ->with(['type', 'branch', 'issuerCompany', 'currentVersion', 'links.linkable'])
             ->whereHas('links', fn (Builder $query) => $query
                 ->where('linkable_type', $target::class)
                 ->where('linkable_id', $target->getKey()))
@@ -98,14 +114,14 @@ trait PresentsLinkedDocuments
             'document_number' => $document->document_number,
             'revision' => $document->revision,
             'discipline' => $document->discipline,
-            'issuer' => $document->issuer,
+            'issuer_id' => $document->issuer_id,
+            'issuer' => $document->issuer_id !== null ? $document->issuerCompany->name : null,
             'type_name' => $document->type?->name,
             'type_code' => $document->type?->code,
             'branch_name' => $document->branch?->name,
             'confidentiality' => $document->confidentiality,
             'status' => $document->status,
             'document_date' => $document->document_date?->toDateString(),
-            'received_on' => $document->received_on?->toDateString(),
             'expires_on' => $document->expires_on?->toDateString(),
             'is_expired' => $document->isExpired(),
             'current_version' => $document->currentVersion instanceof DocumentVersion ? [

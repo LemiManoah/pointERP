@@ -14,6 +14,8 @@ use App\Actions\Operations\Inventory\ReviewInventoryReconciliation;
 use App\Actions\Operations\Inventory\ReviewInventoryTransfer;
 use App\Actions\Operations\Inventory\TransferInventoryItems;
 use App\Enums\DsrMaterialReconciliationStatus;
+use App\Enums\DocumentDiscipline;
+use App\Enums\DocumentRevision;
 use App\Enums\EstimateResourceType;
 use App\Enums\ExpensePayeeType;
 use App\Enums\ExpensePaymentMethod;
@@ -2343,6 +2345,27 @@ final class PointInvestmentSeeder extends Seeder
         string $status = Document::STATUS_ACTIVE,
     ): Document {
         $type = DocumentType::query()->where('code', $typeCode)->firstOrFail();
+        $issuerCompany = $issuer === null ? null : Customer::query()->firstOrCreate(
+            ['tenant_id' => $branch->tenant_id, 'name' => $issuer],
+            [
+                'branch_id' => null,
+                'type' => Customer::TYPE_OTHER,
+                'code' => 'ORG-'.Str::upper(Str::slug($issuer, '-')),
+                'status' => 'active',
+                'created_by' => $actor->id,
+                'updated_by' => $actor->id,
+            ],
+        );
+        $revisionValue = $revision === null
+            ? null
+            : (DocumentRevision::tryFrom($revision)?->value ?? DocumentRevision::Initial->value);
+        $disciplineValue = $discipline === null ? null : match (mb_strtolower($discipline)) {
+            'commercial' => DocumentDiscipline::Commercial->value,
+            'roadworks', 'earthworks', 'traffic' => DocumentDiscipline::Civil->value,
+            'measurement' => DocumentDiscipline::Survey->value,
+            'fleet maintenance', 'fleet compliance' => DocumentDiscipline::Mechanical->value,
+            default => DocumentDiscipline::General->value,
+        };
 
         $document = Document::query()->updateOrCreate(
             ['tenant_id' => $branch->tenant_id, 'reference' => $reference],
@@ -2353,11 +2376,10 @@ final class PointInvestmentSeeder extends Seeder
                 'title' => $title,
                 'description' => $content,
                 'document_number' => $documentNumber,
-                'revision' => $revision,
-                'discipline' => $discipline,
-                'issuer' => $issuer,
+                'revision' => $revisionValue,
+                'discipline' => $disciplineValue,
+                'issuer_id' => $issuerCompany?->id,
                 'document_date' => now()->toDateString(),
-                'received_on' => now()->toDateString(),
                 'expires_on' => $expiresOn,
                 'confidentiality' => $confidentiality,
                 'status' => $status,

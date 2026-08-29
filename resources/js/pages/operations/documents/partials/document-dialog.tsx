@@ -2,6 +2,7 @@ import { useForm } from '@inertiajs/react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
+import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { SearchableSelect } from '@/components/searchable-select';
 import { Button } from '@/components/ui/button';
@@ -42,6 +43,10 @@ export type LinkOptions = {
     maintenanceWorkOrders: Option[];
     inventoryItems: Option[];
     expenses: Option[];
+    companies: Option[];
+    revisions: Option[];
+    disciplines: Option[];
+    confidentialities: Option[];
 };
 
 export type DocumentRecord = {
@@ -52,6 +57,7 @@ export type DocumentRecord = {
     document_number?: string | null;
     revision?: string | null;
     discipline?: string | null;
+    issuer_id?: string | null;
     issuer?: string | null;
     type_name: string;
     type_code: string;
@@ -60,7 +66,6 @@ export type DocumentRecord = {
     document_type_id?: string;
     description?: string | null;
     document_date?: string | null;
-    received_on?: string | null;
     expires_on: string | null;
     confidentiality: string;
     status: string;
@@ -78,10 +83,9 @@ type FormData = Record<
     document_number: string;
     revision: string;
     discipline: string;
-    issuer: string;
+    issuer_id: string;
     description: string;
     document_date: string;
-    received_on: string;
     expires_on: string;
     confidentiality: string;
     status: string;
@@ -99,6 +103,12 @@ type Props = {
     defaultBranchId?: string | null;
     buttonLabel?: string;
 };
+
+function createDocumentNumber(): string {
+    const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+
+    return `DOC-${new Date().getFullYear()}-${suffix}`;
+}
 
 export function DocumentDialog({
     document,
@@ -122,13 +132,12 @@ export function DocumentDialog({
         title: document?.title ?? '',
         reference: document?.reference ?? '',
         external_url: document?.external_url ?? '',
-        document_number: document?.document_number ?? '',
+        document_number: document?.document_number ?? createDocumentNumber(),
         revision: document?.revision ?? '',
         discipline: document?.discipline ?? '',
-        issuer: document?.issuer ?? '',
+        issuer_id: document?.issuer_id ?? '',
         description: document?.description ?? '',
         document_date: document?.document_date ?? '',
-        received_on: document?.received_on ?? '',
         expires_on: document?.expires_on ?? '',
         confidentiality: document?.confidentiality ?? 'normal',
         status: document?.status ?? 'active',
@@ -222,28 +231,18 @@ export function DocumentDialog({
                         </div>
                         <div className="grid gap-2">
                             <Label required>Confidentiality</Label>
-                            <NativeSelect
+                            <SearchableSelect
                                 value={form.data.confidentiality}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'confidentiality',
-                                        event.target.value,
-                                    )
+                                onValueChange={(value) =>
+                                    form.setData('confidentiality', value)
                                 }
-                            >
-                                <NativeSelectOption value="normal">
-                                    Normal
-                                </NativeSelectOption>
-                                <NativeSelectOption value="restricted">
-                                    Restricted
-                                </NativeSelectOption>
-                                <NativeSelectOption value="confidential">
-                                    Confidential
-                                </NativeSelectOption>
-                                <NativeSelectOption value="commercial">
-                                    Commercial
-                                </NativeSelectOption>
-                            </NativeSelect>
+                                options={linkOptions.confidentialities.map(
+                                    (option) => ({
+                                        value: option.id,
+                                        label: option.name,
+                                    }),
+                                )}
+                            />
                             <InputError message={form.errors.confidentiality} />
                         </div>
                     </div>
@@ -296,92 +295,89 @@ export function DocumentDialog({
                             <InputError message={form.errors.document_number} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="revision">Revision</Label>
-                            <Input
-                                id="revision"
+                            <Label>Revision</Label>
+                            <SearchableSelect
                                 value={form.data.revision}
-                                onChange={(event) =>
-                                    form.setData('revision', event.target.value)
+                                onValueChange={(value) =>
+                                    form.setData('revision', value)
                                 }
+                                options={[
+                                    { value: '', label: 'Not specified' },
+                                    ...linkOptions.revisions.map((option) => ({
+                                        value: option.id,
+                                        label: option.name,
+                                    })),
+                                ]}
+                                placeholder="Select revision"
                             />
                             <InputError message={form.errors.revision} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="discipline">Discipline</Label>
-                            <Input
-                                id="discipline"
+                            <Label>Discipline</Label>
+                            <SearchableSelect
                                 value={form.data.discipline}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'discipline',
-                                        event.target.value,
-                                    )
+                                onValueChange={(value) =>
+                                    form.setData('discipline', value)
                                 }
+                                options={[
+                                    { value: '', label: 'Not specified' },
+                                    ...linkOptions.disciplines.map((option) => ({
+                                        value: option.id,
+                                        label: option.name,
+                                    })),
+                                ]}
+                                placeholder="Select discipline"
                             />
                             <InputError message={form.errors.discipline} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="issuer">Issuer</Label>
-                            <Input
-                                id="issuer"
-                                value={form.data.issuer}
-                                onChange={(event) =>
-                                    form.setData('issuer', event.target.value)
+                            <Label>Issuer company</Label>
+                            <SearchableSelect
+                                value={form.data.issuer_id}
+                                onValueChange={(value) =>
+                                    form.setData('issuer_id', value)
                                 }
+                                options={[
+                                    { value: '', label: 'No issuer' },
+                                    ...linkOptions.companies.map((company) => ({
+                                        value: company.id,
+                                        label: company.name,
+                                    })),
+                                ]}
+                                placeholder="Select company"
                             />
-                            <InputError message={form.errors.issuer} />
-                        </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-3">
-                        <div className="grid gap-2">
-                            <Label htmlFor="document_date">Document date</Label>
-                            <Input
-                                id="document_date"
-                                type="date"
-                                value={form.data.document_date}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'document_date',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <InputError message={form.errors.document_date} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="received_on">Received on</Label>
-                            <Input
-                                id="received_on"
-                                type="date"
-                                value={form.data.received_on}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'received_on',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <InputError message={form.errors.received_on} />
+                            <InputError message={form.errors.issuer_id} />
                         </div>
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2">
                         <div className="grid gap-2">
-                            <Label htmlFor="expires_on">Expires on</Label>
-                            <Input
-                                id="expires_on"
-                                type="date"
-                                value={form.data.expires_on}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'expires_on',
-                                        event.target.value,
-                                    )
+                            <Label htmlFor="document_date">Document date</Label>
+                            <DatePicker
+                                id="document_date"
+                                value={form.data.document_date}
+                                onChange={(value) =>
+                                    form.setData('document_date', value)
                                 }
+                                placeholder="Select document date"
+                            />
+                            <InputError message={form.errors.document_date} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="expires_on">Expires on</Label>
+                            <DatePicker
+                                id="expires_on"
+                                value={form.data.expires_on}
+                                onChange={(value) =>
+                                    form.setData('expires_on', value)
+                                }
+                                placeholder="Select expiry date"
                             />
                             <InputError message={form.errors.expires_on} />
                         </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
                         <div className="grid gap-2">
                             <Label required>Status</Label>
                             <NativeSelect

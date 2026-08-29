@@ -14,8 +14,7 @@ return new class extends Migration
             $table->string('document_number')->nullable()->after('reference');
             $table->string('revision', 50)->nullable()->after('document_number');
             $table->string('discipline', 100)->nullable()->after('revision');
-            $table->string('issuer')->nullable()->after('discipline');
-            $table->date('received_on')->nullable()->after('document_date');
+            $table->foreignUuid('issuer_id')->nullable()->after('discipline')->constrained('customers')->nullOnDelete();
 
             $table->index(['tenant_id', 'document_number'], 'documents_tenant_doc_number_index');
             $table->index(['tenant_id', 'discipline'], 'documents_tenant_discipline_index');
@@ -27,12 +26,11 @@ return new class extends Migration
         Schema::table('documents', function (Blueprint $table): void {
             $table->dropIndex('documents_tenant_doc_number_index');
             $table->dropIndex('documents_tenant_discipline_index');
+            $table->dropConstrainedForeignId('issuer_id');
             $table->dropColumn([
                 'document_number',
                 'revision',
                 'discipline',
-                'issuer',
-                'received_on',
             ]);
         });
     }

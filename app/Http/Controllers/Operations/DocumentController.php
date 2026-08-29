@@ -6,10 +6,14 @@ namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\Documents\ArchiveDocument;
 use App\Actions\Operations\Documents\SaveDocument;
+use App\Enums\DocumentConfidentiality;
+use App\Enums\DocumentDiscipline;
+use App\Enums\DocumentRevision;
 use App\Http\Requests\Operations\Documents\StoreDocumentRequest;
 use App\Http\Requests\Operations\Documents\UpdateDocumentRequest;
 use App\Models\Branch;
 use App\Models\Contract;
+use App\Models\Customer;
 use App\Models\DailySiteReport;
 use App\Models\Document;
 use App\Models\DocumentLink;
@@ -17,6 +21,7 @@ use App\Models\DocumentType;
 use App\Models\DocumentVersion;
 use App\Models\Equipment;
 use App\Models\EquipmentMaintenanceWorkOrder;
+use App\Models\Expense;
 use App\Models\InventoryItem;
 use App\Models\Project;
 use App\Models\Site;
@@ -39,7 +44,7 @@ final class DocumentController
         abort_unless($user instanceof User, 403);
 
         $documents = Document::query()
-            ->with(['type', 'branch', 'currentVersion', 'links.linkable'])
+            ->with(['type', 'branch', 'issuerCompany', 'currentVersion', 'links.linkable'])
             ->where('tenant_id', resolve(TenantContext::class)->id())
             ->latest()
             ->get()
@@ -59,7 +64,7 @@ final class DocumentController
         $user = auth()->user();
         abort_unless($user instanceof User, 403);
 
-        $document->load(['type', 'branch', 'currentVersion', 'versions.uploadedBy', 'links.linkable']);
+        $document->load(['type', 'branch', 'issuerCompany', 'currentVersion', 'versions.uploadedBy', 'links.linkable']);
 
         return Inertia::render('operations/documents/show', [
             'document' => [
@@ -68,7 +73,6 @@ final class DocumentController
                 'document_type_id' => $document->document_type_id,
                 'description' => $document->description,
                 'document_date' => $document->document_date?->toDateString(),
-                'received_on' => $document->received_on?->toDateString(),
                 'expires_on' => $document->expires_on?->toDateString(),
                 'versions' => $document->versions
                     ->sortByDesc('version_number')
@@ -178,6 +182,19 @@ final class DocumentController
                 'equipment' => $this->equipmentOptions($user, $tenantId),
                 'maintenanceWorkOrders' => $this->maintenanceWorkOrderOptions($user, $tenantId),
                 'inventoryItems' => $this->inventoryItemOptions($user, $tenantId),
+                'expenses' => $this->expenseOptions($user, $tenantId),
+                'companies' => Customer::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('status', 'active')
+                    ->visibleTo($user)
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(fn (Customer $company): array => ['id' => $company->id, 'name' => $company->name])
+                    ->values()
+                    ->all(),
+                'revisions' => array_map(fn (DocumentRevision $revision): array => ['id' => $revision->value, 'name' => $revision->label()], DocumentRevision::cases()),
+                'disciplines' => array_map(fn (DocumentDiscipline $discipline): array => ['id' => $discipline->value, 'name' => $discipline->label()], DocumentDiscipline::cases()),
+                'confidentialities' => array_map(fn (DocumentConfidentiality $confidentiality): array => ['id' => $confidentiality->value, 'name' => $confidentiality->label()], DocumentConfidentiality::cases()),
             ],
         ];
     }
@@ -257,14 +274,14 @@ final class DocumentController
             'document_number' => $document->document_number,
             'revision' => $document->revision,
             'discipline' => $document->discipline,
-            'issuer' => $document->issuer,
+            'issuer_id' => $document->issuer_id,
+            'issuer' => $document->issuer_id !== null ? $document->issuerCompany->name : null,
             'type_name' => $document->type->name,
             'type_code' => $document->type->code,
             'branch_name' => $document->branch?->name,
             'confidentiality' => $document->confidentiality,
             'status' => $document->status,
             'document_date' => $document->document_date?->toDateString(),
-            'received_on' => $document->received_on?->toDateString(),
             'expires_on' => $document->expires_on?->toDateString(),
             'is_expired' => $document->isExpired(),
             'current_version' => $document->currentVersion instanceof DocumentVersion ? [
@@ -340,6 +357,19 @@ final class DocumentController
             ->get()
             ->filter(fn (InventoryItem $item): bool => Gate::forUser($user)->allows('view', $item))
             ->map(fn (InventoryItem $item): array => ['id' => $item->id, 'name' => sprintf('%s - %s', $item->code, $item->name)])
+            ->values()
+            ->all();
+    }
+
+    /** @return list<array<string, string>> */
+    private function expenseOptions(User $user, string $tenantId): array
+    {
+        return Expense::query()
+            ->where('tenant_id', $tenantId)
+            ->latest('expense_date')
+            ->get()
+            ->filter(fn (Expense $expense): bool => Gate::forUser($user)->allows('view', $expense))
+            ->map(fn (Expense $expense): array => ['id' => $expense->id, 'name' => sprintf('%s - %s', $expense->expense_number, $expense->payee_name_snapshot)])
             ->values()
             ->all();
     }

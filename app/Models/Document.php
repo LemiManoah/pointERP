@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\DocumentConfidentiality;
 use App\Models\Concerns\BelongsToTenant;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -28,10 +29,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string|null $document_number
  * @property-read string|null $revision
  * @property-read string|null $discipline
- * @property-read string|null $issuer
+ * @property-read string|null $issuer_id
  * @property-read string|null $description
  * @property-read CarbonInterface|null $document_date
- * @property-read CarbonInterface|null $received_on
  * @property-read CarbonInterface|null $expires_on
  * @property-read string $confidentiality
  * @property-read string $status
@@ -44,6 +44,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read Branch|null $branch
  * @property-read DocumentType|null $type
  * @property-read User|null $owner
+ * @property-read Customer|null $issuerCompany
  * @property-read DocumentVersion|null $currentVersion
  */
 #[Fillable([
@@ -57,10 +58,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'document_number',
     'revision',
     'discipline',
-    'issuer',
+    'issuer_id',
     'description',
     'document_date',
-    'received_on',
     'expires_on',
     'confidentiality',
     'status',
@@ -105,9 +105,9 @@ final class Document extends Model
             'branch_id' => 'string',
             'document_type_id' => 'string',
             'owner_id' => 'string',
+            'issuer_id' => 'string',
             'external_url' => 'encrypted',
             'document_date' => 'date',
-            'received_on' => 'date',
             'expires_on' => 'date',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
@@ -140,6 +140,14 @@ final class Document extends Model
     }
 
     /**
+     * @return BelongsTo<Customer, $this>
+     */
+    public function issuerCompany(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'issuer_id')->withTrashed();
+    }
+
+    /**
      * @return BelongsTo<DocumentVersion, $this>
      */
     public function currentVersion(): BelongsTo
@@ -166,9 +174,9 @@ final class Document extends Model
     public function isConfidential(): bool
     {
         return in_array($this->confidentiality, [
-            self::CONFIDENTIALITY_RESTRICTED,
-            self::CONFIDENTIALITY_CONFIDENTIAL,
-            self::CONFIDENTIALITY_COMMERCIAL,
+            DocumentConfidentiality::Restricted->value,
+            DocumentConfidentiality::Confidential->value,
+            DocumentConfidentiality::Commercial->value,
         ], true) || $this->type?->is_confidential === true;
     }
 

@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Operations\Documents;
 
+use App\Enums\DocumentConfidentiality;
+use App\Enums\DocumentDiscipline;
+use App\Enums\DocumentRevision;
 use App\Models\Branch;
+use App\Models\Customer;
 use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\User;
@@ -85,19 +89,13 @@ final class UpdateDocumentRequest extends FormRequest
                 },
             ],
             'document_number' => ['nullable', 'string', 'max:255'],
-            'revision' => ['nullable', 'string', 'max:50'],
-            'discipline' => ['nullable', 'string', 'max:100'],
-            'issuer' => ['nullable', 'string', 'max:255'],
+            'revision' => ['nullable', Rule::enum(DocumentRevision::class)],
+            'discipline' => ['nullable', Rule::enum(DocumentDiscipline::class)],
+            'issuer_id' => ['nullable', 'uuid', Rule::exists((new Customer)->getTable(), 'id')->where(fn (Builder $query) => $query->where('tenant_id', $tenantId)->where('status', 'active'))],
             'description' => ['nullable', 'string'],
             'document_date' => ['nullable', 'date'],
-            'received_on' => ['nullable', 'date'],
             'expires_on' => ['nullable', 'date'],
-            'confidentiality' => ['required', Rule::in([
-                Document::CONFIDENTIALITY_NORMAL,
-                Document::CONFIDENTIALITY_RESTRICTED,
-                Document::CONFIDENTIALITY_CONFIDENTIAL,
-                Document::CONFIDENTIALITY_COMMERCIAL,
-            ])],
+            'confidentiality' => ['required', Rule::enum(DocumentConfidentiality::class)],
             'status' => ['nullable', Rule::in([
                 Document::STATUS_ACTIVE,
                 Document::STATUS_SUPERSEDED,
@@ -105,7 +103,7 @@ final class UpdateDocumentRequest extends FormRequest
                 Document::STATUS_ARCHIVED,
             ])],
             'links' => ['array'],
-            'links.*.type' => ['required_with:links', Rule::in(['contract', 'project', 'site', 'daily_site_report', 'equipment', 'equipment_maintenance_work_order', 'inventory_item'])],
+            'links.*.type' => ['required_with:links', Rule::in(['contract', 'project', 'site', 'daily_site_report', 'equipment', 'equipment_maintenance_work_order', 'inventory_item', 'expense'])],
             'links.*.id' => ['required_with:links', 'uuid'],
         ];
     }
