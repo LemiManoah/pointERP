@@ -20,7 +20,7 @@ final class StoreDocumentLinkRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', Rule::in(['contract', 'project', 'site', 'daily_site_report', 'equipment', 'equipment_maintenance_work_order', 'inventory_item'])],
+            'type' => ['required', Rule::in(['contract', 'project', 'site', 'daily_site_report', 'equipment', 'equipment_maintenance_work_order', 'inventory_item', 'expense'])],
             'id' => ['required', 'uuid'],
         ];
     }

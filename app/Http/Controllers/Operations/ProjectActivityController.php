@@ -30,7 +30,7 @@ final class ProjectActivityController
 
         $action->handle($data, $actor);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Activity saved.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Work item saved.']);
 
         return to_route('projects.show', $project);
     }
@@ -46,7 +46,7 @@ final class ProjectActivityController
         $data = $request->validated();
         $action->handle($data, $actor, $projectActivity);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Activity updated.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Work item updated.']);
 
         return to_route('projects.show', $projectActivity->project_id);
     }
@@ -66,7 +66,7 @@ final class ProjectActivityController
             newValues: ['status' => $newStatus],
         );
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Activity status changed.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Work item status changed.']);
 
         return to_route('projects.show', $projectActivity->project_id);
     }

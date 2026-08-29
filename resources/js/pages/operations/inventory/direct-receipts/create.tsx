@@ -274,7 +274,10 @@ export default function AddStock({
                                 <NativeSelect
                                     value={form.data.reason}
                                     onChange={(event) =>
-                                        form.setData('reason', event.target.value)
+                                        form.setData(
+                                            'reason',
+                                            event.target.value,
+                                        )
                                     }
                                 >
                                     <NativeSelectOption value="" disabled>
@@ -533,7 +536,10 @@ export default function AddStock({
                                                         form.setData(
                                                             'lines',
                                                             form.data.lines.filter(
-                                                                (_, lineIndex) =>
+                                                                (
+                                                                    _,
+                                                                    lineIndex,
+                                                                ) =>
                                                                     lineIndex !==
                                                                     index,
                                                             ),
@@ -551,11 +557,12 @@ export default function AddStock({
 
                             <div className="flex justify-end gap-3 border-t pt-5">
                                 <Button asChild type="button" variant="outline">
-                                    <Link href={returnTo}>
-                                        Cancel
-                                    </Link>
+                                    <Link href={returnTo}>Cancel</Link>
                                 </Button>
-                                <Button type="submit" disabled={form.processing}>
+                                <Button
+                                    type="submit"
+                                    disabled={form.processing}
+                                >
                                     {form.processing ? (
                                         <Spinner />
                                     ) : (

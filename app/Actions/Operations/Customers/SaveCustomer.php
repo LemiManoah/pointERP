@@ -57,6 +57,7 @@ final readonly class SaveCustomer
         $requested = Str::upper(Str::slug($requestedCode ?? '', '-'));
         $base = $requested !== '' ? $requested : Str::upper(Str::slug($name, '-'));
         $base = Str::limit($base !== '' ? $base : 'COMPANY', 60, '');
+
         $code = $base;
         $suffix = 2;
 

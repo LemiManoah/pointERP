@@ -68,6 +68,7 @@ final readonly class ReviewMaterialRequisition
 
             if ($approved->isZero()) {
                 $line->forceFill(['approved_quantity' => '0.0000'])->save();
+
                 continue;
             }
 

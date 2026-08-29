@@ -9,6 +9,7 @@ import {
     HardHat,
     Package,
     PackagePlus,
+    ReceiptText,
     ShoppingBasket,
     ScrollText,
     ShieldCheck,
@@ -114,6 +115,13 @@ const groups: SidebarGroupItem[] = [
                 icon: Users,
                 status: 'ready',
                 permission: 'customers.view',
+            },
+            {
+                title: 'Expenses',
+                href: '/expenses',
+                icon: ReceiptText,
+                status: 'ready',
+                permission: 'expenses.view',
             },
             {
                 title: 'Contracts',
@@ -345,9 +353,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                                                 </>
                                                             ) : (
                                                                 <Link
-                                                                    href={
-                                                                        href
-                                                                    }
+                                                                    href={href}
                                                                     prefetch
                                                                 >
                                                                     <Icon />

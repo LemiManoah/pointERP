@@ -14,6 +14,11 @@ use App\Actions\Operations\Inventory\ReviewInventoryReconciliation;
 use App\Actions\Operations\Inventory\ReviewInventoryTransfer;
 use App\Actions\Operations\Inventory\TransferInventoryItems;
 use App\Enums\DsrMaterialReconciliationStatus;
+use App\Enums\EstimateResourceType;
+use App\Enums\ExpensePayeeType;
+use App\Enums\ExpensePaymentMethod;
+use App\Enums\ExpensePaymentStatus;
+use App\Enums\ExpenseStatus;
 use App\Enums\InventoryBatchStatus;
 use App\Enums\InventoryMaterialClass;
 use App\Enums\InventoryMovementType;
@@ -22,6 +27,7 @@ use App\Enums\InventoryStoreType;
 use App\Enums\InventoryTrackingType;
 use App\Enums\MaterialRequisitionPriority;
 use App\Enums\MaterialRequisitionStatus;
+use App\Enums\ProjectEstimateStatus;
 use App\Enums\PurchaseOrderStatus;
 use App\Models\Branch;
 use App\Models\BranchCurrency;
@@ -40,6 +46,7 @@ use App\Models\Document;
 use App\Models\DocumentLink;
 use App\Models\DocumentType;
 use App\Models\DocumentVersion;
+use App\Models\DsrExpenseReconciliation;
 use App\Models\Equipment;
 use App\Models\EquipmentAssignment;
 use App\Models\EquipmentCategory;
@@ -51,8 +58,14 @@ use App\Models\EquipmentMaintenanceSchedule;
 use App\Models\EquipmentMaintenanceWorkOrder;
 use App\Models\EquipmentMeterReading;
 use App\Models\EquipmentTransfer;
+use App\Models\EstimateResourceLine;
 use App\Models\ExchangeRate;
 use App\Models\ExpectedDailySiteReport;
+use App\Models\Expense;
+use App\Models\ExpenseCategory;
+use App\Models\ExpenseItem;
+use App\Models\ExpenseLine;
+use App\Models\ExpensePayment;
 use App\Models\InventoryBatch;
 use App\Models\InventoryCategory;
 use App\Models\InventoryGoodsReceipt;
@@ -67,6 +80,8 @@ use App\Models\MaterialRequisition;
 use App\Models\MaterialRequisitionLine;
 use App\Models\Project;
 use App\Models\ProjectActivity;
+use App\Models\ProjectEstimate;
+use App\Models\ProjectEstimateLine;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\ReportingCalendar;
@@ -81,8 +96,10 @@ use App\Models\User;
 use App\Notifications\OperationalNotification;
 use App\Services\TenantContext;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 final class PointInvestmentSeeder extends Seeder
 {
@@ -262,11 +279,143 @@ final class PointInvestmentSeeder extends Seeder
         );
 
         $this->inventoryDemoData($branches['KLA-HQ'], $branches['GUL-SITE'], $director);
+        $this->seedRoadEstimateBaseline($director);
+        $this->expenseDemoData($branches['KLA-HQ'], $branches['GUL-SITE'], $director);
 
         $this->exchangeRate($director, null, 'USD', 'UGX', '3600.0000000000', now()->subMonth()->toDateString(), ExchangeRate::STATUS_APPROVED);
         $this->exchangeRate($director, null, 'USD', 'UGX', '3700.0000000000', now()->toDateString(), ExchangeRate::STATUS_DRAFT);
         $this->exchangeRate($director, $branches['JUB-HQ'], 'USD', 'SSP', '1500.0000000000', now()->toDateString(), ExchangeRate::STATUS_APPROVED);
         $this->exchangeRate($director, $branches['KLA-HQ'], 'UGX', 'USD', '0.0002702703', now()->toDateString(), ExchangeRate::STATUS_DRAFT);
+    }
+
+    private function expenseDemoData(Branch $kampalaBranch, Branch $guluBranch, User $director): void
+    {
+        $tenantId = $director->tenant_id;
+        $categories = [];
+        foreach ([
+            ['UTILITIES', 'Utilities', true, 'Recurring facility services such as electricity, water and internet.'],
+            ['SITE-WELFARE', 'Site welfare', false, 'Meals, drinking water and other workforce welfare costs.'],
+            ['TRAVEL', 'Travel and accommodation', true, 'Approved transport and accommodation costs.'],
+            ['STATUTORY', 'Statutory and permits', true, 'Permits, licences and statutory charges.'],
+            ['ADMIN', 'Administration', false, 'Routine office and communication costs.'],
+        ] as [$code, $name, $requiresEvidence, $description]) {
+            $categories[$code] = ExpenseCategory::query()->updateOrCreate(
+                ['tenant_id' => $tenantId, 'code' => $code],
+                ['name' => $name, 'description' => $description, 'requires_evidence' => $requiresEvidence, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+            );
+        }
+
+        $items = [];
+        foreach ([
+            ['YAKA', 'Yaka electricity', 'UTILITIES'],
+            ['WATER', 'Water', 'UTILITIES'],
+            ['INTERNET', 'Internet subscription', 'UTILITIES'],
+            ['SITE-MEALS', 'Site meals', 'SITE-WELFARE'],
+            ['DRINKING-WATER', 'Drinking water', 'SITE-WELFARE'],
+            ['LOCAL-TRANSPORT', 'Local transport', 'TRAVEL'],
+            ['ACCOMMODATION', 'Accommodation', 'TRAVEL'],
+            ['PERMIT-FEE', 'Permit fee', 'STATUTORY'],
+            ['PRINTING', 'Printing and photocopying', 'ADMIN'],
+        ] as [$code, $name, $categoryCode]) {
+            $items[$code] = ExpenseItem::query()->updateOrCreate(
+                ['tenant_id' => $tenantId, 'code' => $code],
+                ['expense_category_id' => $categories[$categoryCode]->id, 'name' => $name, 'requires_evidence' => false, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+            );
+        }
+
+        $yakaExpense = Expense::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'expense_number' => 'EXP-DEMO-001'],
+            [
+                'branch_id' => $kampalaBranch->id,
+                'expense_date' => now()->subDays(5)->toDateString(),
+                'payee_type' => ExpensePayeeType::Other,
+                'payee_name_snapshot' => 'Umeme prepaid electricity',
+                'currency_code' => 'UGX',
+                'base_currency_code' => 'UGX',
+                'exchange_rate' => '1.0000000000',
+                'subtotal' => '625000.0000',
+                'total_amount' => '625000.0000',
+                'base_currency_total' => '625000.0000',
+                'description' => 'Electricity tokens for the Kampala office and stores compound.',
+                'reference' => 'YAKA-0826-11842',
+                'status' => ExpenseStatus::Approved,
+                'submitted_by' => $director->id,
+                'submitted_at' => now()->subDays(5),
+                'approved_by' => $director->id,
+                'approved_at' => now()->subDays(4),
+                'created_by' => $director->id,
+                'updated_by' => $director->id,
+            ],
+        );
+        ExpenseLine::query()->updateOrCreate(
+            ['expense_id' => $yakaExpense->id, 'expense_item_id' => $items['YAKA']->id],
+            ['tenant_id' => $tenantId, 'expense_category_name_snapshot' => 'Utilities', 'expense_item_name_snapshot' => 'Yaka electricity', 'quantity' => '1.0000', 'unit_amount' => '625000.0000', 'amount' => '625000.0000', 'base_currency_amount' => '625000.0000', 'sort_order' => 0],
+        );
+        ExpensePayment::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'payment_number' => 'PAY-DEMO-001'],
+            ['branch_id' => $kampalaBranch->id, 'expense_id' => $yakaExpense->id, 'paid_at' => now()->subDays(4), 'amount' => '200000.0000', 'currency_code' => 'UGX', 'base_currency_amount' => '200000.0000', 'exchange_rate' => '1.0000000000', 'payment_method' => ExpensePaymentMethod::MobileMoney, 'reference' => 'MOMO-DEMO-001', 'notes' => 'Initial part payment.', 'status' => ExpensePaymentStatus::Recorded, 'recorded_by' => $director->id],
+        );
+        $this->seedDocument(
+            actor: $director,
+            typeCode: 'EXPENSE_RECEIPT',
+            branch: $kampalaBranch,
+            title: 'Yaka electricity receipt August 2026',
+            reference: 'EXP-RECEIPT-YAKA-0826',
+            content: 'Seeded receipt evidence for the Kampala office electricity expense.',
+            links: [[$yakaExpense::class, $yakaExpense->id]],
+            documentNumber: 'YAKA-0826-11842',
+            issuer: 'Umeme',
+        );
+
+        $project = Project::query()->where('reference', 'BKH-ROAD')->firstOrFail();
+        $site = $project->sites()->orderBy('name')->first();
+        $siteExpense = Expense::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'expense_number' => 'EXP-DEMO-002'],
+            [
+                'branch_id' => $guluBranch->id,
+                'expense_date' => now()->subDays(2)->toDateString(),
+                'payee_type' => ExpensePayeeType::Other,
+                'payee_name_snapshot' => 'Busunju site catering team',
+                'currency_code' => 'UGX',
+                'base_currency_code' => 'UGX',
+                'exchange_rate' => '1.0000000000',
+                'subtotal' => '450000.0000',
+                'total_amount' => '450000.0000',
+                'base_currency_total' => '450000.0000',
+                'description' => 'Field team meals and allowances recorded from site operations.',
+                'reference' => 'SITE-CATERING-0826',
+                'status' => ExpenseStatus::Approved,
+                'submitted_by' => $director->id,
+                'submitted_at' => now()->subDays(2),
+                'approved_by' => $director->id,
+                'approved_at' => now()->subDay(),
+                'created_by' => $director->id,
+                'updated_by' => $director->id,
+            ],
+        );
+        $siteExpenseLine = ExpenseLine::query()->updateOrCreate(
+            ['expense_id' => $siteExpense->id, 'expense_item_id' => $items['SITE-MEALS']->id],
+            ['tenant_id' => $tenantId, 'project_id' => $project->id, 'site_id' => $site?->id, 'expense_category_name_snapshot' => 'Site welfare', 'expense_item_name_snapshot' => 'Site meals', 'quantity' => '1.0000', 'unit_amount' => '450000.0000', 'amount' => '450000.0000', 'base_currency_amount' => '450000.0000', 'sort_order' => 0],
+        );
+        $dsrCost = DailySiteReportCostLine::query()
+            ->whereHas('report', fn (Builder $query): Builder => $query->where('project_id', $project->id))
+            ->where('description', 'Field team allowances')
+            ->first();
+        if ($dsrCost instanceof DailySiteReportCostLine) {
+            DsrExpenseReconciliation::query()->updateOrCreate(
+                ['daily_site_report_cost_line_id' => $dsrCost->id],
+                ['tenant_id' => $tenantId, 'expense_line_id' => $siteExpenseLine->id, 'reconciled_by' => $director->id, 'reconciled_at' => now()->subDay(), 'reason' => 'Replace the provisional DSR allowance with the approved expense evidence.'],
+            );
+        }
+
+        $draftExpense = Expense::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'expense_number' => 'EXP-DEMO-003'],
+            ['branch_id' => $kampalaBranch->id, 'expense_date' => now()->toDateString(), 'payee_type' => ExpensePayeeType::Other, 'payee_name_snapshot' => 'Office internet provider', 'currency_code' => 'UGX', 'base_currency_code' => 'UGX', 'exchange_rate' => '1.0000000000', 'subtotal' => '180000.0000', 'total_amount' => '180000.0000', 'base_currency_total' => '180000.0000', 'description' => 'Draft monthly internet subscription awaiting an invoice.', 'status' => ExpenseStatus::Draft, 'created_by' => $director->id, 'updated_by' => $director->id],
+        );
+        ExpenseLine::query()->updateOrCreate(
+            ['expense_id' => $draftExpense->id, 'expense_item_id' => $items['INTERNET']->id],
+            ['tenant_id' => $tenantId, 'expense_category_name_snapshot' => 'Utilities', 'expense_item_name_snapshot' => 'Internet subscription', 'quantity' => '1.0000', 'unit_amount' => '180000.0000', 'amount' => '180000.0000', 'base_currency_amount' => '180000.0000', 'sort_order' => 0],
+        );
     }
 
     private function inventoryDemoData(Branch $kampalaBranch, Branch $guluBranch, User $director): void
@@ -552,6 +701,97 @@ final class PointInvestmentSeeder extends Seeder
                 ['tenant_id' => $tenantId, 'created_by' => $director->id],
             );
         }
+    }
+
+    private function seedRoadEstimateBaseline(User $actor): void
+    {
+        $project = Project::query()->where('reference', 'BKH-ROAD')->firstOrFail();
+        $tenantId = $project->tenant_id;
+        $unitDefinitions = [
+            'month' => ['MONTH', 'Month', 'month', 'time'],
+            'm3' => ['M3', 'Cubic metre', 'm3', 'volume'],
+        ];
+        $plans = [
+            '12.03(a)' => ['36.0000', '4000000.0000', '2800000.0000'],
+            '31.01(b)(i)' => ['12000.0000', '8500.0000', '5900.0000'],
+            '36.01(a)' => ['20000.0000', '12000.0000', '8200.0000'],
+            '37.02(c)' => ['30000.0000', '95000.0000', '71000.0000'],
+        ];
+
+        $estimate = ProjectEstimate::query()->updateOrCreate(
+            ['project_id' => $project->id, 'version_number' => 1],
+            [
+                'tenant_id' => $tenantId,
+                'branch_id' => $project->branch_id,
+                'title' => 'BKH Road approved execution estimate',
+                'currency_code' => $project->base_currency_code,
+                'status' => ProjectEstimateStatus::Approved,
+                'is_baseline' => true,
+                'notes' => 'Demo baseline separating measurable work from materials, labour and equipment resources.',
+                'approved_by' => $actor->id,
+                'approved_at' => now()->subMonths(2),
+                'created_by' => $actor->id,
+                'updated_by' => $actor->id,
+            ],
+        );
+
+        $activeKeys = [];
+        foreach ($plans as $boqReference => [$quantity, $sellingRate, $unitCost]) {
+            $activity = ProjectActivity::query()->where('project_id', $project->id)->where('boq_item_number', $boqReference)->firstOrFail();
+            $definition = $unitDefinitions[(string) $activity->unit] ?? $unitDefinitions['m3'];
+            [$unitCode, $unitName, $symbol, $dimension] = $definition;
+            $unit = UnitOfMeasure::query()->updateOrCreate(
+                ['tenant_id' => $tenantId, 'code' => $unitCode],
+                ['name' => $unitName, 'symbol' => $symbol, 'quantity_dimension' => $dimension, 'is_base_unit' => false, 'is_active' => true],
+            );
+            $workItemKey = $activity->estimate_work_item_key ?? Str::uuid()->toString();
+            $activeKeys[] = $workItemKey;
+
+            $line = ProjectEstimateLine::query()->updateOrCreate(
+                ['project_estimate_id' => $estimate->id, 'work_item_key' => $workItemKey],
+                [
+                    'tenant_id' => $tenantId,
+                    'site_id' => $activity->site_id,
+                    'unit_of_measure_id' => $unit->id,
+                    'boq_reference' => $boqReference,
+                    'code' => $activity->code,
+                    'name' => $activity->name,
+                    'planned_quantity' => $quantity,
+                    'selling_rate' => $sellingRate,
+                    'estimated_unit_cost' => $unitCost,
+                    'sort_order' => $activity->sort_order,
+                ],
+            );
+
+            $activity->forceFill([
+                'estimate_line_id' => $line->id,
+                'estimate_work_item_key' => $workItemKey,
+                'planned_quantity' => $quantity,
+                'rate_amount' => $sellingRate,
+                'estimated_unit_cost' => $unitCost,
+                'status' => 'active',
+            ])->save();
+        }
+
+        ProjectEstimateLine::query()->where('project_estimate_id', $estimate->id)->whereNotIn('work_item_key', $activeKeys)->delete();
+        ProjectActivity::query()->where('project_id', $project->id)->whereIn('code', ['PETROL', 'EXCAVATOR'])->update(['status' => 'inactive']);
+
+        $topsoilLine = ProjectEstimateLine::query()->where('project_estimate_id', $estimate->id)->where('boq_reference', '31.01(b)(i)')->firstOrFail();
+        $hour = UnitOfMeasure::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'code' => 'HOUR'],
+            ['name' => 'Hour', 'symbol' => 'hr', 'quantity_dimension' => 'time', 'is_base_unit' => true, 'is_active' => true],
+        );
+        EstimateResourceLine::query()->updateOrCreate(
+            ['project_estimate_line_id' => $topsoilLine->id, 'resource_type' => EstimateResourceType::Equipment->value, 'name' => 'Excavator'],
+            ['tenant_id' => $tenantId, 'unit_of_measure_id' => $hour->id, 'quantity_per_work_unit' => '0.020000', 'estimated_unit_cost' => '180000.0000', 'sort_order' => 0],
+        );
+
+        $subbaseLine = ProjectEstimateLine::query()->where('project_estimate_id', $estimate->id)->where('boq_reference', '37.02(c)')->firstOrFail();
+        $aggregate = InventoryItem::query()->where('code', 'AGG-20')->firstOrFail();
+        EstimateResourceLine::query()->updateOrCreate(
+            ['project_estimate_line_id' => $subbaseLine->id, 'resource_type' => EstimateResourceType::Material->value, 'inventory_item_id' => $aggregate->id],
+            ['tenant_id' => $tenantId, 'unit_of_measure_id' => $aggregate->stock_unit_id, 'name' => $aggregate->name, 'quantity_per_work_unit' => '1.150000', 'estimated_unit_cost' => $aggregate->default_unit_cost, 'sort_order' => 0],
+        );
     }
 
     private function branch(string $code, string $name, string $countryCode, string $currencyCode, string $status = 'active'): Branch
@@ -1502,6 +1742,7 @@ final class PointInvestmentSeeder extends Seeder
             ['ENVIRONMENT_RECORD', 'Environment record', false, false],
             ['SOCIAL_RECORD', 'Social record', false, false],
             ['IPC_SUPPORT', 'IPC support', false, true],
+            ['EXPENSE_RECEIPT', 'Expense receipt', false, true],
             ['CORRESPONDENCE', 'Correspondence', false, false],
         ];
 

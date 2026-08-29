@@ -41,6 +41,7 @@ export type LinkOptions = {
     equipment: Option[];
     maintenanceWorkOrders: Option[];
     inventoryItems: Option[];
+    expenses: Option[];
 };
 
 export type DocumentRecord = {
@@ -495,6 +496,7 @@ function LinkPicker({
         if (type === 'equipment_maintenance_work_order')
             return linkOptions.maintenanceWorkOrders;
         if (type === 'inventory_item') return linkOptions.inventoryItems;
+        if (type === 'expense') return linkOptions.expenses;
         return linkOptions.projects;
     };
 
@@ -538,6 +540,9 @@ function LinkPicker({
                         </NativeSelectOption>
                         <NativeSelectOption value="inventory_item">
                             Inventory item
+                        </NativeSelectOption>
+                        <NativeSelectOption value="expense">
+                            Expense
                         </NativeSelectOption>
                     </NativeSelect>
                     <SearchableSelect

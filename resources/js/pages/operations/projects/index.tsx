@@ -79,8 +79,7 @@ export default function ProjectsIndex({
                                 Projects
                             </h1>
                             <p className="mt-1 text-sm text-muted-foreground">
-                                Operational project scope for sites, BOQ
-                                activities, DSRs and evidence.
+                                Projects, sites and daily delivery records.
                             </p>
                         </div>
                         <div className="relative">
@@ -173,7 +172,7 @@ export default function ProjectsIndex({
                                                 {formatNumber(
                                                     project.activities_count,
                                                 )}{' '}
-                                                activities
+                                                work items
                                             </td>
                                             <td className="py-3 pr-4">
                                                 <Badge variant="secondary">

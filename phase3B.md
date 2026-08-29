@@ -162,7 +162,7 @@ All primary keys are UUIDs. Every migration must be created separately with Arti
 
 Unique category code and name within a tenant. Inactive categories remain available to historical records but cannot be used for new items.
 
-### 5.2 `units_of_measure`
+### 5.2 `unit_of_measures`
 
 - global or tenant-owned `id`;
 - `code`, `name`, `symbol`, `quantity_dimension`;

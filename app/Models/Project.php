@@ -146,6 +146,14 @@ final class Project extends Model
     }
 
     /**
+     * @return HasMany<ProjectEstimate, $this>
+     */
+    public function estimates(): HasMany
+    {
+        return $this->hasMany(ProjectEstimate::class)->orderByDesc('version_number');
+    }
+
+    /**
      * @return BelongsToMany<User, $this>
      */
     public function users(): BelongsToMany

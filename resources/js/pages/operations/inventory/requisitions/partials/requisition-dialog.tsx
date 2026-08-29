@@ -408,13 +408,13 @@ export function RequisitionDialog({
                                         </Field>
                                     </div>
                                     <div className="min-w-0 lg:col-span-3">
-                                        <Field label="Activity">
+                                        <Field label="Work item">
                                             <SearchableSelect
                                                 value={line.project_activity_id}
                                                 options={[
                                                     {
                                                         value: '',
-                                                        label: 'No activity',
+                                                        label: 'No specific work item',
                                                     },
                                                     ...activities.map(
                                                         (activity) => ({

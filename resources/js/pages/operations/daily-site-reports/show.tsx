@@ -687,7 +687,6 @@ export default function DailySiteReportShow({
 
                     <LineCard
                         title="Work quantities"
-                        description="BOQ/activity progress by chainage and side."
                         disabled={!can.update}
                         lines={form.data.work_lines}
                         fields={[
@@ -720,7 +719,6 @@ export default function DailySiteReportShow({
                     />
                     <LineCard
                         title="Labour"
-                        description="Trades, subcontractors, headcount and hours."
                         disabled={!can.update}
                         lines={form.data.labour_lines}
                         fields={[
@@ -742,7 +740,6 @@ export default function DailySiteReportShow({
                     />
                     <LineCard
                         title="Equipment and fuel"
-                        description="Plant identifiers, hours and fuel usage."
                         disabled={!can.update}
                         lines={form.data.equipment_lines}
                         fields={[
@@ -780,7 +777,6 @@ export default function DailySiteReportShow({
                     />
                     <LineCard
                         title="Materials"
-                        description="Materials used or delivered for the day."
                         disabled={!can.update}
                         lines={form.data.material_lines}
                         fields={[
@@ -821,7 +817,6 @@ export default function DailySiteReportShow({
                     {canViewCosts && (
                         <LineCard
                             title="Other costs"
-                            description="Petty cash, allowances, overheads and mobilisation."
                             disabled={!can.update}
                             lines={form.data.cost_lines}
                             fields={[
@@ -845,7 +840,6 @@ export default function DailySiteReportShow({
                     )}
                     <LineCard
                         title="Delay details"
-                        description="Causes, time lost and action taken."
                         disabled={!can.update}
                         lines={form.data.delay_lines}
                         fields={['delay_type', 'description', 'hours_lost']}
@@ -1888,7 +1882,6 @@ function ExternalMaterialDialog({ line }: { line: MaterialReconciliation }) {
 
 function LineCard({
     title,
-    description,
     disabled,
     lines,
     fields,
@@ -1901,7 +1894,7 @@ function LineCard({
     units = [],
 }: {
     title: string;
-    description: string;
+    description?: string;
     disabled: boolean;
     lines: Line[];
     fields: string[];
@@ -2016,7 +2009,9 @@ function LineCard({
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <CardTitle>{title}</CardTitle>
-                    <CardDescription>{description}</CardDescription>
+                    {description && (
+                        <CardDescription>{description}</CardDescription>
+                    )}
                 </div>
                 {!disabled && (
                     <Button type="button" variant="outline" onClick={onAdd}>
@@ -2034,7 +2029,7 @@ function LineCard({
                             <div key={field} className="grid gap-2">
                                 <Label>
                                     {field === 'project_activity_id'
-                                        ? 'BOQ / activity'
+                                        ? 'Work item'
                                         : field.replaceAll('_', ' ')}
                                 </Label>
                                 {field === 'inventory_item_id' ? (
@@ -2121,9 +2116,9 @@ function LineCard({
                                                 .filter(Boolean)
                                                 .join(' / '),
                                         }))}
-                                        placeholder="Select activity"
-                                        searchPlaceholder="Search BOQ activities..."
-                                        emptyMessage="No activity is available for this site."
+                                        placeholder="Select work item"
+                                        searchPlaceholder="Search work items..."
+                                        emptyMessage="No work item is available for this site."
                                         disabled={disabled}
                                     />
                                 ) : field === 'equipment_id' ? (

@@ -21,6 +21,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string $branch_id
  * @property-read string $project_id
  * @property-read string|null $site_id
+ * @property-read string|null $estimate_line_id
+ * @property-read string|null $estimate_work_item_key
  * @property-read string $code
  * @property-read string|null $boq_item_number
  * @property-read string $name
@@ -28,6 +30,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string|null $planned_quantity
  * @property-read string|null $approved_quantity
  * @property-read string|null $rate_amount
+ * @property-read string|null $estimated_unit_cost
  * @property-read string|null $currency_code
  * @property-read string $status
  * @property-read int $sort_order
@@ -45,6 +48,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'branch_id',
     'project_id',
     'site_id',
+    'estimate_line_id',
+    'estimate_work_item_key',
     'code',
     'boq_item_number',
     'name',
@@ -52,6 +57,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'planned_quantity',
     'approved_quantity',
     'rate_amount',
+    'estimated_unit_cost',
     'currency_code',
     'status',
     'sort_order',
@@ -76,6 +82,8 @@ final class ProjectActivity extends Model
             'branch_id' => 'string',
             'project_id' => 'string',
             'site_id' => 'string',
+            'estimate_line_id' => 'string',
+            'estimate_work_item_key' => 'string',
             'code' => 'string',
             'boq_item_number' => 'string',
             'name' => 'string',
@@ -83,6 +91,7 @@ final class ProjectActivity extends Model
             'planned_quantity' => 'decimal:4',
             'approved_quantity' => 'decimal:4',
             'rate_amount' => 'decimal:4',
+            'estimated_unit_cost' => 'decimal:4',
             'currency_code' => 'string',
             'status' => 'string',
             'sort_order' => 'integer',
@@ -116,6 +125,14 @@ final class ProjectActivity extends Model
     public function site(): BelongsTo
     {
         return $this->belongsTo(Site::class);
+    }
+
+    /**
+     * @return BelongsTo<ProjectEstimateLine, $this>
+     */
+    public function estimateLine(): BelongsTo
+    {
+        return $this->belongsTo(ProjectEstimateLine::class, 'estimate_line_id');
     }
 
     /**

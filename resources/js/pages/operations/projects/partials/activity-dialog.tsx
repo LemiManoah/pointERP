@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
@@ -38,6 +37,7 @@ export type ProjectActivity = {
     currency_code: string | null;
     status: 'active' | 'inactive';
     sort_order: number;
+    managed_by_estimate?: boolean;
 };
 
 type ActivityFormData = Record<string, string> & {
@@ -48,7 +48,6 @@ type ActivityFormData = Record<string, string> & {
     name: string;
     unit: string;
     planned_quantity: string;
-    approved_quantity: string;
     rate_amount: string;
     currency_code: string;
     status: ProjectActivity['status'];
@@ -80,7 +79,6 @@ export function ActivityDialog({
         name: activity?.name ?? '',
         unit: activity?.unit ?? '',
         planned_quantity: activity?.planned_quantity ?? '',
-        approved_quantity: activity?.approved_quantity ?? '0',
         rate_amount: activity?.rate_amount ?? '',
         currency_code: activity?.currency_code ?? currencies[0]?.id ?? 'UGX',
         status: activity?.status ?? 'active',
@@ -114,18 +112,14 @@ export function ActivityDialog({
                     size={isEditing ? 'sm' : 'default'}
                 >
                     {isEditing ? <Pencil /> : <Plus />}
-                    {isEditing ? 'Edit' : 'New activity'}
+                    {isEditing ? 'Edit' : 'New work item'}
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>
-                        {isEditing ? 'Edit activity' : 'New activity'}
+                        {isEditing ? 'Edit work item' : 'New work item'}
                     </DialogTitle>
-                    <DialogDescription>
-                        Activities and BOQ items become the structure for DSR
-                        work quantities.
-                    </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={submit} className="grid gap-5">
                     <div className="grid gap-4 sm:grid-cols-3">
@@ -192,7 +186,7 @@ export function ActivityDialog({
                         <InputError message={form.errors.name} />
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-4">
+                    <div className="grid gap-4 sm:grid-cols-3">
                         <div className="grid gap-2">
                             <Label htmlFor="unit">Unit</Label>
                             <Input
@@ -220,24 +214,6 @@ export function ActivityDialog({
                             />
                             <InputError
                                 message={form.errors.planned_quantity}
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="approved_quantity">
-                                Approved progress
-                            </Label>
-                            <Input
-                                id="approved_quantity"
-                                value={form.data.approved_quantity}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'approved_quantity',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <InputError
-                                message={form.errors.approved_quantity}
                             />
                         </div>
                         <div className="grid gap-2">
@@ -310,7 +286,7 @@ export function ActivityDialog({
                         </Button>
                         <Button type="submit" disabled={form.processing}>
                             {form.processing && <Spinner />}
-                            Save activity
+                            Save work item
                         </Button>
                     </div>
                 </form>

@@ -285,7 +285,7 @@ final class DailySiteReportController
                     'id' => $activity->id,
                     'project_id' => $activity->project_id,
                     'site_id' => $activity->site_id,
-                    'label' => mb_trim(($activity->boq_item_number ? $activity->boq_item_number.' - ' : '').$activity->name),
+                    'label' => $activity->name,
                     'boq_item_number' => $activity->boq_item_number,
                     'unit' => $activity->unit,
                     'rate_amount' => $this->canViewRates($user) ? $activity->rate_amount : null,

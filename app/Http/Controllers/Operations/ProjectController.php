@@ -14,12 +14,14 @@ use App\Models\DailySiteReport;
 use App\Models\Document;
 use App\Models\Project;
 use App\Models\ProjectActivity;
+use App\Models\ProjectEstimate;
 use App\Models\Site;
 use App\Models\TenantCurrency;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\BranchContext;
 use App\Services\EquipmentScopeSummary;
+use App\Services\ProjectPerformanceSummary;
 use App\Services\TenantContext;
 use App\Support\Operations\PresentsLinkedDocuments;
 use Illuminate\Database\Eloquent\Builder;
@@ -51,7 +53,7 @@ final class ProjectController
         ]);
     }
 
-    public function show(Project $project, EquipmentScopeSummary $equipmentSummary): Response
+    public function show(Project $project, EquipmentScopeSummary $equipmentSummary, ProjectPerformanceSummary $performanceSummary): Response
     {
         Gate::authorize('view', $project);
 
@@ -60,6 +62,8 @@ final class ProjectController
 
         $project->load(['branch', 'customer', 'contract', 'manager', 'users', 'sites.manager', 'activities.site']);
         $canViewFleet = $user->can('equipment.view');
+        $canViewEstimates = $user->can('estimates.view');
+        $canViewEstimateCosts = $user->can('estimates.view-costs');
 
         return Inertia::render('operations/projects/show', [
             'project' => $this->projectRow($project),
@@ -81,6 +85,25 @@ final class ProjectController
                 ->sortBy('sort_order')
                 ->values()
                 ->map(fn (ProjectActivity $activity): array => $this->activityRow($activity, $this->canViewRates($user))),
+            'estimates' => $canViewEstimates ? ProjectEstimate::query()
+                ->with('approver')
+                ->withCount('lines')
+                ->where('project_id', $project->id)
+                ->orderByDesc('version_number')
+                ->get()
+                ->map(fn (ProjectEstimate $estimate): array => [
+                    'id' => $estimate->id,
+                    'version_number' => $estimate->version_number,
+                    'title' => $estimate->title,
+                    'status' => $estimate->status->value,
+                    'status_label' => $estimate->status->label(),
+                    'is_baseline' => $estimate->is_baseline,
+                    'currency_code' => $estimate->currency_code,
+                    'lines_count' => $estimate->lines_count,
+                    'approved_by' => $estimate->approver?->name,
+                    'approved_at' => $estimate->approved_at?->toDateTimeString(),
+                ]) : [],
+            'performance' => $canViewEstimates ? $performanceSummary->forProject($project, $canViewEstimateCosts) : null,
             'assignedUsers' => $project->users
                 ->map(fn (User $assignedUser): array => [
                     'id' => $assignedUser->id,
@@ -96,6 +119,8 @@ final class ProjectController
             'canUpdateProject' => Gate::forUser($user)->allows('update', $project),
             'canUploadDocuments' => Gate::forUser($user)->allows('create', Document::class),
             'canViewRates' => $this->canViewRates($user),
+            'canViewEstimates' => $canViewEstimates,
+            'canCreateEstimate' => Gate::forUser($user)->allows('create', [ProjectEstimate::class, $project]),
             ...$this->formOptions($user),
             ...$this->documentFormOptions($user),
         ]);
@@ -244,6 +269,7 @@ final class ProjectController
             'id' => $activity->id,
             'project_id' => $activity->project_id,
             'site_id' => $activity->site_id,
+            'managed_by_estimate' => $activity->estimate_line_id !== null,
             'site_name' => $activity->site?->name,
             'code' => $activity->code,
             'boq_item_number' => $activity->boq_item_number,

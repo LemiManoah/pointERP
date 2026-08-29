@@ -104,20 +104,18 @@ final class MaterialRequisitionController
             ->where('is_active', true)
             ->with('item')
             ->get()
-            ->map(function (InventoryBatch $batch) use ($balances, $materialRequisition): array {
-                return [
-                    'id' => $batch->id,
-                    'inventory_item_id' => $batch->inventory_item_id,
-                    'batch_number' => $batch->batch_number,
-                    'expires_on' => $batch->expires_on?->toDateString(),
-                    'available_quantity' => $balances->forBatch($materialRequisition->store, $batch->item, $batch->id),
-                    'has_store_movement' => InventoryStockMovement::query()
-                        ->where('inventory_store_id', $materialRequisition->inventory_store_id)
-                        ->where('inventory_item_id', $batch->inventory_item_id)
-                        ->where('inventory_batch_id', $batch->id)
-                        ->exists(),
-                ];
-            })
+            ->map(fn (InventoryBatch $batch): array => [
+                'id' => $batch->id,
+                'inventory_item_id' => $batch->inventory_item_id,
+                'batch_number' => $batch->batch_number,
+                'expires_on' => $batch->expires_on?->toDateString(),
+                'available_quantity' => $balances->forBatch($materialRequisition->store, $batch->item, $batch->id),
+                'has_store_movement' => InventoryStockMovement::query()
+                    ->where('inventory_store_id', $materialRequisition->inventory_store_id)
+                    ->where('inventory_item_id', $batch->inventory_item_id)
+                    ->where('inventory_batch_id', $batch->id)
+                    ->exists(),
+            ])
             ->filter(fn (array $batch): bool => $batch['has_store_movement'])
             ->map(fn (array $batch): array => collect($batch)->except('has_store_movement')->all())
             ->values();

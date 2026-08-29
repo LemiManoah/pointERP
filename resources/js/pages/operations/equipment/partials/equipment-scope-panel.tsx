@@ -221,103 +221,107 @@ export function EquipmentScopePanel({ fleet }: { fleet: EquipmentScopeData }) {
                 <CardContent>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b text-left text-muted-foreground">
-                                <th className="py-3 pr-4 font-medium">
-                                    Report
-                                </th>
-                                <th className="py-3 pr-4 font-medium">
-                                    Equipment snapshot
-                                </th>
-                                <th className="py-3 pr-4 font-medium">
-                                    Usage / fuel
-                                </th>
-                                <th className="py-3 font-medium">
-                                    Fleet result
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {fleet.reconciliation.map((line) => (
-                                <tr
-                                    key={line.id}
-                                    className="border-b align-top last:border-0"
-                                >
-                                    <td className="py-3 pr-4">
-                                        <Link
-                                            href={`/daily-site-reports/${line.report_id}`}
-                                            className="font-medium hover:underline"
-                                        >
-                                            {line.report_reference}
-                                        </Link>
-                                        <div className="text-muted-foreground">
-                                            {line.report_date}
-                                        </div>
-                                    </td>
-                                    <td className="py-3 pr-4">
-                                        {line.equipment_id ? (
+                            <thead>
+                                <tr className="border-b text-left text-muted-foreground">
+                                    <th className="py-3 pr-4 font-medium">
+                                        Report
+                                    </th>
+                                    <th className="py-3 pr-4 font-medium">
+                                        Equipment snapshot
+                                    </th>
+                                    <th className="py-3 pr-4 font-medium">
+                                        Usage / fuel
+                                    </th>
+                                    <th className="py-3 font-medium">
+                                        Fleet result
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {fleet.reconciliation.map((line) => (
+                                    <tr
+                                        key={line.id}
+                                        className="border-b align-top last:border-0"
+                                    >
+                                        <td className="py-3 pr-4">
                                             <Link
-                                                href={`/equipment/${line.equipment_id}`}
+                                                href={`/daily-site-reports/${line.report_id}`}
                                                 className="font-medium hover:underline"
                                             >
-                                                {line.equipment_identifier ??
-                                                    line.equipment_name}
+                                                {line.report_reference}
                                             </Link>
-                                        ) : (
-                                            <span className="font-medium">
-                                                {line.equipment_identifier ??
-                                                    line.equipment_name}
-                                            </span>
-                                        )}
-                                        <div className="text-muted-foreground">
-                                            {line.equipment_name}
-                                        </div>
-                                    </td>
-                                    <td className="py-3 pr-4">
-                                        {formatNumber(line.working_hours)}{' '}
-                                        working hours
-                                        <div className="text-muted-foreground">
-                                            {formatNumber(line.fuel_quantity)}{' '}
-                                            litres fuel
-                                        </div>
-                                        {line.adjustment_count > 0 && (
                                             <div className="text-muted-foreground">
-                                                Includes{' '}
-                                                {formatNumber(
-                                                    line.adjustment_count,
-                                                )}{' '}
-                                                approved correction(s)
+                                                {line.report_date}
                                             </div>
-                                        )}
-                                    </td>
-                                    <td className="py-3">
-                                        <Badge
-                                            variant={postingVariant(
-                                                line.fleet_posting_status,
+                                        </td>
+                                        <td className="py-3 pr-4">
+                                            {line.equipment_id ? (
+                                                <Link
+                                                    href={`/equipment/${line.equipment_id}`}
+                                                    className="font-medium hover:underline"
+                                                >
+                                                    {line.equipment_identifier ??
+                                                        line.equipment_name}
+                                                </Link>
+                                            ) : (
+                                                <span className="font-medium">
+                                                    {line.equipment_identifier ??
+                                                        line.equipment_name}
+                                                </span>
                                             )}
-                                        >
-                                            {title(line.fleet_posting_status)}
-                                        </Badge>
-                                        {line.fuel_exception_status &&
-                                            line.fuel_exception_status !==
-                                                'within_tolerance' && (
-                                                <div className="mt-1 text-muted-foreground">
-                                                    Fuel:{' '}
-                                                    {title(
-                                                        line.fuel_exception_status,
-                                                    )}
+                                            <div className="text-muted-foreground">
+                                                {line.equipment_name}
+                                            </div>
+                                        </td>
+                                        <td className="py-3 pr-4">
+                                            {formatNumber(line.working_hours)}{' '}
+                                            working hours
+                                            <div className="text-muted-foreground">
+                                                {formatNumber(
+                                                    line.fuel_quantity,
+                                                )}{' '}
+                                                litres fuel
+                                            </div>
+                                            {line.adjustment_count > 0 && (
+                                                <div className="text-muted-foreground">
+                                                    Includes{' '}
+                                                    {formatNumber(
+                                                        line.adjustment_count,
+                                                    )}{' '}
+                                                    approved correction(s)
                                                 </div>
                                             )}
-                                    </td>
-                                </tr>
-                            ))}
-                            {fleet.reconciliation.length === 0 && (
-                                <Empty
-                                    colSpan={4}
-                                    text="No approved DSR equipment lines are available."
-                                />
-                            )}
-                        </tbody>
+                                        </td>
+                                        <td className="py-3">
+                                            <Badge
+                                                variant={postingVariant(
+                                                    line.fleet_posting_status,
+                                                )}
+                                            >
+                                                {title(
+                                                    line.fleet_posting_status,
+                                                )}
+                                            </Badge>
+                                            {line.fuel_exception_status &&
+                                                line.fuel_exception_status !==
+                                                    'within_tolerance' && (
+                                                    <div className="mt-1 text-muted-foreground">
+                                                        Fuel:{' '}
+                                                        {title(
+                                                            line.fuel_exception_status,
+                                                        )}
+                                                    </div>
+                                                )}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {fleet.reconciliation.length === 0 && (
+                                    <Empty
+                                        colSpan={4}
+                                        text="No approved DSR equipment lines are available."
+                                    />
+                                )}
+                            </tbody>
                         </table>
                     </div>
                 </CardContent>

@@ -81,6 +81,11 @@ final class RolePermissionSeeder extends Seeder
             'equipment.update',
             'equipment.view',
             'equipment.view-all',
+            'estimates.approve',
+            'estimates.create',
+            'estimates.update',
+            'estimates.view',
+            'estimates.view-costs',
             'foundation.currencies.manage',
             'inventory.items.manage',
             'inventory.items.delete',
@@ -202,6 +207,11 @@ final class RolePermissionSeeder extends Seeder
             'equipment.readings.create',
             'equipment.update',
             'equipment.view',
+            'estimates.approve',
+            'estimates.create',
+            'estimates.update',
+            'estimates.view',
+            'estimates.view-costs',
             'foundation.currencies.manage',
             'inventory.items.manage',
             'inventory.items.delete',
@@ -310,6 +320,11 @@ final class RolePermissionSeeder extends Seeder
             'equipment.readings.create',
             'equipment.update',
             'equipment.view',
+            'estimates.approve',
+            'estimates.create',
+            'estimates.update',
+            'estimates.view',
+            'estimates.view-costs',
             'inventory.items.view',
             'inventory.items.view-costs',
             'inventory.purchase-orders.view',
@@ -420,6 +435,7 @@ final class RolePermissionSeeder extends Seeder
             'documents.upload',
             'documents.view',
             'equipment.view',
+            'estimates.view',
             'inventory.items.view',
             'inventory.requisitions.cancel',
             'inventory.requisitions.create',
@@ -455,6 +471,8 @@ final class RolePermissionSeeder extends Seeder
             'equipment.dashboard.view',
             'equipment.export',
             'equipment.view',
+            'estimates.view',
+            'estimates.view-costs',
             'inventory.items.view',
             'inventory.items.view-costs',
             'inventory.requisitions.view',
@@ -510,6 +528,20 @@ final class RolePermissionSeeder extends Seeder
 
     public function run(): void
     {
+        $fullExpenseAccess = [
+            'expense-categories.manage', 'expense-items.manage', 'expense-payments.record', 'expense-payments.reverse', 'expense-payments.view',
+            'expenses.approve', 'expenses.cancel', 'expenses.change-branch', 'expenses.create', 'expenses.delete-drafts', 'expenses.export', 'expenses.reconcile-dsr',
+            'expenses.reject', 'expenses.submit', 'expenses.update', 'expenses.view', 'expenses.view-all', 'expenses.view-costs',
+        ];
+        foreach (['Director', 'Administrator'] as $role) {
+            $this->roles[$role] = [...$this->roles[$role], ...$fullExpenseAccess];
+        }
+
+        $this->roles['Accountant'] = [...$this->roles['Accountant'], ...$fullExpenseAccess];
+        $this->roles['Project Manager'] = [...$this->roles['Project Manager'], 'expense-payments.view', 'expenses.approve', 'expenses.cancel', 'expenses.create', 'expenses.reconcile-dsr', 'expenses.reject', 'expenses.submit', 'expenses.update', 'expenses.view', 'expenses.view-costs'];
+        $this->roles['Site Manager'] = [...$this->roles['Site Manager'], 'expenses.cancel', 'expenses.create', 'expenses.submit', 'expenses.update', 'expenses.view'];
+        $this->roles['Auditor'] = [...$this->roles['Auditor'], 'expense-payments.view', 'expenses.export', 'expenses.view', 'expenses.view-all', 'expenses.view-costs'];
+
         resolve(PermissionRegistrar::class)->forgetCachedPermissions();
 
         foreach ($this->permissions() as $permission) {

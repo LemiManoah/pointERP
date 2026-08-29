@@ -13,6 +13,7 @@ use App\Models\DocumentType;
 use App\Models\DocumentVersion;
 use App\Models\Equipment;
 use App\Models\EquipmentMaintenanceWorkOrder;
+use App\Models\Expense;
 use App\Models\InventoryItem;
 use App\Models\Project;
 use App\Models\Site;
@@ -61,6 +62,7 @@ trait PresentsLinkedDocuments
                 'equipment' => $this->documentEquipmentOptions($user, $tenantId),
                 'maintenanceWorkOrders' => $this->documentMaintenanceWorkOrderOptions($user, $tenantId),
                 'inventoryItems' => $this->documentInventoryItemOptions($user, $tenantId),
+                'expenses' => $this->documentExpenseOptions($user, $tenantId),
             ],
         ];
     }
@@ -132,6 +134,7 @@ trait PresentsLinkedDocuments
             $target instanceof Equipment => sprintf('%s - %s', $target->asset_code, $target->name),
             $target instanceof EquipmentMaintenanceWorkOrder => $target->reference,
             $target instanceof InventoryItem => sprintf('%s - %s', $target->code, $target->name),
+            $target instanceof Expense => sprintf('%s - %s', $target->expense_number, $target->payee_name_snapshot),
             default => 'Unknown record',
         };
     }
@@ -241,6 +244,19 @@ trait PresentsLinkedDocuments
             ->get()
             ->filter(fn (InventoryItem $item): bool => Gate::forUser($user)->allows('view', $item))
             ->map(fn (InventoryItem $item): array => ['id' => $item->id, 'name' => sprintf('%s - %s', $item->code, $item->name)])
+            ->values()
+            ->all();
+    }
+
+    /** @return list<array<string, string>> */
+    private function documentExpenseOptions(User $user, string $tenantId): array
+    {
+        return Expense::query()
+            ->where('tenant_id', $tenantId)
+            ->latest('expense_date')
+            ->get()
+            ->filter(fn (Expense $expense): bool => Gate::forUser($user)->allows('view', $expense))
+            ->map(fn (Expense $expense): array => ['id' => $expense->id, 'name' => sprintf('%s - %s', $expense->expense_number, $expense->payee_name_snapshot)])
             ->values()
             ->all();
     }

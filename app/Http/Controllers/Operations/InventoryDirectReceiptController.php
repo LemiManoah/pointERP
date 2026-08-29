@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Operations;
 
-use App\Enums\InventoryDirectReceiptReason;
 use App\Actions\Operations\Inventory\AddInventoryStock;
+use App\Enums\InventoryDirectReceiptReason;
 use App\Http\Requests\Operations\Inventory\StoreInventoryDirectReceiptRequest;
-use App\Models\Customer;
 use App\Models\Branch;
+use App\Models\Customer;
 use App\Models\InventoryDirectReceipt;
 use App\Models\InventoryDirectReceiptLine;
 use App\Models\InventoryStore;
 use App\Models\User;
-use App\Services\InventoryStoreStockOptions;
 use App\Services\BranchContext;
+use App\Services\InventoryStoreStockOptions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;

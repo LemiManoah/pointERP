@@ -71,7 +71,9 @@ export default function DirectReceiptShow({ receipt }: { receipt: Receipt }) {
                             />
                             <Detail
                                 label="Source reference"
-                                value={receipt.source_reference ?? 'Not provided'}
+                                value={
+                                    receipt.source_reference ?? 'Not provided'
+                                }
                             />
                             <Detail
                                 label="Recorded by"

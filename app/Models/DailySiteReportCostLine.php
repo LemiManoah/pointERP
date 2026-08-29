@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['tenant_id', 'branch_id', 'daily_site_report_id', 'category', 'description', 'quantity', 'unit', 'rate_amount', 'amount', 'currency_code', 'notes', 'sort_order'])]
 final class DailySiteReportCostLine extends Model
@@ -39,5 +40,11 @@ final class DailySiteReportCostLine extends Model
     public function report(): BelongsTo
     {
         return $this->belongsTo(DailySiteReport::class, 'daily_site_report_id');
+    }
+
+    /** @return HasOne<DsrExpenseReconciliation, $this> */
+    public function expenseReconciliation(): HasOne
+    {
+        return $this->hasOne(DsrExpenseReconciliation::class);
     }
 }

@@ -110,7 +110,7 @@ final class StoreDocumentRequest extends FormRequest
                 Document::STATUS_ARCHIVED,
             ])],
             'links' => ['array'],
-            'links.*.type' => ['required_with:links', Rule::in(['contract', 'project', 'site', 'daily_site_report', 'equipment', 'equipment_maintenance_work_order', 'inventory_item'])],
+            'links.*.type' => ['required_with:links', Rule::in(['contract', 'project', 'site', 'daily_site_report', 'equipment', 'equipment_maintenance_work_order', 'inventory_item', 'expense'])],
             'links.*.id' => ['required_with:links', 'uuid'],
         ];
     }

@@ -181,8 +181,7 @@ export function CustomerDialog({ customer, branches }: Props) {
                                         ...data,
                                         name,
                                         code:
-                                            data.code ===
-                                            companyCode(data.name)
+                                            data.code === companyCode(data.name)
                                                 ? companyCode(name)
                                                 : data.code,
                                     }));
