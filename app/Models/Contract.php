@@ -119,7 +119,7 @@ final class Contract extends Model
      * @param  Builder<Contract>  $query
      * @return Builder<Contract>
      */
-    protected function scopeVisibleTo(Builder $query, User $user): Builder
+    public function scopeVisibleTo(Builder $query, User $user): Builder
     {
         if ($user->can('branches.view-all')) {
             return $query;

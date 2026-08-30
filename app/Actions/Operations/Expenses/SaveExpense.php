@@ -6,7 +6,6 @@ namespace App\Actions\Operations\Expenses;
 
 use App\Enums\ExpensePayeeType;
 use App\Enums\ExpenseStatus;
-use App\Http\Requests\Operations\Expenses\StoreExpenseRequest;
 use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\Expense;
@@ -22,7 +21,10 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-/** @phpstan-import-type ExpensePayload from StoreExpenseRequest */
+/**
+ * @phpstan-type ExpenseLinePayload array{expense_item_id: string, project_id?: string|null, site_id?: string|null, project_activity_id?: string|null, description?: string|null, quantity: numeric-string, unit_amount: numeric-string}
+ * @phpstan-type ExpensePayload array{branch_id: string, expense_date: string, payee_type: string, customer_id?: string|null, staff_id?: string|null, payee_name?: string|null, currency_code: string, description?: string|null, reference?: string|null, lines: list<ExpenseLinePayload>, initial_payment_amount?: numeric-string|null, initial_payment_method?: string|null, initial_payment_reference?: string|null}
+ */
 final readonly class SaveExpense
 {
     public function __construct(
