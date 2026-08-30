@@ -44,12 +44,15 @@ final class ExpensePolicy
 
     public function update(User $user, Expense $expense): bool
     {
-        return $this->view($user, $expense) && $expense->isEditable() && $user->can('expenses.update');
+        return $this->view($user, $expense)
+            && $expense->isEditable()
+            && $expense->daily_site_report_id === null
+            && $user->can('expenses.update');
     }
 
     public function delete(User $user, Expense $expense): bool
     {
-        return $this->view($user, $expense) && $expense->status === ExpenseStatus::Draft && ! $expense->payments()->exists() && ! DocumentLink::query()->where('linkable_type', Expense::class)->where('linkable_id', $expense->id)->exists() && $user->can('expenses.delete-drafts');
+        return $this->view($user, $expense) && $expense->daily_site_report_id === null && $expense->status === ExpenseStatus::Draft && ! $expense->payments()->exists() && ! DocumentLink::query()->where('linkable_type', Expense::class)->where('linkable_id', $expense->id)->exists() && $user->can('expenses.delete-drafts');
     }
 
     public function submit(User $user, Expense $expense): bool
@@ -80,10 +83,5 @@ final class ExpensePolicy
     public function viewCosts(User $user, Expense $expense): bool
     {
         return $this->view($user, $expense) && $user->can('expenses.view-costs');
-    }
-
-    public function reconcileDsr(User $user, Expense $expense): bool
-    {
-        return $this->view($user, $expense) && $expense->status === ExpenseStatus::Approved && $user->can('expenses.reconcile-dsr');
     }
 }

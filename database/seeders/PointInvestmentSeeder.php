@@ -15,6 +15,7 @@ use App\Actions\Operations\Inventory\ReviewInventoryTransfer;
 use App\Actions\Operations\Inventory\TransferInventoryItems;
 use App\Enums\DocumentDiscipline;
 use App\Enums\DocumentRevision;
+use App\Enums\DsrLabourSource;
 use App\Enums\DsrMaterialReconciliationStatus;
 use App\Enums\EstimateResourceType;
 use App\Enums\ExpensePayeeType;
@@ -37,7 +38,6 @@ use App\Models\Contract;
 use App\Models\Customer;
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportCorrection;
-use App\Models\DailySiteReportCostLine;
 use App\Models\DailySiteReportDelayLine;
 use App\Models\DailySiteReportEquipmentLine;
 use App\Models\DailySiteReportLabourLine;
@@ -48,7 +48,6 @@ use App\Models\Document;
 use App\Models\DocumentLink;
 use App\Models\DocumentType;
 use App\Models\DocumentVersion;
-use App\Models\DsrExpenseReconciliation;
 use App\Models\Equipment;
 use App\Models\EquipmentAssignment;
 use App\Models\EquipmentCategory;
@@ -98,7 +97,6 @@ use App\Models\User;
 use App\Notifications\OperationalNotification;
 use App\Services\TenantContext;
 use Carbon\CarbonInterface;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -383,10 +381,16 @@ final class PointInvestmentSeeder extends Seeder
 
         $project = Project::query()->where('reference', 'BKH-ROAD')->firstOrFail();
         $site = $project->sites()->orderBy('name')->first();
+        $report = DailySiteReport::query()
+            ->where('project_id', $project->id)
+            ->where('status', DailySiteReport::STATUS_APPROVED)
+            ->latest('report_date')
+            ->first();
         $siteExpense = Expense::query()->updateOrCreate(
             ['tenant_id' => $tenantId, 'expense_number' => 'EXP-DEMO-002'],
             [
                 'branch_id' => $guluBranch->id,
+                'daily_site_report_id' => $report?->id,
                 'expense_date' => now()->subDays(2)->toDateString(),
                 'payee_type' => ExpensePayeeType::Other,
                 'payee_name_snapshot' => 'Busunju site catering team',
@@ -407,21 +411,10 @@ final class PointInvestmentSeeder extends Seeder
                 'updated_by' => $director->id,
             ],
         );
-        $siteExpenseLine = ExpenseLine::query()->updateOrCreate(
+        ExpenseLine::query()->updateOrCreate(
             ['expense_id' => $siteExpense->id, 'expense_item_id' => $items['SITE-MEALS']->id],
             ['tenant_id' => $tenantId, 'project_id' => $project->id, 'site_id' => $site?->id, 'expense_category_name_snapshot' => 'Site welfare', 'expense_item_name_snapshot' => 'Site meals', 'quantity' => '1.0000', 'unit_amount' => '450000.0000', 'amount' => '450000.0000', 'base_currency_amount' => '450000.0000', 'sort_order' => 0],
         );
-        $dsrCost = DailySiteReportCostLine::query()
-            ->whereHas('report', fn (Builder $query): Builder => $query->where('project_id', $project->id))
-            ->where('description', 'Field team allowances')
-            ->first();
-        if ($dsrCost instanceof DailySiteReportCostLine) {
-            DsrExpenseReconciliation::query()->updateOrCreate(
-                ['daily_site_report_cost_line_id' => $dsrCost->id],
-                ['tenant_id' => $tenantId, 'expense_line_id' => $siteExpenseLine->id, 'reconciled_by' => $director->id, 'reconciled_at' => now()->subDay(), 'reason' => 'Replace the provisional DSR allowance with the approved expense evidence.'],
-            );
-        }
-
         $draftExpense = Expense::query()->updateOrCreate(
             ['tenant_id' => $tenantId, 'expense_number' => 'EXP-DEMO-003'],
             ['branch_id' => $kampalaBranch->id, 'expense_date' => now()->toDateString(), 'payee_type' => ExpensePayeeType::Other, 'payee_name_snapshot' => 'Office internet provider', 'currency_code' => 'UGX', 'base_currency_code' => 'UGX', 'exchange_rate' => '1.0000000000', 'subtotal' => '180000.0000', 'total_amount' => '180000.0000', 'base_currency_total' => '180000.0000', 'description' => 'Draft monthly internet subscription awaiting an invoice.', 'status' => ExpenseStatus::Draft, 'created_by' => $director->id, 'updated_by' => $director->id],
@@ -2104,7 +2097,14 @@ final class PointInvestmentSeeder extends Seeder
 
     private function seedReportLines(DailySiteReport $report, string $currencyCode, string $chainageFrom = 'Km 10+000', string $chainageTo = 'Km 11+500'): void
     {
-        foreach ([DailySiteReportWorkLine::class, DailySiteReportLabourLine::class, DailySiteReportEquipmentLine::class, DailySiteReportMaterialLine::class, DailySiteReportCostLine::class, DailySiteReportDelayLine::class] as $modelClass) {
+        $subcontractor = Customer::query()
+            ->where('tenant_id', $report->tenant_id)
+            ->where('type', Customer::TYPE_SUBCONTRACTOR)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->first();
+
+        foreach ([DailySiteReportWorkLine::class, DailySiteReportLabourLine::class, DailySiteReportEquipmentLine::class, DailySiteReportMaterialLine::class, DailySiteReportDelayLine::class] as $modelClass) {
             $modelClass::query()->where('daily_site_report_id', $report->id)->delete();
         }
 
@@ -2131,8 +2131,10 @@ final class PointInvestmentSeeder extends Seeder
             'tenant_id' => $report->tenant_id,
             'branch_id' => $report->branch_id,
             'daily_site_report_id' => $report->id,
+            'labour_source' => $subcontractor instanceof Customer ? DsrLabourSource::Subcontractor : DsrLabourSource::Casual,
+            'subcontractor_id' => $subcontractor?->id,
             'trade_or_role' => 'General labour',
-            'subcontractor_name' => 'Abubaker Technical Services and General Supplies Limited',
+            'subcontractor_name' => $subcontractor?->name,
             'headcount' => 18,
             'hours' => '8.0000',
             'rate_amount' => $currencyCode === 'UGX' ? '25000.0000' : '7.0000',
@@ -2173,20 +2175,6 @@ final class PointInvestmentSeeder extends Seeder
             'sort_order' => 1,
         ]);
 
-        DailySiteReportCostLine::query()->create([
-            'tenant_id' => $report->tenant_id,
-            'branch_id' => $report->branch_id,
-            'daily_site_report_id' => $report->id,
-            'category' => 'allowances',
-            'description' => 'Field team allowances',
-            'quantity' => '1.0000',
-            'unit' => 'day',
-            'rate_amount' => $currencyCode === 'UGX' ? '450000.0000' : '120.0000',
-            'amount' => $currencyCode === 'UGX' ? '450000.0000' : '120.0000',
-            'currency_code' => $currencyCode,
-            'sort_order' => 1,
-        ]);
-
         DailySiteReportDelayLine::query()->create([
             'tenant_id' => $report->tenant_id,
             'branch_id' => $report->branch_id,
@@ -2200,8 +2188,8 @@ final class PointInvestmentSeeder extends Seeder
 
         $report->forceFill([
             'output_value' => $currencyCode === 'UGX' ? '3570000.0000' : '966.0000',
-            'input_cost' => $currencyCode === 'UGX' ? '6072000.0000' : '1668.0000',
-            'profit_loss' => $currencyCode === 'UGX' ? '-2502000.0000' : '-702.0000',
+            'input_cost' => $currencyCode === 'UGX' ? '5622000.0000' : '1548.0000',
+            'profit_loss' => $currencyCode === 'UGX' ? '-2052000.0000' : '-582.0000',
         ])->save();
     }
 

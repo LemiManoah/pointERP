@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Actions\Operations\DailySiteReports;
 
+use App\Enums\DsrLabourSource;
 use App\Enums\DsrMaterialReconciliationStatus;
+use App\Models\Customer;
 use App\Models\DailySiteReport;
-use App\Models\DailySiteReportCostLine;
 use App\Models\DailySiteReportDelayLine;
 use App\Models\DailySiteReportEquipmentLine;
 use App\Models\DailySiteReportLabourLine;
@@ -23,6 +24,7 @@ use App\Models\UnitOfMeasure;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\InventoryQuantityConverter;
+use App\Services\RefreshDailySiteReportCosts;
 use App\Services\ReportingCalendarResolver;
 use App\Services\TenantContext;
 use Brick\Math\BigDecimal;
@@ -39,6 +41,7 @@ final readonly class SaveDailySiteReport
         private AuditLogger $auditLogger,
         private ReportingCalendarResolver $calendarResolver,
         private InventoryQuantityConverter $quantityConverter,
+        private RefreshDailySiteReportCosts $refreshCosts,
     ) {
         //
     }
@@ -84,28 +87,20 @@ final readonly class SaveDailySiteReport
 
             $report->save();
 
-            $outputValue = $this->syncLines(
+            $this->syncLines(
                 $report,
                 DailySiteReportWorkLine::class,
                 $this->normalizeWorkLines($report, $data['work_lines'] ?? []),
             );
-            $labourCost = $this->syncLines($report, DailySiteReportLabourLine::class, $data['labour_lines'] ?? []);
-            $equipmentCost = $this->syncLines(
+            $this->syncLines($report, DailySiteReportLabourLine::class, $this->normalizeLabourLines($report, $data['labour_lines'] ?? []));
+            $this->syncLines(
                 $report,
                 DailySiteReportEquipmentLine::class,
                 $this->normalizeEquipmentLines($report, $data['equipment_lines'] ?? []),
             );
-            $materialCost = $this->syncLines($report, DailySiteReportMaterialLine::class, $this->normalizeMaterialLines($report, $data['material_lines'] ?? []));
-            $otherCost = $this->syncLines($report, DailySiteReportCostLine::class, $data['cost_lines'] ?? []);
+            $this->syncLines($report, DailySiteReportMaterialLine::class, $this->normalizeMaterialLines($report, $data['material_lines'] ?? []));
             $this->syncLines($report, DailySiteReportDelayLine::class, $data['delay_lines'] ?? []);
-
-            $inputCost = $labourCost + $equipmentCost + $materialCost + $otherCost;
-
-            $report->forceFill([
-                'output_value' => $outputValue,
-                'input_cost' => $inputCost,
-                'profit_loss' => $outputValue - $inputCost,
-            ])->save();
+            $this->refreshCosts->handle($report);
 
             $event = $oldValues === []
                 ? 'operations.daily_site_report.created'
@@ -276,8 +271,42 @@ final readonly class SaveDailySiteReport
             ->all();
     }
 
+    /** @return list<array<string, mixed>> */
+    private function normalizeLabourLines(DailySiteReport $report, mixed $lines): array
+    {
+        if (! is_array($lines)) {
+            return [];
+        }
+
+        return collect($lines)
+            ->filter(fn (mixed $line): bool => is_array($line))
+            ->map(function (array $line) use ($report): array {
+                $source = DsrLabourSource::tryFrom((string) ($line['labour_source'] ?? '')) ?? DsrLabourSource::Internal;
+                $subcontractorId = $source === DsrLabourSource::Subcontractor ? ($line['subcontractor_id'] ?? null) : null;
+                $subcontractor = is_string($subcontractorId) ? Customer::query()
+                    ->whereKey($subcontractorId)
+                    ->where('tenant_id', $report->tenant_id)
+                    ->where('type', Customer::TYPE_SUBCONTRACTOR)
+                    ->where('status', 'active')
+                    ->first() : null;
+
+                if ($source === DsrLabourSource::Subcontractor && ! $subcontractor instanceof Customer) {
+                    throw ValidationException::withMessages(['labour_lines' => 'Select an active subcontractor for subcontracted labour.']);
+                }
+
+                return [
+                    ...$line,
+                    'labour_source' => $source->value,
+                    'subcontractor_id' => $subcontractor?->id,
+                    'subcontractor_name' => $subcontractor?->name,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
     /**
-     * @param  class-string<DailySiteReportWorkLine|DailySiteReportLabourLine|DailySiteReportEquipmentLine|DailySiteReportMaterialLine|DailySiteReportCostLine|DailySiteReportDelayLine>  $modelClass
+     * @param  class-string<DailySiteReportWorkLine|DailySiteReportLabourLine|DailySiteReportEquipmentLine|DailySiteReportMaterialLine|DailySiteReportDelayLine>  $modelClass
      */
     private function syncLines(DailySiteReport $report, string $modelClass, mixed $lines): float
     {
@@ -309,7 +338,9 @@ final readonly class SaveDailySiteReport
                 }
             }
 
-            $amount = $this->amount($line);
+            $amount = $modelClass === DailySiteReportLabourLine::class
+                ? $this->labourAmount($line)
+                : $this->amount($line);
             $total += $amount;
 
             $modelClass::query()->create([
@@ -330,10 +361,6 @@ final readonly class SaveDailySiteReport
      */
     private function amount(array $line): float
     {
-        if (is_numeric($line['amount'] ?? null)) {
-            return (float) $line['amount'];
-        }
-
         if (is_numeric($line['quantity'] ?? null) && is_numeric($line['rate_amount'] ?? null)) {
             return (float) $line['quantity'] * (float) $line['rate_amount'];
         }
@@ -346,7 +373,21 @@ final readonly class SaveDailySiteReport
             return (float) $line['working_hours'] * (float) $line['rate_amount'];
         }
 
+        if (is_numeric($line['amount'] ?? null)) {
+            return (float) $line['amount'];
+        }
+
         return 0.0;
+    }
+
+    /** @param array<string, mixed> $line */
+    private function labourAmount(array $line): float
+    {
+        if (is_numeric($line['headcount'] ?? null) && is_numeric($line['hours'] ?? null) && is_numeric($line['rate_amount'] ?? null)) {
+            return (float) $line['headcount'] * (float) $line['hours'] * (float) $line['rate_amount'];
+        }
+
+        return $this->amount($line);
     }
 
     private function reference(Site $site, string $reportDate): string

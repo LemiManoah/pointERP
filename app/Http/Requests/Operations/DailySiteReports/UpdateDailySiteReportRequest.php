@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Operations\DailySiteReports;
 
+use App\Enums\DsrLabourSource;
+use App\Models\Customer;
 use App\Models\Equipment;
 use App\Models\ProjectActivity;
 use App\Models\Site;
@@ -59,6 +61,8 @@ final class UpdateDailySiteReportRequest extends FormRequest
             'work_lines.*.currency_code' => ['nullable', 'string', 'size:3'],
             'work_lines.*.notes' => ['nullable', 'string'],
             'labour_lines' => ['array'],
+            'labour_lines.*.labour_source' => ['nullable', Rule::enum(DsrLabourSource::class)],
+            'labour_lines.*.subcontractor_id' => ['nullable', 'required_if:labour_lines.*.labour_source,subcontractor', 'uuid', Rule::exists((new Customer)->getTable(), 'id')->where('tenant_id', $tenantId)->where('type', Customer::TYPE_SUBCONTRACTOR)->where('status', 'active')],
             'labour_lines.*.trade_or_role' => ['required_with:labour_lines', 'string', 'max:255'],
             'labour_lines.*.subcontractor_name' => ['nullable', 'string', 'max:255'],
             'labour_lines.*.headcount' => ['nullable', 'integer', 'min:0'],
@@ -97,15 +101,6 @@ final class UpdateDailySiteReportRequest extends FormRequest
             'material_lines.*.currency_code' => ['nullable', 'string', 'size:3'],
             'material_lines.*.delivery_reference' => ['nullable', 'string', 'max:255'],
             'material_lines.*.notes' => ['nullable', 'string'],
-            'cost_lines' => ['array'],
-            'cost_lines.*.category' => ['required_with:cost_lines', 'string', 'max:255'],
-            'cost_lines.*.description' => ['required_with:cost_lines', 'string', 'max:255'],
-            'cost_lines.*.quantity' => ['nullable', 'numeric', 'min:0'],
-            'cost_lines.*.unit' => ['nullable', 'string', 'max:50'],
-            'cost_lines.*.rate_amount' => ['nullable', 'numeric', 'min:0'],
-            'cost_lines.*.amount' => ['nullable', 'numeric'],
-            'cost_lines.*.currency_code' => ['nullable', 'string', 'size:3'],
-            'cost_lines.*.notes' => ['nullable', 'string'],
             'delay_lines' => ['array'],
             'delay_lines.*.delay_type' => ['nullable', 'string', 'max:255'],
             'delay_lines.*.description' => ['required_with:delay_lines', 'string', 'max:255'],

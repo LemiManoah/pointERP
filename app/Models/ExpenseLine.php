@@ -11,7 +11,6 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * @property-read string $id
@@ -72,11 +71,5 @@ final class ExpenseLine extends Model
     public function activity(): BelongsTo
     {
         return $this->belongsTo(ProjectActivity::class, 'project_activity_id');
-    }
-
-    /** @return HasOne<DsrExpenseReconciliation, $this> */
-    public function dsrReconciliation(): HasOne
-    {
-        return $this->hasOne(DsrExpenseReconciliation::class);
     }
 }

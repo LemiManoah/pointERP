@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\DailySiteReports\SaveDailySiteReport;
+use App\Enums\DsrLabourSource;
 use App\Enums\InventoryMovementType;
 use App\Http\Requests\Operations\DailySiteReports\StoreDailySiteReportRequest;
 use App\Http\Requests\Operations\DailySiteReports\UpdateDailySiteReportRequest;
+use App\Models\Customer;
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportCorrection;
 use App\Models\DailySiteReportMaterialLine;
@@ -16,6 +18,8 @@ use App\Models\DailySiteReportWorkLine;
 use App\Models\Document;
 use App\Models\DsrMaterialReconciliation;
 use App\Models\Equipment;
+use App\Models\Expense;
+use App\Models\ExpenseItem;
 use App\Models\InventoryBatch;
 use App\Models\InventoryItem;
 use App\Models\InventoryStockMovement;
@@ -23,6 +27,7 @@ use App\Models\InventoryStore;
 use App\Models\InventoryUnitConversion;
 use App\Models\ProjectActivity;
 use App\Models\Site;
+use App\Models\Staff;
 use App\Models\TenantCurrency;
 use App\Models\User;
 use App\Services\BranchContext;
@@ -92,7 +97,7 @@ final class DailySiteReportController
             'materialLines.item.stockUnit',
             'materialLines.store',
             'materialLines.reconciliations.movement',
-            'costLines',
+            'expenses.lines',
             'delayLines',
         ]);
         $canViewCosts = $this->canViewRates($user);
@@ -122,7 +127,15 @@ final class DailySiteReportController
                 'labour_lines' => $this->lineRows($dailySiteReport->labourLines->values()->all(), $canViewCosts),
                 'equipment_lines' => $this->lineRows($dailySiteReport->equipmentLines->values()->all(), $canViewCosts),
                 'material_lines' => $this->lineRows($dailySiteReport->materialLines->values()->all(), $canViewCosts),
-                'cost_lines' => $canViewCosts ? $this->lineRows($dailySiteReport->costLines->values()->all(), true) : [],
+                'other_cost_expenses' => $canViewCosts ? $dailySiteReport->expenses->map(fn (Expense $expense): array => [
+                    'id' => $expense->id,
+                    'expense_number' => $expense->expense_number,
+                    'item' => $expense->lines->first()->expense_item_name_snapshot ?? 'Other cost',
+                    'payee' => $expense->payee_name_snapshot,
+                    'amount' => $expense->total_amount,
+                    'currency_code' => $expense->currency_code,
+                    'status' => $expense->status->value,
+                ])->values()->all() : [],
                 'delay_lines' => $dailySiteReport->delayLines->values(),
                 'evidence_count' => count($linkedDocuments),
             ],
@@ -133,6 +146,7 @@ final class DailySiteReportController
                 'return' => Gate::forUser($user)->allows('return', $dailySiteReport),
                 'correct' => Gate::forUser($user)->allows('correct', $dailySiteReport),
                 'viewMaterialReconciliation' => $canViewMaterialReconciliation,
+                'createExpenseDraft' => Gate::forUser($user)->allows('createExpenseDraft', $dailySiteReport),
             ],
             'materialReconciliations' => $canViewMaterialReconciliation ? $dailySiteReport->materialLines->map(function (DailySiteReportMaterialLine $line) use ($dailySiteReport, $user): array {
                 $reported = (float) ($line->stock_unit_quantity ?? $line->quantity ?? 0);
@@ -166,6 +180,13 @@ final class DailySiteReportController
                 ];
             })->values()->all() : [],
             'canViewCosts' => $canViewCosts,
+            'labourSources' => collect(DsrLabourSource::cases())->map(fn (DsrLabourSource $source): array => ['value' => $source->value, 'label' => $source->label()]),
+            'subcontractors' => Customer::query()->visibleTo($user)->where('type', Customer::TYPE_SUBCONTRACTOR)->where('status', 'active')->orderBy('name')->get()->map(fn (Customer $customer): array => ['value' => $customer->id, 'label' => $customer->name, 'description' => $customer->code]),
+            'expenseDraftOptions' => [
+                'items' => ExpenseItem::query()->with('category')->where('is_active', true)->orderBy('name')->get()->map(fn (ExpenseItem $item): array => ['value' => $item->id, 'label' => $item->name, 'description' => $item->category->name]),
+                'companies' => Customer::query()->visibleTo($user)->where('status', 'active')->orderBy('name')->get()->map(fn (Customer $customer): array => ['value' => $customer->id, 'label' => $customer->name, 'description' => $customer->code]),
+                'staff' => Staff::query()->where('branch_id', $dailySiteReport->branch_id)->where('status', 'active')->orderBy('name')->get()->map(fn (Staff $staff): array => ['value' => $staff->id, 'label' => $staff->name, 'description' => $staff->staff_number]),
+            ],
             'reviews' => $dailySiteReport->reviews
                 ->sortByDesc('created_at')
                 ->values()
@@ -212,6 +233,11 @@ final class DailySiteReportController
             ->first();
 
         if ($existingReport instanceof DailySiteReport) {
+            Inertia::flash('toast', [
+                'type' => 'info',
+                'message' => sprintf('A %s report already exists for this site and date.', $existingReport->status),
+            ]);
+
             return to_route('daily-site-reports.show', $existingReport);
         }
 

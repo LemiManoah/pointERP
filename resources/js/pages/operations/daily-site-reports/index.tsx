@@ -3,6 +3,7 @@ import { ClipboardCheck, Plus, Search } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
+import { DatePicker } from '@/components/date-picker';
 import { SearchableSelect } from '@/components/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -160,16 +161,13 @@ export default function DailySiteReportsIndex({
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="report_date">Date</Label>
-                            <Input
+                            <DatePicker
                                 id="report_date"
-                                type="date"
                                 value={form.data.report_date}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'report_date',
-                                        event.target.value,
-                                    )
+                                onChange={(value) =>
+                                    form.setData('report_date', value)
                                 }
+                                placeholder="Select report date"
                             />
                         </div>
                         <div className="flex items-end">

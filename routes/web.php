@@ -33,7 +33,7 @@ use App\Http\Controllers\Operations\DocumentLinkController;
 use App\Http\Controllers\Operations\DocumentTypeController;
 use App\Http\Controllers\Operations\DocumentVersionController;
 use App\Http\Controllers\Operations\DsrExceptionExportController;
-use App\Http\Controllers\Operations\DsrExpenseReconciliationController;
+use App\Http\Controllers\Operations\DsrExpenseController;
 use App\Http\Controllers\Operations\DsrMaterialAllocationController;
 use App\Http\Controllers\Operations\DsrMaterialDirectIssueController;
 use App\Http\Controllers\Operations\DsrMaterialExternalController;
@@ -182,7 +182,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('expenses/{expense}/cancel', ExpenseCancellationController::class)->name('expenses.cancel');
     Route::post('expenses/{expense}/payments', ExpensePaymentController::class)->name('expenses.payments.store');
     Route::post('expense-payments/{expensePayment}/reverse', ExpensePaymentReversalController::class)->name('expense-payments.reverse');
-    Route::post('expense-lines/{expenseLine}/reconcile-dsr', DsrExpenseReconciliationController::class)->name('expense-lines.reconcile-dsr');
+    Route::post('daily-site-reports/{dailySiteReport}/expenses', DsrExpenseController::class)->name('daily-site-reports.expenses.store');
     Route::resource('contracts', ContractController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
     Route::resource('projects', ProjectController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
     Route::get('projects/{project}/estimates/create', [ProjectEstimateController::class, 'create'])->name('project-estimates.create');

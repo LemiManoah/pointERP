@@ -2,6 +2,7 @@ import { router, useForm } from '@inertiajs/react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
+import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { SearchableSelect } from '@/components/searchable-select';
 import { Button } from '@/components/ui/button';
@@ -63,16 +64,13 @@ export function CalendarExceptionsDialog({
                     >
                         <div className="grid gap-2">
                             <Label htmlFor="exception_date">Date</Label>
-                            <Input
+                            <DatePicker
                                 id="exception_date"
-                                type="date"
                                 value={form.data.exception_date}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'exception_date',
-                                        event.target.value,
-                                    )
+                                onChange={(value) =>
+                                    form.setData('exception_date', value)
                                 }
+                                placeholder="Select exception date"
                             />
                             <InputError message={form.errors.exception_date} />
                         </div>

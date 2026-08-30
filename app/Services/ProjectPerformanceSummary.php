@@ -67,9 +67,6 @@ final class ProjectPerformanceSummary
             ->where('project_id', $project->id)
             ->whereHas('expense', fn (Builder $query): Builder => $query->where('status', 'approved'));
         $approvedExpenseCost = (float) (clone $approvedExpenseQuery)->sum('base_currency_amount');
-        $unreconciledExpenseCost = (float) $approvedExpenseQuery
-            ->whereDoesntHave('dsrReconciliation')
-            ->sum('base_currency_amount');
         $materialActuals = DailySiteReportMaterialLine::query()
             ->whereNotNull('inventory_item_id')
             ->whereHas('report', fn (Builder $query): Builder => $query
@@ -137,7 +134,7 @@ final class ProjectPerformanceSummary
                 'earned_output' => $canViewCosts ? number_format($rows->sum(fn (array $row): float => (float) $row['earned_output']), 4, '.', '') : null,
                 'baseline_cost' => $canViewCosts ? number_format($rows->sum(fn (array $row): float => (float) $row['baseline_cost']), 4, '.', '') : null,
                 'operational_expenses' => $canViewCosts ? number_format($approvedExpenseCost, 4, '.', '') : null,
-                'actual_input_cost' => $canViewCosts ? number_format($approvedReports->sum(fn (DailySiteReport $report): float => (float) $report->input_cost) + $unreconciledExpenseCost, 4, '.', '') : null,
+                'actual_input_cost' => $canViewCosts ? number_format($approvedReports->sum(fn (DailySiteReport $report): float => (float) $report->input_cost) + $approvedExpenseCost, 4, '.', '') : null,
             ],
             'work_items' => $rows->all(),
             'resources' => $resources,

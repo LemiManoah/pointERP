@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string $id
  * @property-read string $tenant_id
  * @property-read string $branch_id
+ * @property-read string|null $daily_site_report_id
  * @property-read string $expense_number
  * @property-read CarbonInterface $expense_date
  * @property-read ExpensePayeeType $payee_type
@@ -39,8 +40,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read Branch $branch
  * @property-read Customer|null $customer
  * @property-read Staff|null $staff
+ * @property-read DailySiteReport|null $dailySiteReport
  */
-#[Fillable(['tenant_id', 'branch_id', 'expense_number', 'expense_date', 'payee_type', 'customer_id', 'staff_id', 'payee_name_snapshot', 'currency_code', 'base_currency_code', 'exchange_rate_id', 'exchange_rate', 'subtotal', 'total_amount', 'base_currency_total', 'description', 'reference', 'status', 'submitted_by', 'submitted_at', 'approved_by', 'approved_at', 'rejected_by', 'rejected_at', 'cancelled_by', 'cancelled_at', 'decision_reason', 'corrects_expense_id', 'created_by', 'updated_by'])]
+#[Fillable(['tenant_id', 'branch_id', 'daily_site_report_id', 'expense_number', 'expense_date', 'payee_type', 'customer_id', 'staff_id', 'payee_name_snapshot', 'currency_code', 'base_currency_code', 'exchange_rate_id', 'exchange_rate', 'subtotal', 'total_amount', 'base_currency_total', 'description', 'reference', 'status', 'submitted_by', 'submitted_at', 'approved_by', 'approved_at', 'rejected_by', 'rejected_at', 'cancelled_by', 'cancelled_at', 'decision_reason', 'corrects_expense_id', 'created_by', 'updated_by'])]
 final class Expense extends Model
 {
     use BelongsToTenant;
@@ -55,6 +57,7 @@ final class Expense extends Model
     public function casts(): array
     {
         return [
+            'daily_site_report_id' => 'string',
             'expense_date' => 'date',
             'payee_type' => ExpensePayeeType::class,
             'exchange_rate' => 'decimal:10',
@@ -88,6 +91,12 @@ final class Expense extends Model
     public function staff(): BelongsTo
     {
         return $this->belongsTo(Staff::class);
+    }
+
+    /** @return BelongsTo<DailySiteReport, $this> */
+    public function dailySiteReport(): BelongsTo
+    {
+        return $this->belongsTo(DailySiteReport::class);
     }
 
     /** @return HasMany<ExpenseLine, $this> */

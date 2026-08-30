@@ -14,6 +14,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->uuid('tenant_id');
             $table->uuid('branch_id');
+            $table->uuid('daily_site_report_id')->nullable();
             $table->string('expense_number', 40);
             $table->date('expense_date');
             $table->string('payee_type', 20);
@@ -47,6 +48,7 @@ return new class extends Migration
 
             $table->foreign('tenant_id', 'expense_tenant_fk')->references('id')->on('tenants')->restrictOnDelete();
             $table->foreign('branch_id', 'expense_branch_fk')->references('id')->on('branches')->restrictOnDelete();
+            $table->foreign('daily_site_report_id', 'expense_dsr_fk')->references('id')->on('daily_site_reports')->restrictOnDelete();
             $table->foreign('customer_id', 'expense_customer_fk')->references('id')->on('customers')->nullOnDelete();
             $table->foreign('staff_id', 'expense_staff_fk')->references('id')->on('staff')->nullOnDelete();
             $table->foreign('currency_code', 'expense_currency_fk')->references('code')->on('currencies')->restrictOnDelete();
@@ -61,6 +63,7 @@ return new class extends Migration
             $table->foreign('updated_by', 'expense_updated_fk')->references('id')->on('users')->nullOnDelete();
             $table->unique(['tenant_id', 'expense_number'], 'expense_tenant_number_uq');
             $table->index(['tenant_id', 'branch_id', 'status', 'expense_date'], 'expense_scope_status_idx');
+            $table->index(['tenant_id', 'daily_site_report_id'], 'expense_dsr_idx');
             $table->index(['tenant_id', 'customer_id', 'reference'], 'expense_supplier_ref_idx');
         });
     }

@@ -1,10 +1,17 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { CheckCircle2, RotateCcw, Send } from 'lucide-react';
+import {
+    CheckCircle2,
+    LockKeyhole,
+    RotateCcw,
+    Send,
+    Trash2,
+} from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import InputError from '@/components/input-error';
 import { SearchableSelect } from '@/components/searchable-select';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,6 +32,14 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { formatNumber } from '@/lib/utils';
@@ -86,6 +101,25 @@ type InventoryStoreOption = {
     name: string;
     branch_name: string;
 };
+type SelectOption = {
+    value: string;
+    label: string;
+    description?: string;
+};
+type ExpenseDraftOptions = {
+    items: SelectOption[];
+    companies: SelectOption[];
+    staff: SelectOption[];
+};
+type DsrExpense = {
+    id: string;
+    expense_number: string;
+    item: string;
+    payee: string;
+    amount: string;
+    currency_code: string;
+    status: string;
+};
 type MaterialReconciliation = {
     id: string;
     material_name: string;
@@ -123,6 +157,7 @@ const numericLineFields = new Set([
     'amount',
     'headcount',
     'hours',
+    'person_hours',
     'working_hours',
     'idle_hours',
     'opening_meter_reading',
@@ -137,6 +172,7 @@ const readOnlyLineFields = new Set([
     'previous_approved_quantity',
     'cumulative_to_date',
     'fleet_posting_status',
+    'person_hours',
 ]);
 
 const activitySnapshotFields = new Set([
@@ -207,7 +243,7 @@ type Report = {
     labour_lines: Line[];
     equipment_lines: Line[];
     material_lines: Line[];
-    cost_lines: Line[];
+    other_cost_expenses: DsrExpense[];
     delay_lines: Line[];
     evidence_count: number;
 };
@@ -284,6 +320,7 @@ type Props = {
         return: boolean;
         correct: boolean;
         viewMaterialReconciliation: boolean;
+        createExpenseDraft: boolean;
     };
     reviews: Review[];
     corrections: Correction[];
@@ -299,6 +336,9 @@ type Props = {
     inventoryStores: InventoryStoreOption[];
     materialReconciliations: MaterialReconciliation[];
     units: string[];
+    labourSources: SelectOption[];
+    subcontractors: SelectOption[];
+    expenseDraftOptions: ExpenseDraftOptions;
 };
 
 type FormData = Record<string, string | Line[]> & {
@@ -317,7 +357,6 @@ type FormData = Record<string, string | Line[]> & {
     labour_lines: Line[];
     equipment_lines: Line[];
     material_lines: Line[];
-    cost_lines: Line[];
     delay_lines: Line[];
 };
 
@@ -338,6 +377,9 @@ export default function DailySiteReportShow({
     inventoryStores,
     materialReconciliations,
     units,
+    labourSources,
+    subcontractors,
+    expenseDraftOptions,
 }: Props) {
     const confirm = useConfirmDialog();
     const form = useForm<FormData>({
@@ -368,10 +410,6 @@ export default function DailySiteReportShow({
             report.material_lines.length > 0
                 ? report.material_lines
                 : [emptyMaterialLine()],
-        cost_lines:
-            report.cost_lines.length > 0
-                ? report.cost_lines
-                : [emptyCostLine()],
         delay_lines:
             report.delay_lines.length > 0
                 ? report.delay_lines
@@ -392,7 +430,6 @@ export default function DailySiteReportShow({
             labour_lines: cleanLines(data.labour_lines),
             equipment_lines: cleanLines(data.equipment_lines),
             material_lines: cleanLines(data.material_lines),
-            cost_lines: cleanLines(data.cost_lines),
             delay_lines: cleanLines(data.delay_lines),
         }));
         form.put(`/daily-site-reports/${report.id}`, {
@@ -592,6 +629,32 @@ export default function DailySiteReportShow({
                 />
 
                 <form onSubmit={submit} className="grid gap-6">
+                    {!can.update && (
+                        <Alert>
+                            <LockKeyhole />
+                            <AlertTitle>
+                                {[
+                                    'submitted',
+                                    'reviewed',
+                                    'approved',
+                                    'archived',
+                                ].includes(report.status)
+                                    ? 'This report is locked'
+                                    : 'Read-only report'}
+                            </AlertTitle>
+                            <AlertDescription>
+                                {['submitted', 'reviewed'].includes(
+                                    report.status,
+                                )
+                                    ? 'The report is in review and cannot be edited unless it is returned.'
+                                    : ['approved', 'archived'].includes(
+                                            report.status,
+                                        )
+                                      ? 'Approved and archived reports can only be changed through the controlled correction workflow.'
+                                      : 'You can view this report, but you do not have permission to edit it for this site.'}
+                            </AlertDescription>
+                        </Alert>
+                    )}
                     <Card>
                         <CardHeader>
                             <CardTitle>Daily summary</CardTitle>
@@ -722,12 +785,16 @@ export default function DailySiteReportShow({
                         disabled={!can.update}
                         lines={form.data.labour_lines}
                         fields={[
+                            'labour_source',
+                            'subcontractor_id',
                             'trade_or_role',
-                            'subcontractor_name',
                             'headcount',
                             'hours',
+                            'person_hours',
                             ...(canViewCosts ? ['rate_amount'] : []),
                         ]}
+                        labourSources={labourSources}
+                        subcontractors={subcontractors}
                         onAdd={() =>
                             form.setData('labour_lines', [
                                 ...form.data.labour_lines,
@@ -815,27 +882,11 @@ export default function DailySiteReportShow({
                         />
                     )}
                     {canViewCosts && (
-                        <LineCard
-                            title="Other costs"
-                            disabled={!can.update}
-                            lines={form.data.cost_lines}
-                            fields={[
-                                'category',
-                                'description',
-                                'quantity',
-                                'unit',
-                                'rate_amount',
-                            ]}
-                            units={units}
-                            onAdd={() =>
-                                form.setData('cost_lines', [
-                                    ...form.data.cost_lines,
-                                    emptyCostLine(),
-                                ])
-                            }
-                            onChange={(lines) =>
-                                form.setData('cost_lines', lines)
-                            }
+                        <OtherCostsCard
+                            reportId={report.id}
+                            expenses={report.other_cost_expenses}
+                            options={expenseDraftOptions}
+                            canCreate={can.createExpenseDraft}
                         />
                     )}
                     <LineCard
@@ -1880,6 +1931,300 @@ function ExternalMaterialDialog({ line }: { line: MaterialReconciliation }) {
     );
 }
 
+function CreateExpenseDraftDialog({
+    reportId,
+    options,
+}: {
+    reportId: string;
+    options: ExpenseDraftOptions;
+}) {
+    const [open, setOpen] = useState(false);
+    const form = useForm({
+        expense_item_id: '',
+        payee_type: 'company',
+        customer_id: '',
+        staff_id: '',
+        payee_name: '',
+        quantity: '1',
+        unit_amount: '',
+        description: '',
+    });
+
+    function submit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        form.post(`/daily-site-reports/${reportId}/expenses`, {
+            preserveScroll: true,
+            onSuccess: () => setOpen(false),
+        });
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button type="button" variant="outline">
+                    Add other cost
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+                <form onSubmit={submit} className="grid gap-5">
+                    <DialogHeader>
+                        <DialogTitle>Add other cost</DialogTitle>
+                        <DialogDescription>
+                            This creates the expense draft immediately and links
+                            it to this DSR. Approval and payment still happen in
+                            Expenses.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="grid gap-2 sm:col-span-2">
+                            <Label>
+                                Expense item{' '}
+                                <span className="text-destructive">*</span>
+                            </Label>
+                            <SearchableSelect
+                                value={form.data.expense_item_id}
+                                onValueChange={(value) =>
+                                    form.setData('expense_item_id', value)
+                                }
+                                options={options.items}
+                                placeholder="Select expense item"
+                                searchPlaceholder="Search expense items..."
+                            />
+                            <InputError message={form.errors.expense_item_id} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>
+                                Payee type{' '}
+                                <span className="text-destructive">*</span>
+                            </Label>
+                            <SearchableSelect
+                                value={form.data.payee_type}
+                                onValueChange={(value) =>
+                                    form.setData({
+                                        ...form.data,
+                                        payee_type: value,
+                                        customer_id: '',
+                                        staff_id: '',
+                                        payee_name: '',
+                                    })
+                                }
+                                options={[
+                                    { value: 'company', label: 'Company' },
+                                    { value: 'staff', label: 'Staff' },
+                                    { value: 'other', label: 'Other' },
+                                ]}
+                                placeholder="Select payee type"
+                            />
+                        </div>
+                        {form.data.payee_type === 'company' && (
+                            <div className="grid gap-2">
+                                <Label>
+                                    Company{' '}
+                                    <span className="text-destructive">*</span>
+                                </Label>
+                                <SearchableSelect
+                                    value={form.data.customer_id}
+                                    onValueChange={(value) =>
+                                        form.setData('customer_id', value)
+                                    }
+                                    options={options.companies}
+                                    placeholder="Select company"
+                                    searchPlaceholder="Search companies..."
+                                />
+                                <InputError message={form.errors.customer_id} />
+                            </div>
+                        )}
+                        {form.data.payee_type === 'staff' && (
+                            <div className="grid gap-2">
+                                <Label>
+                                    Staff member{' '}
+                                    <span className="text-destructive">*</span>
+                                </Label>
+                                <SearchableSelect
+                                    value={form.data.staff_id}
+                                    onValueChange={(value) =>
+                                        form.setData('staff_id', value)
+                                    }
+                                    options={options.staff}
+                                    placeholder="Select staff member"
+                                    searchPlaceholder="Search staff..."
+                                />
+                                <InputError message={form.errors.staff_id} />
+                            </div>
+                        )}
+                        {form.data.payee_type === 'other' && (
+                            <div className="grid gap-2">
+                                <Label>
+                                    Payee name{' '}
+                                    <span className="text-destructive">*</span>
+                                </Label>
+                                <Input
+                                    value={form.data.payee_name}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'payee_name',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                                <InputError message={form.errors.payee_name} />
+                            </div>
+                        )}
+                        <div className="grid gap-2">
+                            <Label>
+                                Quantity{' '}
+                                <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                                type="number"
+                                min="0.0001"
+                                step="0.0001"
+                                value={form.data.quantity}
+                                onChange={(event) =>
+                                    form.setData('quantity', event.target.value)
+                                }
+                            />
+                            <InputError message={form.errors.quantity} />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>
+                                Unit amount{' '}
+                                <span className="text-destructive">*</span>
+                            </Label>
+                            <Input
+                                type="number"
+                                min="0.0001"
+                                step="0.0001"
+                                value={form.data.unit_amount}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'unit_amount',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                            <InputError message={form.errors.unit_amount} />
+                        </div>
+                        <div className="grid gap-2 sm:col-span-2">
+                            <Label>Description</Label>
+                            <Textarea
+                                value={form.data.description}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'description',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </div>
+                    </div>
+                    <InputError
+                        message={
+                            (form.errors as Record<string, string | undefined>)
+                                .expense
+                        }
+                    />
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={form.processing}>
+                            Create draft
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function OtherCostsCard({
+    reportId,
+    expenses,
+    options,
+    canCreate,
+}: {
+    reportId: string;
+    expenses: DsrExpense[];
+    options: ExpenseDraftOptions;
+    canCreate: boolean;
+}) {
+    return (
+        <Card>
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <CardTitle>Other costs</CardTitle>
+                    <CardDescription>
+                        Expense drafts recorded from this daily report.
+                    </CardDescription>
+                </div>
+                {canCreate && (
+                    <CreateExpenseDraftDialog
+                        reportId={reportId}
+                        options={options}
+                    />
+                )}
+            </CardHeader>
+            <CardContent>
+                {expenses.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                        No other costs have been recorded.
+                    </p>
+                ) : (
+                    <div className="overflow-x-auto rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Expense</TableHead>
+                                    <TableHead>Payee</TableHead>
+                                    <TableHead className="text-right">
+                                        Amount
+                                    </TableHead>
+                                    <TableHead>Status</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {expenses.map((expense) => (
+                                    <TableRow key={expense.id}>
+                                        <TableCell>
+                                            <a
+                                                href={`/expenses/${expense.id}`}
+                                                className="font-medium text-primary hover:underline"
+                                            >
+                                                {expense.item}
+                                            </a>
+                                            <div className="text-xs text-muted-foreground">
+                                                {expense.expense_number}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>{expense.payee}</TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            {expense.currency_code}{' '}
+                                            {formatNumber(expense.amount)}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">
+                                                {expense.status.replaceAll(
+                                                    '_',
+                                                    ' ',
+                                                )}
+                                            </Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
 function LineCard({
     title,
     description,
@@ -1893,6 +2238,8 @@ function LineCard({
     inventoryItems = [],
     inventoryStores = [],
     units = [],
+    labourSources = [],
+    subcontractors = [],
 }: {
     title: string;
     description?: string;
@@ -1906,6 +2253,8 @@ function LineCard({
     inventoryItems?: InventoryItemOption[];
     inventoryStores?: InventoryStoreOption[];
     units?: string[];
+    labourSources?: SelectOption[];
+    subcontractors?: SelectOption[];
 }) {
     function updateLine(index: number, field: string, value: string) {
         onChange(
@@ -2005,6 +2354,44 @@ function LineCard({
         );
     }
 
+    function selectSubcontractor(index: number, customerId: string) {
+        const subcontractor = subcontractors.find(
+            (option) => option.value === customerId,
+        );
+        onChange(
+            lines.map((line, lineIndex) =>
+                lineIndex === index
+                    ? {
+                          ...line,
+                          subcontractor_id: customerId,
+                          subcontractor_name: subcontractor?.label ?? '',
+                      }
+                    : line,
+            ),
+        );
+    }
+
+    function selectLabourSource(index: number, source: string) {
+        onChange(
+            lines.map((line, lineIndex) =>
+                lineIndex === index
+                    ? {
+                          ...line,
+                          labour_source: source,
+                          subcontractor_id:
+                              source === 'subcontractor'
+                                  ? line.subcontractor_id
+                                  : '',
+                          subcontractor_name:
+                              source === 'subcontractor'
+                                  ? line.subcontractor_name
+                                  : '',
+                      }
+                    : line,
+            ),
+        );
+    }
+
     return (
         <Card>
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -2026,13 +2413,31 @@ function LineCard({
                         key={index}
                         className="grid gap-3 rounded-md border p-3 md:grid-cols-4"
                     >
+                        {!disabled && (
+                            <div className="flex justify-end md:col-span-4">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-destructive hover:text-destructive"
+                                    onClick={() =>
+                                        onChange(
+                                            lines.filter(
+                                                (_, lineIndex) =>
+                                                    lineIndex !== index,
+                                            ),
+                                        )
+                                    }
+                                    title={`Remove ${title.toLowerCase()} line`}
+                                    aria-label={`Remove ${title.toLowerCase()} line`}
+                                >
+                                    <Trash2 />
+                                </Button>
+                            </div>
+                        )}
                         {fields.map((field) => (
                             <div key={field} className="grid gap-2">
-                                <Label>
-                                    {field === 'project_activity_id'
-                                        ? 'Work item'
-                                        : field.replaceAll('_', ' ')}
-                                </Label>
+                                <Label>{lineFieldLabel(field, title)}</Label>
                                 {field === 'inventory_item_id' ? (
                                     <SearchableSelect
                                         value={String(line[field] ?? '')}
@@ -2047,6 +2452,31 @@ function LineCard({
                                         placeholder="Select inventory item"
                                         searchPlaceholder="Search inventory..."
                                         disabled={disabled}
+                                    />
+                                ) : field === 'labour_source' ? (
+                                    <SearchableSelect
+                                        value={String(line[field] ?? '')}
+                                        onValueChange={(value) =>
+                                            selectLabourSource(index, value)
+                                        }
+                                        options={labourSources}
+                                        placeholder="Select labour source"
+                                        disabled={disabled}
+                                    />
+                                ) : field === 'subcontractor_id' ? (
+                                    <SearchableSelect
+                                        value={String(line[field] ?? '')}
+                                        onValueChange={(value) =>
+                                            selectSubcontractor(index, value)
+                                        }
+                                        options={subcontractors}
+                                        placeholder="Select subcontractor"
+                                        searchPlaceholder="Search subcontractors..."
+                                        disabled={
+                                            disabled ||
+                                            line.labour_source !==
+                                                'subcontractor'
+                                        }
                                     />
                                 ) : field === 'inventory_store_id' ? (
                                     <SearchableSelect
@@ -2225,6 +2655,15 @@ function lineFieldDisabled(
 }
 
 function lineValue(line: Line, field: string, disabled: boolean): string {
+    if (field === 'person_hours') {
+        const headcount = Number(line.headcount ?? 0);
+        const hours = Number(line.hours ?? 0);
+
+        return headcount > 0 && hours > 0
+            ? formatNumber(headcount * hours)
+            : '';
+    }
+
     const value = line[field];
 
     if (disabled && numericLineFields.has(field)) {
@@ -2234,9 +2673,33 @@ function lineValue(line: Line, field: string, disabled: boolean): string {
     return String(value ?? '');
 }
 
+function lineFieldLabel(field: string, section: string): string {
+    if (field === 'project_activity_id') return 'Work item';
+    if (field === 'labour_source') return 'Labour source';
+    if (field === 'subcontractor_id') return 'Subcontractor';
+    if (field === 'hours') return 'Hours per worker';
+    if (field === 'person_hours') return 'Total person-hours';
+    if (field === 'rate_amount' && section === 'Labour') {
+        return 'Rate per person-hour';
+    }
+
+    return field.replaceAll('_', ' ');
+}
+
 function cleanLines(lines: Line[]): Line[] {
+    const defaults = new Set([
+        'currency_code',
+        'status',
+        'fuel_transaction_type',
+        'fleet_posting_status',
+        'labour_source',
+    ]);
+
     return lines.filter((line) =>
-        Object.values(line).some((value) => value !== null && value !== ''),
+        Object.entries(line).some(
+            ([key, value]) =>
+                !defaults.has(key) && value !== null && value !== '',
+        ),
     );
 }
 
@@ -2257,6 +2720,8 @@ function emptyWorkLine(): Line {
 
 function emptyLabourLine(): Line {
     return {
+        labour_source: 'internal',
+        subcontractor_id: '',
         trade_or_role: '',
         subcontractor_name: '',
         headcount: '',
@@ -2297,17 +2762,6 @@ function emptyMaterialLine(): Line {
         unit: '',
         rate_amount: '',
         delivery_reference: '',
-        currency_code: 'UGX',
-    };
-}
-
-function emptyCostLine(): Line {
-    return {
-        category: '',
-        description: '',
-        quantity: '',
-        unit: '',
-        rate_amount: '',
         currency_code: 'UGX',
     };
 }

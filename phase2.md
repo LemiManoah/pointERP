@@ -668,7 +668,6 @@ daily_site_report_equipment_lines
 daily_site_report_material_lines
 daily_site_report_work_lines
 daily_site_report_delay_lines
-daily_site_report_cost_lines
 ```
 
 Each line must include:
@@ -695,6 +694,8 @@ updated_at
 ```
 
 These are reporting summaries in Phase 2. Later HR, equipment and inventory modules may replace free-text fields with strict foreign keys and ledger integration.
+
+Other site costs are not stored in a separate DSR line table. They create normal expense drafts linked by `expenses.daily_site_report_id`, then follow the expense approval and payment workflow.
 
 ### 7.15 `expected_daily_site_reports`
 

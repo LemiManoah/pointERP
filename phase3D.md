@@ -21,7 +21,7 @@ Phase 3D is an operational expense and payment sub-ledger. It may record that mo
 | Supplier PO purchase | Purchase order, goods receipt and later supplier invoice | Do not enter again as an expense |
 | Subcontracted measured work | Future subcontract/commercial workflow | Do not enter again as an expense |
 | Site petty cash, travel, meals, permits, utilities and incidental services | Expense module | Record here |
-| Provisional DSR other cost | DSR cost line | Reconcile to an approved expense; never count both |
+| DSR other cost | Expense draft linked directly to the DSR | Record once in Expenses; never create a duplicate DSR cost line |
 
 An expense records a cost incurred. Approval confirms that the expense is accepted as a company/project cost. Approval does not create an accounting journal and does not by itself prove that a bank or cash payment occurred.
 
@@ -38,7 +38,7 @@ An expense records a cost incurred. Approval confirms that the expense is accept
 9. A user with `expenses.approve` reviews the allocation and evidence, then approves or rejects it. Self-approval is allowed when the user has this permission.
 10. Further payments may be recorded against an approved outstanding balance.
 11. An approved expense contributes to project and branch actual costs.
-12. If a DSR contains the same provisional cost, it is reconciled to the expense so reporting counts it once.
+12. DSR other costs create linked Expense drafts directly, so reporting has one cost record rather than a later matching step.
 
 The initial release should not require a separate expense request before an expense can be recorded.
 
@@ -57,7 +57,7 @@ The initial release should not require a separate expense request before an expe
 - Cash, bank, card, mobile-money, cheque and other payment methods.
 - Supplier/staff outstanding balances for operational follow-up.
 - Permission-based cost visibility and actions.
-- DSR other-cost reconciliation.
+- Direct DSR expense-draft creation and traceability.
 - Project and branch expense summaries and exports.
 - Audit trail for all workflow and financial-field changes.
 
@@ -83,7 +83,7 @@ The initial release should not require a separate expense request before an expe
 - **Payment:** An immutable record of money paid against an expense.
 - **Outstanding balance:** Approved expense total less valid payments.
 - **Evidence:** A receipt, invoice, permit, ticket or other supporting document.
-- **Reconciliation:** Linking a provisional DSR cost to its controlled expense record so it is not counted twice.
+- **DSR expense:** A normal expense draft created from a DSR and linked through `expenses.daily_site_report_id`.
 - **Correction:** A controlled replacement or adjustment to an approved expense; approved records are not silently edited.
 
 Avoid calling expense approval a payment. Approval accepts the cost; a payment records settlement. Phase 4 will later translate approved expenses and payments into accounting entries.
@@ -105,7 +105,7 @@ Avoid calling expense approval a payment. Approval accepts the cost; a payment r
 13. Payment records are never edited or deleted; mistakes are reversed with a reason and replacement payment.
 14. Expense approval and payment recording require independent permissions. A user may hold both permissions.
 15. An initial payment may be captured while creating the expense, but it becomes reportable only with an accepted expense and retains its own actor/reference.
-16. One DSR cost line may reconcile to one expense line initially. Split reconciliation can be added only when a pilot proves it is necessary.
+16. DSR Other costs create expense drafts directly; the DSR must not create a second provisional cost record.
 17. Approved expenses are never permanently deleted.
 18. Drafts with no downstream links may be permanently deleted by a user with explicit delete permission.
 19. Document evidence is access-controlled through the existing document module.
@@ -165,6 +165,7 @@ The category is inherited through the expense item. The transaction form should 
 ### 8.3 `expenses`
 
 - `id`, `tenant_id`, `branch_id`
+- nullable `daily_site_report_id` for an expense created directly from a DSR
 - `expense_number`, unique per tenant
 - `expense_date`
 - `payee_type` enum: supplier, staff or other
@@ -215,20 +216,11 @@ Quantity defaults to one so a user can simply enter an amount. It remains useful
 
 An expense may have many payments. The outstanding balance is calculated from non-reversed payments. Do not use a single mutable `amount_paid` column on the expense.
 
-### 8.6 DSR Reconciliation
+### 8.6 DSR Expense Link
 
-Add nullable reconciliation fields through a separate table rather than mutating cost history:
+`expenses.daily_site_report_id` is the single link between a DSR and an expense. Creating an Other cost from an editable DSR creates one ordinary expense draft with the DSR's tenant, branch, project, site, date and currency context. The expense then follows the normal submit, approve, reject, cancel and payment workflow.
 
-`dsr_expense_reconciliations`
-
-- `id`, `tenant_id`
-- `daily_site_report_cost_line_id`
-- `expense_line_id`
-- `reconciled_by`, `reconciled_at`
-- `reason`
-- timestamps
-
-Enforce uniqueness on both source IDs in the first release to prevent duplicate allocation.
+There is no DSR cost snapshot or expense-reconciliation table. DSR operational input totals cover work resources; approved linked expenses enter project financial actuals exactly once through the expense ledger.
 
 ### 8.7 Documents
 
@@ -255,7 +247,6 @@ Recommended permissions:
 - `expense-payments.view`
 - `expense-payments.record`
 - `expense-payments.reverse`
-- `expenses.reconcile-dsr`
 
 `ExpensePolicy` must check tenant, branch access, permission, record state and project scope where applicable. Direct route calls must return 403 when unauthorized even if the interface hides the action.
 
@@ -268,7 +259,6 @@ Recommended permissions:
 - `Expense`
 - `ExpenseLine`
 - `ExpensePayment`
-- `DsrExpenseReconciliation`
 - `ExpenseStatus`
 - `ExpensePayeeType`
 - `ExpensePaymentMethod`
@@ -284,7 +274,6 @@ Recommended permissions:
 - `CorrectExpense`
 - `RecordExpensePayment`
 - `ReverseExpensePayment`
-- `ReconcileDsrExpense`
 
 Actions own state transitions, totals, currency snapshots and audit records. Controllers remain thin.
 
@@ -357,9 +346,9 @@ Project actual-cost reporting should distinguish:
 - inventory material issues
 - equipment/fuel/maintenance costs
 - approved operational expenses
-- DSR provisional costs not yet reconciled
+- approved expenses created from DSRs
 
-The project dashboard must not add both an approved expense and its reconciled DSR line. Until reconciled, a DSR cost should be labelled provisional rather than financially accepted.
+The project dashboard counts an approved expense once, whether it was created from a DSR or from the Expenses workspace. Draft, submitted, rejected and cancelled expenses do not enter actual cost.
 
 Approved overhead expenses without a project appear in branch expense reports, not project profitability.
 
@@ -370,7 +359,7 @@ Initial expense reports:
 - Expenses by branch and payee
 - Unpaid and partially paid expenses (operational creditors/outstanding balances)
 - Payments by date and payment method
-- DSR costs awaiting expense reconciliation
+- Expenses created from DSRs by status
 
 Reports must use approved expense amounts for accepted cost and valid payment records for settlement. They must not treat an unpaid approved expense as unapproved, or a paid draft expense as an accepted project cost.
 
@@ -385,7 +374,7 @@ Audit:
 - allocation changes
 - currency/exchange-rate snapshot
 - evidence links and versions
-- DSR reconciliation and removal
+- DSR expense creation and cancellation
 - cancellation and correction
 
 Store old/new values, actor, tenant, branch, record, reason and request metadata through the existing audit logger.
@@ -412,7 +401,10 @@ Store old/new values, actor, tenant, branch, record, reason and request metadata
 
 ### 3D.3 DSR and Project Cost Integration
 
-- DSR expense reconciliation
+- Direct DSR expense creation
+- Create a linked draft expense directly from the editable DSR Other costs section; do not create a second provisional line first
+- Require the ordinary expense submit/approve/payment workflow; DSR approval never approves or pays the expense
+- Lock the generated allocation against independent editing or deletion. It may be cancelled with a reason and replaced; the DSR keeps the linked history and project actual cost includes only approved expenses.
 - Remove double counting from project cost summaries
 - Expense filters, exports and dashboard summaries
 - Isolation, permission and state-machine tests
@@ -430,7 +422,7 @@ For Point Investment, seed realistic examples:
 - Permit fee allocated to the project
 - Kampala office internet as branch overhead
 - One submitted expense awaiting approval
-- One approved expense reconciled to a DSR other-cost line
+- One approved expense created directly from a DSR
 - One partially paid utility expense and one unpaid supplier expense
 - One rejected expense with a reason
 
@@ -453,7 +445,7 @@ Use users with different branch and cost permissions to prove separation in the 
 - Only enabled tenant currencies accepted
 - Exchange-rate snapshot remains unchanged historically
 - Evidence access follows document permissions
-- DSR reconciliation is idempotent and prevents double counting
+- Direct DSR expense creation produces one expense and no duplicate provisional cost
 - Project actual cost includes only approved expenses
 - Draft deletion allowed only without downstream links
 - Audit events contain actor, allocation changes and decision reason
@@ -479,7 +471,7 @@ Build 3D.1 through 3D.3 before IPC and full project financial control. Approved 
 
 Implemented in the initial Phase 3D release:
 
-- UUID migrations, enum classes, tenant-scoped models and factories for categories, items, expenses, lines, payments and DSR reconciliation.
+- UUID migrations, enum classes, tenant-scoped models and factories for categories, items, expenses, lines and payments.
 - One permission-guarded Expenses sidebar entry with local tabs for expenses, payments, categories, expense items and reports.
 - Searchable filters, separate active/inactive reference-data views, controlled deactivation, restoration and guarded permanent deletion.
 - A responsive full-page expense cart with cascading category/item and project/site/Work item selectors.
@@ -487,12 +479,13 @@ Implemented in the initial Phase 3D release:
 - Draft creation/editing, evidence-aware submission, permission-based approval, rejection and cancellation.
 - Existing document control linked to expenses for receipt and invoice evidence.
 - Zero/initial/partial/full payment support, derived balances and reason-controlled payment reversal.
-- DSR cost reconciliation and project performance integration that reports approved operational expense while excluding reconciled duplicates from actual input cost.
+- Direct DSR expense creation and project performance integration that counts approved operational expenses exactly once.
+- The editable DSR Other costs section now creates permission-guarded Expense drafts directly. Branch, date, project, site and currency are inherited; the user selects the expense item, payee, quantity and amount once. The Expense links back to the DSR immediately and follows normal submission, approval and payment controls.
 - Database notifications for expense submission and workflow decisions.
 - Permission-aware CSV and PDF expense register exports.
-- Audit events for masters, expense changes, workflow transitions, payments and DSR reconciliation.
-- Point Investment demo data for utilities, site welfare, partial payment, evidence, DSR reconciliation and a draft awaiting evidence.
-- Focused Phase 3D feature tests covering visibility, branch isolation, evidence, payment control and DSR cost deduplication.
+- Audit events for masters, expense changes, workflow transitions, payments and DSR expense creation.
+- Point Investment demo data for utilities, site welfare, partial payment, evidence, a DSR-linked expense and a draft awaiting evidence.
+- Focused Phase 3D feature tests covering visibility, branch isolation, evidence, payment control and direct DSR expense linkage.
 
 Deferred deliberately:
 

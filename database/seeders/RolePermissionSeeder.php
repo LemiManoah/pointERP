@@ -530,7 +530,7 @@ final class RolePermissionSeeder extends Seeder
     {
         $fullExpenseAccess = [
             'expense-categories.manage', 'expense-items.manage', 'expense-payments.record', 'expense-payments.reverse', 'expense-payments.view',
-            'expenses.approve', 'expenses.cancel', 'expenses.change-branch', 'expenses.create', 'expenses.delete-drafts', 'expenses.export', 'expenses.reconcile-dsr',
+            'expenses.approve', 'expenses.cancel', 'expenses.change-branch', 'expenses.create', 'expenses.delete-drafts', 'expenses.export',
             'expenses.reject', 'expenses.submit', 'expenses.update', 'expenses.view', 'expenses.view-all', 'expenses.view-costs',
         ];
         foreach (['Director', 'Administrator'] as $role) {
@@ -542,7 +542,7 @@ final class RolePermissionSeeder extends Seeder
         }
 
         $this->roles['Accountant'] = [...$this->roles['Accountant'], ...$fullExpenseAccess];
-        $this->roles['Project Manager'] = [...$this->roles['Project Manager'], 'expense-payments.view', 'expenses.approve', 'expenses.cancel', 'expenses.create', 'expenses.reconcile-dsr', 'expenses.reject', 'expenses.submit', 'expenses.update', 'expenses.view', 'expenses.view-costs'];
+        $this->roles['Project Manager'] = [...$this->roles['Project Manager'], 'expense-payments.view', 'expenses.approve', 'expenses.cancel', 'expenses.create', 'expenses.reject', 'expenses.submit', 'expenses.update', 'expenses.view', 'expenses.view-costs'];
         $this->roles['Site Manager'] = [...$this->roles['Site Manager'], 'expenses.cancel', 'expenses.create', 'expenses.submit', 'expenses.update', 'expenses.view'];
         $this->roles['Auditor'] = [...$this->roles['Auditor'], 'expense-payments.view', 'expenses.export', 'expenses.view', 'expenses.view-all', 'expenses.view-costs'];
         $this->roles['Cashier'] = ['customers.view', 'pos.record-payment', 'pos.sell', 'pos.view', 'pos.view-payments'];

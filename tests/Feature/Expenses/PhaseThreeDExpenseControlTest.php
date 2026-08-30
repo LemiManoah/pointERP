@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\ExpensePaymentStatus;
 use App\Enums\ExpenseStatus;
-use App\Models\DsrExpenseReconciliation;
+use App\Models\DailySiteReport;
 use App\Models\Expense;
 use App\Models\ExpenseItem;
 use App\Models\ExpensePayment;
@@ -14,7 +14,6 @@ use App\Services\ProjectPerformanceSummary;
 use App\Services\TenantContext;
 use Database\Seeders\PointInvestmentSeeder;
 use Database\Seeders\RolePermissionSeeder;
-use Illuminate\Database\Eloquent\Builder;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function (): void {
@@ -125,13 +124,53 @@ it('records partial payments, blocks overpayment and preserves reversals', funct
         ->and($expense->refresh()->paidAmount())->toBe(200000.0);
 });
 
-it('matches an approved project expense to a DSR cost without double counting it', function (): void {
-    $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
+it('links an approved DSR expense directly and includes it once in project costs', function (): void {
     $project = Project::query()->where('reference', 'BKH-ROAD')->firstOrFail();
-    $reconciliation = DsrExpenseReconciliation::query()->whereHas('expenseLine.expense', fn (Builder $query): Builder => $query->where('expense_number', 'EXP-DEMO-002'))->firstOrFail();
+    $expense = Expense::query()->where('expense_number', 'EXP-DEMO-002')->firstOrFail();
     $summary = resolve(ProjectPerformanceSummary::class)->forProject($project, true);
     assert(is_array($summary));
+    $approvedDsrInput = (float) DailySiteReport::query()
+        ->where('project_id', $project->id)
+        ->where('status', DailySiteReport::STATUS_APPROVED)
+        ->sum('input_cost');
 
-    expect($reconciliation->expenseLine->amount)->toBe('450000.0000')
-        ->and($summary['totals']['operational_expenses'])->toBe('450000.0000');
+    expect($expense->daily_site_report_id)->not->toBeNull()
+        ->and($expense->lines()->firstOrFail()->amount)->toBe('450000.0000')
+        ->and($summary['totals']['operational_expenses'])->toBe('450000.0000')
+        ->and($summary['totals']['actual_input_cost'])->toBe(number_format($approvedDsrInput + 450000, 4, '.', ''));
+});
+
+it('creates a permission-guarded expense draft directly from an editable DSR', function (): void {
+    $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
+    $report = DailySiteReport::query()->where('status', DailySiteReport::STATUS_DRAFT)->firstOrFail();
+    $item = ExpenseItem::query()->where('code', 'DRINKING-WATER')->firstOrFail();
+    $siteManager = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();
+
+    $this->actingAs($siteManager)->post(route('daily-site-reports.expenses.store', $report), [
+        'expense_item_id' => $item->id,
+        'payee_type' => 'other',
+        'payee_name' => 'Unauthorised provider',
+        'quantity' => '2',
+        'unit_amount' => '75000',
+    ])->assertForbidden();
+
+    $this->actingAs($director)->post(route('daily-site-reports.expenses.store', $report), [
+        'expense_item_id' => $item->id,
+        'payee_type' => 'other',
+        'payee_name' => 'Field accommodation provider',
+        'quantity' => '2',
+        'unit_amount' => '75000',
+        'description' => 'Overnight field allowance',
+    ])->assertRedirect(route('daily-site-reports.show', $report));
+
+    $expense = Expense::query()->where('payee_name_snapshot', 'Field accommodation provider')->firstOrFail();
+    expect($expense->status)->toBe(ExpenseStatus::Draft)
+        ->and($expense->daily_site_report_id)->toBe($report->id)
+        ->and($expense->lines()->firstOrFail()->amount)->toBe('150000.0000');
+
+    $this->actingAs($director)->put(route('expenses.update', $expense), [])->assertForbidden();
+    $this->actingAs($director)->post(route('expenses.cancel', $expense), [
+        'reason' => 'The cost was entered against the wrong report.',
+    ])->assertRedirect();
+    expect($expense->refresh()->status)->toBe(ExpenseStatus::Cancelled);
 });

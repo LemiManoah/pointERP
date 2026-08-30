@@ -215,12 +215,10 @@ final class DailySiteReport extends Model
         return $this->hasMany(DailySiteReportMaterialLine::class);
     }
 
-    /**
-     * @return HasMany<DailySiteReportCostLine, $this>
-     */
-    public function costLines(): HasMany
+    /** @return HasMany<Expense, $this> */
+    public function expenses(): HasMany
     {
-        return $this->hasMany(DailySiteReportCostLine::class);
+        return $this->hasMany(Expense::class);
     }
 
     /**

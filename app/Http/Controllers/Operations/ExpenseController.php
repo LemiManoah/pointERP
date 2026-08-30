@@ -6,7 +6,6 @@ namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\Expenses\SaveExpense;
 use App\Http\Requests\Operations\Expenses\StoreExpenseRequest;
-use App\Models\DailySiteReportCostLine;
 use App\Models\Document;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
@@ -18,7 +17,6 @@ use App\Services\AuditLogger;
 use App\Services\BranchContext;
 use App\Services\ExpenseFormOptions;
 use App\Support\Operations\PresentsLinkedDocuments;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -96,13 +94,11 @@ final class ExpenseController
         $user = $request->user();
         abort_unless($user instanceof User, 403);
         $canViewCosts = Gate::forUser($user)->allows('viewCosts', $expense);
-        $expense->load(['branch', 'customer', 'staff', 'lines.item.category', 'lines.project', 'lines.site', 'lines.activity', 'lines.dsrReconciliation.dsrCostLine.report', 'payments.recorder', 'payments.reverser']);
-        $projectIds = $expense->lines->pluck('project_id')->filter();
+        $expense->load(['branch', 'customer', 'staff', 'dailySiteReport', 'lines.item.category', 'lines.project', 'lines.site', 'lines.activity', 'payments.recorder', 'payments.reverser']);
 
         return Inertia::render('operations/expenses/show', [
             'expense' => $this->expenseDetail($expense, $canViewCosts),
             'documents' => $this->linkedDocumentsFor($expense, $user),
-            'dsrCostLines' => DailySiteReportCostLine::query()->with('report')->whereHas('report', fn (Builder $query): Builder => $query->whereIn('project_id', $projectIds))->whereDoesntHave('expenseReconciliation')->latest()->get()->map(fn (DailySiteReportCostLine $line): array => ['value' => $line->id, 'label' => $line->report->reference.' - '.$line->description, 'amount' => $canViewCosts ? $line->amount : null]),
             ...$options->for($user),
             ...$this->documentFormOptions($user),
             'can' => [
@@ -114,7 +110,6 @@ final class ExpenseController
                 'delete' => Gate::forUser($user)->allows('delete', $expense),
                 'recordPayment' => Gate::forUser($user)->allows('recordPayment', $expense),
                 'reversePayments' => $user->can('expense-payments.reverse'),
-                'reconcileDsr' => Gate::forUser($user)->allows('reconcileDsr', $expense),
                 'viewCosts' => $canViewCosts,
                 'uploadDocuments' => Gate::forUser($user)->allows('create', Document::class),
             ],
@@ -172,7 +167,7 @@ final class ExpenseController
     /** @return array<string, mixed> */
     private function expenseDetail(Expense $expense, bool $canViewCosts): array
     {
-        return [...$this->expenseRow($expense, $canViewCosts), 'branch_id' => $expense->branch_id, 'payee_type' => $expense->payee_type->value, 'customer_id' => $expense->customer_id, 'staff_id' => $expense->staff_id, 'description' => $expense->description, 'decision_reason' => $expense->decision_reason, 'base_currency_code' => $expense->base_currency_code, 'exchange_rate' => $canViewCosts ? $expense->exchange_rate : null, 'lines' => $expense->lines->map(fn (ExpenseLine $line): array => ['id' => $line->id, 'expense_item_id' => $line->expense_item_id, 'category' => $line->expense_category_name_snapshot, 'item' => $line->expense_item_name_snapshot, 'description' => $line->description, 'quantity' => $line->quantity, 'unit_amount' => $canViewCosts ? $line->unit_amount : null, 'amount' => $canViewCosts ? $line->amount : null, 'project' => $line->project?->name, 'site' => $line->site?->name, 'work_item' => $line->activity?->name, 'reconciliation' => $line->dsrReconciliation ? ['id' => $line->dsrReconciliation->id, 'dsr_reference' => $line->dsrReconciliation->dsrCostLine?->report->reference ?? 'DSR cost'] : null]), 'payments' => $canViewCosts ? $expense->payments->map(fn (ExpensePayment $payment): array => $this->paymentRow($payment, true)) : []];
+        return [...$this->expenseRow($expense, $canViewCosts), 'branch_id' => $expense->branch_id, 'payee_type' => $expense->payee_type->value, 'customer_id' => $expense->customer_id, 'staff_id' => $expense->staff_id, 'description' => $expense->description, 'decision_reason' => $expense->decision_reason, 'base_currency_code' => $expense->base_currency_code, 'exchange_rate' => $canViewCosts ? $expense->exchange_rate : null, 'daily_site_report' => $expense->dailySiteReport ? ['id' => $expense->dailySiteReport->id, 'reference' => $expense->dailySiteReport->reference] : null, 'lines' => $expense->lines->map(fn (ExpenseLine $line): array => ['id' => $line->id, 'expense_item_id' => $line->expense_item_id, 'category' => $line->expense_category_name_snapshot, 'item' => $line->expense_item_name_snapshot, 'description' => $line->description, 'quantity' => $line->quantity, 'unit_amount' => $canViewCosts ? $line->unit_amount : null, 'amount' => $canViewCosts ? $line->amount : null, 'project' => $line->project?->name, 'site' => $line->site?->name, 'work_item' => $line->activity?->name]), 'payments' => $canViewCosts ? $expense->payments->map(fn (ExpensePayment $payment): array => $this->paymentRow($payment, true)) : []];
     }
 
     /** @return array<string, mixed> */

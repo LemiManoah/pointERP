@@ -38,6 +38,14 @@ it('separates daily site reports by workflow state on the index', function (): v
             ->where('summary.missing', 1));
 });
 
+it('lets an authorised all-project user edit and submit an accessible draft report', function (): void {
+    $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
+    $report = DailySiteReport::query()->where('status', DailySiteReport::STATUS_DRAFT)->firstOrFail();
+
+    expect(Gate::forUser($director)->allows('update', $report))->toBeTrue()
+        ->and(Gate::forUser($director)->allows('submit', $report))->toBeTrue();
+});
+
 it('lets a site engineer submit an assigned draft report with an evidence override reason', function (): void {
     $engineer = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();
     $report = DailySiteReport::query()

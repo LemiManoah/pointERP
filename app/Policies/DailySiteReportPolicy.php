@@ -60,23 +60,14 @@ final class DailySiteReportPolicy
     {
         return $dailySiteReport->isEditable()
             && $user->can('daily-site-reports.update')
-            && $this->view($user, $dailySiteReport)
-            && $dailySiteReport->site instanceof Site
-            && $dailySiteReport->project instanceof Project
-            && (
-                $dailySiteReport->site->users()->whereKey($user->id)->wherePivot('can_submit_dsr', true)->exists()
-                || $dailySiteReport->project->manager_id === $user->id
-                || $dailySiteReport->project->users()->whereKey($user->id)->wherePivot('can_manage', true)->exists()
-            );
+            && $this->view($user, $dailySiteReport);
     }
 
     public function submit(User $user, DailySiteReport $dailySiteReport): bool
     {
         return $dailySiteReport->isEditable()
             && $user->can('daily-site-reports.submit')
-            && $this->view($user, $dailySiteReport)
-            && $dailySiteReport->site instanceof Site
-            && $dailySiteReport->site->users()->whereKey($user->id)->wherePivot('can_submit_dsr', true)->exists();
+            && $this->view($user, $dailySiteReport);
     }
 
     public function review(User $user, DailySiteReport $dailySiteReport): bool
@@ -119,6 +110,21 @@ final class DailySiteReportPolicy
         return $dailySiteReport->isApproved()
             && $user->can('daily-site-reports.correct')
             && $this->view($user, $dailySiteReport);
+    }
+
+    public function createExpenseDraft(User $user, DailySiteReport $dailySiteReport): bool
+    {
+        return $dailySiteReport->isEditable()
+            && $this->view($user, $dailySiteReport)
+            && $user->can('daily-site-reports.update')
+            && $user->can('expenses.create')
+            && (
+                $user->can('daily-site-reports.view-costs')
+                || $user->can('project-activities.manage')
+                || $user->can('projects.update')
+                || $user->can('projects.view-all')
+                || $user->can('finance.reports.view')
+            );
     }
 
     public function approveCorrection(User $user, DailySiteReport $dailySiteReport, DailySiteReportCorrection $correction): bool

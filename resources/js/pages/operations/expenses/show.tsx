@@ -33,7 +33,6 @@ import {
 import {
     DecisionDialog,
     PaymentDialog,
-    ReconcileDialog,
     ReversePaymentButton,
     approveExpense,
     submitExpense,
@@ -51,7 +50,6 @@ type Line = {
     project: string | null;
     site: string | null;
     work_item: string | null;
-    reconciliation: { id: string; dsr_reference: string } | null;
 };
 type ExpenseDetail = {
     id: string;
@@ -72,13 +70,13 @@ type ExpenseDetail = {
     payment_status: string;
     description: string | null;
     decision_reason: string | null;
+    daily_site_report: { id: string; reference: string } | null;
     lines: Line[];
     payments: PaymentRow[];
 };
 type Props = {
     expense: ExpenseDetail;
     documents: LinkedDocumentRow[];
-    dsrCostLines: Array<Option & { amount: string | null }>;
     paymentMethods: Option[];
     documentTypes: DocumentTypeOption[];
     documentBranches: DocumentOption[];
@@ -92,7 +90,6 @@ type Props = {
         delete: boolean;
         recordPayment: boolean;
         reversePayments: boolean;
-        reconcileDsr: boolean;
         viewCosts: boolean;
         uploadDocuments: boolean;
     };
@@ -101,7 +98,6 @@ type Props = {
 export default function ExpenseShow({
     expense,
     documents,
-    dsrCostLines,
     paymentMethods,
     documentTypes,
     documentBranches,
@@ -135,6 +131,14 @@ export default function ExpenseShow({
                             {expense.payee} · {expense.branch} ·{' '}
                             {formatDate(expense.expense_date)}
                         </p>
+                        {expense.daily_site_report && (
+                            <Link
+                                href={`/daily-site-reports/${expense.daily_site_report.id}`}
+                                className="mt-2 inline-flex text-sm font-medium text-primary hover:underline"
+                            >
+                                From {expense.daily_site_report.reference}
+                            </Link>
+                        )}
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
                         <Button asChild variant="outline">
@@ -295,7 +299,6 @@ export default function ExpenseShow({
                                             </TableHead>
                                         </>
                                     )}
-                                    <TableHead>DSR cost</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -345,25 +348,6 @@ export default function ExpenseShow({
                                                 </TableCell>
                                             </>
                                         )}
-                                        <TableCell>
-                                            {line.reconciliation ? (
-                                                <Badge variant="secondary">
-                                                    {
-                                                        line.reconciliation
-                                                            .dsr_reference
-                                                    }
-                                                </Badge>
-                                            ) : can.reconcileDsr &&
-                                              line.project &&
-                                              dsrCostLines.length > 0 ? (
-                                                <ReconcileDialog
-                                                    expenseLineId={line.id}
-                                                    dsrCostLines={dsrCostLines}
-                                                />
-                                            ) : (
-                                                '—'
-                                            )}
-                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

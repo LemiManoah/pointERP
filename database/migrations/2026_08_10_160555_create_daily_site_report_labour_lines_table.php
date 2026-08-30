@@ -15,6 +15,8 @@ return new class extends Migration
             $table->foreignUuid('tenant_id')->constrained()->restrictOnDelete();
             $table->foreignUuid('branch_id')->constrained()->restrictOnDelete();
             $table->foreignUuid('daily_site_report_id')->constrained()->cascadeOnDelete();
+            $table->string('labour_source')->default('internal');
+            $table->uuid('subcontractor_id')->nullable();
             $table->string('trade_or_role');
             $table->string('subcontractor_name')->nullable();
             $table->unsignedInteger('headcount')->default(0);
@@ -27,6 +29,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['tenant_id', 'daily_site_report_id'], 'dsr_labour_tenant_report_index');
+            $table->foreign('subcontractor_id', 'dsr_labour_subcontractor_fk')->references('id')->on('customers')->restrictOnDelete();
             $table->foreign('currency_code')->references('code')->on('currencies')->restrictOnDelete();
         });
     }

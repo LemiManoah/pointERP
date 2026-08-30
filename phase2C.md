@@ -201,7 +201,7 @@ The Phase 2C DSR workflow is implemented. The following integrations belong to s
 
 1. Replace equipment name/identifier snapshots with an optional `equipment_id` selected from the fleet register while retaining the snapshots for history.
 2. Replace material name/type snapshots with an optional `inventory_item_id` selected from the inventory catalogue and post approved consumption to a stock ledger.
-3. Replace labour role/subcontractor text with optional staff, trade and subcontractor master references.
+3. Labour source and subcontractor master selection are implemented. A later HR phase may replace the remaining trade/role snapshot with staff attendance and trade masters while preserving the approved DSR history.
 4. Replace the controlled unit list with tenant-managed units of measure when the inventory/commercial foundation is introduced.
 5. Add database/email notifications and an in-app notification centre in Phase 2D.
 6. Convert approved DSR quantities into IPC measurement/certification records without editing the original DSR.
@@ -531,11 +531,12 @@ Recommended structure:
    - Evidence indicator.
 
 5. Labour:
+   - Labour source: internal staff, casual labour or subcontractor.
    - Trade/role.
-   - Subcontractor.
+   - Searchable subcontractor company when the source is subcontracted.
    - Headcount.
-   - Hours.
-   - Rate/cost if allowed.
+   - Hours per worker and derived total person-hours.
+   - Rate per person-hour and derived cost if allowed.
 
 6. Equipment and fuel:
    - Equipment name/identifier.
@@ -556,6 +557,7 @@ Recommended structure:
    - Category.
    - Description.
    - Quantity/unit/rate.
+   - While the DSR is editable, a permitted user records the cost once and the system immediately creates a linked Expense draft. The Expense follows its own submit/approve/payment workflow; there is no second manual linking step.
 
 9. Delays:
    - Delay type.
