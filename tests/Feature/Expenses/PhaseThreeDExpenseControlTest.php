@@ -72,6 +72,48 @@ it('allows permission-based self approval and keeps approved expenses immutable'
         ->and($expense->getAttribute('approved_by'))->toBe($manager->id);
 });
 
+it('normalizes fixed expenses and requires quantity for quantified items', function (): void {
+    $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
+    $branchId = Expense::query()->where('expense_number', 'EXP-DEMO-001')->value('branch_id');
+    $fixedItem = ExpenseItem::query()->where('code', 'YAKA')->firstOrFail();
+    $quantifiedItem = ExpenseItem::query()->where('code', 'SITE-MEALS')->firstOrFail();
+
+    $this->actingAs($director)->post(route('expenses.store'), [
+        'branch_id' => $branchId,
+        'expense_date' => now()->toDateString(),
+        'payee_type' => 'other',
+        'payee_name' => 'Fixed charge test provider',
+        'currency_code' => 'UGX',
+        'lines' => [[
+            'expense_item_id' => $fixedItem->id,
+            'quantity' => '99',
+            'unit_amount' => '250000',
+        ]],
+    ])->assertRedirect();
+
+    $fixedLine = Expense::query()
+        ->where('payee_name_snapshot', 'Fixed charge test provider')
+        ->firstOrFail()
+        ->lines()
+        ->firstOrFail();
+
+    expect($fixedLine->has_quantity_snapshot)->toBeFalse()
+        ->and($fixedLine->quantity)->toBe('1.0000')
+        ->and($fixedLine->amount)->toBe('250000.0000');
+
+    $this->actingAs($director)->post(route('expenses.store'), [
+        'branch_id' => $branchId,
+        'expense_date' => now()->toDateString(),
+        'payee_type' => 'other',
+        'payee_name' => 'Quantified charge test provider',
+        'currency_code' => 'UGX',
+        'lines' => [[
+            'expense_item_id' => $quantifiedItem->id,
+            'unit_amount' => '15000',
+        ]],
+    ])->assertSessionHasErrors('lines.0.quantity');
+});
+
 it('omits expense amounts for users without cost visibility', function (): void {
     $siteManager = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();
     $expense = Expense::query()->where('expense_number', 'EXP-DEMO-002')->firstOrFail();
@@ -153,6 +195,13 @@ it('creates a permission-guarded expense draft directly from an editable DSR', f
         'quantity' => '2',
         'unit_amount' => '75000',
     ])->assertForbidden();
+
+    $this->actingAs($director)->post(route('daily-site-reports.expenses.store', $report), [
+        'expense_item_id' => $item->id,
+        'payee_type' => 'other',
+        'payee_name' => 'Missing quantity provider',
+        'unit_amount' => '75000',
+    ])->assertSessionHasErrors('quantity');
 
     $this->actingAs($director)->post(route('daily-site-reports.expenses.store', $report), [
         'expense_item_id' => $item->id,

@@ -29,6 +29,7 @@ use App\Models\ProjectActivity;
 use App\Models\Site;
 use App\Models\Staff;
 use App\Models\TenantCurrency;
+use App\Models\UnitOfMeasure;
 use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
@@ -183,7 +184,22 @@ final class DailySiteReportController
             'labourSources' => collect(DsrLabourSource::cases())->map(fn (DsrLabourSource $source): array => ['value' => $source->value, 'label' => $source->label()]),
             'subcontractors' => Customer::query()->visibleTo($user)->where('type', Customer::TYPE_SUBCONTRACTOR)->where('status', 'active')->orderBy('name')->get()->map(fn (Customer $customer): array => ['value' => $customer->id, 'label' => $customer->name, 'description' => $customer->code]),
             'expenseDraftOptions' => [
-                'items' => ExpenseItem::query()->with('category')->where('is_active', true)->orderBy('name')->get()->map(fn (ExpenseItem $item): array => ['value' => $item->id, 'label' => $item->name, 'description' => $item->category->name]),
+                'items' => ExpenseItem::query()
+                    ->with(['category', 'defaultUnit'])
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->get()
+                    ->map(function (ExpenseItem $item): array {
+                        $unit = $item->getRelation('defaultUnit');
+
+                        return [
+                            'value' => $item->id,
+                            'label' => $item->name,
+                            'description' => $item->category->name,
+                            'has_quantity' => $item->has_quantity,
+                            'unit' => $unit instanceof UnitOfMeasure ? ($unit->symbol ?? $unit->name) : null,
+                        ];
+                    }),
                 'companies' => Customer::query()->visibleTo($user)->where('status', 'active')->orderBy('name')->get()->map(fn (Customer $customer): array => ['value' => $customer->id, 'label' => $customer->name, 'description' => $customer->code]),
                 'staff' => Staff::query()->where('branch_id', $dailySiteReport->branch_id)->where('status', 'active')->orderBy('name')->get()->map(fn (Staff $staff): array => ['value' => $staff->id, 'label' => $staff->name, 'description' => $staff->staff_number]),
             ],

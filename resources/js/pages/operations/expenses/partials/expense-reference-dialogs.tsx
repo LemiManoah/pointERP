@@ -137,6 +137,7 @@ export function ExpenseItemDialog({
         name: item?.name ?? '',
         code: item?.code ?? '',
         description: item?.description ?? '',
+        has_quantity: item?.has_quantity ?? true,
         requires_evidence: item?.requires_evidence ?? false,
         is_active: item?.is_active ?? true,
     });
@@ -230,17 +231,23 @@ export function ExpenseItemDialog({
                                 ...units,
                             ]}
                             placeholder="Select unit"
-                        />
-                    </Field>
-                    <Field label="Description" error={form.errors.description}>
-                        <Textarea
-                            value={form.data.description}
-                            onChange={(event) =>
-                                form.setData('description', event.target.value)
-                            }
+                            disabled={!form.data.has_quantity}
                         />
                     </Field>
                     <div className="flex flex-wrap gap-6">
+                        <Check
+                            label="Has quantity"
+                            checked={form.data.has_quantity}
+                            onChange={(checked) => {
+                                form.setData('has_quantity', checked);
+                                if (!checked) {
+                                    form.setData(
+                                        'default_unit_of_measure_id',
+                                        '',
+                                    );
+                                }
+                            }}
+                        />
                         <Check
                             label="Receipt/evidence normally required"
                             checked={form.data.requires_evidence}
@@ -256,6 +263,14 @@ export function ExpenseItemDialog({
                             }
                         />
                     </div>
+                    <Field label="Description" error={form.errors.description}>
+                        <Textarea
+                            value={form.data.description}
+                            onChange={(event) =>
+                                form.setData('description', event.target.value)
+                            }
+                        />
+                    </Field>
                     <div className="flex justify-end">
                         <Button type="submit" disabled={form.processing}>
                             Save expense item

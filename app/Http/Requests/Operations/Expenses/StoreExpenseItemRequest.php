@@ -31,6 +31,7 @@ final class StoreExpenseItemRequest extends FormRequest
             'code' => ['nullable', 'string', 'max:50', Rule::unique((new ExpenseItem)->getTable(), 'code')->where(fn (Builder $query): Builder => $query->where('tenant_id', $tenantId))->ignore($item instanceof ExpenseItem ? $item->id : null)],
             'name' => ['required', 'string', 'max:160'],
             'description' => ['nullable', 'string', 'max:2000'],
+            'has_quantity' => ['required', 'boolean'],
             'requires_evidence' => ['required', 'boolean'],
             'is_active' => ['required', 'boolean'],
         ];

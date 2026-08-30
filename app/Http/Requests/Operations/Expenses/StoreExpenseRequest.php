@@ -25,7 +25,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 /**
- * @phpstan-type ExpenseLinePayload array{expense_item_id: string, project_id?: string|null, site_id?: string|null, project_activity_id?: string|null, description?: string|null, quantity: numeric-string, unit_amount: numeric-string}
+ * @phpstan-type ExpenseLinePayload array{expense_item_id: string, project_id?: string|null, site_id?: string|null, project_activity_id?: string|null, description?: string|null, quantity?: numeric-string, unit_amount: numeric-string}
  * @phpstan-type ExpensePayload array{branch_id: string, expense_date: string, payee_type: string, customer_id?: string|null, staff_id?: string|null, payee_name?: string|null, currency_code: string, description?: string|null, reference?: string|null, lines: list<ExpenseLinePayload>, initial_payment_amount?: numeric-string|null, initial_payment_method?: string|null, initial_payment_reference?: string|null}
  */
 final class StoreExpenseRequest extends FormRequest
@@ -86,7 +86,7 @@ final class StoreExpenseRequest extends FormRequest
             'lines.*.site_id' => ['nullable', 'uuid', Rule::in($siteIds)],
             'lines.*.project_activity_id' => ['nullable', 'uuid', Rule::in($activityIds)],
             'lines.*.description' => ['nullable', 'string', 'max:1000'],
-            'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'lines.*.quantity' => ['nullable', 'numeric', 'gt:0'],
             'lines.*.unit_amount' => ['required', 'numeric', 'gt:0'],
             'initial_payment_amount' => ['nullable', 'numeric', 'gt:0'],
             'initial_payment_method' => ['nullable', 'required_with:initial_payment_amount', Rule::enum(ExpensePaymentMethod::class)],
@@ -108,6 +108,13 @@ final class StoreExpenseRequest extends FormRequest
                 $project = is_string($line['project_id'] ?? null) ? Project::query()->find($line['project_id']) : null;
                 $site = is_string($line['site_id'] ?? null) ? Site::query()->find($line['site_id']) : null;
                 $activity = is_string($line['project_activity_id'] ?? null) ? ProjectActivity::query()->find($line['project_activity_id']) : null;
+                $item = is_string($line['expense_item_id'] ?? null)
+                    ? ExpenseItem::query()->where('tenant_id', resolve(TenantContext::class)->id())->find($line['expense_item_id'])
+                    : null;
+
+                if ($item instanceof ExpenseItem && $item->has_quantity && blank($line['quantity'] ?? null)) {
+                    $validator->errors()->add(sprintf('lines.%s.quantity', $index), 'Enter a quantity for this expense item.');
+                }
 
                 if ($project instanceof Project && $project->branch_id !== $branchId) {
                     $validator->errors()->add(sprintf('lines.%s.project_id', $index), 'The project must belong to the expense branch.');

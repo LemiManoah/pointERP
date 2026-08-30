@@ -44,6 +44,8 @@ type Line = {
     category: string;
     item: string;
     description: string | null;
+    has_quantity: boolean;
+    unit_name: string | null;
     quantity: string;
     unit_amount: string | null;
     amount: string | null;
@@ -286,19 +288,30 @@ export default function ExpenseShow({
                                 <TableRow>
                                     <TableHead>Item</TableHead>
                                     <TableHead>Allocation</TableHead>
-                                    <TableHead className="text-right">
-                                        Quantity
-                                    </TableHead>
+                                    {expense.lines.some(
+                                        (l) => l.has_quantity,
+                                    ) && (
+                                        <TableHead className="text-right">
+                                            Qty
+                                        </TableHead>
+                                    )}
                                     {can.viewCosts && (
-                                        <>
-                                            <TableHead className="text-right">
-                                                Unit amount
-                                            </TableHead>
+                                        <TableHead className="text-right">
+                                            {expense.lines.every(
+                                                (l) => !l.has_quantity,
+                                            )
+                                                ? 'Amount'
+                                                : 'Unit amount'}
+                                        </TableHead>
+                                    )}
+                                    {can.viewCosts &&
+                                        expense.lines.some(
+                                            (l) => l.has_quantity,
+                                        ) && (
                                             <TableHead className="text-right">
                                                 Total
                                             </TableHead>
-                                        </>
-                                    )}
+                                        )}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -310,6 +323,10 @@ export default function ExpenseShow({
                                             </div>
                                             <div className="text-xs text-muted-foreground">
                                                 {line.category}
+                                                {line.has_quantity &&
+                                                line.unit_name
+                                                    ? ` · ${line.unit_name}`
+                                                    : ''}
                                                 {line.description
                                                     ? ` · ${line.description}`
                                                     : ''}
@@ -329,25 +346,38 @@ export default function ExpenseShow({
                                                 </div>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-right tabular-nums">
-                                            {formatNumber(line.quantity)}
-                                        </TableCell>
-                                        {can.viewCosts && (
-                                            <>
-                                                <TableCell className="text-right tabular-nums">
-                                                    {formatCurrencyAmount(
-                                                        expense.currency_code,
-                                                        line.unit_amount,
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="text-right font-medium tabular-nums">
-                                                    {formatCurrencyAmount(
-                                                        expense.currency_code,
-                                                        line.amount,
-                                                    )}
-                                                </TableCell>
-                                            </>
+                                        {expense.lines.some(
+                                            (row) => row.has_quantity,
+                                        ) && (
+                                            <TableCell className="text-right tabular-nums">
+                                                {line.has_quantity
+                                                    ? formatNumber(
+                                                          line.quantity,
+                                                      )
+                                                    : '—'}
+                                            </TableCell>
                                         )}
+                                        {can.viewCosts && (
+                                            <TableCell className="text-right tabular-nums">
+                                                {formatCurrencyAmount(
+                                                    expense.currency_code,
+                                                    line.unit_amount,
+                                                )}
+                                            </TableCell>
+                                        )}
+                                        {can.viewCosts &&
+                                            expense.lines.some(
+                                                (row) => row.has_quantity,
+                                            ) && (
+                                                <TableCell className="text-right font-medium tabular-nums">
+                                                    {line.has_quantity
+                                                        ? formatCurrencyAmount(
+                                                              expense.currency_code,
+                                                              line.amount,
+                                                          )
+                                                        : '—'}
+                                                </TableCell>
+                                            )}
                                     </TableRow>
                                 ))}
                             </TableBody>

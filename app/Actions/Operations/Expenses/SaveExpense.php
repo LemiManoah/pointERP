@@ -14,6 +14,7 @@ use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\Site;
 use App\Models\Staff;
+use App\Models\UnitOfMeasure;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\ExpenseExchangeRate;
@@ -22,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * @phpstan-type ExpenseLinePayload array{expense_item_id: string, project_id?: string|null, site_id?: string|null, project_activity_id?: string|null, description?: string|null, quantity: numeric-string, unit_amount: numeric-string}
+ * @phpstan-type ExpenseLinePayload array{expense_item_id: string, project_id?: string|null, site_id?: string|null, project_activity_id?: string|null, description?: string|null, quantity?: numeric-string, unit_amount: numeric-string}
  * @phpstan-type ExpensePayload array{branch_id: string, expense_date: string, payee_type: string, customer_id?: string|null, staff_id?: string|null, payee_name?: string|null, currency_code: string, description?: string|null, reference?: string|null, lines: list<ExpenseLinePayload>, initial_payment_amount?: numeric-string|null, initial_payment_method?: string|null, initial_payment_reference?: string|null}
  */
 final readonly class SaveExpense
@@ -52,9 +53,33 @@ final readonly class SaveExpense
             $total = 0.0;
 
             foreach ($data['lines'] as $index => $line) {
-                $item = ExpenseItem::query()->with('category')->findOrFail($line['expense_item_id']);
+                $item = ExpenseItem::query()
+                    ->with(['category', 'defaultUnit'])
+                    ->where('tenant_id', $branch->tenant_id)
+                    ->where('is_active', true)
+                    ->findOrFail($line['expense_item_id']);
                 $this->assertAllocation($branch, $line, $index);
-                $amount = (float) $line['quantity'] * (float) $line['unit_amount'];
+
+                if (! $item->has_quantity) {
+                    $amount = (float) $line['unit_amount'];
+                    $quantity = '1.0000';
+                    $unitAmount = (string) $amount;
+                } else {
+                    if (! isset($line['quantity']) || (float) $line['quantity'] <= 0) {
+                        throw ValidationException::withMessages([
+                            sprintf('lines.%d.quantity', $index) => 'Enter a quantity greater than zero for this expense item.',
+                        ]);
+                    }
+
+                    $quantity = $line['quantity'];
+                    $unitAmount = $line['unit_amount'];
+                    $amount = (float) $quantity * (float) $unitAmount;
+                }
+
+                $defaultUnit = $item->getRelation('defaultUnit');
+                $unitName = $defaultUnit instanceof UnitOfMeasure
+                    ? ($defaultUnit->symbol ?? $defaultUnit->name)
+                    : null;
                 $total += $amount;
                 $linePayloads[] = [
                     'tenant_id' => $branch->tenant_id,
@@ -64,9 +89,11 @@ final readonly class SaveExpense
                     'project_activity_id' => $line['project_activity_id'] ?? null,
                     'expense_category_name_snapshot' => $item->category->name,
                     'expense_item_name_snapshot' => $item->name,
+                    'has_quantity_snapshot' => $item->has_quantity,
+                    'unit_name_snapshot' => $unitName,
                     'description' => $line['description'] ?? null,
-                    'quantity' => $line['quantity'],
-                    'unit_amount' => $line['unit_amount'],
+                    'quantity' => $quantity,
+                    'unit_amount' => $unitAmount,
                     'amount' => $amount,
                     'base_currency_amount' => $amount * $rate['rate'],
                     'sort_order' => $index,

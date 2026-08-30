@@ -9,6 +9,7 @@ use App\Http\Requests\Operations\DailySiteReports\StoreDsrExpenseRequest;
 use App\Models\Branch;
 use App\Models\DailySiteReport;
 use App\Models\Expense;
+use App\Models\ExpenseItem;
 use App\Models\User;
 use App\Services\AuditLogger;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,16 @@ final readonly class CreateDsrExpense
             }
 
             $branch = Branch::query()->findOrFail($report->branch_id);
+            $item = ExpenseItem::query()
+                ->where('tenant_id', $report->tenant_id)
+                ->where('is_active', true)
+                ->findOrFail($data['expense_item_id']);
+            if ($item->has_quantity && ! isset($data['quantity'])) {
+                throw ValidationException::withMessages([
+                    'quantity' => 'Enter a quantity for this expense item.',
+                ]);
+            }
+
             $expense = $this->saveExpense->handle([
                 'branch_id' => $report->branch_id,
                 'expense_date' => $report->report_date->toDateString(),
@@ -47,7 +58,7 @@ final readonly class CreateDsrExpense
                     'project_id' => $report->project_id,
                     'site_id' => $report->site_id,
                     'description' => $data['description'] ?? null,
-                    'quantity' => $data['quantity'],
+                    'quantity' => $data['quantity'] ?? '1',
                     'unit_amount' => $data['unit_amount'],
                 ]],
             ], $actor);

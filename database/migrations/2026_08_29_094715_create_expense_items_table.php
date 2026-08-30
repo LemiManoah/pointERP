@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('code', 50);
             $table->string('name', 160);
             $table->text('description')->nullable();
+            $table->boolean('has_quantity')->default(true);
             $table->boolean('requires_evidence')->default(false);
             $table->boolean('is_active')->default(true);
             $table->uuid('created_by')->nullable();

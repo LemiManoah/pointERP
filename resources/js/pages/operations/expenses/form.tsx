@@ -144,18 +144,33 @@ export default function ExpenseForm(props: Props) {
             item.project_id === draft.project_id &&
             (!draft.site_id || !item.site_id || item.site_id === draft.site_id),
     );
+    const expenseItemsById = useMemo(
+        () => new Map(props.expenseItems.map((item) => [item.id, item])),
+        [props.expenseItems],
+    );
+    const itemFor = (id: string) => expenseItemsById.get(id);
+    const isQuantified = (id: string) =>
+        expenseItemsById.get(id)?.has_quantity ?? true;
     const total = useMemo(
         () =>
             form.data.lines.reduce(
                 (sum, line) =>
                     sum +
-                    Number(line.quantity || 0) * Number(line.unit_amount || 0),
+                    ((expenseItemsById.get(line.expense_item_id)
+                        ?.has_quantity ?? true)
+                        ? Number(line.quantity || 0) *
+                          Number(line.unit_amount || 0)
+                        : Number(line.unit_amount || 0)),
                 0,
             ),
-        [form.data.lines],
+        [expenseItemsById, form.data.lines],
     );
-    const itemFor = (id: string) =>
-        props.expenseItems.find((item) => item.id === id);
+    const hasQuantifiedLines = form.data.lines.some((line) =>
+        isQuantified(line.expense_item_id),
+    );
+    const hasFixedLines = form.data.lines.some(
+        (line) => !isQuantified(line.expense_item_id),
+    );
 
     function selectItem(value: string) {
         const item = itemFor(value);
@@ -165,13 +180,16 @@ export default function ExpenseForm(props: Props) {
             description: line.description || item?.description || '',
         }));
     }
+
     function saveLine() {
+        if (!draft.expense_item_id) return;
+        const quantified = isQuantified(draft.expense_item_id);
         if (
-            !draft.expense_item_id ||
-            Number(draft.quantity) <= 0 ||
-            Number(draft.unit_amount) <= 0
+            quantified &&
+            (Number(draft.quantity) <= 0 || Number(draft.unit_amount) <= 0)
         )
             return;
+        if (!quantified && Number(draft.unit_amount) <= 0) return;
         if (editingIndex === null)
             form.setData('lines', [...form.data.lines, draft]);
         else
@@ -282,15 +300,22 @@ export default function ExpenseForm(props: Props) {
                                         <TableRow>
                                             <TableHead>Item</TableHead>
                                             <TableHead>Allocation</TableHead>
+                                            {hasQuantifiedLines && (
+                                                <TableHead className="text-right">
+                                                    Qty
+                                                </TableHead>
+                                            )}
                                             <TableHead className="text-right">
-                                                Quantity
+                                                {hasFixedLines &&
+                                                !hasQuantifiedLines
+                                                    ? 'Amount'
+                                                    : 'Unit amount'}
                                             </TableHead>
-                                            <TableHead className="text-right">
-                                                Unit amount
-                                            </TableHead>
-                                            <TableHead className="text-right">
-                                                Total
-                                            </TableHead>
+                                            {hasQuantifiedLines && (
+                                                <TableHead className="text-right">
+                                                    Total
+                                                </TableHead>
+                                            )}
                                             <TableHead className="w-20" />
                                         </TableRow>
                                     </TableHeader>
@@ -311,8 +336,12 @@ export default function ExpenseForm(props: Props) {
                                                             {item?.name}
                                                         </div>
                                                         <div className="text-xs text-muted-foreground">
-                                                            {item?.unit ??
-                                                                'Each'}
+                                                            {isQuantified(
+                                                                line.expense_item_id,
+                                                            )
+                                                                ? (item?.unit ??
+                                                                  'Each')
+                                                                : 'Fixed amount'}
                                                         </div>
                                                     </TableCell>
                                                     <TableCell
@@ -322,11 +351,17 @@ export default function ExpenseForm(props: Props) {
                                                         {project?.label ??
                                                             'Branch overhead'}
                                                     </TableCell>
-                                                    <TableCell className="text-right tabular-nums">
-                                                        {formatNumber(
-                                                            line.quantity,
-                                                        )}
-                                                    </TableCell>
+                                                    {hasQuantifiedLines && (
+                                                        <TableCell className="text-right tabular-nums">
+                                                            {isQuantified(
+                                                                line.expense_item_id,
+                                                            )
+                                                                ? formatNumber(
+                                                                      line.quantity,
+                                                                  )
+                                                                : '—'}
+                                                        </TableCell>
+                                                    )}
                                                     <TableCell className="text-right tabular-nums">
                                                         {formatCurrencyAmount(
                                                             form.data
@@ -334,18 +369,24 @@ export default function ExpenseForm(props: Props) {
                                                             line.unit_amount,
                                                         )}
                                                     </TableCell>
-                                                    <TableCell className="text-right font-medium tabular-nums">
-                                                        {formatCurrencyAmount(
-                                                            form.data
-                                                                .currency_code,
-                                                            Number(
-                                                                line.quantity,
-                                                            ) *
-                                                                Number(
-                                                                    line.unit_amount,
-                                                                ),
-                                                        )}
-                                                    </TableCell>
+                                                    {hasQuantifiedLines && (
+                                                        <TableCell className="text-right font-medium tabular-nums">
+                                                            {isQuantified(
+                                                                line.expense_item_id,
+                                                            )
+                                                                ? formatCurrencyAmount(
+                                                                      form.data
+                                                                          .currency_code,
+                                                                      Number(
+                                                                          line.quantity,
+                                                                      ) *
+                                                                          Number(
+                                                                              line.unit_amount,
+                                                                          ),
+                                                                  )
+                                                                : '—'}
+                                                        </TableCell>
+                                                    )}
                                                     <TableCell>
                                                         <div className="flex justify-end">
                                                             <Button
@@ -718,25 +759,44 @@ export default function ExpenseForm(props: Props) {
                                     searchPlaceholder="Search expense items..."
                                 />
                             </Field>
-                            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-2">
-                                <Field
-                                    label={`Quantity${itemFor(draft.expense_item_id)?.unit ? ` (${itemFor(draft.expense_item_id)?.unit})` : ''}`}
-                                    required
-                                >
-                                    <Input
-                                        type="number"
-                                        min="0.0001"
-                                        step="any"
-                                        value={draft.quantity}
-                                        onChange={(event) =>
-                                            setDraft((line) => ({
-                                                ...line,
-                                                quantity: event.target.value,
-                                            }))
-                                        }
-                                    />
-                                </Field>
-                                <Field label="Unit amount" required>
+                            {isQuantified(draft.expense_item_id) ? (
+                                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-2">
+                                    <Field
+                                        label={`Quantity${itemFor(draft.expense_item_id)?.unit ? ` (${itemFor(draft.expense_item_id)?.unit})` : ''}`}
+                                        required
+                                    >
+                                        <Input
+                                            type="number"
+                                            min="0.0001"
+                                            step="any"
+                                            value={draft.quantity}
+                                            onChange={(event) =>
+                                                setDraft((line) => ({
+                                                    ...line,
+                                                    quantity:
+                                                        event.target.value,
+                                                }))
+                                            }
+                                        />
+                                    </Field>
+                                    <Field label="Unit amount" required>
+                                        <Input
+                                            type="number"
+                                            min="0.01"
+                                            step="any"
+                                            value={draft.unit_amount}
+                                            onChange={(event) =>
+                                                setDraft((line) => ({
+                                                    ...line,
+                                                    unit_amount:
+                                                        event.target.value,
+                                                }))
+                                            }
+                                        />
+                                    </Field>
+                                </div>
+                            ) : (
+                                <Field label="Amount" required>
                                     <Input
                                         type="number"
                                         min="0.01"
@@ -750,7 +810,7 @@ export default function ExpenseForm(props: Props) {
                                         }
                                     />
                                 </Field>
-                            </div>
+                            )}
                             <Field label="Project allocation">
                                 <SearchableSelect
                                     value={draft.project_id}
@@ -826,8 +886,10 @@ export default function ExpenseForm(props: Props) {
                                 onClick={saveLine}
                                 disabled={
                                     !draft.expense_item_id ||
-                                    Number(draft.quantity) <= 0 ||
-                                    Number(draft.unit_amount) <= 0
+                                    (isQuantified(draft.expense_item_id)
+                                        ? Number(draft.quantity) <= 0 ||
+                                          Number(draft.unit_amount) <= 0
+                                        : Number(draft.unit_amount) <= 0)
                                 }
                             >
                                 <Plus />

@@ -20,6 +20,8 @@ return new class extends Migration
             $table->uuid('project_activity_id')->nullable();
             $table->string('expense_category_name_snapshot', 120);
             $table->string('expense_item_name_snapshot', 160);
+            $table->boolean('has_quantity_snapshot')->default(true);
+            $table->string('unit_name_snapshot', 100)->nullable();
             $table->text('description')->nullable();
             $table->decimal('quantity', 20, 4)->default(1);
             $table->decimal('unit_amount', 20, 4);

@@ -22,12 +22,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read string|null $project_activity_id
  * @property-read string $expense_category_name_snapshot
  * @property-read string $expense_item_name_snapshot
+ * @property-read bool $has_quantity_snapshot
+ * @property-read string|null $unit_name_snapshot
  * @property-read string $quantity
  * @property-read string $unit_amount
  * @property-read string $amount
  * @property-read string $base_currency_amount
  */
-#[Fillable(['tenant_id', 'expense_id', 'expense_item_id', 'project_id', 'site_id', 'project_activity_id', 'expense_category_name_snapshot', 'expense_item_name_snapshot', 'description', 'quantity', 'unit_amount', 'amount', 'base_currency_amount', 'sort_order'])]
+#[Fillable(['tenant_id', 'expense_id', 'expense_item_id', 'project_id', 'site_id', 'project_activity_id', 'expense_category_name_snapshot', 'expense_item_name_snapshot', 'has_quantity_snapshot', 'unit_name_snapshot', 'description', 'quantity', 'unit_amount', 'amount', 'base_currency_amount', 'sort_order'])]
 final class ExpenseLine extends Model
 {
     use BelongsToTenant;
@@ -40,7 +42,7 @@ final class ExpenseLine extends Model
     /** @return array<string, string> */
     public function casts(): array
     {
-        return ['quantity' => 'decimal:4', 'unit_amount' => 'decimal:4', 'amount' => 'decimal:4', 'base_currency_amount' => 'decimal:4', 'sort_order' => 'integer'];
+        return ['has_quantity_snapshot' => 'boolean', 'quantity' => 'decimal:4', 'unit_amount' => 'decimal:4', 'amount' => 'decimal:4', 'base_currency_amount' => 'decimal:4', 'sort_order' => 'integer'];
     }
 
     /** @return BelongsTo<Expense, $this> */

@@ -105,6 +105,8 @@ type SelectOption = {
     value: string;
     label: string;
     description?: string;
+    has_quantity?: boolean;
+    unit?: string | null;
 };
 type ExpenseDraftOptions = {
     items: SelectOption[];
@@ -2070,41 +2072,90 @@ function CreateExpenseDraftDialog({
                                 <InputError message={form.errors.payee_name} />
                             </div>
                         )}
-                        <div className="grid gap-2">
-                            <Label>
-                                Quantity{' '}
-                                <span className="text-destructive">*</span>
-                            </Label>
-                            <Input
-                                type="number"
-                                min="0.0001"
-                                step="0.0001"
-                                value={form.data.quantity}
-                                onChange={(event) =>
-                                    form.setData('quantity', event.target.value)
-                                }
-                            />
-                            <InputError message={form.errors.quantity} />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label>
-                                Unit amount{' '}
-                                <span className="text-destructive">*</span>
-                            </Label>
-                            <Input
-                                type="number"
-                                min="0.0001"
-                                step="0.0001"
-                                value={form.data.unit_amount}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'unit_amount',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <InputError message={form.errors.unit_amount} />
-                        </div>
+                        {(() => {
+                            const selectedItem = options.items.find(
+                                (i) => i.value === form.data.expense_item_id,
+                            );
+                            const itemHasQuantity =
+                                selectedItem?.has_quantity ?? true;
+                            return itemHasQuantity ? (
+                                <>
+                                    <div className="grid gap-2">
+                                        <Label>
+                                            Quantity
+                                            {selectedItem?.unit
+                                                ? ` (${selectedItem.unit})`
+                                                : ''}{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
+                                        </Label>
+                                        <Input
+                                            type="number"
+                                            min="0.0001"
+                                            step="0.0001"
+                                            value={form.data.quantity}
+                                            onChange={(event) =>
+                                                form.setData(
+                                                    'quantity',
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                        <InputError
+                                            message={form.errors.quantity}
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>
+                                            Unit amount{' '}
+                                            <span className="text-destructive">
+                                                *
+                                            </span>
+                                        </Label>
+                                        <Input
+                                            type="number"
+                                            min="0.0001"
+                                            step="0.0001"
+                                            value={form.data.unit_amount}
+                                            onChange={(event) =>
+                                                form.setData(
+                                                    'unit_amount',
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                        <InputError
+                                            message={form.errors.unit_amount}
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="grid gap-2">
+                                    <Label>
+                                        Amount{' '}
+                                        <span className="text-destructive">
+                                            *
+                                        </span>
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        min="0.0001"
+                                        step="0.0001"
+                                        value={form.data.unit_amount}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'unit_amount',
+                                                event.target.value,
+                                            )
+                                        }
+                                    />
+                                    <InputError
+                                        message={form.errors.unit_amount}
+                                    />
+                                </div>
+                            );
+                        })()}
                         <div className="grid gap-2 sm:col-span-2">
                             <Label>Description</Label>
                             <Textarea

@@ -22,12 +22,13 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string $code
  * @property-read string $name
  * @property-read string|null $description
+ * @property-read bool $has_quantity
  * @property-read bool $requires_evidence
  * @property-read bool $is_active
  * @property-read ExpenseCategory $category
  * @property-read UnitOfMeasure|null $defaultUnit
  */
-#[Fillable(['tenant_id', 'expense_category_id', 'default_unit_of_measure_id', 'code', 'name', 'description', 'requires_evidence', 'is_active', 'created_by', 'updated_by'])]
+#[Fillable(['tenant_id', 'expense_category_id', 'default_unit_of_measure_id', 'code', 'name', 'description', 'has_quantity', 'requires_evidence', 'is_active', 'created_by', 'updated_by'])]
 final class ExpenseItem extends Model
 {
     use BelongsToTenant;
@@ -42,6 +43,7 @@ final class ExpenseItem extends Model
     public function casts(): array
     {
         return [
+            'has_quantity' => 'boolean',
             'requires_evidence' => 'boolean',
             'is_active' => 'boolean',
             'created_at' => 'datetime',

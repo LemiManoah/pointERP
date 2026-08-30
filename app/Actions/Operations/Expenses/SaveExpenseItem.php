@@ -25,10 +25,11 @@ final readonly class SaveExpenseItem
         $item->fill([
             'tenant_id' => $this->tenantContext->id(),
             'expense_category_id' => $category->id,
-            'default_unit_of_measure_id' => $data['default_unit_of_measure_id'] ?? null,
+            'default_unit_of_measure_id' => (bool) $data['has_quantity'] ? ($data['default_unit_of_measure_id'] ?? null) : null,
             'code' => $this->code((string) $data['name'], is_string($data['code'] ?? null) ? $data['code'] : null, $item),
             'name' => $data['name'],
             'description' => $data['description'] ?? null,
+            'has_quantity' => $data['has_quantity'],
             'requires_evidence' => $data['requires_evidence'],
             'is_active' => $data['is_active'],
             'created_by' => $item->exists ? $item->getAttribute('created_by') : $actor->id,

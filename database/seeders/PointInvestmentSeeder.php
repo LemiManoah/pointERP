@@ -319,19 +319,19 @@ final class PointInvestmentSeeder extends Seeder
 
         $items = [];
         foreach ([
-            ['YAKA', 'Yaka electricity', 'UTILITIES'],
-            ['WATER', 'Water', 'UTILITIES'],
-            ['INTERNET', 'Internet subscription', 'UTILITIES'],
-            ['SITE-MEALS', 'Site meals', 'SITE-WELFARE'],
-            ['DRINKING-WATER', 'Drinking water', 'SITE-WELFARE'],
-            ['LOCAL-TRANSPORT', 'Local transport', 'TRAVEL'],
-            ['ACCOMMODATION', 'Accommodation', 'TRAVEL'],
-            ['PERMIT-FEE', 'Permit fee', 'STATUTORY'],
-            ['PRINTING', 'Printing and photocopying', 'ADMIN'],
-        ] as [$code, $name, $categoryCode]) {
+            ['YAKA', 'Yaka electricity', 'UTILITIES', false],
+            ['WATER', 'Water', 'UTILITIES', false],
+            ['INTERNET', 'Internet subscription', 'UTILITIES', false],
+            ['SITE-MEALS', 'Site meals', 'SITE-WELFARE', true],
+            ['DRINKING-WATER', 'Drinking water', 'SITE-WELFARE', true],
+            ['LOCAL-TRANSPORT', 'Local transport', 'TRAVEL', true],
+            ['ACCOMMODATION', 'Accommodation', 'TRAVEL', true],
+            ['PERMIT-FEE', 'Permit fee', 'STATUTORY', false],
+            ['PRINTING', 'Printing and photocopying', 'ADMIN', false],
+        ] as [$code, $name, $categoryCode, $hasQuantity]) {
             $items[$code] = ExpenseItem::query()->updateOrCreate(
                 ['tenant_id' => $tenantId, 'code' => $code],
-                ['expense_category_id' => $categories[$categoryCode]->id, 'name' => $name, 'requires_evidence' => false, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+                ['expense_category_id' => $categories[$categoryCode]->id, 'name' => $name, 'has_quantity' => $hasQuantity, 'requires_evidence' => false, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
             );
         }
 
@@ -361,7 +361,7 @@ final class PointInvestmentSeeder extends Seeder
         );
         ExpenseLine::query()->updateOrCreate(
             ['expense_id' => $yakaExpense->id, 'expense_item_id' => $items['YAKA']->id],
-            ['tenant_id' => $tenantId, 'expense_category_name_snapshot' => 'Utilities', 'expense_item_name_snapshot' => 'Yaka electricity', 'quantity' => '1.0000', 'unit_amount' => '625000.0000', 'amount' => '625000.0000', 'base_currency_amount' => '625000.0000', 'sort_order' => 0],
+            ['tenant_id' => $tenantId, 'expense_category_name_snapshot' => 'Utilities', 'expense_item_name_snapshot' => 'Yaka electricity', 'has_quantity_snapshot' => false, 'quantity' => '1.0000', 'unit_amount' => '625000.0000', 'amount' => '625000.0000', 'base_currency_amount' => '625000.0000', 'sort_order' => 0],
         );
         ExpensePayment::query()->updateOrCreate(
             ['tenant_id' => $tenantId, 'payment_number' => 'PAY-DEMO-001'],
@@ -413,7 +413,7 @@ final class PointInvestmentSeeder extends Seeder
         );
         ExpenseLine::query()->updateOrCreate(
             ['expense_id' => $siteExpense->id, 'expense_item_id' => $items['SITE-MEALS']->id],
-            ['tenant_id' => $tenantId, 'project_id' => $project->id, 'site_id' => $site?->id, 'expense_category_name_snapshot' => 'Site welfare', 'expense_item_name_snapshot' => 'Site meals', 'quantity' => '1.0000', 'unit_amount' => '450000.0000', 'amount' => '450000.0000', 'base_currency_amount' => '450000.0000', 'sort_order' => 0],
+            ['tenant_id' => $tenantId, 'project_id' => $project->id, 'site_id' => $site?->id, 'expense_category_name_snapshot' => 'Site welfare', 'expense_item_name_snapshot' => 'Site meals', 'has_quantity_snapshot' => true, 'quantity' => '1.0000', 'unit_amount' => '450000.0000', 'amount' => '450000.0000', 'base_currency_amount' => '450000.0000', 'sort_order' => 0],
         );
         $draftExpense = Expense::query()->updateOrCreate(
             ['tenant_id' => $tenantId, 'expense_number' => 'EXP-DEMO-003'],
@@ -421,7 +421,7 @@ final class PointInvestmentSeeder extends Seeder
         );
         ExpenseLine::query()->updateOrCreate(
             ['expense_id' => $draftExpense->id, 'expense_item_id' => $items['INTERNET']->id],
-            ['tenant_id' => $tenantId, 'expense_category_name_snapshot' => 'Utilities', 'expense_item_name_snapshot' => 'Internet subscription', 'quantity' => '1.0000', 'unit_amount' => '180000.0000', 'amount' => '180000.0000', 'base_currency_amount' => '180000.0000', 'sort_order' => 0],
+            ['tenant_id' => $tenantId, 'expense_category_name_snapshot' => 'Utilities', 'expense_item_name_snapshot' => 'Internet subscription', 'has_quantity_snapshot' => false, 'quantity' => '1.0000', 'unit_amount' => '180000.0000', 'amount' => '180000.0000', 'base_currency_amount' => '180000.0000', 'sort_order' => 0],
         );
     }
 

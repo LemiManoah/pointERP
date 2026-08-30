@@ -21,6 +21,7 @@ export type ExpenseItem = {
     description: string | null;
     default_unit_of_measure_id: string | null;
     unit: string | null;
+    has_quantity: boolean;
     requires_evidence: boolean;
     is_active: boolean;
 };
