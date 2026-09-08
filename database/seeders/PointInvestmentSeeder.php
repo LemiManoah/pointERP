@@ -383,7 +383,6 @@ final class PointInvestmentSeeder extends Seeder
         );
         $guluStore = $kampalaStore;
 
-
         InventoryUnitConversion::query()->updateOrCreate(
             ['inventory_item_id' => $inventoryItems['CEM-42']->id, 'from_unit_id' => $units['KG']->id, 'to_unit_id' => $units['BAG']->id],
             ['tenant_id' => $tenantId, 'multiplier' => '0.0200000000', 'divisor' => 1, 'effective_from' => now()->startOfYear()->toDateString(), 'reason' => 'One 50 kg cement bag is the stock unit.', 'is_active' => true, 'created_by' => $director->id],
@@ -962,7 +961,7 @@ final class PointInvestmentSeeder extends Seeder
                 'customer_id' => $southSudanCustomer->id,
                 'contract_id' => null,
                 'name' => 'Juba Access Road Works',
-                'description' => 'Demo South Sudan project for branch isolation testing.',
+                'description' => 'USD-denominated remote road project for demonstrating project, site and DSR controls.',
                 'manager_id' => $southSudanSiteManager->id,
                 'base_currency_code' => 'USD',
                 'budget_amount' => '2500000.0000',
@@ -975,19 +974,115 @@ final class PointInvestmentSeeder extends Seeder
             ],
         );
         $southSudanProject->users()->syncWithoutDetaching([
-            $southSudanSiteManager->id => ['role' => 'Site Manager', 'can_manage' => true],
+            $southSudanSiteManager->id => ['role' => 'Project Manager', 'can_manage' => true],
+            $ugandaSiteEngineer->id => ['role' => 'Site Engineer', 'can_manage' => false],
         ]);
         $jubaSite = $this->site($southSudanProject, $southSudanSiteManager, 'JUBA-MAIN', 'Juba Main Site', 'Juba access works');
-        $this->dailySiteReports($director, $southSudanSiteManager, $southSudanSiteManager, $southSudanProject, $jubaSite, $jubaSite, 'USD');
+        $jubaSite->users()->syncWithoutDetaching([
+            $ugandaSiteEngineer->id => ['role' => 'Site Engineer', 'can_submit_dsr' => true, 'can_review_dsr' => false],
+            $southSudanSiteManager->id => ['role' => 'Project Manager', 'can_submit_dsr' => false, 'can_review_dsr' => true],
+        ]);
+
+        foreach ([
+            ['JAR-MOB', '10.01', 'Mobilisation and temporary facilities', 'month', '12.0000', '30000.0000', 10],
+            ['JAR-EW', '31.01', 'Road formation earthworks', 'm3', '50000.0000', '12.0000', 20],
+            ['JAR-DRN', '42.03', 'Drainage channel construction', 'm', '5000.0000', '75.0000', 30],
+        ] as [$code, $boqReference, $name, $unit, $quantity, $rate, $sortOrder]) {
+            ProjectActivity::query()->updateOrCreate(
+                ['tenant_id' => $southSudanProject->tenant_id, 'project_id' => $southSudanProject->id, 'code' => $code],
+                [
+                    'branch_id' => $southSudanProject->branch_id,
+                    'site_id' => $jubaSite->id,
+                    'boq_item_number' => $boqReference,
+                    'name' => $name,
+                    'unit' => $unit,
+                    'planned_quantity' => $quantity,
+                    'approved_quantity' => '0.0000',
+                    'rate_amount' => $rate,
+                    'currency_code' => 'USD',
+                    'status' => 'active',
+                    'sort_order' => $sortOrder,
+                    'created_by' => $director->id,
+                    'updated_by' => $director->id,
+                ],
+            );
+        }
+
+        ReportingCalendar::query()->updateOrCreate(
+            [
+                'tenant_id' => $southSudanProject->tenant_id,
+                'project_id' => $southSudanProject->id,
+                'site_id' => $jubaSite->id,
+                'name' => 'Juba project reporting calendar',
+            ],
+            [
+                'branch_id' => $southSudanProject->branch_id,
+                'timezone' => 'Africa/Kampala',
+                'reporting_deadline' => '18:00:00',
+                'working_days' => [1, 2, 3, 4, 5, 6],
+                'missing_escalation_days' => 1,
+                'is_active' => true,
+                'created_by' => $director->id,
+                'updated_by' => $director->id,
+            ],
+        );
+
+        $this->dailySiteReports($director, $southSudanSiteManager, $ugandaSiteEngineer, $southSudanProject, $jubaSite, $jubaSite, 'USD');
+
         $this->seedDocument(
             actor: $director,
             typeCode: 'METHOD_STATEMENT',
             branch: $southSudanBranch,
             title: 'Juba Access Road Method Statement',
             reference: 'JUBA-MS-001',
-            content: 'Demo method statement for South Sudan branch isolation.',
-            links: [[$southSudanProject::class, $southSudanProject->id]],
+            content: 'Approved construction method for earthworks, drainage and traffic control.',
+            links: [[$southSudanProject::class, $southSudanProject->id], [$jubaSite::class, $jubaSite->id]],
+            documentNumber: 'JAR-MS-001',
+            revision: '0',
+            discipline: 'Roadworks',
+            issuer: 'Ironpoint Engineering',
         );
+        $this->seedDocument(
+            actor: $director,
+            typeCode: 'SITE_INSTRUCTION',
+            branch: $southSudanBranch,
+            title: 'Drainage alignment site instruction',
+            reference: 'JUBA-SI-014',
+            content: 'Instruction to adjust the drainage alignment around an existing utility crossing.',
+            links: [[$southSudanProject::class, $southSudanProject->id], [$jubaSite::class, $jubaSite->id]],
+            documentNumber: 'JAR-SI-014',
+            revision: 'A',
+            discipline: 'Drainage',
+            issuer: 'Resident Engineer',
+        );
+        $this->seedDocument(
+            actor: $director,
+            typeCode: 'PERMIT',
+            branch: $southSudanBranch,
+            title: 'Juba access road traffic diversion permit',
+            reference: 'JUBA-PERMIT-2026',
+            content: 'Traffic diversion permit included to demonstrate document-expiry monitoring.',
+            links: [[$southSudanProject::class, $southSudanProject->id], [$jubaSite::class, $jubaSite->id]],
+            expiresOn: now()->addDays(14)->toDateString(),
+            documentNumber: 'JAR-PERMIT-2026',
+            revision: 'A',
+            discipline: 'Traffic',
+            issuer: 'Road Authority',
+        );
+
+        $notificationKey = 'demo-juba-dsr-overdue';
+        if ($ugandaSiteEngineer->notifications()->where('data->seed_key', $notificationKey)->doesntExist()) {
+            $ugandaSiteEngineer->notify(new OperationalNotification([
+                'tenant_id' => $southSudanProject->tenant_id,
+                'branch_id' => $southSudanProject->branch_id,
+                'category' => 'daily_site_reports',
+                'severity' => 'warning',
+                'title' => 'Juba site report needs attention',
+                'message' => 'The Juba Main Site daily report is overdue and should be completed.',
+                'action_url' => '/daily-site-reports',
+                'seed_key' => $notificationKey,
+            ]));
+        }
 
         $this->seedEquipmentRegister(
             director: $director,
@@ -1416,7 +1511,7 @@ final class PointInvestmentSeeder extends Seeder
             links: [[$grader::class, $grader->id]],
             expiresOn: '2026-09-30',
             documentNumber: 'INS-EQ-GRD-001-2026',
-            revision: 'Issued',
+            revision: 'A',
             discipline: 'Fleet Compliance',
             issuer: 'Demo General Insurance',
         );
@@ -1546,7 +1641,7 @@ final class PointInvestmentSeeder extends Seeder
                 'tenant_id' => $project->tenant_id,
                 'project_id' => null,
                 'site_id' => null,
-                'name' => 'Point Investment standard reporting week',
+                'name' => 'Ironpoint standard reporting week',
             ],
             [
                 'branch_id' => null,
@@ -2154,7 +2249,7 @@ final class PointInvestmentSeeder extends Seeder
             links: [[$project::class, $project->id], [$busunjuSite::class, $busunjuSite->id]],
             expiresOn: now()->addDays(21)->toDateString(),
             documentNumber: 'BKH-TMP-2024',
-            revision: 'Approved',
+            revision: '0',
             discipline: 'Traffic',
             issuer: 'Traffic Police',
         );
@@ -2254,7 +2349,7 @@ final class PointInvestmentSeeder extends Seeder
             : (DocumentRevision::tryFrom($revision) ?? DocumentRevision::Initial)->value;
         $disciplineValue = $discipline === null ? null : match (mb_strtolower($discipline)) {
             'commercial' => DocumentDiscipline::Commercial->value,
-            'roadworks', 'earthworks', 'traffic' => DocumentDiscipline::Civil->value,
+            'roadworks', 'earthworks', 'drainage', 'traffic' => DocumentDiscipline::Civil->value,
             'measurement' => DocumentDiscipline::Survey->value,
             'fleet maintenance', 'fleet compliance' => DocumentDiscipline::Mechanical->value,
             default => DocumentDiscipline::General->value,

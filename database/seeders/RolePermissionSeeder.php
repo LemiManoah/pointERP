@@ -556,6 +556,9 @@ final class RolePermissionSeeder extends Seeder
         $this->roles['Auditor'] = [...$this->roles['Auditor'], 'expense-payments.view', 'expenses.export', 'expenses.view', 'expenses.view-all', 'expenses.view-costs'];
         $this->roles['Cashier'] = ['customers.view', 'pos.record-payment', 'pos.sell', 'pos.view', 'pos.view-payments'];
 
+        // Administrators receive every ERP permission. Manager-app access remains restricted by is_support.
+        $this->roles['Administrator'] = $this->permissions();
+
         resolve(PermissionRegistrar::class)->forgetCachedPermissions();
 
         foreach ($this->permissions() as $permission) {

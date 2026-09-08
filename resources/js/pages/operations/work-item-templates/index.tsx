@@ -624,8 +624,9 @@ export default function WorkItemTemplatesIndex({
                                     : 'New Work Activity Template'}
                             </DialogTitle>
                             <DialogDescription>
-                                Define the standard work activity and its resource
-                                recipe (materials, plant, and labour norms).
+                                Define the standard work activity and its
+                                resource recipe (materials, plant, and labour
+                                norms).
                             </DialogDescription>
                         </DialogHeader>
 

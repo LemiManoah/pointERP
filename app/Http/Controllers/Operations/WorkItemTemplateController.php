@@ -40,9 +40,9 @@ final class WorkItemTemplateController
             ->when(is_string($category) && $category !== '', fn (Builder $q) => $q->where('category', $category))
             ->when(is_string($search) && $search !== '', function (Builder $q) use ($search): void {
                 $q->where(function (Builder $sub) use ($search): void {
-                    $sub->where('name', 'like', "%{$search}%")
-                        ->orWhere('code', 'like', "%{$search}%")
-                        ->orWhere('category', 'like', "%{$search}%");
+                    $sub->where('name', 'like', sprintf('%%%s%%', $search))
+                        ->orWhere('code', 'like', sprintf('%%%s%%', $search))
+                        ->orWhere('category', 'like', sprintf('%%%s%%', $search));
                 });
             })
             ->orderBy('category')

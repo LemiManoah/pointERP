@@ -14,7 +14,11 @@ final class WorkItemTemplatePolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->can('work-item-templates.view') || $user->can('work-item-templates.manage');
+        if ($user->can('work-item-templates.view')) {
+            return true;
+        }
+
+        return $user->can('work-item-templates.manage');
     }
 
     public function view(User $user, WorkItemTemplate $template): bool

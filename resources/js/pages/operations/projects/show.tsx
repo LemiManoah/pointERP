@@ -251,7 +251,9 @@ export default function ProjectShow({
                                 Estimates
                             </TabsTrigger>
                         )}
-                        <TabsTrigger value="activities">Work Activities</TabsTrigger>
+                        <TabsTrigger value="activities">
+                            Work Activities
+                        </TabsTrigger>
                         {canViewEstimates && performance && (
                             <TabsTrigger value="performance">
                                 Plan vs Actual

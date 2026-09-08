@@ -218,7 +218,7 @@ const groups: SidebarGroupItem[] = [
             },
         ],
     },
-     {
+    {
         title: 'Administration',
         items: [
             {

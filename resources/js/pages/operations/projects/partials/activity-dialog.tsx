@@ -115,7 +115,7 @@ export function ActivityDialog({
                     {isEditing ? 'Edit' : 'New work activity'}
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
+            <DialogContent className="max-h-[92vh] w-[calc(100%-2rem)] overflow-y-auto sm:max-w-5xl">
                 <DialogHeader>
                     <DialogTitle>
                         {isEditing ? 'Edit work activity' : 'New work activity'}
@@ -204,6 +204,7 @@ export function ActivityDialog({
                             </Label>
                             <Input
                                 id="planned_quantity"
+                                type="number"
                                 value={form.data.planned_quantity}
                                 onChange={(event) =>
                                     form.setData(
@@ -245,6 +246,7 @@ export function ActivityDialog({
                                 <Label htmlFor="rate_amount">Rate</Label>
                                 <Input
                                     id="rate_amount"
+                                    type="number"
                                     value={form.data.rate_amount}
                                     onChange={(event) =>
                                         form.setData(

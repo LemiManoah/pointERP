@@ -214,7 +214,8 @@ export default function InventoryIndex(props: Props) {
                         <CardTitle>{tableTitle(tab)}</CardTitle>
                         {tab === 'stores' && !props.multiStoreEnabled && (
                             <p className="text-sm text-muted-foreground">
-                                Multi-store is off. This company can use one active store.
+                                Multi-store is off. This company can use one
+                                active store.
                             </p>
                         )}
                     </CardHeader>

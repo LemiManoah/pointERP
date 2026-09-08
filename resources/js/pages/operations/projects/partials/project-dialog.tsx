@@ -314,6 +314,7 @@ export function ProjectDialog({
                             <Label htmlFor="budget_amount">Budget</Label>
                             <Input
                                 id="budget_amount"
+                                type="number"
                                 value={form.data.budget_amount}
                                 onChange={(event) =>
                                     form.setData(

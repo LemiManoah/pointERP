@@ -47,7 +47,7 @@ final readonly class SaveWorkItemTemplate
             $itemCosts = InventoryItem::query()
                 ->whereIn('id', $inventoryItemIds)
                 ->pluck('default_unit_cost', 'id')
-                ->map(fn ($cost) => (float) ($cost ?? 0.0))
+                ->map(fn ($cost): float => (float) ($cost ?? 0.0))
                 ->all();
 
             $calculatedUnitCost = 0.0;
@@ -104,11 +104,9 @@ final readonly class SaveWorkItemTemplate
                     ]);
                 }
 
-                $resourceCost = isset($resource['unit_cost'])
-                    ? (string) $resource['unit_cost']
-                    : (! empty($resource['inventory_item_id']) && isset($itemCosts[$resource['inventory_item_id']])
-                        ? (string) $itemCosts[$resource['inventory_item_id']]
-                        : null);
+                $resourceCost = $resource['unit_cost'] ?? (! empty($resource['inventory_item_id']) && isset($itemCosts[$resource['inventory_item_id']])
+                    ? (string) $itemCosts[$resource['inventory_item_id']]
+                    : null);
 
                 WorkItemResourceTemplate::query()->create([
                     'tenant_id' => $tenant->id,

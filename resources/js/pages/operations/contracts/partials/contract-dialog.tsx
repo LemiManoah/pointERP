@@ -225,6 +225,7 @@ export function ContractDialog({
                             <Label htmlFor="contract_value">Value</Label>
                             <Input
                                 id="contract_value"
+                                type="number"
                                 value={form.data.contract_value}
                                 onChange={(event) =>
                                     form.setData(
@@ -257,6 +258,7 @@ export function ContractDialog({
                             </Label>
                             <Input
                                 id="retention_percent"
+                                type="number"
                                 value={form.data.retention_percent}
                                 onChange={(event) =>
                                     form.setData(
