@@ -125,7 +125,7 @@ final class StoreExpenseRequest extends FormRequest
                 }
 
                 if ($activity instanceof ProjectActivity && (! $project instanceof Project || $activity->project_id !== $project->id || ($site instanceof Site && $activity->site_id !== null && $activity->site_id !== $site->id))) {
-                    $validator->errors()->add(sprintf('lines.%s.project_activity_id', $index), 'The Work item must belong to the selected project and site.');
+                    $validator->errors()->add(sprintf('lines.%s.project_activity_id', $index), 'The work activity must belong to the selected project and site.');
                 }
             }
 

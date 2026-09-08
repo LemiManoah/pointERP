@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string $default_currency_code
  * @property-read bool $is_multibranch
  * @property-read bool $multi_currency_enabled
+ * @property-read bool $multi_store_enabled
  * @property-read string $timezone
  * @property-read string $status
  * @property-read CarbonInterface $created_at
@@ -52,6 +53,7 @@ final class Tenant extends Model
             'default_currency_code' => 'string',
             'is_multibranch' => 'boolean',
             'multi_currency_enabled' => 'boolean',
+            'multi_store_enabled' => 'boolean',
             'timezone' => 'string',
             'status' => 'string',
             'created_at' => 'datetime',

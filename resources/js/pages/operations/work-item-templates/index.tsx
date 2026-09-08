@@ -90,7 +90,7 @@ type Props = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Work items library', href: '/work-item-templates' },
+    { title: 'Work Activity Library', href: '/work-item-templates' },
 ];
 
 function blankResource(): ResourceTemplate {
@@ -256,7 +256,7 @@ export default function WorkItemTemplatesIndex({
 
     function handleDelete(template: WorkItemTemplate) {
         confirm({
-            title: 'Delete work item template?',
+            title: 'Delete work activity template?',
             description: `Are you sure you want to remove "${template.name}"? Historical estimates using this template will not be affected.`,
             confirmLabel: 'Delete template',
             variant: 'destructive',
@@ -268,7 +268,7 @@ export default function WorkItemTemplatesIndex({
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Work Item Templates (Rate Analysis)" />
+            <Head title="Work Activity Library" />
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
                 {/* Header */}
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -276,11 +276,11 @@ export default function WorkItemTemplatesIndex({
                         <div className="flex items-center gap-2">
                             <Layers className="size-6 text-primary" />
                             <h1 className="text-2xl font-semibold tracking-tight">
-                                Work Item Library & Rate Analysis
+                                Work Activity Library & Rate Analysis
                             </h1>
                         </div>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            Standard civil engineering work items and their
+                            Standard civil engineering work activities and their
                             default resource recipes (materials, plant, and
                             labour norms).
                         </p>
@@ -288,7 +288,7 @@ export default function WorkItemTemplatesIndex({
                     {can.manage && (
                         <Button onClick={openCreateDialog} className="gap-2">
                             <Plus className="size-4" />
-                            New work item template
+                            New work activity template
                         </Button>
                     )}
                 </div>
@@ -336,7 +336,7 @@ export default function WorkItemTemplatesIndex({
                             <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                                 <Layers className="mb-3 size-12 text-muted-foreground/50" />
                                 <h3 className="text-lg font-semibold">
-                                    No work item templates found
+                                    No work activity templates found
                                 </h3>
                                 <p className="mt-1 max-w-md text-sm text-muted-foreground">
                                     {search || selectedCategory
@@ -620,11 +620,11 @@ export default function WorkItemTemplatesIndex({
                         <DialogHeader>
                             <DialogTitle>
                                 {editingTemplate
-                                    ? 'Edit Work Item Template'
-                                    : 'New Work Item Template'}
+                                    ? 'Edit Work Activity Template'
+                                    : 'New Work Activity Template'}
                             </DialogTitle>
                             <DialogDescription>
-                                Define the standard work item and its resource
+                                Define the standard work activity and its resource
                                 recipe (materials, plant, and labour norms).
                             </DialogDescription>
                         </DialogHeader>
@@ -710,7 +710,7 @@ export default function WorkItemTemplatesIndex({
                             </div>
 
                             <div>
-                                <Label htmlFor="name">Work Item Name *</Label>
+                                <Label htmlFor="name">Activity Name *</Label>
                                 <Input
                                     id="name"
                                     value={form.data.name}
@@ -802,7 +802,7 @@ export default function WorkItemTemplatesIndex({
                                         </h4>
                                         <p className="text-xs text-muted-foreground">
                                             Inputs required to produce 1 unit of
-                                            this work item.
+                                            this work activity.
                                         </p>
                                     </div>
                                     <Button

@@ -34,9 +34,17 @@ final class TenantFactory extends Factory
             'default_currency_code' => $currency->code,
             'is_multibranch' => false,
             'multi_currency_enabled' => false,
+            'multi_store_enabled' => false,
             'timezone' => 'Africa/Kampala',
             'status' => 'active',
         ];
+    }
+
+    public function multiStore(): self
+    {
+        return $this->state(fn (array $attributes): array => [
+            'multi_store_enabled' => true,
+        ]);
     }
 
     public function inactive(): self

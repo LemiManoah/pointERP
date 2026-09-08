@@ -21,7 +21,7 @@ beforeEach(function (): void {
 });
 
 it('shows material masters and stores to an authorised quantity user without costs', function (): void {
-    $storeKeeper = User::query()->where('email', 'store.kla@point.test')->firstOrFail();
+    $storeKeeper = User::query()->where('email', 'luate@gmail.com')->firstOrFail();
     $itemCount = InventoryItem::query()->count();
 
     $this->actingAs($storeKeeper)
@@ -42,6 +42,7 @@ it('lets a director create an item and store while preserving cost authority', f
     $category = InventoryCategory::query()->firstOrFail();
     $unit = UnitOfMeasure::query()->where('code', 'BAG')->firstOrFail();
     $branch = $director->branches()->where('code', 'KLA-HQ')->firstOrFail();
+    $director->tenant()->update(['multi_store_enabled' => true]);
 
     $this->actingAs($director)->post(route('inventory.items.store'), [
         'inventory_category_id' => $category->id,
@@ -70,6 +71,23 @@ it('lets a director create an item and store while preserving cost authority', f
     expect(InventoryItem::query()->where('code', 'SAND-001')->value('default_unit_cost'))->toBe('85000.0000')
         ->and(InventoryItem::query()->where('code', 'SAND-001')->value('default_selling_price'))->toBe('100000.0000')
         ->and(InventoryStore::query()->where('code', 'KLA-SECONDARY')->exists())->toBeTrue();
+});
+
+it('blocks a second active store when multi-store is disabled', function (): void {
+    $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
+    $branch = $director->branches()->where('code', 'KLA-HQ')->firstOrFail();
+
+    $director->tenant()->update(['multi_store_enabled' => false]);
+
+    $this->actingAs($director)->post(route('inventory.stores.store'), [
+        'branch_id' => $branch->id,
+        'code' => 'KLA-SECONDARY',
+        'name' => 'Kampala Secondary Store',
+        'type' => 'warehouse',
+        'is_active' => true,
+    ])->assertSessionHasErrors('store');
+
+    expect(InventoryStore::query()->where('code', 'KLA-SECONDARY')->exists())->toBeFalse();
 });
 
 it('requires expiry tracking for batch items and can generate a code from the name', function (): void {
@@ -109,14 +127,14 @@ it('requires expiry tracking for batch items and can generate a code from the na
 });
 
 it('allows a site manager to view quantity setup without cost access', function (): void {
-    $siteManager = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();
+    $siteManager = User::query()->where('email', 'luate@gmail.com')->firstOrFail();
 
     $this->actingAs($siteManager)->get(route('inventory.index'))->assertOk();
 });
 
 it('shows the seeded item reference details and hides price lists without cost permission', function (): void {
     $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
-    $storeKeeper = User::query()->where('email', 'store.kla@point.test')->firstOrFail();
+    $storeKeeper = User::query()->where('email', 'luate@gmail.com')->firstOrFail();
     $cement = InventoryItem::query()->where('code', 'CEM-42')->firstOrFail();
 
     $this->actingAs($director)
@@ -127,7 +145,7 @@ it('shows the seeded item reference details and hides price lists without cost p
             ->has('conversions', 1)
             ->has('prices', 2)
             ->has('batches', 1)
-            ->has('storeSettings', 2)
+            ->has('storeSettings', 1)
             ->where('can.manage', true)
             ->where('can.viewCosts', true));
 
@@ -161,7 +179,7 @@ it('creates reusable price lists before attaching an item price', function (): v
 
 it('authorises inventory mutations by permission and audits permanent deletion', function (): void {
     $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
-    $siteManager = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();
+    $siteManager = User::query()->where('email', 'luate@gmail.com')->firstOrFail();
     $item = InventoryItem::query()->where('code', 'PPE-VEST')->firstOrFail();
     $unit = UnitOfMeasure::query()->where('code', 'KG')->firstOrFail();
 

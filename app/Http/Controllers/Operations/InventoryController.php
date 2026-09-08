@@ -31,12 +31,13 @@ final class InventoryController
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
         $branchContext = resolve(BranchContext::class);
+        $tenant = resolve(TenantContext::class)->current();
         $branchIds = $branchContext->accessibleBranchIds($actor);
         $canViewCosts = Gate::allows('viewCosts', InventoryItem::class);
         $currentBranch = $branchContext->current($actor) ?? $branchContext->operationalDefault($actor);
         $priceCurrency = $currentBranch instanceof Branch
             ? $currentBranch->default_currency_code
-            : resolve(TenantContext::class)->current()->default_currency_code;
+            : $tenant->default_currency_code;
 
         $items = InventoryItem::query()
             ->with(['category', 'stockUnit', 'preferredSupplier'])
@@ -87,11 +88,16 @@ final class InventoryController
             'sites' => Site::query()->whereIn('branch_id', $branchIds)->where('status', 'active')->orderBy('name')->get(['id', 'branch_id', 'project_id', 'name', 'reference']),
             'suppliers' => Customer::query()->whereIn('type', [Customer::TYPE_SUPPLIER, Customer::TYPE_SUBCONTRACTOR])->where('status', 'active')->orderBy('name')->get(['id', 'name', 'code', 'type']),
             'priceCurrency' => $priceCurrency,
+            'multiStoreEnabled' => $tenant->multi_store_enabled,
             'can' => [
                 'manageItems' => Gate::allows('create', InventoryItem::class),
                 'manageCategories' => Gate::allows('create', InventoryCategory::class),
                 'manageUnits' => Gate::allows('create', UnitOfMeasure::class),
                 'manageStores' => Gate::allows('create', InventoryStore::class),
+                'createStore' => Gate::allows('create', InventoryStore::class) && (
+                    $tenant->multi_store_enabled
+                    || ! InventoryStore::query()->where('is_active', true)->exists()
+                ),
                 'managePriceLists' => Gate::allows('create', InventoryPriceTier::class),
                 'viewCosts' => $canViewCosts,
                 'permanentlyDeleteItems' => $actor->can('inventory.items.delete'),

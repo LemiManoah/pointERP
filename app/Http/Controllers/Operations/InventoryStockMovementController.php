@@ -6,10 +6,12 @@ namespace App\Http\Controllers\Operations;
 
 use App\Models\InventoryStockMovement;
 use App\Models\InventoryStore;
+use App\Models\InventoryTransfer;
 use App\Models\User;
 use App\Services\BranchContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -48,7 +50,7 @@ final class InventoryStockMovementController
                 'posted_by' => $movement->postedBy->only(['id', 'name']),
             ]),
             'stores' => InventoryStore::query()->whereIn('branch_id', $branchIds)->where('is_active', true)->orderBy('name')->get(['id', 'branch_id', 'name']),
-            'can' => ['addStock' => $actor->can('inventory.stock.add'), 'adjust' => $actor->can('inventory.stock.adjust'), 'transfer' => $actor->can('inventory.stock.transfer'), 'reverse' => $actor->can('inventory.stock.reverse')],
+            'can' => ['addStock' => $actor->can('inventory.stock.add'), 'adjust' => $actor->can('inventory.stock.adjust'), 'transfer' => Gate::forUser($actor)->allows('create', InventoryTransfer::class), 'reverse' => $actor->can('inventory.stock.reverse')],
         ]);
     }
 

@@ -54,11 +54,13 @@ type Props = {
     sites: Option[];
     suppliers: Option[];
     priceCurrency: string;
+    multiStoreEnabled: boolean;
     can: {
         manageItems: boolean;
         manageCategories: boolean;
         manageUnits: boolean;
         manageStores: boolean;
+        createStore: boolean;
         managePriceLists: boolean;
         viewCosts: boolean;
         permanentlyDeleteItems: boolean;
@@ -132,7 +134,7 @@ export default function InventoryIndex(props: Props) {
             <GlobalConversionDialog items={props.items} units={props.units} />
         ) : tab === 'price-lists' && props.can.managePriceLists ? (
             <PriceListDialog />
-        ) : tab === 'stores' && props.can.manageStores ? (
+        ) : tab === 'stores' && props.can.createStore ? (
             <StoreDialog
                 branches={props.branches}
                 projects={props.projects}
@@ -210,6 +212,11 @@ export default function InventoryIndex(props: Props) {
                 <Card>
                     <CardHeader>
                         <CardTitle>{tableTitle(tab)}</CardTitle>
+                        {tab === 'stores' && !props.multiStoreEnabled && (
+                            <p className="text-sm text-muted-foreground">
+                                Multi-store is off. This company can use one active store.
+                            </p>
+                        )}
                     </CardHeader>
                     <CardContent>
                         {tab === 'items' && (

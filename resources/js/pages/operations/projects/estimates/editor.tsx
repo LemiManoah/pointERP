@@ -399,7 +399,7 @@ export default function EstimateEditor({
                                     confirm({
                                         title: 'Approve this baseline?',
                                         description:
-                                            'This version will become the project baseline and its lines will become the work items used by daily reports.',
+                                            'This version will become the project baseline and its estimate lines will become the work activities used by daily reports.',
                                         confirmLabel: 'Approve baseline',
                                         onConfirm: () =>
                                             router.post(
@@ -484,7 +484,7 @@ export default function EstimateEditor({
                         </div>
 
                         <div className="flex items-center justify-between gap-3 border-t pt-5">
-                            <h2 className="font-semibold">Work items</h2>
+                            <h2 className="font-semibold">Estimate lines</h2>
                             {editable && (
                                 <div className="flex items-center gap-2">
                                     <Button
@@ -525,7 +525,7 @@ export default function EstimateEditor({
                                     <div className="flex items-center justify-between gap-3">
                                         <div className="flex items-center gap-3">
                                             <h3 className="font-medium">
-                                                Work item {lineIndex + 1}
+                                                Estimate line {lineIndex + 1}
                                             </h3>
                                             {editable && (
                                                 <Button
@@ -553,7 +553,7 @@ export default function EstimateEditor({
                                                     type="button"
                                                     size="icon"
                                                     variant="ghost"
-                                                    title="Remove work item"
+                                                    title="Remove estimate line"
                                                     onClick={() =>
                                                         form.setData(
                                                             'lines',
@@ -571,7 +571,7 @@ export default function EstimateEditor({
                                     </div>
 
                                     <div className="grid gap-4 lg:grid-cols-2">
-                                        <Field label="Work item name" required>
+                                        <Field label="Activity name" required>
                                             <Input
                                                 value={line.name}
                                                 disabled={!editable}
@@ -1029,12 +1029,12 @@ export default function EstimateEditor({
                             <Layers className="size-5 text-primary" />
                             <span>
                                 {targetLineIndex !== null
-                                    ? `Load Template for Work Item ${targetLineIndex + 1}`
-                                    : 'Pick Work Item from Library'}
+                                    ? `Load Template for Estimate Line ${targetLineIndex + 1}`
+                                    : 'Pick Work Activity from Library'}
                             </span>
                         </DialogTitle>
                         <DialogDescription>
-                            Select a standard work item to copy its
+                            Select a standard work activity to copy its
                             specifications, unit of measure, rates, and resource
                             consumption norms.
                         </DialogDescription>
@@ -1049,7 +1049,7 @@ export default function EstimateEditor({
                                 onChange={(e) =>
                                     setLibrarySearch(e.target.value)
                                 }
-                                placeholder="Search work items or codes..."
+                                placeholder="Search work activities or codes..."
                                 className="h-9 pl-9 text-xs"
                             />
                         </div>

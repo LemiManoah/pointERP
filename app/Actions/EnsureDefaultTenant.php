@@ -53,9 +53,10 @@ final readonly class EnsureDefaultTenant
                 ['code' => 'POINT'],
                 [
                     'name' => 'Point Investment Co. Ltd',
-                    'default_currency_code' => 'USD',
-                    'is_multibranch' => true,
+                    'default_currency_code' => 'UGX',
+                    'is_multibranch' => false,
                     'multi_currency_enabled' => true,
+                    'multi_store_enabled' => false,
                     'timezone' => 'Africa/Kampala',
                     'status' => 'active',
                 ],

@@ -112,13 +112,13 @@ export function ActivityDialog({
                     size={isEditing ? 'sm' : 'default'}
                 >
                     {isEditing ? <Pencil /> : <Plus />}
-                    {isEditing ? 'Edit' : 'New work item'}
+                    {isEditing ? 'Edit' : 'New work activity'}
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>
-                        {isEditing ? 'Edit work item' : 'New work item'}
+                        {isEditing ? 'Edit work activity' : 'New work activity'}
                     </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={submit} className="grid gap-5">
@@ -286,7 +286,7 @@ export function ActivityDialog({
                         </Button>
                         <Button type="submit" disabled={form.processing}>
                             {form.processing && <Spinner />}
-                            Save work item
+                            Save work activity
                         </Button>
                     </div>
                 </form>

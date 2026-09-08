@@ -11,8 +11,6 @@ use App\Actions\Operations\Inventory\ReceiveInventoryStock;
 use App\Actions\Operations\Inventory\ReconcileDsrMaterialLine;
 use App\Actions\Operations\Inventory\ReconcileInventoryStockCount;
 use App\Actions\Operations\Inventory\ReviewInventoryReconciliation;
-use App\Actions\Operations\Inventory\ReviewInventoryTransfer;
-use App\Actions\Operations\Inventory\TransferInventoryItems;
 use App\Enums\DocumentDiscipline;
 use App\Enums\DocumentRevision;
 use App\Enums\DsrLabourSource;
@@ -108,196 +106,113 @@ final class PointInvestmentSeeder extends Seeder
         $tenant = resolve(EnsureDefaultTenant::class)->handle();
         resolve(TenantContext::class)->set($tenant);
 
-        $branches = [
-            'KLA-HQ' => $this->branch('KLA-HQ', 'Kampala Head Office', 'UG', 'UGX'),
-            'GUL-SITE' => $this->branch('GUL-SITE', 'Gulu Project Office', 'UG', 'UGX'),
-            'JUB-HQ' => $this->branch('JUB-HQ', 'Juba Office', 'SS', 'USD'),
-            'KIN-MOB' => $this->branch('KIN-MOB', 'Kinshasa Mobilization Office', 'CD', 'CDF', 'inactive'),
-        ];
+        $ironpointBranch = $this->branch('KLA-HQ', 'Ironpoint Kampala', 'UG', 'UGX');
 
         $positions = [
             'DIRECTOR' => $this->position('DIRECTOR', 'Director'),
             'ADMINISTRATOR' => $this->position('ADMINISTRATOR', 'Administrator'),
             'PROJECT-MANAGER' => $this->position('PROJECT-MANAGER', 'Project Manager'),
-            'PROCUREMENT-OFFICER' => $this->position('PROCUREMENT-OFFICER', 'Procurement Officer'),
-            'ACCOUNTANT' => $this->position('ACCOUNTANT', 'Accountant'),
-            'STORE-KEEPER' => $this->position('STORE-KEEPER', 'Store Keeper'),
-            'CASHIER' => $this->position('CASHIER', 'Cashier'),
             'SITE-ENGINEER' => $this->position('SITE-ENGINEER', 'Site Engineer'),
-            'SITE-MANAGER' => $this->position('SITE-MANAGER', 'Site Manager'),
-            'AUDITOR' => $this->position('AUDITOR', 'Auditor'),
-            'FLEET-MANAGER' => $this->position('FLEET-MANAGER', 'Fleet Manager'),
+            'MANAGER' => $this->position('MANAGER', 'Manager'),
         ];
 
-        foreach (['USD', 'UGX', 'SSP', 'CDF'] as $currencyCode) {
+        foreach (['UGX', 'USD'] as $currencyCode) {
             TenantCurrency::query()->updateOrCreate(
                 ['tenant_id' => $tenant->id, 'currency_code' => $currencyCode],
                 [
                     'is_enabled' => true,
-                    'is_default' => $currencyCode === $tenant->default_currency_code,
+                    'is_default' => $currencyCode === 'UGX',
                 ],
             );
         }
 
-        $this->branchCurrencies($branches['KLA-HQ'], ['UGX' => true, 'USD' => false]);
-        $this->branchCurrencies($branches['GUL-SITE'], ['UGX' => true, 'USD' => false]);
-        $this->branchCurrencies($branches['JUB-HQ'], ['USD' => true, 'SSP' => false]);
-        $this->branchCurrencies($branches['KIN-MOB'], ['CDF' => true, 'USD' => false]);
+        $this->branchCurrencies($ironpointBranch, ['UGX' => true, 'USD' => false]);
 
-        $director = $this->user(
+        $lemi = $this->user(
             staffNumber: 'POINT-001',
             name: 'Lemi',
             email: 'lemi@gmail.com',
-            branch: $branches['KLA-HQ'],
-            position: $positions['DIRECTOR'],
-            roleName: 'Director',
-            branchAccess: [$branches['KLA-HQ'], $branches['GUL-SITE'], $branches['JUB-HQ']],
-            defaultBranch: $branches['KLA-HQ'],
-            isDirector: true,
+            branch: $ironpointBranch,
+            position: $positions['ADMINISTRATOR'],
+            roleName: 'Administrator',
+            branchAccess: [$ironpointBranch],
+            defaultBranch: $ironpointBranch,
         );
 
-        $this->documentTypes($director);
+        $this->documentTypes($lemi);
 
         $this->user(
             staffNumber: 'POINT-SUPPORT-001',
             name: 'Point Support Admin',
             email: 'support@pointmanager.test',
-            branch: $branches['KLA-HQ'],
+            branch: $ironpointBranch,
             position: $positions['ADMINISTRATOR'],
             roleName: 'Administrator',
-            branchAccess: [$branches['KLA-HQ'], $branches['GUL-SITE'], $branches['JUB-HQ']],
-            defaultBranch: $branches['KLA-HQ'],
+            branchAccess: [$ironpointBranch],
+            defaultBranch: $ironpointBranch,
             isSupport: true,
         );
 
-        $this->user(
+        $luate = $this->user(
             staffNumber: 'POINT-002',
-            name: 'Kampala Admin',
-            email: 'admin.kla@point.test',
-            branch: $branches['KLA-HQ'],
-            position: $positions['ADMINISTRATOR'],
-            roleName: 'Administrator',
-            branchAccess: [$branches['KLA-HQ']],
-            defaultBranch: $branches['KLA-HQ'],
+            name: 'Luate',
+            email: 'luate@gmail.com',
+            branch: $ironpointBranch,
+            position: $positions['SITE-ENGINEER'],
+            roleName: 'Site Engineer',
+            branchAccess: [$ironpointBranch],
+            defaultBranch: $ironpointBranch,
         );
 
-        $guluProjectManager = $this->user(
+        $latif = $this->user(
             staffNumber: 'POINT-003',
-            name: 'Gulu Project Manager',
-            email: 'pm.gulu@point.test',
-            branch: $branches['GUL-SITE'],
+            name: 'Latif',
+            email: 'latif@gmail.com',
+            branch: $ironpointBranch,
             position: $positions['PROJECT-MANAGER'],
             roleName: 'Project Manager',
-            branchAccess: [$branches['GUL-SITE']],
-            defaultBranch: $branches['GUL-SITE'],
+            branchAccess: [$ironpointBranch],
+            defaultBranch: $ironpointBranch,
         );
 
-        $this->user(
+        $william = $this->user(
             staffNumber: 'POINT-004',
-            name: 'Juba Accountant',
-            email: 'accountant.juba@point.test',
-            branch: $branches['JUB-HQ'],
-            position: $positions['ACCOUNTANT'],
-            roleName: 'Accountant',
-            branchAccess: [$branches['JUB-HQ'], $branches['KLA-HQ']],
-            defaultBranch: $branches['JUB-HQ'],
+            name: 'William',
+            email: 'william@gmail.com',
+            branch: $ironpointBranch,
+            position: $positions['ADMINISTRATOR'],
+            roleName: 'Administrator',
+            branchAccess: [$ironpointBranch],
+            defaultBranch: $ironpointBranch,
         );
 
-        $this->user(
-            staffNumber: 'POINT-010',
-            name: 'Kampala Procurement Officer',
-            email: 'procurement.kla@point.test',
-            branch: $branches['KLA-HQ'],
-            position: $positions['PROCUREMENT-OFFICER'],
-            roleName: 'Procurement Officer',
-            branchAccess: [$branches['KLA-HQ']],
-            defaultBranch: $branches['KLA-HQ'],
-        );
-
-        $this->user(
+        $rober = $this->user(
             staffNumber: 'POINT-005',
-            name: 'Kampala Store Keeper',
-            email: 'store.kla@point.test',
-            branch: $branches['KLA-HQ'],
-            position: $positions['STORE-KEEPER'],
-            roleName: 'Store Keeper',
-            branchAccess: [$branches['KLA-HQ']],
-            defaultBranch: $branches['KLA-HQ'],
-        );
-
-        $this->user(
-            staffNumber: 'POINT-011',
-            name: 'Kampala Cashier',
-            email: 'cashier.kla@point.test',
-            branch: $branches['KLA-HQ'],
-            position: $positions['CASHIER'],
-            roleName: 'Cashier',
-            branchAccess: [$branches['KLA-HQ']],
-            defaultBranch: $branches['KLA-HQ'],
-        );
-
-        $guluSiteEngineer = $this->user(
-            staffNumber: 'POINT-006',
-            name: 'Gulu Site Engineer',
-            email: 'engineer.gulu@point.test',
-            branch: $branches['GUL-SITE'],
-            position: $positions['SITE-ENGINEER'],
-            roleName: 'Site Manager',
-            branchAccess: [$branches['GUL-SITE']],
-            defaultBranch: $branches['GUL-SITE'],
-        );
-
-        $guluAuditor = $this->user(
-            staffNumber: 'POINT-007',
-            name: 'Gulu Auditor',
-            email: 'auditor.gulu@point.test',
-            branch: $branches['GUL-SITE'],
-            position: $positions['AUDITOR'],
-            roleName: 'Auditor',
-            branchAccess: [$branches['GUL-SITE']],
-            defaultBranch: $branches['GUL-SITE'],
-        );
-
-        $jubaSiteManager = $this->user(
-            staffNumber: 'POINT-008',
-            name: 'Juba Site Manager',
-            email: 'site.juba@point.test',
-            branch: $branches['JUB-HQ'],
-            position: $positions['SITE-MANAGER'],
-            roleName: 'Site Manager',
-            branchAccess: [$branches['JUB-HQ']],
-            defaultBranch: $branches['JUB-HQ'],
-        );
-
-        $this->user(
-            staffNumber: 'POINT-009',
-            name: 'Regional Fleet Manager',
-            email: 'fleet@point.test',
-            branch: $branches['KLA-HQ'],
-            position: $positions['FLEET-MANAGER'],
-            roleName: 'Fleet Manager',
-            branchAccess: [$branches['KLA-HQ'], $branches['GUL-SITE'], $branches['JUB-HQ']],
-            defaultBranch: $branches['KLA-HQ'],
+            name: 'Rober',
+            email: 'rober@gmail.com',
+            branch: $ironpointBranch,
+            position: $positions['MANAGER'],
+            roleName: 'Manager',
+            branchAccess: [$ironpointBranch],
+            defaultBranch: $ironpointBranch,
         );
 
         $this->operationsDemoData(
-            director: $director,
-            ugandaBranch: $branches['GUL-SITE'],
-            southSudanBranch: $branches['JUB-HQ'],
-            ugandaProjectManager: $guluProjectManager,
-            ugandaSiteEngineer: $guluSiteEngineer,
-            ugandaAuditor: $guluAuditor,
-            southSudanSiteManager: $jubaSiteManager,
+            director: $lemi,
+            ugandaBranch: $ironpointBranch,
+            southSudanBranch: $ironpointBranch,
+            ugandaProjectManager: $latif,
+            ugandaSiteEngineer: $luate,
+            ugandaAuditor: $william,
+            southSudanSiteManager: $rober,
         );
 
-        $this->inventoryDemoData($branches['KLA-HQ'], $branches['GUL-SITE'], $director);
-        $this->seedRoadEstimateBaseline($director);
-        $this->expenseDemoData($branches['KLA-HQ'], $branches['GUL-SITE'], $director);
+        $this->inventoryDemoData($ironpointBranch, $ironpointBranch, $lemi);
+        $this->seedRoadEstimateBaseline($lemi);
+        $this->expenseDemoData($ironpointBranch, $ironpointBranch, $lemi);
 
-        $this->exchangeRate($director, null, 'USD', 'UGX', '3600.0000000000', now()->subMonth()->toDateString(), ExchangeRate::STATUS_APPROVED);
-        $this->exchangeRate($director, null, 'USD', 'UGX', '3700.0000000000', now()->toDateString(), ExchangeRate::STATUS_DRAFT);
-        $this->exchangeRate($director, $branches['JUB-HQ'], 'USD', 'SSP', '1500.0000000000', now()->toDateString(), ExchangeRate::STATUS_APPROVED);
-        $this->exchangeRate($director, $branches['KLA-HQ'], 'UGX', 'USD', '0.0002702703', now()->toDateString(), ExchangeRate::STATUS_DRAFT);
+        $this->exchangeRate($lemi, null, 'USD', 'UGX', '3700.0000000000', now()->toDateString(), ExchangeRate::STATUS_APPROVED);
+        $this->exchangeRate($lemi, null, 'UGX', 'USD', '0.0002702703', now()->toDateString(), ExchangeRate::STATUS_APPROVED);
     }
 
     private function expenseDemoData(Branch $kampalaBranch, Branch $guluBranch, User $director): void
@@ -464,12 +379,10 @@ final class PointInvestmentSeeder extends Seeder
         $location = EquipmentLocation::query()->where('tenant_id', $tenantId)->where('branch_id', $kampalaBranch->id)->where('type', 'depot')->first();
         $kampalaStore = InventoryStore::query()->updateOrCreate(
             ['tenant_id' => $tenantId, 'code' => 'KLA-MAIN-STORE'],
-            ['branch_id' => $kampalaBranch->id, 'equipment_location_id' => $location?->id, 'name' => 'Kampala Main Materials Store', 'type' => InventoryStoreType::Depot->value, 'address' => 'Kampala Head Office depot', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+            ['branch_id' => $kampalaBranch->id, 'equipment_location_id' => $location?->id, 'name' => 'Ironpoint Main Store', 'type' => InventoryStoreType::Depot->value, 'address' => 'Ironpoint Kampala', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
         );
-        $guluStore = InventoryStore::query()->updateOrCreate(
-            ['tenant_id' => $tenantId, 'code' => 'GUL-SITE-STORE'],
-            ['branch_id' => $guluBranch->id, 'name' => 'Gulu Road Site Store', 'type' => InventoryStoreType::SiteStore->value, 'address' => 'Gulu project compound store', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
-        );
+        $guluStore = $kampalaStore;
+
 
         InventoryUnitConversion::query()->updateOrCreate(
             ['inventory_item_id' => $inventoryItems['CEM-42']->id, 'from_unit_id' => $units['KG']->id, 'to_unit_id' => $units['BAG']->id],
@@ -493,9 +406,9 @@ final class PointInvestmentSeeder extends Seeder
 
         $cementBatch = InventoryBatch::query()->updateOrCreate(
             ['tenant_id' => $tenantId, 'inventory_item_id' => $inventoryItems['CEM-42']->id, 'batch_number' => 'CEM-42-2026-08'],
-            ['inventory_store_id' => $kampalaStore->id, 'manufactured_on' => now()->subMonth()->toDateString(), 'expires_on' => now()->addMonths(5)->toDateString(), 'status' => InventoryBatchStatus::Available->value, 'notes' => 'Demo cement batch for the Kampala depot.', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+            ['inventory_store_id' => $kampalaStore->id, 'manufactured_on' => now()->subMonth()->toDateString(), 'expires_on' => now()->addMonths(5)->toDateString(), 'status' => InventoryBatchStatus::Available->value, 'notes' => 'Demo cement batch for the Ironpoint store.', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
         );
-        foreach ([[$kampalaStore, '250', '500', 'Aisle A / Cement bay'], [$guluStore, '100', '250', 'Weatherproof container 1']] as [$store, $minimumStock, $reorderQuantity, $storageLocation]) {
+        foreach ([[$kampalaStore, '250', '500', 'Aisle A / Cement bay']] as [$store, $minimumStock, $reorderQuantity, $storageLocation]) {
             /** @var InventoryStore $store */
             InventoryStoreItem::query()->updateOrCreate(
                 ['inventory_store_id' => $store->id, 'inventory_item_id' => $inventoryItems['CEM-42']->id],
@@ -510,7 +423,7 @@ final class PointInvestmentSeeder extends Seeder
             );
         }
 
-        foreach ([[$kampalaStore, '100', '250', 'Pilot receipt bay'], [$guluStore, '100', '250', 'Project store container 2']] as [$store, $minimumStock, $reorderQuantity, $storageLocation]) {
+        foreach ([[$kampalaStore, '100', '250', 'Pilot receipt bay']] as [$store, $minimumStock, $reorderQuantity, $storageLocation]) {
             /** @var InventoryStore $store */
             InventoryStoreItem::query()->updateOrCreate(
                 ['inventory_store_id' => $store->id, 'inventory_item_id' => $inventoryItems['CEM-PILOT']->id],
@@ -567,7 +480,7 @@ final class PointInvestmentSeeder extends Seeder
             );
         }
 
-        $guluRequester = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();
+        $guluRequester = User::query()->where('email', 'luate@gmail.com')->firstOrFail();
         $guluProject = Project::query()->where('branch_id', $guluBranch->id)->first();
         $guluSite = $guluProject?->sites()->first();
         $submitted = MaterialRequisition::query()->updateOrCreate(
@@ -579,7 +492,7 @@ final class PointInvestmentSeeder extends Seeder
             ['tenant_id' => $tenantId, 'unit_of_measure_id' => $units['BAG']->id, 'item_code_snapshot' => 'CEM-42', 'item_name_snapshot' => 'Portland cement 42.5N', 'unit_code_snapshot' => 'BAG', 'unit_symbol_snapshot' => 'bag', 'requested_quantity' => '80.0000', 'conversion_multiplier' => '1.0000000000', 'stock_quantity' => '80.0000', 'purpose' => 'Culvert headwalls', 'sort_order' => 0],
         );
 
-        $kampalaRequester = User::query()->where('email', 'admin.kla@point.test')->firstOrFail();
+        $kampalaRequester = User::query()->where('email', 'william@gmail.com')->firstOrFail();
         $approved = MaterialRequisition::query()->updateOrCreate(
             ['tenant_id' => $tenantId, 'reference' => 'MR-DEMO-KLA'],
             ['branch_id' => $kampalaBranch->id, 'inventory_store_id' => $kampalaStore->id, 'requesting_user_id' => $kampalaRequester->id, 'department' => 'Site safety', 'required_by_date' => now()->addDay()->toDateString(), 'priority' => MaterialRequisitionPriority::Urgent, 'status' => MaterialRequisitionStatus::Approved, 'reason' => 'Issue safety vests to the incoming concrete crew.', 'submitted_by' => $kampalaRequester->id, 'submitted_at' => now()->subHour(), 'approved_by' => $director->id, 'approved_at' => now(), 'reviewed_by' => $director->id, 'reviewed_at' => now(), 'created_by' => $kampalaRequester->id, 'updated_by' => $director->id],
@@ -595,7 +508,7 @@ final class PointInvestmentSeeder extends Seeder
 
         $purchaseOrder = PurchaseOrder::query()->updateOrCreate(
             ['tenant_id' => $tenantId, 'order_number' => 'PO-2026-DEMO01'],
-            ['branch_id' => $kampalaBranch->id, 'inventory_store_id' => $kampalaStore->id, 'supplier_id' => $supplier->id, 'order_number' => 'PO-2026-DEMO01', 'supplier_name_snapshot' => $supplier->name, 'supplier_code_snapshot' => $supplier->code, 'order_date' => now()->subDay()->toDateString(), 'expected_date' => now()->addDays(2)->toDateString(), 'currency_code' => 'UGX', 'status' => PurchaseOrderStatus::Approved, 'subtotal' => '450000.0000', 'discount_amount' => '0.0000', 'tax_amount' => '0.0000', 'total_amount' => '450000.0000', 'delivery_terms' => 'Delivery to Kampala Main Materials Store.', 'payment_terms' => 'Payment after accepted delivery.', 'submitted_by' => $director->id, 'submitted_at' => now()->subDay(), 'approved_by' => $director->id, 'approved_at' => now()->subDay(), 'reviewed_by' => $director->id, 'reviewed_at' => now()->subDay(), 'created_by' => $director->id, 'updated_by' => $director->id],
+            ['branch_id' => $kampalaBranch->id, 'inventory_store_id' => $kampalaStore->id, 'supplier_id' => $supplier->id, 'order_number' => 'PO-2026-DEMO01', 'supplier_name_snapshot' => $supplier->name, 'supplier_code_snapshot' => $supplier->code, 'order_date' => now()->subDay()->toDateString(), 'expected_date' => now()->addDays(2)->toDateString(), 'currency_code' => 'UGX', 'status' => PurchaseOrderStatus::Approved, 'subtotal' => '450000.0000', 'discount_amount' => '0.0000', 'tax_amount' => '0.0000', 'total_amount' => '450000.0000', 'delivery_terms' => 'Delivery to Ironpoint Main Store.', 'payment_terms' => 'Payment after accepted delivery.', 'submitted_by' => $director->id, 'submitted_at' => now()->subDay(), 'approved_by' => $director->id, 'approved_at' => now()->subDay(), 'reviewed_by' => $director->id, 'reviewed_at' => now()->subDay(), 'created_by' => $director->id, 'updated_by' => $director->id],
         );
         PurchaseOrderLine::query()->updateOrCreate(
             ['purchase_order_id' => $purchaseOrder->id, 'inventory_item_id' => $inventoryItems['PPE-VEST']->id],
@@ -603,7 +516,7 @@ final class PointInvestmentSeeder extends Seeder
         );
         $pilotOrder = PurchaseOrder::query()->updateOrCreate(
             ['tenant_id' => $tenantId, 'order_number' => 'PO-2026-PILOT01'],
-            ['branch_id' => $kampalaBranch->id, 'inventory_store_id' => $kampalaStore->id, 'supplier_id' => $supplier->id, 'supplier_name_snapshot' => $supplier->name, 'supplier_code_snapshot' => $supplier->code, 'order_date' => now()->subDays(14)->toDateString(), 'expected_date' => now()->subDays(5)->toDateString(), 'currency_code' => 'UGX', 'status' => PurchaseOrderStatus::Approved, 'subtotal' => '21450000.0000', 'discount_amount' => '0.0000', 'tax_amount' => '0.0000', 'total_amount' => '21450000.0000', 'delivery_terms' => 'Delivery to Kampala Main Materials Store.', 'payment_terms' => 'Payment after accepted delivery.', 'submitted_by' => $director->id, 'submitted_at' => now()->subDays(14), 'approved_by' => $director->id, 'approved_at' => now()->subDays(13), 'reviewed_by' => $director->id, 'reviewed_at' => now()->subDays(13), 'created_by' => $director->id, 'updated_by' => $director->id],
+            ['branch_id' => $kampalaBranch->id, 'inventory_store_id' => $kampalaStore->id, 'supplier_id' => $supplier->id, 'supplier_name_snapshot' => $supplier->name, 'supplier_code_snapshot' => $supplier->code, 'order_date' => now()->subDays(14)->toDateString(), 'expected_date' => now()->subDays(5)->toDateString(), 'currency_code' => 'UGX', 'status' => PurchaseOrderStatus::Approved, 'subtotal' => '21450000.0000', 'discount_amount' => '0.0000', 'tax_amount' => '0.0000', 'total_amount' => '21450000.0000', 'delivery_terms' => 'Delivery to Ironpoint Main Store.', 'payment_terms' => 'Payment after accepted delivery.', 'submitted_by' => $director->id, 'submitted_at' => now()->subDays(14), 'approved_by' => $director->id, 'approved_at' => now()->subDays(13), 'reviewed_by' => $director->id, 'reviewed_at' => now()->subDays(13), 'created_by' => $director->id, 'updated_by' => $director->id],
         );
         $cementOrderLine = PurchaseOrderLine::query()->updateOrCreate(
             ['purchase_order_id' => $pilotOrder->id, 'inventory_item_id' => $inventoryItems['CEM-PILOT']->id],
@@ -638,14 +551,6 @@ final class PointInvestmentSeeder extends Seeder
         $pilotOrder->forceFill(['status' => PurchaseOrderStatus::PartiallyReceived])->save();
 
         $transferBatch = InventoryBatch::query()->where('batch_number', 'CEM-PILOT-DELIVERY')->firstOrFail();
-        $transfer = resolve(TransferInventoryItems::class)->handle($kampalaStore, $guluStore, [
-            'transfer_key' => 'seed:transfer:cement:kla-gulu',
-            'reason' => 'Move accepted cement to the road project store.',
-            'lines' => [['inventory_item_id' => $inventoryItems['CEM-PILOT']->id, 'unit_of_measure_id' => $units['BAG']->id, 'inventory_batch_id' => $transferBatch->id, 'quantity' => '150']],
-        ], $director);
-        if ($transfer->status->value === 'pending_approval') {
-            resolve(ReviewInventoryTransfer::class)->approve($transfer, $director);
-        }
 
         $pilotRequisition = MaterialRequisition::query()->updateOrCreate(
             ['tenant_id' => $tenantId, 'reference' => 'MR-PILOT-GULU'],
@@ -673,7 +578,7 @@ final class PointInvestmentSeeder extends Seeder
                 ['tenant_id' => $tenantId, 'branch_id' => $guluBranch->id, 'inventory_item_id' => $inventoryItems['CEM-PILOT']->id, 'inventory_store_id' => $guluStore->id, 'unit_of_measure_id' => $units['BAG']->id, 'conversion_multiplier' => '1.0000000000', 'stock_unit_quantity' => '25.0000', 'inventory_reconciliation_status' => DsrMaterialReconciliationStatus::Pending, 'material_name' => $inventoryItems['CEM-PILOT']->name, 'material_type' => 'used', 'quantity' => '25.0000', 'unit' => 'bag', 'currency_code' => 'UGX', 'sort_order' => 5],
             );
             if ($reconciledLine->reconciliations()->doesntExist()) {
-                $reconciliation->allocate($reconciledLine, $issue, '25', 'Match the approved DSR usage to the project-store requisition issue.', $director);
+                $reconciliation->allocate($reconciledLine, $issue, '25', 'Match the approved DSR usage to the store requisition issue.', $director);
             }
 
             $partialLine = DailySiteReportMaterialLine::query()->updateOrCreate(

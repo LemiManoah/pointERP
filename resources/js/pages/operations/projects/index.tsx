@@ -172,7 +172,7 @@ export default function ProjectsIndex({
                                                 {formatNumber(
                                                     project.activities_count,
                                                 )}{' '}
-                                                work items
+                                                work activities
                                             </td>
                                             <td className="py-3 pr-4">
                                                 <Badge variant="secondary">

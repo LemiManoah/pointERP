@@ -137,7 +137,7 @@ final class WorkItemTemplateController
         $data = $request->validated();
         $action->handle($tenant, $data, $actor);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Work item template created.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Work activity template created.']);
 
         return to_route('work-item-templates.index');
     }
@@ -154,7 +154,7 @@ final class WorkItemTemplateController
         $data = $request->validated();
         $action->handle($tenant, $data, $actor, $workItemTemplate);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Work item template updated.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Work activity template updated.']);
 
         return to_route('work-item-templates.index');
     }
@@ -168,7 +168,7 @@ final class WorkItemTemplateController
 
         $action->handle($workItemTemplate, $actor);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Work item template deleted.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Work activity template deleted.']);
 
         return to_route('work-item-templates.index');
     }

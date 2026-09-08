@@ -61,6 +61,7 @@ final class HandleInertiaRequests extends Middleware
                 'default_currency_code',
                 'is_multibranch',
                 'multi_currency_enabled',
+                'multi_store_enabled',
                 'timezone',
                 'status',
             ]),

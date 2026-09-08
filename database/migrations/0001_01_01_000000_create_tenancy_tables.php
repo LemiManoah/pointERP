@@ -40,6 +40,7 @@ return new class extends Migration
             $table->char('default_currency_code', 3)->default('USD');
             $table->boolean('is_multibranch')->default(false);
             $table->boolean('multi_currency_enabled')->default(false);
+            $table->boolean('multi_store_enabled')->default(false);
             $table->string('timezone')->default('Africa/Kampala');
             $table->string('status')->default('active');
             $table->timestamps();

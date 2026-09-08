@@ -2705,9 +2705,9 @@ function LineCard({
                                                 .filter(Boolean)
                                                 .join(' / '),
                                         }))}
-                                        placeholder="Select work item"
-                                        searchPlaceholder="Search work items..."
-                                        emptyMessage="No work item is available for this site."
+                                        placeholder="Select work activity"
+                                        searchPlaceholder="Search work activities..."
+                                        emptyMessage="No work activity is available for this site."
                                         disabled={disabled}
                                     />
                                 ) : field === 'equipment_id' ? (
@@ -2832,7 +2832,7 @@ function lineValue(line: Line, field: string, disabled: boolean): string {
 }
 
 function lineFieldLabel(field: string, section: string): string {
-    if (field === 'project_activity_id') return 'Work item';
+    if (field === 'project_activity_id') return 'Work activity';
     if (field === 'labour_source') return 'Labour source';
     if (field === 'subcontractor_id') return 'Subcontractor';
     if (field === 'hours') return 'Hours per worker';

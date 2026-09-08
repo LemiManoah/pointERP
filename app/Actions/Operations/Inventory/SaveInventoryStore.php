@@ -20,6 +20,24 @@ final readonly class SaveInventoryStore
     /** @param array<string, mixed> $data */
     public function handle(array $data, User $actor, ?InventoryStore $store = null): InventoryStore
     {
+        $tenant = $this->tenantContext->current();
+        $willBeActive = (bool) $data['is_active'];
+
+        if (! $tenant->multi_store_enabled && $willBeActive) {
+            $activeStoreQuery = InventoryStore::query()->where('is_active', true);
+            if ($store instanceof InventoryStore) {
+                $activeStoreQuery->whereKeyNot($store->id);
+            }
+
+            $hasAnotherActiveStore = $activeStoreQuery->exists();
+
+            if ($hasAnotherActiveStore) {
+                throw ValidationException::withMessages([
+                    'store' => 'Multi-store is turned off for this company. Deactivate the current store or enable multi-store before adding another active store.',
+                ]);
+            }
+        }
+
         $project = isset($data['project_id']) ? Project::query()->find($data['project_id']) : null;
         $site = isset($data['site_id']) ? Site::query()->find($data['site_id']) : null;
         $location = isset($data['equipment_location_id']) ? EquipmentLocation::query()->find($data['equipment_location_id']) : null;
@@ -35,7 +53,7 @@ final readonly class SaveInventoryStore
             throw ValidationException::withMessages(['equipment_location_id' => 'The equipment location must belong to the selected branch.']);
         }
 
-        $attributes = ['tenant_id' => $this->tenantContext->id(), 'branch_id' => $data['branch_id'], 'equipment_location_id' => $data['equipment_location_id'] ?? null, 'project_id' => $data['project_id'] ?? null, 'site_id' => $data['site_id'] ?? null, 'code' => $data['code'], 'name' => $data['name'], 'type' => $data['type'], 'address' => $data['address'] ?? null, 'is_active' => $data['is_active'], 'updated_by' => $actor->id];
+        $attributes = ['tenant_id' => $tenant->id, 'branch_id' => $data['branch_id'], 'equipment_location_id' => $data['equipment_location_id'] ?? null, 'project_id' => $data['project_id'] ?? null, 'site_id' => $data['site_id'] ?? null, 'code' => $data['code'], 'name' => $data['name'], 'type' => $data['type'], 'address' => $data['address'] ?? null, 'is_active' => $data['is_active'], 'updated_by' => $actor->id];
         $old = $store?->only(array_keys($attributes)) ?? [];
         if ($store instanceof InventoryStore) {
             $store->update($attributes);

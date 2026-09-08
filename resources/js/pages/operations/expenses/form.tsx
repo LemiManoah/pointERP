@@ -850,7 +850,7 @@ export default function ExpenseForm(props: Props) {
                                             ]}
                                         />
                                     </Field>
-                                    <Field label="Work item">
+                                    <Field label="Work activity">
                                         <SearchableSelect
                                             value={draft.project_activity_id}
                                             onValueChange={(value) =>
@@ -862,7 +862,7 @@ export default function ExpenseForm(props: Props) {
                                             options={[
                                                 {
                                                     value: '',
-                                                    label: 'No specific Work item',
+                                                    label: 'No specific work activity',
                                                 },
                                                 ...availableWorkItems,
                                             ]}

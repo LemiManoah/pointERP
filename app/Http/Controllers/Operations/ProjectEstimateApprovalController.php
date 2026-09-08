@@ -21,7 +21,7 @@ final class ProjectEstimateApprovalController
         abort_unless($actor instanceof User, 403);
 
         $action->handle($projectEstimate, $actor);
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Estimate approved as the project baseline. Work items are ready for reporting.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Estimate approved as the project baseline. Work activities are ready for reporting.']);
 
         return to_route('projects.show', $projectEstimate->project_id);
     }

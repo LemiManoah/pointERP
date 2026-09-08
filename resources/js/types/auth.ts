@@ -27,6 +27,7 @@ export type CurrentTenant = {
     default_currency_code: string;
     is_multibranch: boolean;
     multi_currency_enabled: boolean;
+    multi_store_enabled: boolean;
     timezone: string;
     status: string;
 };

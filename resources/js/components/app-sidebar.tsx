@@ -69,32 +69,6 @@ const groups: SidebarGroupItem[] = [
         ],
     },
     {
-        title: 'Administration',
-        items: [
-            {
-                title: 'Currency',
-                href: '/currency-settings',
-                icon: BadgeDollarSign,
-                status: 'ready',
-                permission: 'currency-settings.manage',
-            },
-            {
-                title: 'Users & Roles',
-                href: '/users',
-                icon: ShieldCheck,
-                status: 'ready',
-                permission: 'access-control.users.manage',
-            },
-            {
-                title: 'Audit trail',
-                href: '/audit-trail',
-                icon: ScrollText,
-                status: 'ready',
-                permission: 'audit-trail.view',
-            },
-        ],
-    },
-    {
         title: 'Operations',
         items: [
             {
@@ -112,7 +86,7 @@ const groups: SidebarGroupItem[] = [
                 permission: 'projects.view',
             },
             {
-                title: 'Work items library',
+                title: 'Work Activity Library',
                 href: '/work-item-templates',
                 icon: Layers,
                 status: 'ready',
@@ -241,6 +215,32 @@ const groups: SidebarGroupItem[] = [
                 icon: Workflow,
                 status: 'ready',
                 permission: 'inventory.stock.view',
+            },
+        ],
+    },
+     {
+        title: 'Administration',
+        items: [
+            {
+                title: 'Currency',
+                href: '/currency-settings',
+                icon: BadgeDollarSign,
+                status: 'ready',
+                permission: 'currency-settings.manage',
+            },
+            {
+                title: 'Users & Roles',
+                href: '/users',
+                icon: ShieldCheck,
+                status: 'ready',
+                permission: 'access-control.users.manage',
+            },
+            {
+                title: 'Audit trail',
+                href: '/audit-trail',
+                icon: ScrollText,
+                status: 'ready',
+                permission: 'audit-trail.view',
             },
         ],
     },

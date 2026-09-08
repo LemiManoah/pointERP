@@ -251,10 +251,10 @@ export default function ProjectShow({
                                 Estimates
                             </TabsTrigger>
                         )}
-                        <TabsTrigger value="activities">Work items</TabsTrigger>
+                        <TabsTrigger value="activities">Work Activities</TabsTrigger>
                         {canViewEstimates && performance && (
                             <TabsTrigger value="performance">
-                                Performance
+                                Plan vs Actual
                             </TabsTrigger>
                         )}
                         {canViewFleet && (
@@ -326,7 +326,7 @@ export default function ProjectShow({
                             sites={sites}
                             currencies={currencies}
                             canViewRates={canViewRates}
-                            title="Active work items"
+                            title="Active work activities"
                         />
                         {inactiveActivities.length > 0 && (
                             <ActivityTable
@@ -334,7 +334,7 @@ export default function ProjectShow({
                                 sites={sites}
                                 currencies={currencies}
                                 canViewRates={canViewRates}
-                                title="Inactive work items"
+                                title="Inactive work activities"
                             />
                         )}
                     </TabsContent>
@@ -688,7 +688,7 @@ function PerformanceTable({
         <div className="grid gap-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Baseline performance</CardTitle>
+                    <CardTitle>Plan vs Actual</CardTitle>
                     <CardDescription>
                         Version {performance.baseline.version_number} ·{' '}
                         {performance.baseline.title}
@@ -698,7 +698,7 @@ function PerformanceTable({
                     className={`grid gap-4 sm:grid-cols-2 ${canViewCosts ? 'lg:grid-cols-6' : ''}`}
                 >
                     <SummaryMetric
-                        label="Work items"
+                        label="Work activities"
                         value={performance.totals.planned_items}
                     />
                     {canViewCosts && (
@@ -753,7 +753,7 @@ function PerformanceTable({
                             <thead>
                                 <tr className="border-b text-left text-muted-foreground">
                                     <th className="py-3 pr-4 font-medium">
-                                        Work item
+                                        Work activity
                                     </th>
                                     <th className="py-3 pr-4 font-medium">
                                         Planned
@@ -938,7 +938,7 @@ function ActivityTable({
                         <thead>
                             <tr className="border-b text-left text-muted-foreground">
                                 <th className="py-3 pr-4 font-medium">
-                                    Work item
+                                    Work activity
                                 </th>
                                 <th className="py-3 pr-4 font-medium">
                                     BOQ reference
@@ -1027,7 +1027,7 @@ function ActivityTable({
                                         colSpan={canViewRates ? 6 : 5}
                                         className="py-8 text-center text-muted-foreground"
                                     >
-                                        No work items in this section.
+                                        No work activities in this section.
                                     </td>
                                 </tr>
                             )}

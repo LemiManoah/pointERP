@@ -25,7 +25,8 @@ final class InventoryTransferPolicy
 
     public function create(User $user): bool
     {
-        return $user->can('inventory.transfers.create');
+        return $user->tenant->multi_store_enabled
+            && $user->can('inventory.transfers.create');
     }
 
     public function approve(User $user, InventoryTransfer $transfer): bool
