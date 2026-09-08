@@ -331,26 +331,33 @@ final readonly class SaveDailySiteReport
             }
 
             $existingLine = isset($line['id']) ? $existingLines->get($line['id']) : null;
+            $supportsAmount = $modelClass !== DailySiteReportDelayLine::class;
 
-            foreach (['rate_amount', 'amount', 'currency_code'] as $preservedField) {
-                if (! array_key_exists($preservedField, $line) && $existingLine instanceof Model) {
-                    $line[$preservedField] = $existingLine->getAttribute($preservedField);
+            if ($supportsAmount) {
+                foreach (['rate_amount', 'amount', 'currency_code'] as $preservedField) {
+                    if (! array_key_exists($preservedField, $line) && $existingLine instanceof Model) {
+                        $line[$preservedField] = $existingLine->getAttribute($preservedField);
+                    }
                 }
             }
 
-            $amount = $modelClass === DailySiteReportLabourLine::class
-                ? $this->labourAmount($line)
-                : $this->amount($line);
-            $total += $amount;
-
-            $modelClass::query()->create([
+            $attributes = [
                 ...$line,
                 'tenant_id' => $report->tenant_id,
                 'branch_id' => $report->branch_id,
                 'daily_site_report_id' => $report->id,
-                'amount' => $amount === 0.0 ? ($line['amount'] ?? null) : $amount,
                 'sort_order' => $line['sort_order'] ?? $index,
-            ]);
+            ];
+
+            if ($supportsAmount) {
+                $amount = $modelClass === DailySiteReportLabourLine::class
+                    ? $this->labourAmount($line)
+                    : $this->amount($line);
+                $total += $amount;
+                $attributes['amount'] = $amount === 0.0 ? ($line['amount'] ?? null) : $amount;
+            }
+
+            $modelClass::query()->create($attributes);
         }
 
         return $total;

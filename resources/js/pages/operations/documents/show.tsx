@@ -208,50 +208,75 @@ export default function DocumentShow({
                             Where this document is used as controlled evidence.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="grid gap-3">
-                        {document.links.map((link) => (
-                            <div
-                                key={link.id}
-                                className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
-                            >
-                                <div>
-                                    <span className="font-medium">
-                                        {link.label}
-                                    </span>
-                                    <span className="ml-2 text-muted-foreground">
-                                        {link.type}
-                                    </span>
-                                </div>
-                                {can.unlink && (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                            confirm({
-                                                title: 'Remove document link?',
-                                                description:
-                                                    'The document file and versions will remain.',
-                                                confirmLabel: 'Remove',
-                                                onConfirm: () =>
-                                                    router.delete(
-                                                        `/documents/${document.id}/links/${link.id}`,
-                                                        {
-                                                            preserveScroll: true,
-                                                        },
-                                                    ),
-                                            })
-                                        }
-                                    >
-                                        <Trash2 />
-                                    </Button>
-                                )}
-                            </div>
-                        ))}
-                        {document.links.length === 0 && (
-                            <div className="text-sm text-muted-foreground">
-                                No linked records.
-                            </div>
-                        )}
+                    <CardContent>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b text-left text-muted-foreground">
+                                        <th className="py-3 pr-4 font-medium">
+                                            Record
+                                        </th>
+                                        <th className="py-3 pr-4 font-medium">
+                                            Type
+                                        </th>
+                                        <th className="py-3 text-right font-medium">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {document.links.map((link) => (
+                                        <tr
+                                            key={link.id}
+                                            className="border-b last:border-0"
+                                        >
+                                            <td className="py-3 pr-4 font-medium">
+                                                {link.label}
+                                            </td>
+                                            <td className="py-3 pr-4 text-muted-foreground">
+                                                {link.type}
+                                            </td>
+                                            <td className="py-3 text-right">
+                                                {can.unlink && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() =>
+                                                            confirm({
+                                                                title: 'Remove document link?',
+                                                                description:
+                                                                    'The document file and versions will remain.',
+                                                                confirmLabel:
+                                                                    'Remove',
+                                                                onConfirm: () =>
+                                                                    router.delete(
+                                                                        `/documents/${document.id}/links/${link.id}`,
+                                                                        {
+                                                                            preserveScroll: true,
+                                                                        },
+                                                                    ),
+                                                            })
+                                                        }
+                                                    >
+                                                        <Trash2 />
+                                                    </Button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {document.links.length === 0 && (
+                                        <tr>
+                                            <td
+                                                colSpan={3}
+                                                className="py-6 text-center text-muted-foreground"
+                                            >
+                                                No linked records.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </CardContent>
                 </Card>
 

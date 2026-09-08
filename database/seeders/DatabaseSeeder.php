@@ -13,5 +13,6 @@ final class DatabaseSeeder extends Seeder
     {
         $this->call(RolePermissionSeeder::class);
         $this->call(PointInvestmentSeeder::class);
+        $this->call(WorkItemTemplateSeeder::class);
     }
 }

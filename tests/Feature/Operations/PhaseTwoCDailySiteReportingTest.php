@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportCorrection;
+use App\Models\DailySiteReportDelayLine;
 use App\Models\DailySiteReportReview;
 use App\Models\DailySiteReportWorkLine;
 use App\Models\ExpectedDailySiteReport;
@@ -76,6 +77,12 @@ it('lets a site engineer submit an assigned draft report with an evidence overri
                     'currency_code' => 'UGX',
                 ],
             ],
+            'delay_lines' => [[
+                'delay_type' => 'Equipment breakdown',
+                'description' => 'Roller hydraulic hose failed during compaction.',
+                'hours_lost' => '3',
+                'action_taken' => 'Maintenance team replaced the hose.',
+            ]],
         ])
         ->assertRedirect(route('daily-site-reports.show', $report));
 
@@ -85,7 +92,8 @@ it('lets a site engineer submit an assigned draft report with an evidence overri
 
     expect($workLine->boq_item_number)->toBe($activity->boq_item_number)
         ->and($workLine->unit)->toBe($activity->unit)
-        ->and($workLine->rate_amount)->toBe($activity->rate_amount);
+        ->and($workLine->rate_amount)->toBe($activity->rate_amount)
+        ->and(DailySiteReportDelayLine::query()->where('daily_site_report_id', $report->id)->value('hours_lost'))->toBe('3.0000');
 
     $this->actingAs($engineer)
         ->post(route('daily-site-reports.submit', $report), [

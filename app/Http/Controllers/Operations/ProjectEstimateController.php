@@ -15,6 +15,8 @@ use App\Models\ProjectEstimateLine;
 use App\Models\Site;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
+use App\Models\WorkItemResourceTemplate;
+use App\Models\WorkItemTemplate;
 use App\Services\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -105,6 +107,32 @@ final class ProjectEstimateController
             'units' => UnitOfMeasure::query()->where(fn (Builder $query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenantId))->where('is_active', true)->orderBy('name')->get(['id', 'name', 'symbol'])->map(fn (UnitOfMeasure $unit): array => ['value' => $unit->id, 'label' => sprintf('%s%s', $unit->name, $unit->symbol ? ' ('.$unit->symbol.')' : '')]),
             'items' => InventoryItem::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'stock_unit_id', 'default_unit_cost'])->map(fn (InventoryItem $item): array => ['value' => $item->id, 'label' => sprintf('%s - %s', $item->code, $item->name), 'unit_id' => $item->stock_unit_id, 'unit_cost' => $item->default_unit_cost]),
             'resourceTypes' => collect(EstimateResourceType::cases())->map(fn (EstimateResourceType $type): array => ['value' => $type->value, 'label' => $type->label()]),
+            'templates' => WorkItemTemplate::query()
+                ->with(['unit', 'resources.unit', 'resources.inventoryItem'])
+                ->where('is_active', true)
+                ->orderBy('category')
+                ->orderBy('name')
+                ->get()
+                ->map(fn (WorkItemTemplate $template): array => [
+                    'id' => $template->id,
+                    'code' => $template->code,
+                    'category' => $template->category,
+                    'name' => $template->name,
+                    'unit_of_measure_id' => $template->unit_of_measure_id,
+                    'unit_name' => $template->unit->name,
+                    'unit_symbol' => $template->unit->symbol,
+                    'default_selling_rate' => $template->default_selling_rate,
+                    'default_unit_cost' => $template->default_unit_cost,
+                    'resources' => $template->resources->map(fn (WorkItemResourceTemplate $res): array => [
+                        'resource_type' => $res->resource_type->value,
+                        'inventory_item_id' => $res->inventory_item_id,
+                        'unit_of_measure_id' => $res->unit_of_measure_id,
+                        'name' => $res->name,
+                        'quantity_per_work_unit' => $res->quantity_per_work_unit,
+                        'estimated_unit_cost' => (string) $res->effectiveUnitCost(),
+                        'notes' => $res->notes,
+                    ])->all(),
+                ]),
             'can' => [
                 'update' => $estimate instanceof ProjectEstimate && Gate::forUser($user)->allows('update', $estimate),
                 'approve' => $estimate instanceof ProjectEstimate && Gate::forUser($user)->allows('approve', $estimate),

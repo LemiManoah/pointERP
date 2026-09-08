@@ -145,7 +145,7 @@ export default function DailySiteReportsIndex({
                         className="grid gap-3 rounded-md border p-3 sm:min-w-[30rem] sm:grid-cols-[1fr_10rem_auto]"
                     >
                         <div className="grid gap-2">
-                            <Label>Site</Label>
+                            <Label required>Site</Label>
                             <SearchableSelect
                                 value={form.data.site_id}
                                 onValueChange={(value) =>
@@ -160,7 +160,9 @@ export default function DailySiteReportsIndex({
                             />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="report_date">Date</Label>
+                            <Label htmlFor="report_date" required>
+                                Date
+                            </Label>
                             <DatePicker
                                 id="report_date"
                                 value={form.data.report_date}

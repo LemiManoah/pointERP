@@ -114,6 +114,12 @@ final class DocumentController
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Document saved.']);
 
+        foreach ((array) ($data['links'] ?? []) as $link) {
+            if (is_array($link) && ($link['type'] ?? null) === 'daily_site_report' && is_string($link['id'] ?? null)) {
+                return to_route('daily-site-reports.show', $link['id']);
+            }
+        }
+
         return to_route('documents.show', $document);
     }
 

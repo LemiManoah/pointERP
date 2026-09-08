@@ -1,5 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ArrowLeft, Check, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, Layers, Plus, Search, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import InputError from '@/components/input-error';
@@ -7,6 +8,13 @@ import { SearchableSelect } from '@/components/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -77,6 +85,29 @@ type Estimate = {
         }
     >;
 };
+type TemplateResource = {
+    resource_type: string;
+    inventory_item_id: string | null;
+    unit_of_measure_id: string | null;
+    name: string;
+    quantity_per_work_unit: string;
+    estimated_unit_cost: string;
+    notes: string | null;
+};
+
+type WorkItemTemplate = {
+    id: string;
+    code: string | null;
+    category: string;
+    name: string;
+    unit_of_measure_id: string;
+    unit_name: string;
+    unit_symbol: string | null;
+    default_selling_rate: string | null;
+    default_unit_cost: string | null;
+    resources: TemplateResource[];
+};
+
 type Props = {
     project: {
         id: string;
@@ -90,6 +121,7 @@ type Props = {
     units: Option[];
     items: ItemOption[];
     resourceTypes: Option[];
+    templates?: WorkItemTemplate[];
     can: { update: boolean; approve: boolean; viewCosts: boolean };
 };
 
@@ -150,9 +182,34 @@ export default function EstimateEditor({
     units,
     items,
     resourceTypes,
+    templates = [],
     can,
 }: Props) {
     const confirm = useConfirmDialog();
+    const [libraryModalOpen, setLibraryModalOpen] = useState(false);
+    const [targetLineIndex, setTargetLineIndex] = useState<number | null>(null);
+    const [librarySearch, setLibrarySearch] = useState('');
+    const [libraryCategory, setLibraryCategory] = useState('');
+
+    const templateCategories = useMemo(() => {
+        return Array.from(new Set(templates.map((t) => t.category))).sort();
+    }, [templates]);
+
+    const filteredTemplates = useMemo(() => {
+        const term = librarySearch.trim().toLowerCase();
+        return templates.filter((t) => {
+            const matchesCat =
+                !libraryCategory || t.category === libraryCategory;
+            const matchesTerm =
+                !term ||
+                [t.name, t.code ?? '', t.category]
+                    .join(' ')
+                    .toLowerCase()
+                    .includes(term);
+            return matchesCat && matchesTerm;
+        });
+    }, [templates, libraryCategory, librarySearch]);
+
     const seed = estimate ?? source;
     const editable = estimate === null || can.update;
     const form = useForm({
@@ -177,6 +234,55 @@ export default function EstimateEditor({
                 : `/projects/${project.id}/estimates/create`,
         },
     ];
+
+    function selectTemplate(template: WorkItemTemplate) {
+        const mappedResources: Resource[] = template.resources.map((res) => ({
+            resource_type: res.resource_type,
+            inventory_item_id: res.inventory_item_id ?? '',
+            unit_of_measure_id: res.unit_of_measure_id ?? '',
+            name: res.name,
+            quantity_per_work_unit: String(res.quantity_per_work_unit),
+            estimated_unit_cost: res.estimated_unit_cost
+                ? String(res.estimated_unit_cost)
+                : '',
+            notes: res.notes ?? '',
+        }));
+
+        if (targetLineIndex !== null && form.data.lines[targetLineIndex]) {
+            updateLine(targetLineIndex, {
+                name: template.name,
+                code: template.code ?? '',
+                unit_of_measure_id: template.unit_of_measure_id,
+                selling_rate: template.default_selling_rate
+                    ? String(template.default_selling_rate)
+                    : form.data.lines[targetLineIndex].selling_rate,
+                estimated_unit_cost: template.default_unit_cost
+                    ? String(template.default_unit_cost)
+                    : form.data.lines[targetLineIndex].estimated_unit_cost,
+                resources: mappedResources,
+            });
+        } else {
+            form.setData('lines', [
+                ...form.data.lines,
+                {
+                    ...blankLine(),
+                    name: template.name,
+                    code: template.code ?? '',
+                    unit_of_measure_id: template.unit_of_measure_id,
+                    selling_rate: template.default_selling_rate
+                        ? String(template.default_selling_rate)
+                        : '',
+                    estimated_unit_cost: template.default_unit_cost
+                        ? String(template.default_unit_cost)
+                        : '',
+                    resources: mappedResources,
+                },
+            ]);
+        }
+
+        setLibraryModalOpen(false);
+        setTargetLineIndex(null);
+    }
 
     function updateLine(index: number, values: Partial<EstimateLine>) {
         form.setData(
@@ -380,19 +486,33 @@ export default function EstimateEditor({
                         <div className="flex items-center justify-between gap-3 border-t pt-5">
                             <h2 className="font-semibold">Work items</h2>
                             {editable && (
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() =>
-                                        form.setData('lines', [
-                                            ...form.data.lines,
-                                            blankLine(),
-                                        ])
-                                    }
-                                >
-                                    <Plus />
-                                    Add work item
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="default"
+                                        className="gap-2"
+                                        onClick={() => {
+                                            setTargetLineIndex(null);
+                                            setLibraryModalOpen(true);
+                                        }}
+                                    >
+                                        <Layers className="size-4" />
+                                        Pick from Library
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() =>
+                                            form.setData('lines', [
+                                                ...form.data.lines,
+                                                blankLine(),
+                                            ])
+                                        }
+                                    >
+                                        <Plus />
+                                        Add custom item
+                                    </Button>
+                                </div>
                             )}
                         </div>
 
@@ -403,9 +523,30 @@ export default function EstimateEditor({
                                     className="grid gap-4 border-b pb-6 last:border-0 last:pb-0"
                                 >
                                     <div className="flex items-center justify-between gap-3">
-                                        <h3 className="font-medium">
-                                            Work item {lineIndex + 1}
-                                        </h3>
+                                        <div className="flex items-center gap-3">
+                                            <h3 className="font-medium">
+                                                Work item {lineIndex + 1}
+                                            </h3>
+                                            {editable && (
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                                    onClick={() => {
+                                                        setTargetLineIndex(
+                                                            lineIndex,
+                                                        );
+                                                        setLibraryModalOpen(
+                                                            true,
+                                                        );
+                                                    }}
+                                                >
+                                                    <Layers className="size-3.5" />
+                                                    Load template
+                                                </Button>
+                                            )}
+                                        </div>
                                         {editable &&
                                             form.data.lines.length > 1 && (
                                                 <Button
@@ -541,6 +682,57 @@ export default function EstimateEditor({
                                                         })
                                                     }
                                                 />
+                                                {(() => {
+                                                    const resCost =
+                                                        line.resources.reduce(
+                                                            (sum, r) =>
+                                                                sum +
+                                                                (Number(
+                                                                    r.quantity_per_work_unit,
+                                                                ) || 0) *
+                                                                    (Number(
+                                                                        r.estimated_unit_cost,
+                                                                    ) || 0),
+                                                            0,
+                                                        );
+                                                    if (resCost <= 0)
+                                                        return null;
+                                                    return (
+                                                        <div className="mt-0.5 flex items-center justify-between text-[11px] text-muted-foreground">
+                                                            <span>
+                                                                Norms:{' '}
+                                                                {formatCurrencyAmount(
+                                                                    form.data
+                                                                        .currency_code,
+                                                                    resCost,
+                                                                )}
+                                                            </span>
+                                                            {editable &&
+                                                                line.estimated_unit_cost !==
+                                                                    String(
+                                                                        resCost,
+                                                                    ) && (
+                                                                    <button
+                                                                        type="button"
+                                                                        className="font-medium text-primary hover:underline"
+                                                                        onClick={() =>
+                                                                            updateLine(
+                                                                                lineIndex,
+                                                                                {
+                                                                                    estimated_unit_cost:
+                                                                                        String(
+                                                                                            resCost,
+                                                                                        ),
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        Apply
+                                                                    </button>
+                                                                )}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </Field>
                                         )}
                                     </div>
@@ -828,6 +1020,145 @@ export default function EstimateEditor({
                     </CardContent>
                 </Card>
             </form>
+
+            {/* Library Picker Modal */}
+            <Dialog open={libraryModalOpen} onOpenChange={setLibraryModalOpen}>
+                <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Layers className="size-5 text-primary" />
+                            <span>
+                                {targetLineIndex !== null
+                                    ? `Load Template for Work Item ${targetLineIndex + 1}`
+                                    : 'Pick Work Item from Library'}
+                            </span>
+                        </DialogTitle>
+                        <DialogDescription>
+                            Select a standard work item to copy its
+                            specifications, unit of measure, rates, and resource
+                            consumption norms.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {/* Filter bar */}
+                    <div className="flex flex-col gap-2.5 pt-2 sm:flex-row sm:items-center">
+                        <div className="relative flex-1">
+                            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                value={librarySearch}
+                                onChange={(e) =>
+                                    setLibrarySearch(e.target.value)
+                                }
+                                placeholder="Search work items or codes..."
+                                className="h-9 pl-9 text-xs"
+                            />
+                        </div>
+                        <NativeSelect
+                            value={libraryCategory}
+                            onChange={(e) => setLibraryCategory(e.target.value)}
+                            className="h-9 w-48 text-xs"
+                        >
+                            <NativeSelectOption value="">
+                                All categories
+                            </NativeSelectOption>
+                            {templateCategories.map((c) => (
+                                <NativeSelectOption key={c} value={c}>
+                                    {c}
+                                </NativeSelectOption>
+                            ))}
+                        </NativeSelect>
+                    </div>
+
+                    {/* Template list */}
+                    <div className="mt-3 max-h-[50vh] flex-1 divide-y overflow-y-auto rounded-md border">
+                        {filteredTemplates.length === 0 ? (
+                            <div className="py-12 text-center text-sm text-muted-foreground">
+                                No templates found matching your search.
+                            </div>
+                        ) : (
+                            filteredTemplates.map((template) => (
+                                <div
+                                    key={template.id}
+                                    className="flex flex-col justify-between gap-3 p-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center"
+                                >
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            {template.code && (
+                                                <Badge
+                                                    variant="outline"
+                                                    className="font-mono text-[10px]"
+                                                >
+                                                    {template.code}
+                                                </Badge>
+                                            )}
+                                            <Badge
+                                                variant="secondary"
+                                                className="text-[10px]"
+                                            >
+                                                {template.category}
+                                            </Badge>
+                                            <span className="truncate text-sm font-semibold">
+                                                {template.name}
+                                            </span>
+                                            <span className="font-mono text-xs text-muted-foreground">
+                                                [
+                                                {template.unit_symbol ||
+                                                    template.unit_name}
+                                                ]
+                                            </span>
+                                        </div>
+                                        <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                            {template.default_unit_cost && (
+                                                <span>
+                                                    Cost:{' '}
+                                                    <span className="font-mono font-medium text-foreground">
+                                                        {formatCurrencyAmount(
+                                                            form.data
+                                                                .currency_code,
+                                                            Number(
+                                                                template.default_unit_cost,
+                                                            ),
+                                                        )}
+                                                    </span>
+                                                </span>
+                                            )}
+                                            {template.default_selling_rate && (
+                                                <span>
+                                                    Rate:{' '}
+                                                    <span className="font-mono font-medium text-primary">
+                                                        {formatCurrencyAmount(
+                                                            form.data
+                                                                .currency_code,
+                                                            Number(
+                                                                template.default_selling_rate,
+                                                            ),
+                                                        )}
+                                                    </span>
+                                                </span>
+                                            )}
+                                            <span>
+                                                {template.resources.length}{' '}
+                                                {template.resources.length === 1
+                                                    ? 'norm'
+                                                    : 'norms'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        className="gap-1 self-end text-xs sm:self-auto"
+                                        onClick={() => selectTemplate(template)}
+                                    >
+                                        <Check className="size-3.5" />
+                                        Select
+                                    </Button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

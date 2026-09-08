@@ -34,7 +34,7 @@ final class StoreDocumentRequest extends FormRequest
     {
         return [
             ...$this->metadataRules(),
-            'file' => ['nullable', 'required_without:external_url', 'file', 'max:20480', 'mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png,webp,txt'],
+            'file' => ['nullable', 'file', 'max:20480', 'mimes:pdf,doc,docx,xls,xlsx,csv,jpg,jpeg,png,webp,txt'],
             'version_notes' => ['nullable', 'string', 'max:2000'],
         ];
     }
@@ -77,7 +77,6 @@ final class StoreDocumentRequest extends FormRequest
             'reference' => ['nullable', 'string', 'max:255'],
             'external_url' => [
                 'nullable',
-                'required_without:file',
                 'string',
                 'max:2048',
                 'url:https',

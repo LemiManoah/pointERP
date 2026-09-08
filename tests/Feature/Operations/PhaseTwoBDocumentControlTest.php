@@ -97,6 +97,30 @@ it('prevents unauthorized direct downloads of confidential documents', function 
         ->assertForbidden();
 });
 
+it('stores metadata-only DSR documents and returns to the report', function (): void {
+    $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
+    $documentType = DocumentType::query()->where('requires_expiry_date', false)->firstOrFail();
+    $report = DailySiteReport::query()->where('reference', 'DSR-BUSUNJU-20241207')->firstOrFail();
+
+    $this->actingAs($director)
+        ->post(route('documents.store'), [
+            'branch_id' => $report->branch_id,
+            'document_type_id' => $documentType->id,
+            'title' => 'Metadata-only DSR evidence',
+            'confidentiality' => Document::CONFIDENTIALITY_NORMAL,
+            'links' => [
+                ['type' => 'daily_site_report', 'id' => $report->id],
+            ],
+        ])
+        ->assertRedirect(route('daily-site-reports.show', $report));
+
+    $document = Document::query()->where('title', 'Metadata-only DSR evidence')->firstOrFail();
+
+    expect($document->external_url)->toBeNull()
+        ->and($document->current_version_id)->toBeNull()
+        ->and($document->links()->where('linkable_type', DailySiteReport::class)->where('linkable_id', $report->id)->exists())->toBeTrue();
+});
+
 it('supersedes older active drawing records with the same document number', function (): void {
     $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
     $drawingType = DocumentType::query()->where('code', 'DRAWING')->firstOrFail();

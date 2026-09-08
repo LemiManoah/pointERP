@@ -7,6 +7,7 @@ import {
     FolderKanban,
     Gauge,
     HardHat,
+    Layers,
     Package,
     PackagePlus,
     ReceiptText,
@@ -109,6 +110,13 @@ const groups: SidebarGroupItem[] = [
                 icon: FolderKanban,
                 status: 'ready',
                 permission: 'projects.view',
+            },
+            {
+                title: 'Work items library',
+                href: '/work-item-templates',
+                icon: Layers,
+                status: 'ready',
+                permission: 'work-item-templates.view',
             },
             {
                 title: 'Companies',

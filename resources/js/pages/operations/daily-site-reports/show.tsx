@@ -32,14 +32,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { formatNumber } from '@/lib/utils';
@@ -461,7 +453,12 @@ export default function DailySiteReportShow({
                         )}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        {can.submit && <SubmitReportButton report={report} />}
+                        {can.submit && (
+                            <SubmitReportButton
+                                report={report}
+                                disabled={form.isDirty || form.processing}
+                            />
+                        )}
                         {can.return && <ReturnReportDialog report={report} />}
                         {can.correct && <CorrectionDialog report={report} />}
                         {can.approve && (
@@ -486,7 +483,7 @@ export default function DailySiteReportShow({
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-4">
-                    <Metric label="Output" value={report.output_value} />
+                    <Metric label="Output value" value={report.output_value} />
                     {canViewCosts && (
                         <>
                             <Metric
@@ -525,86 +522,158 @@ export default function DailySiteReportShow({
                             this report.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="grid gap-3">
-                        {[...corrections, ...reviews].length === 0 && (
+                    <CardContent>
+                        {[...corrections, ...reviews].length === 0 ? (
                             <div className="text-sm text-muted-foreground">
                                 No workflow events recorded yet.
                             </div>
-                        )}
-                        {reviews.map((review) => (
-                            <div
-                                key={review.id}
-                                className="rounded-md border px-3 py-2 text-sm"
-                            >
-                                <div className="flex flex-wrap justify-between gap-2">
-                                    <span className="font-medium">
-                                        {review.action}
-                                    </span>
-                                    <span className="text-muted-foreground">
-                                        {review.created_at}
-                                    </span>
-                                </div>
-                                <div className="mt-1 text-muted-foreground">
-                                    {review.reviewed_by ?? 'Unknown user'}
-                                </div>
-                                {review.remarks && (
-                                    <div className="mt-2">{review.remarks}</div>
-                                )}
-                            </div>
-                        ))}
-                        {corrections.map((correction) => (
-                            <div
-                                key={correction.id}
-                                className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-950"
-                            >
-                                <div className="flex flex-wrap justify-between gap-2">
-                                    <span className="font-medium">
-                                        Correction {correction.status}
-                                    </span>
-                                    <span>{correction.created_at}</span>
-                                </div>
-                                <div className="mt-1">
-                                    {correction.requested_by ?? 'Unknown user'}
-                                </div>
-                                <div className="mt-2">{correction.reason}</div>
-                                {correction.new_values && (
-                                    <div className="mt-2 grid gap-1 rounded border border-blue-200 bg-white/60 p-2">
-                                        {Object.entries(
-                                            correction.new_values,
-                                        ).map(([field, value]) =>
-                                            field === 'equipment_adjustments' &&
-                                            Array.isArray(value) ? (
-                                                <CorrectionAdjustmentSummary
-                                                    key={field}
-                                                    adjustments={value}
-                                                />
-                                            ) : (
-                                                <div
-                                                    key={field}
-                                                    className="flex justify-between gap-4"
-                                                >
-                                                    <span className="text-blue-700">
-                                                        {field.replaceAll(
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b text-left text-muted-foreground">
+                                            <th className="py-3 pr-4 font-medium">
+                                                Event
+                                            </th>
+                                            <th className="py-3 pr-4 font-medium">
+                                                Status
+                                            </th>
+                                            <th className="py-3 pr-4 font-medium">
+                                                Actor
+                                            </th>
+                                            <th className="py-3 pr-4 font-medium">
+                                                Details
+                                            </th>
+                                            <th className="py-3 pr-4 font-medium">
+                                                Date
+                                            </th>
+                                            <th className="py-3 text-right font-medium">
+                                                Actions
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {reviews.map((review) => (
+                                            <tr
+                                                key={review.id}
+                                                className="border-b last:border-0"
+                                            >
+                                                <td className="py-3 pr-4 font-medium capitalize">
+                                                    {review.action.replaceAll(
+                                                        '_',
+                                                        ' ',
+                                                    )}
+                                                </td>
+                                                <td className="py-3 pr-4">
+                                                    <Badge variant="outline">
+                                                        Recorded
+                                                    </Badge>
+                                                </td>
+                                                <td className="py-3 pr-4">
+                                                    {review.reviewed_by ??
+                                                        'Unknown user'}
+                                                </td>
+                                                <td className="min-w-64 py-3 pr-4 whitespace-normal">
+                                                    {review.remarks ?? '—'}
+                                                </td>
+                                                <td className="py-3 pr-4 whitespace-nowrap text-muted-foreground">
+                                                    {review.created_at}
+                                                </td>
+                                                <td className="py-3 text-right" />
+                                            </tr>
+                                        ))}
+                                        {corrections.map((correction) => (
+                                            <tr
+                                                key={correction.id}
+                                                className="border-b last:border-0"
+                                            >
+                                                <td className="py-3 pr-4 font-medium">
+                                                    Correction
+                                                </td>
+                                                <td className="py-3 pr-4">
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="capitalize"
+                                                    >
+                                                        {correction.status.replaceAll(
                                                             '_',
                                                             ' ',
                                                         )}
-                                                    </span>
-                                                    <span className="text-right font-medium">
-                                                        {displayUnknown(value)}
-                                                    </span>
-                                                </div>
-                                            ),
-                                        )}
-                                    </div>
-                                )}
-                                {correction.can_manage && (
-                                    <CorrectionActions
-                                        reportId={report.id}
-                                        correction={correction}
-                                    />
-                                )}
+                                                    </Badge>
+                                                </td>
+                                                <td className="py-3 pr-4">
+                                                    {correction.requested_by ??
+                                                        'Unknown user'}
+                                                </td>
+                                                <td className="min-w-80 py-3 pr-4 whitespace-normal">
+                                                    <div className="font-medium">
+                                                        {correction.reason}
+                                                    </div>
+                                                    {correction.new_values && (
+                                                        <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
+                                                            {Object.entries(
+                                                                correction.new_values,
+                                                            ).map(
+                                                                ([
+                                                                    field,
+                                                                    value,
+                                                                ]) =>
+                                                                    field ===
+                                                                        'equipment_adjustments' &&
+                                                                    Array.isArray(
+                                                                        value,
+                                                                    ) ? (
+                                                                        <CorrectionAdjustmentSummary
+                                                                            key={
+                                                                                field
+                                                                            }
+                                                                            adjustments={
+                                                                                value
+                                                                            }
+                                                                        />
+                                                                    ) : (
+                                                                        <div
+                                                                            key={
+                                                                                field
+                                                                            }
+                                                                            className="flex justify-between gap-4"
+                                                                        >
+                                                                            <span className="capitalize">
+                                                                                {field.replaceAll(
+                                                                                    '_',
+                                                                                    ' ',
+                                                                                )}
+                                                                            </span>
+                                                                            <span className="text-right font-medium text-foreground">
+                                                                                {displayUnknown(
+                                                                                    value,
+                                                                                )}
+                                                                            </span>
+                                                                        </div>
+                                                                    ),
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="py-3 pr-4 whitespace-nowrap text-muted-foreground">
+                                                    {correction.created_at}
+                                                </td>
+                                                <td className="py-3 text-right">
+                                                    {correction.can_manage && (
+                                                        <CorrectionActions
+                                                            reportId={report.id}
+                                                            correction={
+                                                                correction
+                                                            }
+                                                        />
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
-                        ))}
+                        )}
                     </CardContent>
                 </Card>
 
@@ -948,7 +1017,7 @@ function CorrectionActions({
     }
 
     return (
-        <div className="mt-3 flex flex-wrap justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
             <Button
                 type="button"
                 size="sm"
@@ -1023,7 +1092,13 @@ function CorrectionActions({
     );
 }
 
-function SubmitReportButton({ report }: { report: Report }) {
+function SubmitReportButton({
+    report,
+    disabled,
+}: {
+    report: Report;
+    disabled: boolean;
+}) {
     const [open, setOpen] = useState(false);
     const form = useForm<{ evidence_override_reason: string }>({
         evidence_override_reason: '',
@@ -1040,7 +1115,14 @@ function SubmitReportButton({ report }: { report: Report }) {
 
     if (!needsOverride) {
         return (
-            <Button variant="outline" onClick={submit}>
+            <Button
+                variant="outline"
+                onClick={submit}
+                disabled={disabled}
+                title={
+                    disabled ? 'Save the draft before submitting.' : undefined
+                }
+            >
                 <Send />
                 Submit
             </Button>
@@ -1050,7 +1132,15 @@ function SubmitReportButton({ report }: { report: Report }) {
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline">
+                <Button
+                    variant="outline"
+                    disabled={disabled}
+                    title={
+                        disabled
+                            ? 'Save the draft before submitting.'
+                            : undefined
+                    }
+                >
                     <Send />
                     Submit
                 </Button>
@@ -1406,14 +1496,14 @@ function CorrectionAdjustmentSummary({
     adjustments: unknown[];
 }) {
     return (
-        <div className="grid gap-2 border-t border-blue-200 pt-2">
-            <span className="font-medium text-blue-700">
+        <div className="grid gap-1 border-t pt-2">
+            <span className="font-medium text-foreground">
                 Fleet ledger adjustments
             </span>
             {adjustments.filter(isRecord).map((adjustment, index) => (
                 <div
                     key={`${displayUnknown(adjustment.line_id)}-${index}`}
-                    className="grid gap-1 rounded border border-blue-100 bg-white px-2 py-1"
+                    className="grid gap-1"
                 >
                     <div className="font-medium">
                         {displayUnknown(
@@ -1422,7 +1512,7 @@ function CorrectionAdjustmentSummary({
                                 'Equipment',
                         )}
                     </div>
-                    <div className="flex flex-wrap gap-x-4 text-blue-800">
+                    <div className="flex flex-wrap gap-x-4">
                         <span>
                             Working: {signed(adjustment.working_hours_delta)} h
                         </span>
@@ -2226,22 +2316,29 @@ function OtherCostsCard({
                         No other costs have been recorded.
                     </p>
                 ) : (
-                    <div className="overflow-x-auto rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Expense</TableHead>
-                                    <TableHead>Payee</TableHead>
-                                    <TableHead className="text-right">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b text-left text-muted-foreground">
+                                    <th className="py-3 pr-4 font-medium">
+                                        Expense
+                                    </th>
+                                    <th className="py-3 pr-4 font-medium">
+                                        Payee
+                                    </th>
+                                    <th className="py-3 pr-4 text-right font-medium">
                                         Amount
-                                    </TableHead>
-                                    <TableHead>Status</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
+                                    </th>
+                                    <th className="py-3 font-medium">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
                                 {expenses.map((expense) => (
-                                    <TableRow key={expense.id}>
-                                        <TableCell>
+                                    <tr
+                                        key={expense.id}
+                                        className="border-b last:border-0"
+                                    >
+                                        <td className="py-3 pr-4">
                                             <a
                                                 href={`/expenses/${expense.id}`}
                                                 className="font-medium text-primary hover:underline"
@@ -2251,24 +2348,26 @@ function OtherCostsCard({
                                             <div className="text-xs text-muted-foreground">
                                                 {expense.expense_number}
                                             </div>
-                                        </TableCell>
-                                        <TableCell>{expense.payee}</TableCell>
-                                        <TableCell className="text-right tabular-nums">
+                                        </td>
+                                        <td className="py-3 pr-4">
+                                            {expense.payee}
+                                        </td>
+                                        <td className="py-3 pr-4 text-right tabular-nums">
                                             {expense.currency_code}{' '}
                                             {formatNumber(expense.amount)}
-                                        </TableCell>
-                                        <TableCell>
+                                        </td>
+                                        <td className="py-3">
                                             <Badge variant="outline">
                                                 {expense.status.replaceAll(
                                                     '_',
                                                     ' ',
                                                 )}
                                             </Badge>
-                                        </TableCell>
-                                    </TableRow>
+                                        </td>
+                                    </tr>
                                 ))}
-                            </TableBody>
-                        </Table>
+                            </tbody>
+                        </table>
                     </div>
                 )}
             </CardContent>
@@ -2488,7 +2587,15 @@ function LineCard({
                         )}
                         {fields.map((field) => (
                             <div key={field} className="grid gap-2">
-                                <Label>{lineFieldLabel(field, title)}</Label>
+                                <Label
+                                    required={lineFieldRequired(
+                                        field,
+                                        title,
+                                        line,
+                                    )}
+                                >
+                                    {lineFieldLabel(field, title)}
+                                </Label>
                                 {field === 'inventory_item_id' ? (
                                     <SearchableSelect
                                         value={String(line[field] ?? '')}
@@ -2735,6 +2842,22 @@ function lineFieldLabel(field: string, section: string): string {
     }
 
     return field.replaceAll('_', ' ');
+}
+
+function lineFieldRequired(
+    field: string,
+    section: string,
+    line: Line,
+): boolean {
+    if (field === 'description') {
+        return section === 'Work quantities' || section === 'Delay details';
+    }
+
+    if (field === 'subcontractor_id') {
+        return line.labour_source === 'subcontractor';
+    }
+
+    return ['trade_or_role', 'equipment_name', 'material_name'].includes(field);
 }
 
 function cleanLines(lines: Line[]): Line[] {
