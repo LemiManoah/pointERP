@@ -53,7 +53,7 @@ type Metrics = {
     requisitions_awaiting_issue: number;
     overdue_purchase_orders: number;
     rejected_receipt_lines: number;
-    unreconciled_dsr_lines: number;
+    material_usage_attention: number;
 };
 type StockRow = {
     id: string;
@@ -108,10 +108,12 @@ type DsrRow = {
     site: string;
     item: string;
     unit: string | null;
+    source: string;
+    store: string | null;
+    batch: string | null;
     status: string;
+    status_label: string;
     reported_quantity: string;
-    allocated_quantity: string;
-    outstanding_quantity: string;
 };
 
 type Props = {
@@ -129,7 +131,7 @@ type Props = {
     unfulfilledRequisitions: RequisitionRow[];
     overduePurchaseOrders: PurchaseOrderRow[];
     rejectedReceipts: ReceiptRow[];
-    unreconciledMaterials: DsrRow[];
+    materialUsageAttention: DsrRow[];
     canExport: boolean;
     canExportDsr: boolean;
 };
@@ -188,7 +190,7 @@ export default function InventoryDashboard(props: Props) {
                         </h1>
                         <p className="mt-1 text-sm text-muted-foreground">
                             Stock warnings, fulfilment work, supplier delivery
-                            exceptions and approved DSR material reconciliation.
+                            exceptions and approved DSR material usage.
                         </p>
                     </div>
                     {(props.canExport || props.canExportDsr) && (
@@ -375,9 +377,9 @@ export default function InventoryDashboard(props: Props) {
                     />
                     <Metric
                         icon={AlertTriangle}
-                        label="Unreconciled DSR materials"
-                        value={props.metrics.unreconciled_dsr_lines}
-                        warning={props.metrics.unreconciled_dsr_lines > 0}
+                        label="Material usage needing attention"
+                        value={props.metrics.material_usage_attention}
+                        warning={props.metrics.material_usage_attention > 0}
                     />
                 </div>
 
@@ -563,23 +565,22 @@ export default function InventoryDashboard(props: Props) {
                 </div>
 
                 <Section
-                    title="DSR material reconciliation"
+                    title="Material usage status"
                     href="/daily-site-reports"
-                    description="Approved site-reported material still awaiting complete stock evidence or external classification."
+                    description="Approved material usage that needs inventory attention."
                 >
                     <Table
                         headers={[
                             'Report',
                             'Project / site',
                             'Material',
-                            'Reported',
-                            'Allocated',
-                            'Outstanding',
+                            'Quantity',
+                            'Source / store',
                             'Status',
                         ]}
-                        empty={props.unreconciledMaterials.length === 0}
+                        empty={props.materialUsageAttention.length === 0}
                     >
-                        {props.unreconciledMaterials.map((row) => (
+                        {props.materialUsageAttention.map((row) => (
                             <tr key={row.id} className="border-b last:border-0">
                                 <Td>
                                     <Link
@@ -599,14 +600,19 @@ export default function InventoryDashboard(props: Props) {
                                     value={row.reported_quantity}
                                     unit={row.unit ?? ''}
                                 />
-                                <NumberCell
-                                    value={row.allocated_quantity}
-                                    unit={row.unit ?? ''}
-                                />
-                                <NumberCell
-                                    value={row.outstanding_quantity}
-                                    unit={row.unit ?? ''}
-                                />
+                                <Td>
+                                    {row.source}
+                                    <Sub>
+                                        {[
+                                            row.store,
+                                            row.batch
+                                                ? `Batch ${row.batch}`
+                                                : null,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' / ') || 'Outside inventory'}
+                                    </Sub>
+                                </Td>
                                 <Td>
                                     <Badge
                                         variant={
@@ -615,7 +621,7 @@ export default function InventoryDashboard(props: Props) {
                                                 : 'outline'
                                         }
                                     >
-                                        {row.status.replaceAll('_', ' ')}
+                                        {row.status_label}
                                     </Badge>
                                 </Td>
                             </tr>
@@ -647,9 +653,7 @@ function ExportMenu({
                   ['supplier-performance', 'Supplier performance'],
               ]
             : []),
-        ...(canExportDsr
-            ? [['dsr-materials', 'DSR material reconciliation']]
-            : []),
+        ...(canExportDsr ? [['dsr-materials', 'DSR material usage']] : []),
     ];
     const query = new URLSearchParams(compactFilters(filters)).toString();
     return (

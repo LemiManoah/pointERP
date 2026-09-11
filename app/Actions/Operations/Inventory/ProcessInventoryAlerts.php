@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Operations\Inventory;
 
-use App\Enums\DsrMaterialReconciliationStatus;
 use App\Enums\PurchaseOrderStatus;
-use App\Models\DailySiteReportMaterialLine;
 use App\Models\InventoryStoreItem;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
@@ -21,7 +19,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Collection;
 
-/** @phpstan-type AlertResult array{low_stock: int, recovered: int, overdue_orders: int, unreconciled_dsr: int, notifications: int} */
+/** @phpstan-type AlertResult array{low_stock: int, recovered: int, overdue_orders: int, material_usage_attention: int, notifications: int} */
 final readonly class ProcessInventoryAlerts
 {
     public function __construct(
@@ -33,7 +31,7 @@ final readonly class ProcessInventoryAlerts
     /** @return AlertResult */
     public function handle(CarbonImmutable $asOf, ?string $tenantId = null): array
     {
-        $result = ['low_stock' => 0, 'recovered' => 0, 'overdue_orders' => 0, 'unreconciled_dsr' => 0, 'notifications' => 0];
+        $result = ['low_stock' => 0, 'recovered' => 0, 'overdue_orders' => 0, 'material_usage_attention' => 0, 'notifications' => 0];
         $tenants = Tenant::query()->active()->when($tenantId, fn (Builder $query, string $id): Builder => $query->whereKey($id))->get();
 
         foreach ($tenants as $tenant) {
@@ -41,7 +39,6 @@ final readonly class ProcessInventoryAlerts
             $users = User::query()->where('tenant_id', $tenant->id)->where('is_active', true)->get();
             $this->processStock($users, $asOf, $result);
             $this->processPurchaseOrders($users, $asOf, $result);
-            $this->processDsrMaterials($users, $asOf, $result);
         }
 
         return $result;
@@ -119,38 +116,6 @@ final readonly class ProcessInventoryAlerts
                 'action_url' => '/inventory/purchase-orders/'.$order->id,
             ]);
             $result['overdue_orders']++;
-            $result['notifications'] += $recipients->count();
-        }
-    }
-
-    /**
-     * @param  Collection<int, User>  $users
-     * @param  AlertResult  $result
-     */
-    private function processDsrMaterials(Collection $users, CarbonImmutable $asOf, array &$result): void
-    {
-        $lines = DailySiteReportMaterialLine::query()
-            ->whereIn('inventory_reconciliation_status', [DsrMaterialReconciliationStatus::Pending, DsrMaterialReconciliationStatus::Partial, DsrMaterialReconciliationStatus::Exception])
-            ->whereHas('report', fn (Builder $query): Builder => $query->where('status', 'approved')->whereDate('report_date', '<=', $asOf->subDays(2)->toDateString()))
-            ->with('report')->get();
-
-        foreach ($lines as $line) {
-            $state = $line->inventory_reconciliation_status->value;
-            $key = 'inventory-dsr-material:'.$line->id;
-            $recipients = $this->recipients($users, 'inventory.dsr-reconciliation.view', $line->branch_id);
-            if ($this->recentlySent($recipients, $key, $state, $asOf, 7)) {
-                continue;
-            }
-
-            $this->notifications->send($recipients, [
-                'tenant_id' => $line->tenant_id, 'branch_id' => $line->branch_id, 'daily_site_report_id' => $line->daily_site_report_id,
-                'daily_site_report_material_line_id' => $line->id, 'alert_key' => $key, 'alert_state' => $state,
-                'category' => 'inventory_dsr_reconciliation', 'severity' => $state === DsrMaterialReconciliationStatus::Exception->value ? 'critical' : 'warning',
-                'title' => 'DSR material needs inventory reconciliation',
-                'message' => sprintf('%s in %s remains %s.', $line->material_name, $line->report->reference, str_replace('_', ' ', $state)),
-                'action_url' => '/daily-site-reports/'.$line->daily_site_report_id,
-            ]);
-            $result['unreconciled_dsr']++;
             $result['notifications'] += $recipients->count();
         }
     }

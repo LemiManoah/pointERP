@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Actions\Operations\DailySiteReports;
 
+use App\Enums\DsrMaterialSource;
+use App\Enums\InventoryTrackingType;
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportReview;
 use App\Models\DocumentLink;
@@ -29,7 +31,7 @@ final readonly class SubmitDailySiteReport
     public function handle(DailySiteReport $report, User $actor, ?string $evidenceOverrideReason = null): DailySiteReport
     {
         return DB::transaction(function () use ($actor, $evidenceOverrideReason, $report): DailySiteReport {
-            $report->loadMissing(['workLines', 'site.project']);
+            $report->loadMissing(['workLines', 'materialLines.item', 'materialLines.store', 'site.project']);
             $this->validateCompleteness($report, $evidenceOverrideReason);
 
             $oldValues = $report->only(['status', 'submitted_by', 'submitted_at', 'return_reason']);
@@ -73,6 +75,32 @@ final readonly class SubmitDailySiteReport
 
     private function validateCompleteness(DailySiteReport $report, ?string $evidenceOverrideReason): void
     {
+        foreach ($report->materialLines as $line) {
+            if ((float) ($line->quantity ?? 0) <= 0) {
+                throw ValidationException::withMessages(['material_lines' => $line->material_name.' needs a quantity greater than zero.']);
+            }
+
+            if ($line->material_source === DsrMaterialSource::External) {
+                if (blank($line->external_material_reason)) {
+                    throw ValidationException::withMessages(['material_lines' => $line->material_name.' needs a reason for being outside inventory.']);
+                }
+
+                continue;
+            }
+
+            if ($line->inventory_item_id === null || $line->inventory_store_id === null || $line->unit_of_measure_id === null) {
+                throw ValidationException::withMessages(['material_lines' => $line->material_name.' needs an inventory item, site store and unit.']);
+            }
+
+            if ($line->store?->site_id !== $report->site_id) {
+                throw ValidationException::withMessages(['material_lines' => $line->material_name.' must use this report site store.']);
+            }
+
+            if ($line->item?->tracking_type === InventoryTrackingType::Batch && $line->inventory_batch_id === null) {
+                throw ValidationException::withMessages(['material_lines' => $line->material_name.' needs a batch.']);
+            }
+        }
+
         if (blank($report->work_summary) && $report->workLines->isEmpty()) {
             throw ValidationException::withMessages([
                 'work_summary' => 'Add a work summary or at least one work quantity line before submitting.',

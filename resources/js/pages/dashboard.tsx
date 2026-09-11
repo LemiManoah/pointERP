@@ -1,12 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import {
     AlertTriangle,
-    ClipboardCheck,
-    FileText,
-    FolderKanban,
-    HardHat,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import {
     Area,
     AreaChart,
@@ -229,28 +224,24 @@ export default function Dashboard({
                     <MetricCard
                         title="Active projects"
                         value={metrics.projects}
-                        icon={FolderKanban}
                         description={`${formatNumber(metrics.sites)} active sites`}
                         href="/projects"
                     />
                     <MetricCard
                         title="DSRs awaiting approval"
                         value={dailyReports.pending}
-                        icon={ClipboardCheck}
                         description={`${formatNumber(dailyReports.approved)} approved, ${formatNumber(dailyReports.missing)} missing`}
                         href="/daily-site-reports"
                     />
                     <MetricCard
                         title="Equipment available"
                         value={equipment.available}
-                        icon={HardHat}
                         description={`${formatNumber(equipment.underMaintenance)} under maintenance of ${formatNumber(equipment.total)}`}
                         href="/equipment"
                     />
                     <MetricCard
                         title="Documents expiring"
                         value={metrics.expiringDocuments}
-                        icon={FileText}
                         description={`${formatNumber(metrics.documents)} documents on file`}
                         href="/documents"
                     />
@@ -669,13 +660,11 @@ export default function Dashboard({
 function MetricCard({
     title,
     value,
-    icon: Icon,
     description,
     href,
 }: {
     title: string;
     value: number | string;
-    icon: LucideIcon;
     description: string;
     href: string;
 }) {
@@ -688,9 +677,6 @@ function MetricCard({
                         <CardTitle className="mt-2 text-3xl">
                             {formatNumber(value)}
                         </CardTitle>
-                    </div>
-                    <div className="flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-                        <Icon className="size-5" />
                     </div>
                 </CardHeader>
                 <CardContent>

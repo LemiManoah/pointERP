@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Operations\DailySiteReports;
 
 use App\Enums\DsrLabourSource;
+use App\Enums\DsrMaterialSource;
 use App\Models\Customer;
 use App\Models\Equipment;
 use App\Models\ProjectActivity;
@@ -89,9 +90,11 @@ final class StoreDailySiteReportRequest extends FormRequest
             'equipment_lines.*.notes' => ['nullable', 'string'],
             'equipment_lines.*.evidence_note' => ['nullable', 'string', 'max:2000'],
             'material_lines' => ['array'],
+            'material_lines.*.material_source' => ['required_with:material_lines', Rule::enum(DsrMaterialSource::class)],
             'material_lines.*.material_name' => ['required_with:material_lines', 'string', 'max:255'],
             'material_lines.*.inventory_item_id' => ['nullable', 'uuid', Rule::exists('inventory_items', 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
             'material_lines.*.inventory_store_id' => ['nullable', 'uuid', Rule::exists('inventory_stores', 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
+            'material_lines.*.inventory_batch_id' => ['nullable', 'uuid', Rule::exists('inventory_batches', 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
             'material_lines.*.unit_of_measure_id' => ['nullable', 'uuid', Rule::exists('unit_of_measures', 'id')->where(fn (QueryBuilder $query): QueryBuilder => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenantId))->where('is_active', true)],
             'material_lines.*.material_type' => ['nullable', 'string', 'max:255'],
             'material_lines.*.quantity' => ['nullable', 'numeric', 'min:0'],
@@ -100,6 +103,7 @@ final class StoreDailySiteReportRequest extends FormRequest
             'material_lines.*.amount' => ['nullable', 'numeric'],
             'material_lines.*.currency_code' => ['nullable', 'string', 'size:3'],
             'material_lines.*.delivery_reference' => ['nullable', 'string', 'max:255'],
+            'material_lines.*.external_material_reason' => ['nullable', 'required_if:material_lines.*.material_source,'.DsrMaterialSource::External->value, 'string', 'max:2000'],
             'material_lines.*.notes' => ['nullable', 'string'],
             'delay_lines' => ['array'],
             'delay_lines.*.delay_type' => ['nullable', 'string', 'max:255'],

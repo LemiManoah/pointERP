@@ -218,7 +218,7 @@ Complete the quarry pilot handover plan, reconcile the implemented Phase 3A-3E w
 
 Reason: PointERP can already capture daily operational data, but it does not yet provide the complete notification, escalation and exception-management loop required by `PRJ-005` to `PRJ-008`, `COM-003` to `COM-005`, and `RPT-001` to `RPT-006`. Closing that loop makes the existing work usable for management and gives Phase 3 modules a reusable notification and dashboard foundation.
 
-`phase3A.md` defines the detailed equipment/fleet/fuel implementation plan. `phase3B.md` defines the next materials, procurement and inventory implementation contract. A broader `phase3.md` may still be added later to consolidate all Phase 3 domains, but Phase 3B can proceed from its approved contract.
+`phase3A.md` defines the detailed equipment/fleet/fuel implementation plan. `phase3B.md` defines the materials, procurement and inventory implementation contract. `PHASE3_COMPLETION_PLAN.md` consolidates the remaining regression closure, POS completion and operational-gap work required before Phase 4. A broader `phase3.md` may still be added later as a historical overview, but it is not required to execute the completion plan.
 
 ## 8. Phase Completion Standard
 

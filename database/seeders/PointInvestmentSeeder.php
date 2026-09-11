@@ -7,14 +7,13 @@ namespace Database\Seeders;
 use App\Actions\EnsureDefaultTenant;
 use App\Actions\Operations\DailySiteReports\PostApprovedDsrEquipmentLines;
 use App\Actions\Operations\Inventory\PostInventoryStockMovement;
-use App\Actions\Operations\Inventory\ReceiveInventoryStock;
-use App\Actions\Operations\Inventory\ReconcileDsrMaterialLine;
 use App\Actions\Operations\Inventory\ReconcileInventoryStockCount;
 use App\Actions\Operations\Inventory\ReviewInventoryReconciliation;
 use App\Enums\DocumentDiscipline;
 use App\Enums\DocumentRevision;
 use App\Enums\DsrLabourSource;
-use App\Enums\DsrMaterialReconciliationStatus;
+use App\Enums\DsrMaterialSource;
+use App\Enums\DsrMaterialUsageStatus;
 use App\Enums\EstimateResourceType;
 use App\Enums\ExpensePayeeType;
 use App\Enums\ExpensePaymentMethod;
@@ -23,13 +22,9 @@ use App\Enums\ExpenseStatus;
 use App\Enums\InventoryBatchStatus;
 use App\Enums\InventoryMaterialClass;
 use App\Enums\InventoryMovementType;
-use App\Enums\InventoryReservationStatus;
 use App\Enums\InventoryStoreType;
 use App\Enums\InventoryTrackingType;
-use App\Enums\MaterialRequisitionPriority;
-use App\Enums\MaterialRequisitionStatus;
 use App\Enums\ProjectEstimateStatus;
-use App\Enums\PurchaseOrderStatus;
 use App\Models\Branch;
 use App\Models\BranchCurrency;
 use App\Models\Contract;
@@ -67,22 +62,16 @@ use App\Models\ExpenseLine;
 use App\Models\ExpensePayment;
 use App\Models\InventoryBatch;
 use App\Models\InventoryCategory;
-use App\Models\InventoryGoodsReceipt;
 use App\Models\InventoryItem;
 use App\Models\InventoryItemPrice;
 use App\Models\InventoryPriceTier;
-use App\Models\InventoryReservation;
 use App\Models\InventoryStore;
 use App\Models\InventoryStoreItem;
 use App\Models\InventoryUnitConversion;
-use App\Models\MaterialRequisition;
-use App\Models\MaterialRequisitionLine;
 use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\ProjectEstimate;
 use App\Models\ProjectEstimateLine;
-use App\Models\PurchaseOrder;
-use App\Models\PurchaseOrderLine;
 use App\Models\ReportingCalendar;
 use App\Models\ReportingCalendarException;
 use App\Models\Role;
@@ -427,7 +416,30 @@ final class PointInvestmentSeeder extends Seeder
             ['tenant_id' => $tenantId, 'code' => 'KLA-MAIN-STORE'],
             ['branch_id' => $kampalaBranch->id, 'equipment_location_id' => $location?->id, 'name' => 'Ironpoint Main Store', 'type' => InventoryStoreType::Depot->value, 'address' => 'Ironpoint Kampala', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
         );
-        $guluStore = $kampalaStore;
+
+        foreach (Site::query()->where('tenant_id', $tenantId)->get() as $site) {
+            $siteStore = InventoryStore::query()->updateOrCreate(
+                ['tenant_id' => $tenantId, 'site_id' => $site->id, 'is_default_for_site' => true],
+                [
+                    'branch_id' => $site->branch_id,
+                    'project_id' => $site->project_id,
+                    'code' => Str::upper(Str::slug($site->reference, '-')).'-STORE',
+                    'name' => $site->name.' Store',
+                    'type' => InventoryStoreType::SiteStore,
+                    'address' => $site->location_name,
+                    'is_active' => true,
+                    'created_by' => $director->id,
+                    'updated_by' => $director->id,
+                ],
+            );
+
+            foreach ($inventoryItems as $item) {
+                InventoryStoreItem::query()->updateOrCreate(
+                    ['inventory_store_id' => $siteStore->id, 'inventory_item_id' => $item->id],
+                    ['tenant_id' => $tenantId, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+                );
+            }
+        }
 
         InventoryUnitConversion::query()->updateOrCreate(
             ['inventory_item_id' => $inventoryItems['CEM-42']->id, 'from_unit_id' => $units['KG']->id, 'to_unit_id' => $units['BAG']->id],
@@ -502,145 +514,23 @@ final class PointInvestmentSeeder extends Seeder
             ->first();
         if ($approvedRoadReport instanceof DailySiteReport) {
             DailySiteReportMaterialLine::query()->updateOrCreate(
-                [
-                    'daily_site_report_id' => $approvedRoadReport->id,
-                    'delivery_reference' => 'DSR-CEMENT-DEMO',
-                ],
+                ['daily_site_report_id' => $approvedRoadReport->id, 'delivery_reference' => 'DSR-EXTERNAL-DEMO'],
                 [
                     'tenant_id' => $tenantId,
                     'branch_id' => $guluBranch->id,
-                    'inventory_item_id' => $inventoryItems['CEM-42']->id,
-                    'inventory_store_id' => $guluStore->id,
-                    'unit_of_measure_id' => $units['BAG']->id,
-                    'conversion_multiplier' => '1.0000000000',
-                    'stock_unit_quantity' => '25.0000',
-                    'inventory_reconciliation_status' => DsrMaterialReconciliationStatus::Pending->value,
-                    'material_name' => $inventoryItems['CEM-42']->name,
+                    'material_source' => DsrMaterialSource::External,
+                    'material_usage_status' => DsrMaterialUsageStatus::External,
+                    'external_material_reason' => 'Supplied and controlled directly by the drainage subcontractor.',
+                    'posted_by' => $director->id,
+                    'posted_at' => now(),
+                    'material_name' => 'Subcontractor-supplied timber formwork',
                     'material_type' => 'used',
-                    'quantity' => '25.0000',
-                    'unit' => $units['BAG']->symbol,
+                    'quantity' => '12.0000',
+                    'unit' => 'piece',
                     'currency_code' => 'UGX',
-                    'sort_order' => 2,
+                    'sort_order' => 4,
                 ],
             );
-        }
-
-        $guluRequester = User::query()->where('email', 'luate@gmail.com')->firstOrFail();
-        $guluProject = Project::query()->where('branch_id', $guluBranch->id)->first();
-        $guluSite = $guluProject?->sites()->first();
-        $submitted = MaterialRequisition::query()->updateOrCreate(
-            ['tenant_id' => $tenantId, 'reference' => 'MR-DEMO-GULU'],
-            ['branch_id' => $guluBranch->id, 'inventory_store_id' => $guluStore->id, 'requesting_user_id' => $guluRequester->id, 'project_id' => $guluProject?->id, 'site_id' => $guluSite?->id, 'department' => 'Drainage works', 'required_by_date' => now()->addDays(3)->toDateString(), 'priority' => MaterialRequisitionPriority::High, 'status' => MaterialRequisitionStatus::Submitted, 'reason' => 'Cement required for the next drainage structure pour.', 'submitted_by' => $guluRequester->id, 'submitted_at' => now(), 'created_by' => $guluRequester->id, 'updated_by' => $guluRequester->id],
-        );
-        MaterialRequisitionLine::query()->updateOrCreate(
-            ['material_requisition_id' => $submitted->id, 'inventory_item_id' => $inventoryItems['CEM-42']->id],
-            ['tenant_id' => $tenantId, 'unit_of_measure_id' => $units['BAG']->id, 'item_code_snapshot' => 'CEM-42', 'item_name_snapshot' => 'Portland cement 42.5N', 'unit_code_snapshot' => 'BAG', 'unit_symbol_snapshot' => 'bag', 'requested_quantity' => '80.0000', 'conversion_multiplier' => '1.0000000000', 'stock_quantity' => '80.0000', 'purpose' => 'Culvert headwalls', 'sort_order' => 0],
-        );
-
-        $kampalaRequester = User::query()->where('email', 'william@gmail.com')->firstOrFail();
-        $approved = MaterialRequisition::query()->updateOrCreate(
-            ['tenant_id' => $tenantId, 'reference' => 'MR-DEMO-KLA'],
-            ['branch_id' => $kampalaBranch->id, 'inventory_store_id' => $kampalaStore->id, 'requesting_user_id' => $kampalaRequester->id, 'department' => 'Site safety', 'required_by_date' => now()->addDay()->toDateString(), 'priority' => MaterialRequisitionPriority::Urgent, 'status' => MaterialRequisitionStatus::Approved, 'reason' => 'Issue safety vests to the incoming concrete crew.', 'submitted_by' => $kampalaRequester->id, 'submitted_at' => now()->subHour(), 'approved_by' => $director->id, 'approved_at' => now(), 'reviewed_by' => $director->id, 'reviewed_at' => now(), 'created_by' => $kampalaRequester->id, 'updated_by' => $director->id],
-        );
-        $approvedLine = MaterialRequisitionLine::query()->updateOrCreate(
-            ['material_requisition_id' => $approved->id, 'inventory_item_id' => $inventoryItems['PPE-VEST']->id],
-            ['tenant_id' => $tenantId, 'unit_of_measure_id' => $units['PIECE']->id, 'item_code_snapshot' => 'PPE-VEST', 'item_name_snapshot' => 'High visibility safety vest', 'unit_code_snapshot' => 'PIECE', 'unit_symbol_snapshot' => 'pc', 'requested_quantity' => '25.0000', 'conversion_multiplier' => '1.0000000000', 'stock_quantity' => '25.0000', 'approved_quantity' => '25.0000', 'purpose' => 'New crew mobilisation', 'sort_order' => 0],
-        );
-        InventoryReservation::query()->updateOrCreate(
-            ['tenant_id' => $tenantId, 'source_type' => MaterialRequisitionLine::class, 'source_id' => $approvedLine->id, 'inventory_item_id' => $inventoryItems['PPE-VEST']->id],
-            ['branch_id' => $kampalaBranch->id, 'inventory_store_id' => $kampalaStore->id, 'reserved_quantity' => '25.0000', 'issued_quantity' => '0.0000', 'released_quantity' => '0.0000', 'status' => InventoryReservationStatus::Active, 'created_by' => $director->id, 'updated_by' => $director->id],
-        );
-
-        $purchaseOrder = PurchaseOrder::query()->updateOrCreate(
-            ['tenant_id' => $tenantId, 'order_number' => 'PO-2026-DEMO01'],
-            ['branch_id' => $kampalaBranch->id, 'inventory_store_id' => $kampalaStore->id, 'supplier_id' => $supplier->id, 'order_number' => 'PO-2026-DEMO01', 'supplier_name_snapshot' => $supplier->name, 'supplier_code_snapshot' => $supplier->code, 'order_date' => now()->subDay()->toDateString(), 'expected_date' => now()->addDays(2)->toDateString(), 'currency_code' => 'UGX', 'status' => PurchaseOrderStatus::Approved, 'subtotal' => '450000.0000', 'discount_amount' => '0.0000', 'tax_amount' => '0.0000', 'total_amount' => '450000.0000', 'delivery_terms' => 'Delivery to Ironpoint Main Store.', 'payment_terms' => 'Payment after accepted delivery.', 'submitted_by' => $director->id, 'submitted_at' => now()->subDay(), 'approved_by' => $director->id, 'approved_at' => now()->subDay(), 'reviewed_by' => $director->id, 'reviewed_at' => now()->subDay(), 'created_by' => $director->id, 'updated_by' => $director->id],
-        );
-        PurchaseOrderLine::query()->updateOrCreate(
-            ['purchase_order_id' => $purchaseOrder->id, 'inventory_item_id' => $inventoryItems['PPE-VEST']->id],
-            ['tenant_id' => $tenantId, 'unit_of_measure_id' => $units['PIECE']->id, 'item_code_snapshot' => 'PPE-VEST', 'item_name_snapshot' => 'High visibility safety vest', 'unit_code_snapshot' => 'PIECE', 'unit_symbol_snapshot' => 'pc', 'ordered_quantity' => '25.0000', 'conversion_multiplier' => '1.0000000000', 'stock_quantity' => '25.0000', 'unit_price' => '18000.0000', 'price_source' => 'recorded_cost', 'line_amount' => '450000.0000', 'accepted_quantity' => '0.0000', 'rejected_quantity' => '0.0000', 'cancelled_quantity' => '0.0000', 'sort_order' => 0],
-        );
-        $pilotOrder = PurchaseOrder::query()->updateOrCreate(
-            ['tenant_id' => $tenantId, 'order_number' => 'PO-2026-PILOT01'],
-            ['branch_id' => $kampalaBranch->id, 'inventory_store_id' => $kampalaStore->id, 'supplier_id' => $supplier->id, 'supplier_name_snapshot' => $supplier->name, 'supplier_code_snapshot' => $supplier->code, 'order_date' => now()->subDays(14)->toDateString(), 'expected_date' => now()->subDays(5)->toDateString(), 'currency_code' => 'UGX', 'status' => PurchaseOrderStatus::Approved, 'subtotal' => '21450000.0000', 'discount_amount' => '0.0000', 'tax_amount' => '0.0000', 'total_amount' => '21450000.0000', 'delivery_terms' => 'Delivery to Ironpoint Main Store.', 'payment_terms' => 'Payment after accepted delivery.', 'submitted_by' => $director->id, 'submitted_at' => now()->subDays(14), 'approved_by' => $director->id, 'approved_at' => now()->subDays(13), 'reviewed_by' => $director->id, 'reviewed_at' => now()->subDays(13), 'created_by' => $director->id, 'updated_by' => $director->id],
-        );
-        $cementOrderLine = PurchaseOrderLine::query()->updateOrCreate(
-            ['purchase_order_id' => $pilotOrder->id, 'inventory_item_id' => $inventoryItems['CEM-PILOT']->id],
-            ['tenant_id' => $tenantId, 'unit_of_measure_id' => $units['BAG']->id, 'item_code_snapshot' => 'CEM-PILOT', 'item_name_snapshot' => 'Pilot rapid-setting cement', 'unit_code_snapshot' => 'BAG', 'unit_symbol_snapshot' => 'bag', 'ordered_quantity' => '500.0000', 'conversion_multiplier' => '1.0000000000', 'stock_quantity' => '500.0000', 'unit_price' => '42000.0000', 'price_source' => 'recorded_cost', 'line_amount' => '21000000.0000', 'accepted_quantity' => '0.0000', 'rejected_quantity' => '0.0000', 'cancelled_quantity' => '0.0000', 'sort_order' => 1],
-        );
-        $pilotPpeOrderLine = PurchaseOrderLine::query()->updateOrCreate(
-            ['purchase_order_id' => $pilotOrder->id, 'inventory_item_id' => $inventoryItems['PPE-VEST']->id],
-            ['tenant_id' => $tenantId, 'unit_of_measure_id' => $units['PIECE']->id, 'item_code_snapshot' => 'PPE-VEST', 'item_name_snapshot' => 'High visibility safety vest', 'unit_code_snapshot' => 'PIECE', 'unit_symbol_snapshot' => 'pc', 'ordered_quantity' => '25.0000', 'conversion_multiplier' => '1.0000000000', 'stock_quantity' => '25.0000', 'unit_price' => '18000.0000', 'price_source' => 'recorded_cost', 'line_amount' => '450000.0000', 'accepted_quantity' => '0.0000', 'rejected_quantity' => '0.0000', 'cancelled_quantity' => '0.0000', 'sort_order' => 0],
-        );
-
-        $receipt = InventoryGoodsReceipt::query()->where('purchase_order_id', $pilotOrder->id)->where('supplier_reference', 'DEMO-DELIVERY-001')->first();
-        if (! $receipt instanceof InventoryGoodsReceipt) {
-            $receipt = resolve(ReceiveInventoryStock::class)->handle([
-                'purchase_order_id' => $pilotOrder->id,
-                'supplier_reference' => 'DEMO-DELIVERY-001',
-                'received_on' => now()->subDays(7)->toDateString(),
-                'notes' => 'Pilot delivery: usable stock accepted and damaged quantities rejected at inspection.',
-                'lines' => [
-                    ['purchase_order_line_id' => $cementOrderLine->id, 'quantity' => '310', 'accepted_quantity' => '300', 'rejected_quantity' => '10', 'rejection_reason' => 'Ten bags were torn and water damaged.', 'batch_number' => 'CEM-PILOT-DELIVERY', 'manufactured_on' => now()->subMonth()->toDateString(), 'expires_on' => now()->addMonths(5)->toDateString()],
-                    ['purchase_order_line_id' => $pilotPpeOrderLine->id, 'quantity' => '12', 'accepted_quantity' => '10', 'rejected_quantity' => '2', 'rejection_reason' => 'Reflective strips were detached.'],
-                ],
-            ], $director);
-        }
-
-        foreach ([$cementOrderLine, $pilotPpeOrderLine] as $orderLine) {
-            $orderLine->forceFill([
-                'accepted_quantity' => (string) $receipt->lines()->where('purchase_order_line_id', $orderLine->id)->sum('accepted_quantity'),
-                'rejected_quantity' => (string) $receipt->lines()->where('purchase_order_line_id', $orderLine->id)->sum('rejected_quantity'),
-            ])->save();
-        }
-
-        $pilotOrder->forceFill(['status' => PurchaseOrderStatus::PartiallyReceived])->save();
-
-        $transferBatch = InventoryBatch::query()->where('batch_number', 'CEM-PILOT-DELIVERY')->firstOrFail();
-
-        $pilotRequisition = MaterialRequisition::query()->updateOrCreate(
-            ['tenant_id' => $tenantId, 'reference' => 'MR-PILOT-GULU'],
-            ['branch_id' => $guluBranch->id, 'inventory_store_id' => $guluStore->id, 'requesting_user_id' => $guluRequester->id, 'project_id' => $guluProject?->id, 'site_id' => $guluSite?->id, 'department' => 'Drainage works', 'required_by_date' => now()->subDays(2)->toDateString(), 'priority' => MaterialRequisitionPriority::High, 'status' => MaterialRequisitionStatus::PartiallyIssued, 'reason' => 'Pilot issue for the drainage structure pour.', 'submitted_by' => $guluRequester->id, 'submitted_at' => now()->subDays(3), 'approved_by' => $director->id, 'approved_at' => now()->subDays(2), 'reviewed_by' => $director->id, 'reviewed_at' => now()->subDays(2), 'created_by' => $guluRequester->id, 'updated_by' => $director->id],
-        );
-        $submittedLine = MaterialRequisitionLine::query()->updateOrCreate(
-            ['material_requisition_id' => $pilotRequisition->id, 'inventory_item_id' => $inventoryItems['CEM-PILOT']->id],
-            ['tenant_id' => $tenantId, 'unit_of_measure_id' => $units['BAG']->id, 'item_code_snapshot' => 'CEM-PILOT', 'item_name_snapshot' => 'Pilot rapid-setting cement', 'unit_code_snapshot' => 'BAG', 'unit_symbol_snapshot' => 'bag', 'requested_quantity' => '80.0000', 'conversion_multiplier' => '1.0000000000', 'stock_quantity' => '80.0000', 'approved_quantity' => '80.0000', 'issued_quantity' => '25.0000', 'purpose' => 'Pilot culvert headwalls', 'sort_order' => 0],
-        );
-        InventoryReservation::query()->updateOrCreate(
-            ['tenant_id' => $tenantId, 'source_type' => MaterialRequisitionLine::class, 'source_id' => $submittedLine->id, 'inventory_item_id' => $inventoryItems['CEM-PILOT']->id],
-            ['branch_id' => $guluBranch->id, 'inventory_store_id' => $guluStore->id, 'reserved_quantity' => '80.0000', 'issued_quantity' => '25.0000', 'released_quantity' => '0.0000', 'status' => InventoryReservationStatus::PartiallyIssued, 'created_by' => $director->id, 'updated_by' => $director->id],
-        );
-        $issue = $stockPosting->handle($guluStore, $inventoryItems['CEM-PILOT'], [
-            'movement_type' => InventoryMovementType::Issue->value, 'original_quantity' => '25', 'original_unit_id' => $units['BAG']->id,
-            'inventory_batch_id' => $transferBatch->id, 'source_type' => MaterialRequisitionLine::class, 'source_id' => $submittedLine->id,
-            'source_key' => 'seed:issue:mr-demo-gulu:cement', 'project_id' => $guluProject?->id, 'site_id' => $guluSite?->id,
-            'reason' => 'Partial issue for the drainage-works requisition.',
-        ], $director);
-
-        if ($approvedRoadReport instanceof DailySiteReport) {
-            $reconciliation = resolve(ReconcileDsrMaterialLine::class);
-            $reconciledLine = DailySiteReportMaterialLine::query()->updateOrCreate(
-                ['daily_site_report_id' => $approvedRoadReport->id, 'delivery_reference' => 'DSR-CEMENT-RECONCILED'],
-                ['tenant_id' => $tenantId, 'branch_id' => $guluBranch->id, 'inventory_item_id' => $inventoryItems['CEM-PILOT']->id, 'inventory_store_id' => $guluStore->id, 'unit_of_measure_id' => $units['BAG']->id, 'conversion_multiplier' => '1.0000000000', 'stock_unit_quantity' => '25.0000', 'inventory_reconciliation_status' => DsrMaterialReconciliationStatus::Pending, 'material_name' => $inventoryItems['CEM-PILOT']->name, 'material_type' => 'used', 'quantity' => '25.0000', 'unit' => 'bag', 'currency_code' => 'UGX', 'sort_order' => 5],
-            );
-            if ($reconciledLine->reconciliations()->doesntExist()) {
-                $reconciliation->allocate($reconciledLine, $issue, '25', 'Match the approved DSR usage to the store requisition issue.', $director);
-            }
-
-            $partialLine = DailySiteReportMaterialLine::query()->updateOrCreate(
-                ['daily_site_report_id' => $approvedRoadReport->id, 'delivery_reference' => 'DSR-CEMENT-PARTIAL'],
-                ['tenant_id' => $tenantId, 'branch_id' => $guluBranch->id, 'inventory_item_id' => $inventoryItems['CEM-PILOT']->id, 'inventory_store_id' => $guluStore->id, 'unit_of_measure_id' => $units['BAG']->id, 'conversion_multiplier' => '1.0000000000', 'stock_unit_quantity' => '40.0000', 'inventory_reconciliation_status' => DsrMaterialReconciliationStatus::Pending, 'material_name' => $inventoryItems['CEM-PILOT']->name, 'material_type' => 'used', 'quantity' => '40.0000', 'unit' => 'bag', 'currency_code' => 'UGX', 'sort_order' => 3],
-            );
-            if ($partialLine->reconciliations()->doesntExist()) {
-                $reconciliation->directIssue($partialLine, ['inventory_store_id' => $guluStore->id, 'inventory_batch_id' => $transferBatch->id, 'quantity' => '15', 'reason' => 'Only part of the reported usage has store evidence so far.'], $director);
-            }
-
-            $externalLine = DailySiteReportMaterialLine::query()->updateOrCreate(
-                ['daily_site_report_id' => $approvedRoadReport->id, 'delivery_reference' => 'DSR-EXTERNAL-DEMO'],
-                ['tenant_id' => $tenantId, 'branch_id' => $guluBranch->id, 'inventory_reconciliation_status' => DsrMaterialReconciliationStatus::NotLinked, 'material_name' => 'Subcontractor-supplied timber formwork', 'material_type' => 'used', 'quantity' => '12.0000', 'unit' => 'piece', 'currency_code' => 'UGX', 'sort_order' => 4],
-            );
-            if ($externalLine->reconciliations()->doesntExist()) {
-                $reconciliation->markExternal($externalLine, 'Supplied and controlled directly by the drainage subcontractor.', $director);
-            }
         }
 
         $count = resolve(ReconcileInventoryStockCount::class)->handle($kampalaStore, [
@@ -2081,6 +1971,11 @@ final class PointInvestmentSeeder extends Seeder
             'tenant_id' => $report->tenant_id,
             'branch_id' => $report->branch_id,
             'daily_site_report_id' => $report->id,
+            'material_source' => DsrMaterialSource::External,
+            'material_usage_status' => $report->isApproved() ? DsrMaterialUsageStatus::External : DsrMaterialUsageStatus::Pending,
+            'external_material_reason' => 'Fuel use captured as a historical DSR snapshot outside the managed site store.',
+            'posted_by' => $report->isApproved() ? $report->approved_by : null,
+            'posted_at' => $report->isApproved() ? $report->approved_at : null,
             'material_name' => 'Petrol',
             'material_type' => 'fuel',
             'quantity' => '120.0000',

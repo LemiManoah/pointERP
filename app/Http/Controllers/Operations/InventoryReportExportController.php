@@ -18,7 +18,7 @@ final class InventoryReportExportController
         Gate::authorize('viewAny', InventoryStockMovement::class);
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
-        abort_unless($actor->can($report === 'dsr-materials' ? 'inventory.dsr-reconciliation.export' : 'inventory.reports.export'), 403);
+        abort_unless($actor->can('inventory.reports.export'), 403);
 
         $filters = $request->validate([
             'branch_id' => ['nullable', 'uuid'], 'store_id' => ['nullable', 'uuid'], 'project_id' => ['nullable', 'uuid'],

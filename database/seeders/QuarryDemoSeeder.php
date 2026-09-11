@@ -50,6 +50,14 @@ final class QuarryDemoSeeder extends Seeder
         $sites->get(0)?->update(['reference' => 'QUARRY-PIT', 'name' => 'Main Quarry Pit', 'location_name' => 'Extraction benches and controlled blasting area']);
         $sites->get(1)?->update(['reference' => 'CRUSHER-YARD', 'name' => 'Crushing and Stockpile Yard', 'location_name' => 'Primary crusher, screening plant, stockpiles and weighbridge']);
 
+        foreach ($sites as $site) {
+            $site->defaultStore()->update([
+                'code' => $site->reference.'-STORE',
+                'name' => $site->name.' Store',
+                'address' => $site->location_name,
+            ]);
+        }
+
         $activityData = [
             ['QRY-001', 'Overburden stripping and pit preparation'],
             ['QRY-002', 'Blast-hole drilling'],

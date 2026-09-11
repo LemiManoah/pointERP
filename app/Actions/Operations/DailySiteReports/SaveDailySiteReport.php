@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Actions\Operations\DailySiteReports;
 
 use App\Enums\DsrLabourSource;
-use App\Enums\DsrMaterialReconciliationStatus;
+use App\Enums\DsrMaterialSource;
+use App\Enums\DsrMaterialUsageStatus;
+use App\Enums\InventoryTrackingType;
 use App\Models\Customer;
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportDelayLine;
@@ -15,6 +17,7 @@ use App\Models\DailySiteReportMaterialLine;
 use App\Models\DailySiteReportWorkLine;
 use App\Models\Equipment;
 use App\Models\ExpectedDailySiteReport;
+use App\Models\InventoryBatch;
 use App\Models\InventoryItem;
 use App\Models\InventoryStore;
 use App\Models\InventoryStoreItem;
@@ -199,31 +202,76 @@ final readonly class SaveDailySiteReport
         }
 
         return collect($lines)->filter(fn (mixed $line): bool => is_array($line))->map(function (array $line) use ($report): array {
+            $source = DsrMaterialSource::tryFrom((string) ($line['material_source'] ?? '')) ?? DsrMaterialSource::SiteStore;
+
+            if ($source === DsrMaterialSource::External) {
+                return [
+                    ...$line,
+                    'inventory_item_id' => null,
+                    'inventory_store_id' => null,
+                    'inventory_batch_id' => null,
+                    'unit_of_measure_id' => null,
+                    'conversion_multiplier' => null,
+                    'stock_unit_quantity' => null,
+                    'material_source' => $source->value,
+                    'material_usage_status' => DsrMaterialUsageStatus::Pending->value,
+                ];
+            }
+
             $itemId = $line['inventory_item_id'] ?? null;
             if (! is_string($itemId) || $itemId === '') {
-                return [...$line, 'inventory_item_id' => null, 'inventory_store_id' => null, 'unit_of_measure_id' => null, 'conversion_multiplier' => null, 'stock_unit_quantity' => null, 'inventory_reconciliation_status' => DsrMaterialReconciliationStatus::NotLinked->value];
+                throw ValidationException::withMessages(['material_lines' => 'Select an inventory item for every site-store material line.']);
             }
 
             $item = InventoryItem::query()->where('is_active', true)->with('stockUnit')->findOrFail($itemId);
             $unitId = $line['unit_of_measure_id'] ?? $item->stock_unit_id;
             $unit = UnitOfMeasure::query()->where('is_active', true)->findOrFail($unitId);
             $storeId = $line['inventory_store_id'] ?? null;
-            if (is_string($storeId) && $storeId !== '') {
-                $store = InventoryStore::query()->where('branch_id', $report->branch_id)->where('is_active', true)->findOrFail($storeId);
-                if (! InventoryStoreItem::query()->where('inventory_store_id', $store->id)->where('inventory_item_id', $item->id)->where('is_active', true)->exists()) {
-                    throw ValidationException::withMessages(['material_lines' => $item->name.' is not enabled in the selected store.']);
+            $store = is_string($storeId) && $storeId !== ''
+                ? InventoryStore::query()->where('branch_id', $report->branch_id)->where('site_id', $report->site_id)->where('is_active', true)->findOrFail($storeId)
+                : InventoryStore::query()->where('site_id', $report->site_id)->where('is_default_for_site', true)->where('is_active', true)->firstOrFail();
+
+            if (! InventoryStoreItem::query()->where('inventory_store_id', $store->id)->where('inventory_item_id', $item->id)->where('is_active', true)->exists()) {
+                throw ValidationException::withMessages(['material_lines' => $item->name.' is not enabled in '.$store->name.'.']);
+            }
+
+            $batchId = $line['inventory_batch_id'] ?? null;
+            if ($item->tracking_type === InventoryTrackingType::Batch) {
+                if (! is_string($batchId) || $batchId === '') {
+                    throw ValidationException::withMessages(['material_lines' => 'Select a batch for '.$item->name.'.']);
                 }
+
+                $validBatch = InventoryBatch::query()
+                    ->whereKey($batchId)
+                    ->where('inventory_item_id', $item->id)
+                    ->where(function (Builder $query) use ($store): void {
+                        $query->whereNull('inventory_store_id')->orWhere('inventory_store_id', $store->id);
+                    })
+                    ->where('is_active', true)
+                    ->exists();
+
+                if (! $validBatch) {
+                    throw ValidationException::withMessages(['material_lines' => 'The selected batch is not available in '.$store->name.'.']);
+                }
+            } else {
+                $batchId = null;
             }
 
             $multiplier = $this->quantityConverter->multiplier($item, $unit->id);
             $quantity = BigDecimal::of((string) ($line['quantity'] ?? 0));
 
             return [
-                ...$line, 'inventory_item_id' => $item->id, 'inventory_store_id' => is_string($storeId) && $storeId !== '' ? $storeId : null,
-                'unit_of_measure_id' => $unit->id, 'conversion_multiplier' => (string) $multiplier->toScale(10),
+                ...$line,
+                'inventory_item_id' => $item->id,
+                'inventory_store_id' => $store->id,
+                'inventory_batch_id' => $batchId,
+                'unit_of_measure_id' => $unit->id,
+                'conversion_multiplier' => (string) $multiplier->toScale(10),
                 'stock_unit_quantity' => (string) $quantity->multipliedBy($multiplier)->toScale(4),
-                'inventory_reconciliation_status' => DsrMaterialReconciliationStatus::Pending->value,
-                'material_name' => $item->name, 'unit' => $unit->symbol ?? $unit->name,
+                'material_source' => $source->value,
+                'material_usage_status' => DsrMaterialUsageStatus::Pending->value,
+                'material_name' => $item->name,
+                'unit' => $unit->symbol ?? $unit->name,
             ];
         })->values()->all();
     }

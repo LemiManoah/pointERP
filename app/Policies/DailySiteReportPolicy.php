@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use App\Enums\DsrMaterialSource;
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportCorrection;
 use App\Models\Project;
@@ -89,6 +90,8 @@ final class DailySiteReportPolicy
     {
         return in_array($dailySiteReport->status, [DailySiteReport::STATUS_SUBMITTED, DailySiteReport::STATUS_REVIEWED], true)
             && $user->can('daily-site-reports.approve')
+            && (! $dailySiteReport->materialLines()->where('material_source', DsrMaterialSource::SiteStore->value)->exists()
+                || $user->can('inventory.dsr-material-usage.post'))
             && $this->view($user, $dailySiteReport)
             && $dailySiteReport->project instanceof Project
             && (
@@ -132,6 +135,8 @@ final class DailySiteReportPolicy
         return $correction->daily_site_report_id === $dailySiteReport->id
             && $correction->status === DailySiteReportCorrection::STATUS_SUBMITTED
             && $user->can('daily-site-reports.approve')
+            && (! $dailySiteReport->materialLines()->where('material_source', DsrMaterialSource::SiteStore->value)->exists()
+                || $user->can('inventory.dsr-material-usage.post'))
             && $this->view($user, $dailySiteReport);
     }
 

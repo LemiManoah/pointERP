@@ -28,7 +28,7 @@ it('opens inventory while an all-branches user has no current branch selected', 
             ->where('priceCurrency', 'UGX'));
 });
 
-it('shows the authorised inventory operations dashboard with seeded pilot exceptions', function (): void {
+it('shows the authorised inventory operations dashboard with the current quarry fixtures', function (): void {
     $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
 
     $this->actingAs($director)->get(route('inventory.dashboard'))
@@ -37,11 +37,11 @@ it('shows the authorised inventory operations dashboard with seeded pilot except
             ->component('operations/inventory/dashboard')
             ->where('canExport', true)
             ->where('canExportDsr', true)
-            ->where('metrics.overdue_purchase_orders', 1)
-            ->where('metrics.rejected_receipt_lines', 2)
+            ->where('metrics.overdue_purchase_orders', 0)
+            ->where('metrics.rejected_receipt_lines', 0)
             ->has('lowStock')
             ->has('unfulfilledRequisitions')
-            ->has('unreconciledMaterials'));
+            ->has('materialUsageAttention'));
 });
 
 it('keeps commercial cost columns out of quantity reports without cost authority', function (): void {

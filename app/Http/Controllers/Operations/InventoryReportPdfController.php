@@ -19,7 +19,7 @@ final class InventoryReportPdfController
         Gate::authorize('viewAny', InventoryStockMovement::class);
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
-        abort_unless($actor->can($report === 'dsr-materials' ? 'inventory.dsr-reconciliation.export' : 'inventory.reports.export'), 403);
+        abort_unless($actor->can('inventory.reports.export'), 403);
 
         /** @var array<string, string|null> $filters */
         $filters = $request->validate([

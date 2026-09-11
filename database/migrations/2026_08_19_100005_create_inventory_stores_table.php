@@ -18,6 +18,7 @@ return new class extends Migration
             $table->foreignUuid('equipment_location_id')->nullable()->constrained('equipment_locations')->nullOnDelete();
             $table->foreignUuid('project_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignUuid('site_id')->nullable()->constrained()->nullOnDelete();
+            $table->boolean('is_default_for_site')->default(false);
             $table->string('code', 50);
             $table->string('name', 180);
             $table->string('type', 30)->default(InventoryStoreType::Depot->value);
@@ -29,6 +30,7 @@ return new class extends Migration
             $table->softDeletes();
             $table->unique(['tenant_id', 'code'], 'inv_store_tenant_code_uq');
             $table->index(['tenant_id', 'branch_id', 'is_active'], 'inv_store_scope_active_idx');
+            $table->index(['tenant_id', 'site_id', 'is_default_for_site'], 'inv_store_site_default_idx');
         });
     }
 

@@ -2,6 +2,8 @@ import { Head, router, useForm } from '@inertiajs/react';
 import {
     CheckCircle2,
     LockKeyhole,
+    Pencil,
+    Plus,
     RotateCcw,
     Send,
     Trash2,
@@ -32,6 +34,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { formatNumber } from '@/lib/utils';
@@ -92,6 +95,8 @@ type InventoryStoreOption = {
     branch_id: string;
     name: string;
     branch_name: string;
+    site_id: string | null;
+    is_default_for_site: boolean;
 };
 type SelectOption = {
     value: string;
@@ -114,35 +119,21 @@ type DsrExpense = {
     currency_code: string;
     status: string;
 };
-type MaterialReconciliation = {
+type MaterialUsage = {
     id: string;
     material_name: string;
-    inventory_item_id: string | null;
-    inventory_store_id: string | null;
+    source: string;
+    source_label: string;
     status: string;
+    status_label: string;
     reported_quantity: string | null;
     reported_unit: string | null;
     stock_quantity: string | null;
     stock_unit: string | null;
-    allocated_quantity: string;
-    outstanding_quantity: string;
+    store_name: string | null;
+    batch_number: string | null;
     external_reason: string | null;
-    allocations: Array<{
-        id: string;
-        type: string;
-        quantity: string;
-        reason: string;
-    }>;
-    candidate_issues: Array<{
-        id: string;
-        quantity: string;
-        store_name: string;
-        posted_at: string;
-        posted_by: string;
-    }>;
-    can_manage: boolean;
-    can_direct_issue: boolean;
-    can_mark_external: boolean;
+    posted_at: string | null;
 };
 
 const numericLineFields = new Set([
@@ -188,7 +179,6 @@ const controlledLineOptions: Record<string, string[]> = {
     status: ['working', 'idle', 'breakdown', 'off-hire'],
     fuel_type: ['Diesel', 'Petrol'],
     fuel_transaction_type: ['consumption', 'refuel', 'issue', 'return'],
-    material_type: ['used', 'delivered', 'wasted', 'rejected'],
     category: [
         'Petty cash',
         'Allowances',
@@ -313,8 +303,8 @@ type Props = {
         approve: boolean;
         return: boolean;
         correct: boolean;
-        viewMaterialReconciliation: boolean;
         createExpenseDraft: boolean;
+        manageExpenseItems: boolean;
     };
     reviews: Review[];
     corrections: Correction[];
@@ -328,7 +318,7 @@ type Props = {
     equipmentOptions: EquipmentOption[];
     inventoryItems: InventoryItemOption[];
     inventoryStores: InventoryStoreOption[];
-    materialReconciliations: MaterialReconciliation[];
+    materialUsage: MaterialUsage[];
     units: string[];
     labourSources: SelectOption[];
     subcontractors: SelectOption[];
@@ -369,13 +359,14 @@ export default function DailySiteReportShow({
     equipmentOptions,
     inventoryItems,
     inventoryStores,
-    materialReconciliations,
+    materialUsage,
     units,
     labourSources,
     subcontractors,
     expenseDraftOptions,
 }: Props) {
     const confirm = useConfirmDialog();
+    const [tab, setTab] = useState('summary');
     const form = useForm<FormData>({
         site_id: report.site_id,
         report_date: report.report_date,
@@ -388,26 +379,13 @@ export default function DailySiteReportShow({
         environment_notes: report.environment_notes ?? '',
         social_notes: report.social_notes ?? '',
         completion_percent: report.completion_percent ?? '',
-        work_lines:
-            report.work_lines.length > 0
-                ? report.work_lines
-                : [emptyWorkLine()],
-        labour_lines:
-            report.labour_lines.length > 0
-                ? report.labour_lines
-                : [emptyLabourLine()],
+        work_lines: report.work_lines.length > 0 ? report.work_lines : [],
+        labour_lines: report.labour_lines.length > 0 ? report.labour_lines : [],
         equipment_lines:
-            report.equipment_lines.length > 0
-                ? report.equipment_lines
-                : [emptyEquipmentLine()],
+            report.equipment_lines.length > 0 ? report.equipment_lines : [],
         material_lines:
-            report.material_lines.length > 0
-                ? report.material_lines
-                : [emptyMaterialLine()],
-        delay_lines:
-            report.delay_lines.length > 0
-                ? report.delay_lines
-                : [emptyDelayLine()],
+            report.material_lines.length > 0 ? report.material_lines : [],
+        delay_lines: report.delay_lines.length > 0 ? report.delay_lines : [],
     });
 
     const breadcrumbs: BreadcrumbItem[] = [
@@ -507,197 +485,12 @@ export default function DailySiteReportShow({
                     report.evidence_count === 0 && (
                         <Card className="border-amber-200 bg-amber-50 text-amber-950">
                             <CardContent className="pt-6 text-sm">
-                                Work quantities have been entered without linked
+                                Work activities have been entered without linked
                                 evidence. Upload evidence or submit with an
                                 override reason.
                             </CardContent>
                         </Card>
                     )}
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Workflow trail</CardTitle>
-                        <CardDescription>
-                            Submit, return, approval and correction events for
-                            this report.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {[...corrections, ...reviews].length === 0 ? (
-                            <div className="text-sm text-muted-foreground">
-                                No workflow events recorded yet.
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="border-b text-left text-muted-foreground">
-                                            <th className="py-3 pr-4 font-medium">
-                                                Event
-                                            </th>
-                                            <th className="py-3 pr-4 font-medium">
-                                                Status
-                                            </th>
-                                            <th className="py-3 pr-4 font-medium">
-                                                Actor
-                                            </th>
-                                            <th className="py-3 pr-4 font-medium">
-                                                Details
-                                            </th>
-                                            <th className="py-3 pr-4 font-medium">
-                                                Date
-                                            </th>
-                                            <th className="py-3 text-right font-medium">
-                                                Actions
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {reviews.map((review) => (
-                                            <tr
-                                                key={review.id}
-                                                className="border-b last:border-0"
-                                            >
-                                                <td className="py-3 pr-4 font-medium capitalize">
-                                                    {review.action.replaceAll(
-                                                        '_',
-                                                        ' ',
-                                                    )}
-                                                </td>
-                                                <td className="py-3 pr-4">
-                                                    <Badge variant="outline">
-                                                        Recorded
-                                                    </Badge>
-                                                </td>
-                                                <td className="py-3 pr-4">
-                                                    {review.reviewed_by ??
-                                                        'Unknown user'}
-                                                </td>
-                                                <td className="min-w-64 py-3 pr-4 whitespace-normal">
-                                                    {review.remarks ?? '—'}
-                                                </td>
-                                                <td className="py-3 pr-4 whitespace-nowrap text-muted-foreground">
-                                                    {review.created_at}
-                                                </td>
-                                                <td className="py-3 text-right" />
-                                            </tr>
-                                        ))}
-                                        {corrections.map((correction) => (
-                                            <tr
-                                                key={correction.id}
-                                                className="border-b last:border-0"
-                                            >
-                                                <td className="py-3 pr-4 font-medium">
-                                                    Correction
-                                                </td>
-                                                <td className="py-3 pr-4">
-                                                    <Badge
-                                                        variant="outline"
-                                                        className="capitalize"
-                                                    >
-                                                        {correction.status.replaceAll(
-                                                            '_',
-                                                            ' ',
-                                                        )}
-                                                    </Badge>
-                                                </td>
-                                                <td className="py-3 pr-4">
-                                                    {correction.requested_by ??
-                                                        'Unknown user'}
-                                                </td>
-                                                <td className="min-w-80 py-3 pr-4 whitespace-normal">
-                                                    <div className="font-medium">
-                                                        {correction.reason}
-                                                    </div>
-                                                    {correction.new_values && (
-                                                        <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
-                                                            {Object.entries(
-                                                                correction.new_values,
-                                                            ).map(
-                                                                ([
-                                                                    field,
-                                                                    value,
-                                                                ]) =>
-                                                                    field ===
-                                                                        'equipment_adjustments' &&
-                                                                    Array.isArray(
-                                                                        value,
-                                                                    ) ? (
-                                                                        <CorrectionAdjustmentSummary
-                                                                            key={
-                                                                                field
-                                                                            }
-                                                                            adjustments={
-                                                                                value
-                                                                            }
-                                                                        />
-                                                                    ) : (
-                                                                        <div
-                                                                            key={
-                                                                                field
-                                                                            }
-                                                                            className="flex justify-between gap-4"
-                                                                        >
-                                                                            <span className="capitalize">
-                                                                                {field.replaceAll(
-                                                                                    '_',
-                                                                                    ' ',
-                                                                                )}
-                                                                            </span>
-                                                                            <span className="text-right font-medium text-foreground">
-                                                                                {displayUnknown(
-                                                                                    value,
-                                                                                )}
-                                                                            </span>
-                                                                        </div>
-                                                                    ),
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="py-3 pr-4 whitespace-nowrap text-muted-foreground">
-                                                    {correction.created_at}
-                                                </td>
-                                                <td className="py-3 text-right">
-                                                    {correction.can_manage && (
-                                                        <CorrectionActions
-                                                            reportId={report.id}
-                                                            correction={
-                                                                correction
-                                                            }
-                                                        />
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                <DocumentEvidenceTable
-                    documents={documents}
-                    emptyText="No documents linked to this report."
-                    title="Linked evidence"
-                    description="Drawings, sketches, permits, photos and other files tied to this daily report."
-                    actions={
-                        canUploadDocuments && (
-                            <DocumentDialog
-                                documentTypes={documentTypes}
-                                branches={documentBranches}
-                                linkOptions={documentLinkOptions}
-                                defaultBranchId={report.branch_id}
-                                defaultLink={{
-                                    type: 'daily_site_report',
-                                    id: report.id,
-                                }}
-                                buttonLabel="Upload evidence"
-                            />
-                        )
-                    }
-                />
 
                 <form onSubmit={submit} className="grid gap-6">
                     {!can.update && (
@@ -726,253 +519,515 @@ export default function DailySiteReportShow({
                             </AlertDescription>
                         </Alert>
                     )}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Daily summary</CardTitle>
-                            <CardDescription>
-                                Weather, site conditions, work, issues and
-                                compliance notes.
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="grid gap-4">
-                            <div className="grid gap-4 md:grid-cols-3">
-                                <Field
-                                    label="Weather"
-                                    value={form.data.weather}
-                                    disabled={!can.update}
-                                    onChange={(value) =>
-                                        form.setData('weather', value)
-                                    }
-                                />
-                                <Field
-                                    label="Site conditions"
-                                    value={form.data.site_conditions}
-                                    disabled={!can.update}
-                                    onChange={(value) =>
-                                        form.setData('site_conditions', value)
-                                    }
-                                />
-                                <Field
-                                    label="Completion %"
-                                    value={form.data.completion_percent}
-                                    disabled={!can.update}
-                                    onChange={(value) =>
-                                        form.setData(
-                                            'completion_percent',
-                                            value,
-                                        )
-                                    }
-                                />
-                            </div>
-                            <TextAreaField
-                                label="Work summary"
-                                value={form.data.work_summary}
+                    <Tabs value={tab} onValueChange={setTab}>
+                        <TabsList className="h-auto flex-wrap justify-start">
+                            <TabsTrigger value="summary">Summary</TabsTrigger>
+                            <TabsTrigger value="work">
+                                Work Activities
+                            </TabsTrigger>
+                            <TabsTrigger value="labour">Labour</TabsTrigger>
+                            <TabsTrigger value="equipment">
+                                Equipment
+                            </TabsTrigger>
+                            <TabsTrigger value="materials">
+                                Material Usage
+                            </TabsTrigger>
+                            <TabsTrigger value="costs-delays">
+                                Costs &amp; Delays
+                            </TabsTrigger>
+                            <TabsTrigger value="evidence">Evidence</TabsTrigger>
+                            <TabsTrigger value="workflow">Workflow</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="summary" className="mt-6">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Daily summary</CardTitle>
+                                    <CardDescription>
+                                        Weather, site conditions, work, issues
+                                        and compliance notes.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="grid gap-4">
+                                    <div className="grid gap-4 md:grid-cols-3">
+                                        <Field
+                                            label="Weather"
+                                            value={form.data.weather}
+                                            disabled={!can.update}
+                                            onChange={(value) =>
+                                                form.setData('weather', value)
+                                            }
+                                        />
+                                        <Field
+                                            label="Site conditions"
+                                            value={form.data.site_conditions}
+                                            disabled={!can.update}
+                                            onChange={(value) =>
+                                                form.setData(
+                                                    'site_conditions',
+                                                    value,
+                                                )
+                                            }
+                                        />
+                                        <Field
+                                            label="Completion %"
+                                            value={form.data.completion_percent}
+                                            disabled={!can.update}
+                                            onChange={(value) =>
+                                                form.setData(
+                                                    'completion_percent',
+                                                    value,
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                    <TextAreaField
+                                        label="Work summary"
+                                        value={form.data.work_summary}
+                                        disabled={!can.update}
+                                        onChange={(value) =>
+                                            form.setData('work_summary', value)
+                                        }
+                                    />
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <TextAreaField
+                                            label="Delays"
+                                            value={form.data.delay_summary}
+                                            disabled={!can.update}
+                                            onChange={(value) =>
+                                                form.setData(
+                                                    'delay_summary',
+                                                    value,
+                                                )
+                                            }
+                                        />
+                                        <TextAreaField
+                                            label="Visitors"
+                                            value={form.data.visitor_summary}
+                                            disabled={!can.update}
+                                            onChange={(value) =>
+                                                form.setData(
+                                                    'visitor_summary',
+                                                    value,
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                    <div className="grid gap-4 md:grid-cols-3">
+                                        <TextAreaField
+                                            label="HSE"
+                                            value={form.data.hse_notes}
+                                            disabled={!can.update}
+                                            onChange={(value) =>
+                                                form.setData('hse_notes', value)
+                                            }
+                                        />
+                                        <TextAreaField
+                                            label="Environment"
+                                            value={form.data.environment_notes}
+                                            disabled={!can.update}
+                                            onChange={(value) =>
+                                                form.setData(
+                                                    'environment_notes',
+                                                    value,
+                                                )
+                                            }
+                                        />
+                                        <TextAreaField
+                                            label="Social"
+                                            value={form.data.social_notes}
+                                            disabled={!can.update}
+                                            onChange={(value) =>
+                                                form.setData(
+                                                    'social_notes',
+                                                    value,
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                        <TabsContent value="work" className="mt-6 grid gap-6">
+                            <LineCard
+                                title="Work Activities"
                                 disabled={!can.update}
-                                onChange={(value) =>
-                                    form.setData('work_summary', value)
+                                lines={form.data.work_lines}
+                                fields={[
+                                    'project_activity_id',
+                                    'boq_item_number',
+                                    'description',
+                                    'chainage_from',
+                                    'chainage_to',
+                                    'side',
+                                    'quantity',
+                                    'unit',
+                                    'previous_approved_quantity',
+                                    'cumulative_to_date',
+                                    ...(canViewCosts ? ['rate_amount'] : []),
+                                ]}
+                                activities={activities.filter(
+                                    (activity) =>
+                                        activity.project_id ===
+                                            report.project_id &&
+                                        (activity.site_id === null ||
+                                            activity.site_id ===
+                                                report.site_id),
+                                )}
+                                units={units}
+                                onAdd={() =>
+                                    form.setData('work_lines', [
+                                        ...form.data.work_lines,
+                                        emptyWorkLine(),
+                                    ])
+                                }
+                                onChange={(lines) =>
+                                    form.setData('work_lines', lines)
                                 }
                             />
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <TextAreaField
-                                    label="Delays"
-                                    value={form.data.delay_summary}
-                                    disabled={!can.update}
-                                    onChange={(value) =>
-                                        form.setData('delay_summary', value)
-                                    }
+                        </TabsContent>
+                        <TabsContent value="labour" className="mt-6 grid gap-6">
+                            <LineCard
+                                title="Labour"
+                                disabled={!can.update}
+                                lines={form.data.labour_lines}
+                                fields={[
+                                    'labour_source',
+                                    'subcontractor_id',
+                                    'trade_or_role',
+                                    'headcount',
+                                    'hours',
+                                    'person_hours',
+                                    ...(canViewCosts ? ['rate_amount'] : []),
+                                ]}
+                                labourSources={labourSources}
+                                subcontractors={subcontractors}
+                                onAdd={() =>
+                                    form.setData('labour_lines', [
+                                        ...form.data.labour_lines,
+                                        emptyLabourLine(),
+                                    ])
+                                }
+                                onChange={(lines) =>
+                                    form.setData('labour_lines', lines)
+                                }
+                            />
+                        </TabsContent>
+                        <TabsContent
+                            value="equipment"
+                            className="mt-6 grid gap-6"
+                        >
+                            <LineCard
+                                title="Equipment and fuel"
+                                disabled={!can.update}
+                                lines={form.data.equipment_lines}
+                                fields={[
+                                    'equipment_id',
+                                    'equipment_name',
+                                    'equipment_identifier',
+                                    'status',
+                                    'working_hours',
+                                    'idle_hours',
+                                    'opening_meter_reading',
+                                    'closing_meter_reading',
+                                    'fuel_type',
+                                    'fuel_quantity',
+                                    'fuel_transaction_type',
+                                    'evidence_note',
+                                    'fleet_posting_status',
+                                    ...(canViewCosts ? ['rate_amount'] : []),
+                                ]}
+                                equipmentOptions={equipmentOptions.filter(
+                                    (equipment) =>
+                                        equipment.branch_id ===
+                                            report.branch_id &&
+                                        (equipment.current_site_id === null ||
+                                            equipment.current_site_id ===
+                                                report.site_id),
+                                )}
+                                onAdd={() =>
+                                    form.setData('equipment_lines', [
+                                        ...form.data.equipment_lines,
+                                        emptyEquipmentLine(),
+                                    ])
+                                }
+                                onChange={(lines) =>
+                                    form.setData('equipment_lines', lines)
+                                }
+                            />
+                        </TabsContent>
+                        <TabsContent
+                            value="materials"
+                            className="mt-6 grid gap-6"
+                        >
+                            <LineCard
+                                title="Material usage"
+                                disabled={!can.update}
+                                lines={form.data.material_lines}
+                                fields={[
+                                    'material_source',
+                                    'inventory_item_id',
+                                    'inventory_store_id',
+                                    'inventory_batch_id',
+                                    'unit_of_measure_id',
+                                    'material_name',
+                                    'quantity',
+                                    'unit',
+                                    'external_material_reason',
+                                    'notes',
+                                ]}
+                                units={units}
+                                inventoryItems={inventoryItems}
+                                inventoryStores={inventoryStores.filter(
+                                    (store) =>
+                                        store.branch_id === report.branch_id,
+                                )}
+                                onAdd={() =>
+                                    form.setData('material_lines', [
+                                        ...form.data.material_lines,
+                                        emptyMaterialLine(),
+                                    ])
+                                }
+                                onChange={(lines) =>
+                                    form.setData('material_lines', lines)
+                                }
+                            />
+                            <MaterialUsageStatusCard lines={materialUsage} />
+                        </TabsContent>
+                        <TabsContent
+                            value="costs-delays"
+                            className="mt-6 grid gap-6"
+                        >
+                            {canViewCosts && (
+                                <OtherCostsCard
+                                    reportId={report.id}
+                                    expenses={report.other_cost_expenses}
+                                    options={expenseDraftOptions}
+                                    canCreate={can.createExpenseDraft}
+                                    canManageItems={can.manageExpenseItems}
                                 />
-                                <TextAreaField
-                                    label="Visitors"
-                                    value={form.data.visitor_summary}
-                                    disabled={!can.update}
-                                    onChange={(value) =>
-                                        form.setData('visitor_summary', value)
-                                    }
-                                />
-                            </div>
-                            <div className="grid gap-4 md:grid-cols-3">
-                                <TextAreaField
-                                    label="HSE"
-                                    value={form.data.hse_notes}
-                                    disabled={!can.update}
-                                    onChange={(value) =>
-                                        form.setData('hse_notes', value)
-                                    }
-                                />
-                                <TextAreaField
-                                    label="Environment"
-                                    value={form.data.environment_notes}
-                                    disabled={!can.update}
-                                    onChange={(value) =>
-                                        form.setData('environment_notes', value)
-                                    }
-                                />
-                                <TextAreaField
-                                    label="Social"
-                                    value={form.data.social_notes}
-                                    disabled={!can.update}
-                                    onChange={(value) =>
-                                        form.setData('social_notes', value)
-                                    }
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <LineCard
-                        title="Work quantities"
-                        disabled={!can.update}
-                        lines={form.data.work_lines}
-                        fields={[
-                            'project_activity_id',
-                            'boq_item_number',
-                            'description',
-                            'chainage_from',
-                            'chainage_to',
-                            'side',
-                            'quantity',
-                            'unit',
-                            'previous_approved_quantity',
-                            'cumulative_to_date',
-                            ...(canViewCosts ? ['rate_amount'] : []),
-                        ]}
-                        activities={activities.filter(
-                            (activity) =>
-                                activity.project_id === report.project_id &&
-                                (activity.site_id === null ||
-                                    activity.site_id === report.site_id),
-                        )}
-                        units={units}
-                        onAdd={() =>
-                            form.setData('work_lines', [
-                                ...form.data.work_lines,
-                                emptyWorkLine(),
-                            ])
-                        }
-                        onChange={(lines) => form.setData('work_lines', lines)}
-                    />
-                    <LineCard
-                        title="Labour"
-                        disabled={!can.update}
-                        lines={form.data.labour_lines}
-                        fields={[
-                            'labour_source',
-                            'subcontractor_id',
-                            'trade_or_role',
-                            'headcount',
-                            'hours',
-                            'person_hours',
-                            ...(canViewCosts ? ['rate_amount'] : []),
-                        ]}
-                        labourSources={labourSources}
-                        subcontractors={subcontractors}
-                        onAdd={() =>
-                            form.setData('labour_lines', [
-                                ...form.data.labour_lines,
-                                emptyLabourLine(),
-                            ])
-                        }
-                        onChange={(lines) =>
-                            form.setData('labour_lines', lines)
-                        }
-                    />
-                    <LineCard
-                        title="Equipment and fuel"
-                        disabled={!can.update}
-                        lines={form.data.equipment_lines}
-                        fields={[
-                            'equipment_id',
-                            'equipment_name',
-                            'equipment_identifier',
-                            'status',
-                            'working_hours',
-                            'idle_hours',
-                            'opening_meter_reading',
-                            'closing_meter_reading',
-                            'fuel_type',
-                            'fuel_quantity',
-                            'fuel_transaction_type',
-                            'evidence_note',
-                            'fleet_posting_status',
-                            ...(canViewCosts ? ['rate_amount'] : []),
-                        ]}
-                        equipmentOptions={equipmentOptions.filter(
-                            (equipment) =>
-                                equipment.branch_id === report.branch_id &&
-                                (equipment.current_site_id === null ||
-                                    equipment.current_site_id ===
-                                        report.site_id),
-                        )}
-                        onAdd={() =>
-                            form.setData('equipment_lines', [
-                                ...form.data.equipment_lines,
-                                emptyEquipmentLine(),
-                            ])
-                        }
-                        onChange={(lines) =>
-                            form.setData('equipment_lines', lines)
-                        }
-                    />
-                    <LineCard
-                        title="Materials"
-                        disabled={!can.update}
-                        lines={form.data.material_lines}
-                        fields={[
-                            'inventory_item_id',
-                            'inventory_store_id',
-                            'unit_of_measure_id',
-                            'material_name',
-                            'material_type',
-                            'quantity',
-                            'unit',
-                            'delivery_reference',
-                            ...(canViewCosts ? ['rate_amount'] : []),
-                        ]}
-                        units={units}
-                        inventoryItems={inventoryItems}
-                        inventoryStores={inventoryStores.filter(
-                            (store) => store.branch_id === report.branch_id,
-                        )}
-                        onAdd={() =>
-                            form.setData('material_lines', [
-                                ...form.data.material_lines,
-                                emptyMaterialLine(),
-                            ])
-                        }
-                        onChange={(lines) =>
-                            form.setData('material_lines', lines)
-                        }
-                    />
-                    {can.viewMaterialReconciliation && (
-                        <MaterialReconciliationCard
-                            lines={materialReconciliations}
-                            stores={inventoryStores.filter(
-                                (store) => store.branch_id === report.branch_id,
                             )}
-                            items={inventoryItems}
-                        />
-                    )}
-                    {canViewCosts && (
-                        <OtherCostsCard
-                            reportId={report.id}
-                            expenses={report.other_cost_expenses}
-                            options={expenseDraftOptions}
-                            canCreate={can.createExpenseDraft}
-                        />
-                    )}
-                    <LineCard
-                        title="Delay details"
-                        disabled={!can.update}
-                        lines={form.data.delay_lines}
-                        fields={['delay_type', 'description', 'hours_lost']}
-                        onAdd={() =>
-                            form.setData('delay_lines', [
-                                ...form.data.delay_lines,
-                                emptyDelayLine(),
-                            ])
-                        }
-                        onChange={(lines) => form.setData('delay_lines', lines)}
-                    />
+                            <LineCard
+                                title="Delay details"
+                                disabled={!can.update}
+                                lines={form.data.delay_lines}
+                                fields={[
+                                    'delay_type',
+                                    'description',
+                                    'hours_lost',
+                                ]}
+                                onAdd={() =>
+                                    form.setData('delay_lines', [
+                                        ...form.data.delay_lines,
+                                        emptyDelayLine(),
+                                    ])
+                                }
+                                onChange={(lines) =>
+                                    form.setData('delay_lines', lines)
+                                }
+                            />
+                        </TabsContent>
+                        <TabsContent value="evidence" className="mt-6">
+                            <DocumentEvidenceTable
+                                documents={documents}
+                                emptyText="No documents linked to this report."
+                                title="Linked evidence"
+                                description="Drawings, sketches, permits, photos and other files tied to this daily report."
+                                actions={
+                                    canUploadDocuments && (
+                                        <DocumentDialog
+                                            documentTypes={documentTypes}
+                                            branches={documentBranches}
+                                            linkOptions={documentLinkOptions}
+                                            defaultBranchId={report.branch_id}
+                                            defaultLink={{
+                                                type: 'daily_site_report',
+                                                id: report.id,
+                                            }}
+                                            buttonLabel="Upload evidence"
+                                        />
+                                    )
+                                }
+                            />
+                        </TabsContent>
+                        <TabsContent value="workflow" className="mt-6">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Workflow trail</CardTitle>
+                                    <CardDescription>
+                                        Submit, return, approval and correction
+                                        events for this report.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {[...corrections, ...reviews].length ===
+                                    0 ? (
+                                        <div className="text-sm text-muted-foreground">
+                                            No workflow events recorded yet.
+                                        </div>
+                                    ) : (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-sm">
+                                                <thead>
+                                                    <tr className="border-b text-left text-muted-foreground">
+                                                        <th className="py-3 pr-4 font-medium">
+                                                            Event
+                                                        </th>
+                                                        <th className="py-3 pr-4 font-medium">
+                                                            Status
+                                                        </th>
+                                                        <th className="py-3 pr-4 font-medium">
+                                                            Actor
+                                                        </th>
+                                                        <th className="py-3 pr-4 font-medium">
+                                                            Details
+                                                        </th>
+                                                        <th className="py-3 pr-4 font-medium">
+                                                            Date
+                                                        </th>
+                                                        <th className="py-3 text-right font-medium">
+                                                            Actions
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {reviews.map((review) => (
+                                                        <tr
+                                                            key={review.id}
+                                                            className="border-b last:border-0"
+                                                        >
+                                                            <td className="py-3 pr-4 font-medium capitalize">
+                                                                {review.action.replaceAll(
+                                                                    '_',
+                                                                    ' ',
+                                                                )}
+                                                            </td>
+                                                            <td className="py-3 pr-4">
+                                                                <Badge variant="outline">
+                                                                    Recorded
+                                                                </Badge>
+                                                            </td>
+                                                            <td className="py-3 pr-4">
+                                                                {review.reviewed_by ??
+                                                                    'Unknown user'}
+                                                            </td>
+                                                            <td className="min-w-64 py-3 pr-4 whitespace-normal">
+                                                                {review.remarks ??
+                                                                    '—'}
+                                                            </td>
+                                                            <td className="py-3 pr-4 whitespace-nowrap text-muted-foreground">
+                                                                {
+                                                                    review.created_at
+                                                                }
+                                                            </td>
+                                                            <td className="py-3 text-right" />
+                                                        </tr>
+                                                    ))}
+                                                    {corrections.map(
+                                                        (correction) => (
+                                                            <tr
+                                                                key={
+                                                                    correction.id
+                                                                }
+                                                                className="border-b last:border-0"
+                                                            >
+                                                                <td className="py-3 pr-4 font-medium">
+                                                                    Correction
+                                                                </td>
+                                                                <td className="py-3 pr-4">
+                                                                    <Badge
+                                                                        variant="outline"
+                                                                        className="capitalize"
+                                                                    >
+                                                                        {correction.status.replaceAll(
+                                                                            '_',
+                                                                            ' ',
+                                                                        )}
+                                                                    </Badge>
+                                                                </td>
+                                                                <td className="py-3 pr-4">
+                                                                    {correction.requested_by ??
+                                                                        'Unknown user'}
+                                                                </td>
+                                                                <td className="min-w-80 py-3 pr-4 whitespace-normal">
+                                                                    <div className="font-medium">
+                                                                        {
+                                                                            correction.reason
+                                                                        }
+                                                                    </div>
+                                                                    {correction.new_values && (
+                                                                        <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
+                                                                            {Object.entries(
+                                                                                correction.new_values,
+                                                                            ).map(
+                                                                                ([
+                                                                                    field,
+                                                                                    value,
+                                                                                ]) =>
+                                                                                    field ===
+                                                                                        'equipment_adjustments' &&
+                                                                                    Array.isArray(
+                                                                                        value,
+                                                                                    ) ? (
+                                                                                        <CorrectionAdjustmentSummary
+                                                                                            key={
+                                                                                                field
+                                                                                            }
+                                                                                            adjustments={
+                                                                                                value
+                                                                                            }
+                                                                                        />
+                                                                                    ) : (
+                                                                                        <div
+                                                                                            key={
+                                                                                                field
+                                                                                            }
+                                                                                            className="flex justify-between gap-4"
+                                                                                        >
+                                                                                            <span className="capitalize">
+                                                                                                {field.replaceAll(
+                                                                                                    '_',
+                                                                                                    ' ',
+                                                                                                )}
+                                                                                            </span>
+                                                                                            <span className="text-right font-medium text-foreground">
+                                                                                                {displayUnknown(
+                                                                                                    value,
+                                                                                                )}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    ),
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                </td>
+                                                                <td className="py-3 pr-4 whitespace-nowrap text-muted-foreground">
+                                                                    {
+                                                                        correction.created_at
+                                                                    }
+                                                                </td>
+                                                                <td className="py-3 text-right">
+                                                                    {correction.can_manage && (
+                                                                        <CorrectionActions
+                                                                            reportId={
+                                                                                report.id
+                                                                            }
+                                                                            correction={
+                                                                                correction
+                                                                            }
+                                                                        />
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        ),
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                    </Tabs>
 
                     {can.update && (
                         <div className="flex justify-end">
@@ -1149,7 +1204,7 @@ function SubmitReportButton({
                 <DialogHeader>
                     <DialogTitle>Submit without evidence?</DialogTitle>
                     <DialogDescription>
-                        This report has work quantities but no linked evidence.
+                        This report has work activities but no linked evidence.
                         Record the reason before submitting.
                     </DialogDescription>
                 </DialogHeader>
@@ -1615,420 +1670,128 @@ function TextAreaField({
     );
 }
 
-function MaterialReconciliationCard({
-    lines,
-    stores,
-    items,
-}: {
-    lines: MaterialReconciliation[];
-    stores: InventoryStoreOption[];
-    items: InventoryItemOption[];
-}) {
+function MaterialUsageStatusCard({ lines }: { lines: MaterialUsage[] }) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Material reconciliation</CardTitle>
+                <CardTitle>Material usage status</CardTitle>
                 <CardDescription>
-                    Match approved material usage to stock issues. Allocating an
-                    existing issue does not deduct stock again.
+                    Site-store quantities are deducted once when this report is
+                    approved. Materials supplied outside inventory do not change
+                    stock.
                 </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-3">
+            <CardContent>
                 {lines.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                        This report has no material lines to reconcile.
+                        This report has no recorded material usage.
                     </p>
                 ) : (
-                    lines.map((line) => (
-                        <div
-                            key={line.id}
-                            className="grid gap-3 rounded-md border p-3 lg:grid-cols-[minmax(0,1.5fr)_repeat(3,minmax(0,.7fr))_auto] lg:items-center"
-                        >
-                            <div className="min-w-0">
-                                <div className="truncate font-medium">
-                                    {line.material_name}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                    Reported{' '}
-                                    {formatNumber(line.reported_quantity ?? 0)}{' '}
-                                    {line.reported_unit ?? ''}
-                                </div>
-                            </div>
-                            <QuantitySummary
-                                label="Stock quantity"
-                                value={line.stock_quantity}
-                                unit={line.stock_unit}
-                            />
-                            <QuantitySummary
-                                label="Allocated"
-                                value={line.allocated_quantity}
-                                unit={line.stock_unit}
-                            />
-                            <QuantitySummary
-                                label="Outstanding"
-                                value={line.outstanding_quantity}
-                                unit={line.stock_unit}
-                            />
-                            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-                                <Badge variant="outline">
-                                    {line.status.replaceAll('_', ' ')}
-                                </Badge>
-                                {Number(line.outstanding_quantity) > 0 &&
-                                    line.inventory_item_id !== null &&
-                                    line.can_manage && (
-                                        <AllocationDialog line={line} />
-                                    )}
-                                {Number(line.outstanding_quantity) > 0 &&
-                                    line.inventory_item_id !== null &&
-                                    line.can_direct_issue && (
-                                        <DirectIssueDialog
-                                            line={line}
-                                            stores={stores}
-                                            items={items}
-                                        />
-                                    )}
-                                {Number(line.outstanding_quantity) > 0 &&
-                                    line.can_mark_external &&
-                                    line.allocations.length === 0 && (
-                                        <ExternalMaterialDialog line={line} />
-                                    )}
-                            </div>
-                            {line.external_reason && (
-                                <p className="text-sm text-muted-foreground lg:col-span-5">
-                                    External material: {line.external_reason}
-                                </p>
-                            )}
-                        </div>
-                    ))
+                    <div className="overflow-x-auto rounded-md border">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b bg-muted/40 text-left text-muted-foreground">
+                                    <th className="px-3 py-2 font-medium">
+                                        Material
+                                    </th>
+                                    <th className="px-3 py-2 font-medium">
+                                        Source
+                                    </th>
+                                    <th className="px-3 py-2 font-medium">
+                                        Reported usage
+                                    </th>
+                                    <th className="px-3 py-2 font-medium">
+                                        Store / batch
+                                    </th>
+                                    <th className="px-3 py-2 font-medium">
+                                        Status
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {lines.map((line) => (
+                                    <tr
+                                        key={line.id}
+                                        className="border-b last:border-0"
+                                    >
+                                        <td className="px-3 py-3 font-medium">
+                                            {line.material_name}
+                                        </td>
+                                        <td className="px-3 py-3">
+                                            {line.source_label}
+                                        </td>
+                                        <td className="px-3 py-3 tabular-nums">
+                                            {formatNumber(
+                                                line.reported_quantity ?? 0,
+                                            )}{' '}
+                                            {line.reported_unit ?? ''}
+                                            {line.stock_quantity !== null &&
+                                                line.stock_unit !== null &&
+                                                line.stock_unit !==
+                                                    line.reported_unit && (
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {formatNumber(
+                                                            line.stock_quantity,
+                                                        )}{' '}
+                                                        {line.stock_unit} in
+                                                        stock units
+                                                    </div>
+                                                )}
+                                        </td>
+                                        <td className="px-3 py-3">
+                                            {line.source === 'external' ? (
+                                                <span className="text-muted-foreground">
+                                                    Not from inventory
+                                                </span>
+                                            ) : (
+                                                <>
+                                                    <div>
+                                                        {line.store_name ??
+                                                            'Site stock source not selected'}
+                                                    </div>
+                                                    {line.batch_number && (
+                                                        <div className="text-xs text-muted-foreground">
+                                                            Batch{' '}
+                                                            {line.batch_number}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </td>
+                                        <td className="px-3 py-3">
+                                            <Badge variant="outline">
+                                                {line.status_label}
+                                            </Badge>
+                                            {line.posted_at && (
+                                                <div className="mt-1 text-xs text-muted-foreground">
+                                                    {line.posted_at}
+                                                </div>
+                                            )}
+                                            {line.external_reason && (
+                                                <div className="mt-1 max-w-72 text-xs text-muted-foreground">
+                                                    {line.external_reason}
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </CardContent>
         </Card>
     );
 }
 
-function QuantitySummary({
-    label,
-    value,
-    unit,
-}: {
-    label: string;
-    value: string | null;
-    unit: string | null;
-}) {
-    return (
-        <div>
-            <div className="text-xs text-muted-foreground">{label}</div>
-            <div className="font-medium tabular-nums">
-                {value === null ? 'Not linked' : formatNumber(value)}{' '}
-                {unit ?? ''}
-            </div>
-        </div>
-    );
-}
-
-function AllocationDialog({ line }: { line: MaterialReconciliation }) {
-    const [open, setOpen] = useState(false);
-    const form = useForm({
-        inventory_stock_movement_id: '',
-        quantity: line.outstanding_quantity,
-        reason: '',
-    });
-
-    function submit() {
-        form.post(`/dsr-material-lines/${line.id}/allocate`, {
-            preserveScroll: true,
-            onSuccess: () => setOpen(false),
-        });
-    }
-
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button type="button" size="sm" variant="outline">
-                    Match issue
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Match an existing stock issue</DialogTitle>
-                    <DialogDescription>
-                        Use stock already issued to this project and site. This
-                        creates a link only and does not reduce stock again.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4">
-                    <div className="grid gap-2">
-                        <Label>Stock issue</Label>
-                        <SearchableSelect
-                            value={form.data.inventory_stock_movement_id}
-                            onValueChange={(value) =>
-                                form.setData(
-                                    'inventory_stock_movement_id',
-                                    value,
-                                )
-                            }
-                            options={line.candidate_issues.map((issue) => ({
-                                value: issue.id,
-                                label: `${formatNumber(issue.quantity)} ${line.stock_unit ?? ''} from ${issue.store_name}`,
-                                description: `${issue.posted_at} by ${issue.posted_by}`,
-                            }))}
-                            placeholder="Select an existing issue"
-                            emptyMessage="No matching stock issues were found."
-                        />
-                        <InputError
-                            message={form.errors.inventory_stock_movement_id}
-                        />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label>Quantity to match</Label>
-                        <Input
-                            type="number"
-                            min="0.0001"
-                            step="0.0001"
-                            value={form.data.quantity}
-                            onChange={(event) =>
-                                form.setData('quantity', event.target.value)
-                            }
-                        />
-                        <InputError message={form.errors.quantity} />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label>Reason</Label>
-                        <Textarea
-                            value={form.data.reason}
-                            onChange={(event) =>
-                                form.setData('reason', event.target.value)
-                            }
-                            placeholder="Explain why this issue belongs to the report line"
-                        />
-                        <InputError message={form.errors.reason} />
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setOpen(false)}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        type="button"
-                        disabled={form.processing}
-                        onClick={submit}
-                    >
-                        Match issue
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function DirectIssueDialog({
-    line,
-    stores,
-    items,
-}: {
-    line: MaterialReconciliation;
-    stores: InventoryStoreOption[];
-    items: InventoryItemOption[];
-}) {
-    const [open, setOpen] = useState(false);
-    const item = items.find((option) => option.id === line.inventory_item_id);
-    const allowedStores = stores.filter(
-        (store) => item?.store_ids.includes(store.id) ?? false,
-    );
-    const defaultStore = allowedStores.some(
-        (store) => store.id === line.inventory_store_id,
-    )
-        ? (line.inventory_store_id ?? '')
-        : (allowedStores[0]?.id ?? '');
-    const form = useForm({
-        inventory_store_id: defaultStore,
-        inventory_batch_id: '',
-        quantity: line.outstanding_quantity,
-        reason: '',
-    });
-    const batches =
-        item?.batches.filter(
-            (batch) =>
-                batch.inventory_store_id === null ||
-                batch.inventory_store_id === form.data.inventory_store_id,
-        ) ?? [];
-
-    function submit() {
-        form.post(`/dsr-material-lines/${line.id}/direct-issue`, {
-            preserveScroll: true,
-            onSuccess: () => setOpen(false),
-        });
-    }
-
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button type="button" size="sm">
-                    Issue balance
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Issue outstanding material</DialogTitle>
-                    <DialogDescription>
-                        This posts a real stock issue for the unmatched
-                        quantity.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="grid gap-2 sm:col-span-2">
-                        <Label>Store</Label>
-                        <SearchableSelect
-                            value={form.data.inventory_store_id}
-                            onValueChange={(value) =>
-                                form.setData({
-                                    ...form.data,
-                                    inventory_store_id: value,
-                                    inventory_batch_id: '',
-                                })
-                            }
-                            options={allowedStores.map((store) => ({
-                                value: store.id,
-                                label: store.name,
-                                description: store.branch_name,
-                            }))}
-                            placeholder="Select store"
-                        />
-                        <InputError message={form.errors.inventory_store_id} />
-                    </div>
-                    {item?.tracking_type === 'batch' && (
-                        <div className="grid gap-2 sm:col-span-2">
-                            <Label>Batch</Label>
-                            <SearchableSelect
-                                value={form.data.inventory_batch_id}
-                                onValueChange={(value) =>
-                                    form.setData('inventory_batch_id', value)
-                                }
-                                options={batches.map((batch) => ({
-                                    value: batch.id,
-                                    label: batch.batch_number,
-                                }))}
-                                placeholder="Select batch"
-                            />
-                            <InputError
-                                message={form.errors.inventory_batch_id}
-                            />
-                        </div>
-                    )}
-                    <div className="grid gap-2 sm:col-span-2">
-                        <Label>Quantity ({line.stock_unit})</Label>
-                        <Input
-                            type="number"
-                            min="0.0001"
-                            step="0.0001"
-                            value={form.data.quantity}
-                            onChange={(event) =>
-                                form.setData('quantity', event.target.value)
-                            }
-                        />
-                        <InputError message={form.errors.quantity} />
-                    </div>
-                    <div className="grid gap-2 sm:col-span-2">
-                        <Label>Reason</Label>
-                        <Textarea
-                            value={form.data.reason}
-                            onChange={(event) =>
-                                form.setData('reason', event.target.value)
-                            }
-                            placeholder="Explain the direct issue"
-                        />
-                        <InputError message={form.errors.reason} />
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setOpen(false)}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        type="button"
-                        disabled={form.processing}
-                        onClick={submit}
-                    >
-                        Issue material
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function ExternalMaterialDialog({ line }: { line: MaterialReconciliation }) {
-    const [open, setOpen] = useState(false);
-    const form = useForm({ reason: '' });
-
-    function submit() {
-        form.post(`/dsr-material-lines/${line.id}/external`, {
-            preserveScroll: true,
-            onSuccess: () => setOpen(false),
-        });
-    }
-
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button type="button" size="sm" variant="outline">
-                    External
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-xl">
-                <DialogHeader>
-                    <DialogTitle>Mark as external material</DialogTitle>
-                    <DialogDescription>
-                        Use this only when the material did not come from
-                        company stock. No stock movement will be created.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-2">
-                    <Label>Reason and source</Label>
-                    <Textarea
-                        value={form.data.reason}
-                        onChange={(event) =>
-                            form.setData('reason', event.target.value)
-                        }
-                        placeholder="For example, supplied directly by the subcontractor"
-                    />
-                    <InputError message={form.errors.reason} />
-                </div>
-                <DialogFooter>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setOpen(false)}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        type="button"
-                        disabled={form.processing}
-                        onClick={submit}
-                    >
-                        Mark external
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
 function CreateExpenseDraftDialog({
     reportId,
     options,
+    canManageItems,
 }: {
     reportId: string;
     options: ExpenseDraftOptions;
+    canManageItems: boolean;
 }) {
     const [open, setOpen] = useState(false);
     const form = useForm({
@@ -2073,6 +1836,22 @@ function CreateExpenseDraftDialog({
                                 Expense item{' '}
                                 <span className="text-destructive">*</span>
                             </Label>
+                            {canManageItems ? (
+                                <a
+                                    href="/expenses?tab=items"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="w-fit text-xs font-medium text-primary hover:underline"
+                                >
+                                    Expense item not listed? Add it in a new
+                                    tab, then refresh this report
+                                </a>
+                            ) : (
+                                <p className="text-xs text-muted-foreground">
+                                    If the item is not listed, ask an expense
+                                    administrator to register it first.
+                                </p>
+                            )}
                             <SearchableSelect
                                 value={form.data.expense_item_id}
                                 onValueChange={(value) =>
@@ -2288,11 +2067,13 @@ function OtherCostsCard({
     expenses,
     options,
     canCreate,
+    canManageItems,
 }: {
     reportId: string;
     expenses: DsrExpense[];
     options: ExpenseDraftOptions;
     canCreate: boolean;
+    canManageItems: boolean;
 }) {
     return (
         <Card>
@@ -2307,6 +2088,7 @@ function OtherCostsCard({
                     <CreateExpenseDraftDialog
                         reportId={reportId}
                         options={options}
+                        canManageItems={canManageItems}
                     />
                 )}
             </CardHeader>
@@ -2406,6 +2188,32 @@ function LineCard({
     labourSources?: SelectOption[];
     subcontractors?: SelectOption[];
 }) {
+    const [editorOpen, setEditorOpen] = useState(false);
+    const [editingIndex, setEditingIndex] = useState<number | null>(null);
+    const [adding, setAdding] = useState(false);
+    const activeIndex = editingIndex ?? 0;
+    const currentLine = editingIndex === null ? null : lines[editingIndex];
+
+    function openNewLine() {
+        onAdd();
+        setEditingIndex(lines.length);
+        setAdding(true);
+        setEditorOpen(true);
+    }
+
+    function openLine(index: number) {
+        setEditingIndex(index);
+        setAdding(false);
+        setEditorOpen(true);
+    }
+
+    function closeEditor(save: boolean) {
+        if (!save && adding && editingIndex !== null) {
+            onChange(lines.filter((_, index) => index !== editingIndex));
+        }
+        setAdding(false);
+        setEditorOpen(false);
+    }
     function updateLine(index: number, field: string, value: string) {
         onChange(
             lines.map((line, lineIndex) =>
@@ -2461,15 +2269,55 @@ function LineCard({
         );
     }
 
+    function selectMaterialSource(index: number, source: string) {
+        onChange(
+            lines.map((line, lineIndex) =>
+                lineIndex === index
+                    ? {
+                          ...line,
+                          material_source: source,
+                          inventory_item_id:
+                              source === 'external'
+                                  ? ''
+                                  : line.inventory_item_id,
+                          inventory_store_id:
+                              source === 'external'
+                                  ? ''
+                                  : line.inventory_store_id,
+                          inventory_batch_id:
+                              source === 'external'
+                                  ? ''
+                                  : line.inventory_batch_id,
+                          unit_of_measure_id:
+                              source === 'external'
+                                  ? ''
+                                  : line.unit_of_measure_id,
+                          material_name:
+                              source === 'external' ? '' : line.material_name,
+                          unit: source === 'external' ? '' : line.unit,
+                          external_material_reason:
+                              source === 'external'
+                                  ? line.external_material_reason
+                                  : '',
+                      }
+                    : line,
+            ),
+        );
+    }
     function selectInventoryItem(index: number, itemId: string) {
         const item = inventoryItems.find((option) => option.id === itemId);
-        const storeId = item?.store_ids.includes(
-            String(lines[index]?.inventory_store_id ?? ''),
-        )
-            ? String(lines[index]?.inventory_store_id ?? '')
-            : (inventoryStores.find((store) =>
+        const currentStoreId = String(lines[index]?.inventory_store_id ?? '');
+        const storeId = item?.store_ids.includes(currentStoreId)
+            ? currentStoreId
+            : (inventoryStores.find(
+                  (store) =>
+                      store.is_default_for_site &&
+                      item?.store_ids.includes(store.id),
+              )?.id ??
+              inventoryStores.find((store) =>
                   item?.store_ids.includes(store.id),
-              )?.id ?? '');
+              )?.id ??
+              '');
         onChange(
             lines.map((line, lineIndex) =>
                 lineIndex === index
@@ -2477,6 +2325,7 @@ function LineCard({
                           ...line,
                           inventory_item_id: itemId,
                           inventory_store_id: storeId,
+                          inventory_batch_id: '',
                           unit_of_measure_id: item?.stock_unit_id ?? '',
                           material_name: item?.name ?? '',
                           unit: item?.stock_unit ?? '',
@@ -2544,7 +2393,7 @@ function LineCard({
 
     return (
         <Card>
-            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <CardTitle>{title}</CardTitle>
                     {description && (
@@ -2552,239 +2401,604 @@ function LineCard({
                     )}
                 </div>
                 {!disabled && (
-                    <Button type="button" variant="outline" onClick={onAdd}>
-                        Add line
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={openNewLine}
+                    >
+                        <Plus />
+                        Add {lineSingularLabel(title)}
                     </Button>
                 )}
             </CardHeader>
-            <CardContent className="grid gap-4">
-                {lines.map((line, index) => (
-                    <div
-                        key={index}
-                        className="grid gap-3 rounded-md border p-3 md:grid-cols-4"
-                    >
-                        {!disabled && (
-                            <div className="flex justify-end md:col-span-4">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-destructive hover:text-destructive"
-                                    onClick={() =>
-                                        onChange(
-                                            lines.filter(
-                                                (_, lineIndex) =>
-                                                    lineIndex !== index,
-                                            ),
-                                        )
-                                    }
-                                    title={`Remove ${title.toLowerCase()} line`}
-                                    aria-label={`Remove ${title.toLowerCase()} line`}
-                                >
-                                    <Trash2 />
-                                </Button>
-                            </div>
-                        )}
-                        {fields.map((field) => (
-                            <div key={field} className="grid gap-2">
-                                <Label
-                                    required={lineFieldRequired(
-                                        field,
+            <CardContent>
+                {lines.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                        No {title.toLowerCase()} recorded.
+                    </p>
+                ) : (
+                    <div className="overflow-x-auto rounded-md border">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b bg-muted/40 text-left text-muted-foreground">
+                                    <th className="px-3 py-2 font-medium">
+                                        Description
+                                    </th>
+                                    <th className="px-3 py-2 font-medium">
+                                        Quantity / time
+                                    </th>
+                                    <th className="px-3 py-2 font-medium">
+                                        Details
+                                    </th>
+                                    <th className="px-3 py-2 text-right font-medium">
+                                        Actions
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {lines.map((line, index) => {
+                                    const summary = lineTableSummary(
                                         title,
                                         line,
-                                    )}
-                                >
-                                    {lineFieldLabel(field, title)}
-                                </Label>
-                                {field === 'inventory_item_id' ? (
-                                    <SearchableSelect
-                                        value={String(line[field] ?? '')}
-                                        onValueChange={(value) =>
-                                            selectInventoryItem(index, value)
-                                        }
-                                        options={inventoryItems.map((item) => ({
-                                            value: item.id,
-                                            label: item.name,
-                                            description: item.code,
-                                        }))}
-                                        placeholder="Select inventory item"
-                                        searchPlaceholder="Search inventory..."
-                                        disabled={disabled}
-                                    />
-                                ) : field === 'labour_source' ? (
-                                    <SearchableSelect
-                                        value={String(line[field] ?? '')}
-                                        onValueChange={(value) =>
-                                            selectLabourSource(index, value)
-                                        }
-                                        options={labourSources}
-                                        placeholder="Select labour source"
-                                        disabled={disabled}
-                                    />
-                                ) : field === 'subcontractor_id' ? (
-                                    <SearchableSelect
-                                        value={String(line[field] ?? '')}
-                                        onValueChange={(value) =>
-                                            selectSubcontractor(index, value)
-                                        }
-                                        options={subcontractors}
-                                        placeholder="Select subcontractor"
-                                        searchPlaceholder="Search subcontractors..."
-                                        disabled={
-                                            disabled ||
-                                            line.labour_source !==
-                                                'subcontractor'
-                                        }
-                                    />
-                                ) : field === 'inventory_store_id' ? (
-                                    <SearchableSelect
-                                        value={String(line[field] ?? '')}
-                                        onValueChange={(value) =>
-                                            updateLine(index, field, value)
-                                        }
-                                        options={inventoryStores
-                                            .filter((store) => {
-                                                const item =
-                                                    inventoryItems.find(
-                                                        (option) =>
-                                                            option.id ===
-                                                            line.inventory_item_id,
-                                                    );
-                                                return (
-                                                    item?.store_ids.includes(
-                                                        store.id,
-                                                    ) ?? false
-                                                );
-                                            })
-                                            .map((store) => ({
-                                                value: store.id,
-                                                label: store.name,
-                                                description: store.branch_name,
-                                            }))}
-                                        placeholder="Select source store"
-                                        disabled={
-                                            disabled || !line.inventory_item_id
-                                        }
-                                    />
-                                ) : field === 'unit_of_measure_id' ? (
-                                    <SearchableSelect
-                                        value={String(line[field] ?? '')}
-                                        onValueChange={(value) =>
-                                            selectInventoryUnit(index, value)
-                                        }
-                                        options={(
-                                            inventoryItems.find(
-                                                (item) =>
-                                                    item.id ===
-                                                    line.inventory_item_id,
-                                            )?.units ?? []
-                                        ).map((unit) => ({
-                                            value: unit.id,
-                                            label: unit.name,
-                                            description:
-                                                unit.symbol ?? undefined,
-                                        }))}
-                                        placeholder="Select unit"
-                                        disabled={
-                                            disabled || !line.inventory_item_id
-                                        }
-                                    />
-                                ) : field === 'project_activity_id' ? (
-                                    <SearchableSelect
-                                        value={String(line[field] ?? '')}
-                                        onValueChange={(value) =>
-                                            selectActivity(index, value)
-                                        }
-                                        options={activities.map((activity) => ({
-                                            value: activity.id,
-                                            label: activity.label,
-                                            description: [
-                                                activity.unit,
-                                                activity.boq_item_number,
-                                            ]
-                                                .filter(Boolean)
-                                                .join(' / '),
-                                        }))}
-                                        placeholder="Select work activity"
-                                        searchPlaceholder="Search work activities..."
-                                        emptyMessage="No work activity is available for this site."
-                                        disabled={disabled}
-                                    />
-                                ) : field === 'equipment_id' ? (
-                                    <SearchableSelect
-                                        value={String(line[field] ?? '')}
-                                        onValueChange={(value) =>
-                                            selectEquipment(index, value)
-                                        }
-                                        options={equipmentOptions.map(
-                                            (equipment) => ({
-                                                value: equipment.id,
-                                                label: `${equipment.asset_code} - ${equipment.name}`,
-                                                description: [
-                                                    equipment.category_name,
-                                                    equipment.current_site_id
-                                                        ? 'Assigned to a site'
-                                                        : 'Not site-assigned',
-                                                ].join(' / '),
-                                            }),
-                                        )}
-                                        placeholder="Select equipment"
-                                        searchPlaceholder="Search asset code or name..."
-                                        emptyMessage="No registered equipment is available for this branch."
-                                        disabled={disabled}
-                                    />
-                                ) : (field === 'unit' && units.length > 0) ||
-                                  controlledLineOptions[field] ? (
-                                    <SearchableSelect
-                                        value={String(line[field] ?? '')}
-                                        onValueChange={(value) =>
-                                            updateLine(index, field, value)
-                                        }
-                                        options={lineFieldOptions(
-                                            field,
-                                            line,
-                                            units,
-                                        )}
-                                        placeholder={`Select ${field.replaceAll('_', ' ')}`}
-                                        searchPlaceholder={`Search ${field.replaceAll('_', ' ')}...`}
-                                        disabled={lineFieldDisabled(
-                                            line,
-                                            field,
-                                            disabled,
-                                        )}
-                                    />
-                                ) : (
-                                    <Input
-                                        value={lineValue(
-                                            line,
-                                            field,
-                                            lineFieldDisabled(
-                                                line,
-                                                field,
-                                                disabled,
-                                            ),
-                                        )}
-                                        disabled={lineFieldDisabled(
-                                            line,
-                                            field,
-                                            disabled,
-                                        )}
-                                        onChange={(event) =>
-                                            updateLine(
-                                                index,
-                                                field,
-                                                event.target.value,
-                                            )
-                                        }
-                                    />
-                                )}
-                            </div>
-                        ))}
+                                        inventoryStores,
+                                    );
+
+                                    return (
+                                        <tr
+                                            key={index}
+                                            className="border-b last:border-0"
+                                        >
+                                            <td className="px-3 py-3">
+                                                <div className="font-medium">
+                                                    {summary.primary}
+                                                </div>
+                                                {summary.secondary && (
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {summary.secondary}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-3 py-3 tabular-nums">
+                                                {summary.quantity}
+                                            </td>
+                                            <td className="px-3 py-3 text-muted-foreground">
+                                                {summary.details}
+                                            </td>
+                                            <td className="px-3 py-3">
+                                                <div className="flex justify-end gap-1">
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() =>
+                                                            openLine(index)
+                                                        }
+                                                        title={`Edit ${lineSingularLabel(title)}`}
+                                                    >
+                                                        <Pencil />
+                                                    </Button>
+                                                    {!disabled && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="text-destructive hover:text-destructive"
+                                                            onClick={() =>
+                                                                onChange(
+                                                                    lines.filter(
+                                                                        (
+                                                                            _,
+                                                                            lineIndex,
+                                                                        ) =>
+                                                                            lineIndex !==
+                                                                            index,
+                                                                    ),
+                                                                )
+                                                            }
+                                                            title={`Remove ${lineSingularLabel(title)}`}
+                                                        >
+                                                            <Trash2 />
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
                     </div>
-                ))}
+                )}
             </CardContent>
+
+            <Dialog
+                open={editorOpen}
+                onOpenChange={(open) => {
+                    if (open) {
+                        setEditorOpen(true);
+                        return;
+                    }
+
+                    if (adding) {
+                        closeEditor(false);
+                        return;
+                    }
+
+                    setEditorOpen(false);
+                }}
+            >
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {adding ? 'Add' : 'Edit'} {lineSingularLabel(title)}
+                        </DialogTitle>
+                        <DialogDescription>
+                            Record the details for this daily site report.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {currentLine &&
+                        title === 'Material usage' &&
+                        (currentLine.material_source ?? 'site_store') ===
+                            'site_store' &&
+                        currentLine.inventory_item_id &&
+                        !currentLine.inventory_store_id && (
+                            <Alert variant="destructive">
+                                <AlertTitle>
+                                    Material is not available in this site stock
+                                </AlertTitle>
+                                <AlertDescription>
+                                    Add or transfer this item to the site store
+                                    before recording it as used. Otherwise
+                                    choose Delivered directly outside inventory.
+                                </AlertDescription>
+                            </Alert>
+                        )}
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {currentLine &&
+                            fields
+                                .filter((field) =>
+                                    lineFieldVisible(
+                                        field,
+                                        currentLine,
+                                        title,
+                                        inventoryItems,
+                                        inventoryStores,
+                                    ),
+                                )
+                                .map((field) => (
+                                    <div key={field} className="grid gap-2">
+                                        <Label
+                                            required={lineFieldRequired(
+                                                field,
+                                                title,
+                                                currentLine,
+                                            )}
+                                        >
+                                            {lineFieldLabel(field, title)}
+                                        </Label>
+                                        {field === 'material_source' ? (
+                                            <SearchableSelect
+                                                value={String(
+                                                    currentLine[field] ??
+                                                        'site_store',
+                                                )}
+                                                onValueChange={(value) =>
+                                                    selectMaterialSource(
+                                                        activeIndex,
+                                                        value,
+                                                    )
+                                                }
+                                                options={[
+                                                    {
+                                                        value: 'site_store',
+                                                        label: 'From site stock',
+                                                    },
+                                                    {
+                                                        value: 'external',
+                                                        label: 'Delivered directly outside inventory',
+                                                    },
+                                                ]}
+                                                placeholder="Select how the material was supplied"
+                                                disabled={disabled}
+                                            />
+                                        ) : field === 'inventory_item_id' ? (
+                                            <SearchableSelect
+                                                value={String(
+                                                    currentLine[field] ?? '',
+                                                )}
+                                                onValueChange={(value) =>
+                                                    selectInventoryItem(
+                                                        activeIndex,
+                                                        value,
+                                                    )
+                                                }
+                                                options={inventoryItems.map(
+                                                    (item) => ({
+                                                        value: item.id,
+                                                        label: item.name,
+                                                        description: item.code,
+                                                    }),
+                                                )}
+                                                placeholder="Select material item"
+                                                searchPlaceholder="Search inventory..."
+                                                disabled={disabled}
+                                            />
+                                        ) : field === 'labour_source' ? (
+                                            <SearchableSelect
+                                                value={String(
+                                                    currentLine[field] ?? '',
+                                                )}
+                                                onValueChange={(value) =>
+                                                    selectLabourSource(
+                                                        activeIndex,
+                                                        value,
+                                                    )
+                                                }
+                                                options={labourSources}
+                                                placeholder="Select labour source"
+                                                disabled={disabled}
+                                            />
+                                        ) : field === 'subcontractor_id' ? (
+                                            <SearchableSelect
+                                                value={String(
+                                                    currentLine[field] ?? '',
+                                                )}
+                                                onValueChange={(value) =>
+                                                    selectSubcontractor(
+                                                        activeIndex,
+                                                        value,
+                                                    )
+                                                }
+                                                options={subcontractors}
+                                                placeholder="Select subcontractor"
+                                                searchPlaceholder="Search subcontractors..."
+                                                disabled={
+                                                    disabled ||
+                                                    currentLine.labour_source !==
+                                                        'subcontractor'
+                                                }
+                                            />
+                                        ) : field === 'inventory_store_id' ? (
+                                            <SearchableSelect
+                                                value={String(
+                                                    currentLine[field] ?? '',
+                                                )}
+                                                onValueChange={(value) =>
+                                                    updateLine(
+                                                        activeIndex,
+                                                        field,
+                                                        value,
+                                                    )
+                                                }
+                                                options={inventoryStores
+                                                    .filter((store) => {
+                                                        const item =
+                                                            inventoryItems.find(
+                                                                (option) =>
+                                                                    option.id ===
+                                                                    currentLine.inventory_item_id,
+                                                            );
+                                                        return (
+                                                            item?.store_ids.includes(
+                                                                store.id,
+                                                            ) ?? false
+                                                        );
+                                                    })
+                                                    .map((store) => ({
+                                                        value: store.id,
+                                                        label: store.name,
+                                                        description:
+                                                            store.branch_name,
+                                                    }))}
+                                                placeholder="Select source store"
+                                                disabled={
+                                                    disabled ||
+                                                    !currentLine.inventory_item_id
+                                                }
+                                            />
+                                        ) : field === 'inventory_batch_id' ? (
+                                            <SearchableSelect
+                                                value={String(
+                                                    currentLine[field] ?? '',
+                                                )}
+                                                onValueChange={(value) =>
+                                                    updateLine(
+                                                        activeIndex,
+                                                        field,
+                                                        value,
+                                                    )
+                                                }
+                                                options={(
+                                                    inventoryItems.find(
+                                                        (item) =>
+                                                            item.id ===
+                                                            currentLine.inventory_item_id,
+                                                    )?.batches ?? []
+                                                )
+                                                    .filter(
+                                                        (batch) =>
+                                                            batch.inventory_store_id ===
+                                                                null ||
+                                                            batch.inventory_store_id ===
+                                                                currentLine.inventory_store_id,
+                                                    )
+                                                    .map((batch) => ({
+                                                        value: batch.id,
+                                                        label: batch.batch_number,
+                                                    }))}
+                                                placeholder="Select batch"
+                                                searchPlaceholder="Search batches..."
+                                                disabled={
+                                                    disabled ||
+                                                    !currentLine.inventory_item_id
+                                                }
+                                            />
+                                        ) : field === 'unit_of_measure_id' ? (
+                                            <SearchableSelect
+                                                value={String(
+                                                    currentLine[field] ?? '',
+                                                )}
+                                                onValueChange={(value) =>
+                                                    selectInventoryUnit(
+                                                        activeIndex,
+                                                        value,
+                                                    )
+                                                }
+                                                options={(
+                                                    inventoryItems.find(
+                                                        (item) =>
+                                                            item.id ===
+                                                            currentLine.inventory_item_id,
+                                                    )?.units ?? []
+                                                ).map((unit) => ({
+                                                    value: unit.id,
+                                                    label: unit.name,
+                                                    description:
+                                                        unit.symbol ??
+                                                        undefined,
+                                                }))}
+                                                placeholder="Select unit"
+                                                disabled={
+                                                    disabled ||
+                                                    !currentLine.inventory_item_id
+                                                }
+                                            />
+                                        ) : field === 'project_activity_id' ? (
+                                            <SearchableSelect
+                                                value={String(
+                                                    currentLine[field] ?? '',
+                                                )}
+                                                onValueChange={(value) =>
+                                                    selectActivity(
+                                                        activeIndex,
+                                                        value,
+                                                    )
+                                                }
+                                                options={activities.map(
+                                                    (activity) => ({
+                                                        value: activity.id,
+                                                        label: activity.label,
+                                                        description: [
+                                                            activity.unit,
+                                                            activity.boq_item_number,
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join(' / '),
+                                                    }),
+                                                )}
+                                                placeholder="Select work activity"
+                                                searchPlaceholder="Search work activities..."
+                                                emptyMessage="No work activity is available for this site."
+                                                disabled={disabled}
+                                            />
+                                        ) : field === 'equipment_id' ? (
+                                            <SearchableSelect
+                                                value={String(
+                                                    currentLine[field] ?? '',
+                                                )}
+                                                onValueChange={(value) =>
+                                                    selectEquipment(
+                                                        activeIndex,
+                                                        value,
+                                                    )
+                                                }
+                                                options={equipmentOptions.map(
+                                                    (equipment) => ({
+                                                        value: equipment.id,
+                                                        label: `${equipment.asset_code} - ${equipment.name}`,
+                                                        description: [
+                                                            equipment.category_name,
+                                                            equipment.current_site_id
+                                                                ? 'Assigned to a site'
+                                                                : 'Not site-assigned',
+                                                        ].join(' / '),
+                                                    }),
+                                                )}
+                                                placeholder="Select equipment"
+                                                searchPlaceholder="Search asset code or name..."
+                                                emptyMessage="No registered equipment is available for this branch."
+                                                disabled={disabled}
+                                            />
+                                        ) : (field === 'unit' &&
+                                              units.length > 0) ||
+                                          controlledLineOptions[field] ? (
+                                            <SearchableSelect
+                                                value={String(
+                                                    currentLine[field] ?? '',
+                                                )}
+                                                onValueChange={(value) =>
+                                                    updateLine(
+                                                        activeIndex,
+                                                        field,
+                                                        value,
+                                                    )
+                                                }
+                                                options={lineFieldOptions(
+                                                    field,
+                                                    currentLine,
+                                                    units,
+                                                )}
+                                                placeholder={`Select ${field.replaceAll('_', ' ')}`}
+                                                searchPlaceholder={`Search ${field.replaceAll('_', ' ')}...`}
+                                                disabled={lineFieldDisabled(
+                                                    currentLine,
+                                                    field,
+                                                    disabled,
+                                                )}
+                                            />
+                                        ) : (
+                                            <Input
+                                                value={lineValue(
+                                                    currentLine,
+                                                    field,
+                                                    lineFieldDisabled(
+                                                        currentLine,
+                                                        field,
+                                                        disabled,
+                                                    ),
+                                                )}
+                                                disabled={lineFieldDisabled(
+                                                    currentLine,
+                                                    field,
+                                                    disabled,
+                                                )}
+                                                onChange={(event) =>
+                                                    updateLine(
+                                                        activeIndex,
+                                                        field,
+                                                        event.target.value,
+                                                    )
+                                                }
+                                            />
+                                        )}
+                                    </div>
+                                ))}
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() =>
+                                adding
+                                    ? closeEditor(false)
+                                    : setEditorOpen(false)
+                            }
+                        >
+                            {adding ? 'Cancel' : 'Close'}
+                        </Button>
+                        {!disabled && (
+                            <Button
+                                type="button"
+                                onClick={() => closeEditor(true)}
+                            >
+                                Done
+                            </Button>
+                        )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
+}
+
+function lineSingularLabel(title: string): string {
+    if (title === 'Work Activities') return 'work activity';
+    if (title === 'Material usage') return 'material';
+    if (title === 'Delay details') return 'delay';
+    if (title === 'Equipment and fuel') return 'equipment record';
+
+    return title.toLowerCase().replace(/s$/, '');
+}
+
+function lineTableSummary(
+    title: string,
+    line: Line,
+    stores: InventoryStoreOption[],
+) {
+    const text = (
+        value: string | null | undefined,
+        fallback = 'Not recorded',
+    ) => (value && value.trim() !== '' ? value : fallback);
+    const quantity = (
+        value: string | null | undefined,
+        unit?: string | null,
+    ) => (value ? `${formatNumber(value)}${unit ? ` ${unit}` : ''}` : '—');
+
+    if (title === 'Work Activities') {
+        return {
+            primary: text(line.description, 'Work activity'),
+            secondary: line.boq_item_number
+                ? `Item ${line.boq_item_number}`
+                : null,
+            quantity: quantity(line.quantity, line.unit),
+            details:
+                [
+                    line.chainage_from && `From ${line.chainage_from}`,
+                    line.chainage_to && `to ${line.chainage_to}`,
+                    line.side,
+                ]
+                    .filter(Boolean)
+                    .join(' ') || '—',
+        };
+    }
+    if (title === 'Labour') {
+        return {
+            primary: text(line.trade_or_role, 'Labour'),
+            secondary:
+                line.subcontractor_name ||
+                line.labour_source?.replaceAll('_', ' ') ||
+                null,
+            quantity: line.headcount
+                ? `${formatNumber(line.headcount)} people`
+                : '—',
+            details: line.person_hours
+                ? `${formatNumber(line.person_hours)} person-hours`
+                : line.hours
+                  ? `${formatNumber(line.hours)} hours each`
+                  : '—',
+        };
+    }
+    if (title === 'Equipment and fuel') {
+        return {
+            primary: text(line.equipment_name, 'Equipment'),
+            secondary: line.equipment_identifier || null,
+            quantity: line.working_hours
+                ? `${formatNumber(line.working_hours)} working hours`
+                : '—',
+            details:
+                [
+                    line.idle_hours &&
+                        `${formatNumber(line.idle_hours)} idle hours`,
+                    line.fuel_quantity &&
+                        `${formatNumber(line.fuel_quantity)} ${line.fuel_type ?? ''}`,
+                ]
+                    .filter(Boolean)
+                    .join(' / ') || text(line.status, '—'),
+        };
+    }
+    if (title === 'Material usage') {
+        const store = stores.find(
+            (option) => option.id === line.inventory_store_id,
+        );
+        return {
+            primary: text(line.material_name, 'Material'),
+            secondary:
+                line.material_source === 'external'
+                    ? 'Delivered directly outside inventory'
+                    : (store?.name ?? 'Site stock'),
+            quantity: quantity(line.quantity, line.unit),
+            details: line.external_material_reason || line.notes || '—',
+        };
+    }
+
+    return {
+        primary: text(line.delay_type, 'Delay'),
+        secondary: line.description || null,
+        quantity: line.hours_lost
+            ? `${formatNumber(line.hours_lost)} hours lost`
+            : '—',
+        details: '—',
+    };
 }
 
 function lineFieldOptions(field: string, line: Line, units: string[]) {
@@ -2797,6 +3011,32 @@ function lineFieldOptions(field: string, line: Line, units: string[]) {
     return options.map((value) => ({ value, label: value }));
 }
 
+function lineFieldVisible(
+    field: string,
+    line: Line,
+    section: string,
+    inventoryItems: InventoryItemOption[],
+    inventoryStores: InventoryStoreOption[],
+): boolean {
+    if (section !== 'Material usage') return true;
+
+    const source = line.material_source ?? 'site_store';
+    if (field === 'external_material_reason') return source === 'external';
+    if (field === 'inventory_store_id')
+        return source === 'site_store' && inventoryStores.length > 1;
+    if (['inventory_item_id', 'unit_of_measure_id'].includes(field))
+        return source === 'site_store';
+    if (['material_name', 'unit'].includes(field)) return source === 'external';
+    if (field === 'inventory_batch_id') {
+        return (
+            source === 'site_store' &&
+            inventoryItems.find((item) => item.id === line.inventory_item_id)
+                ?.tracking_type === 'batch'
+        );
+    }
+
+    return true;
+}
 function lineFieldDisabled(
     line: Line,
     field: string,
@@ -2833,6 +3073,13 @@ function lineValue(line: Line, field: string, disabled: boolean): string {
 
 function lineFieldLabel(field: string, section: string): string {
     if (field === 'project_activity_id') return 'Work activity';
+    if (field === 'material_source') return 'How was it supplied?';
+    if (field === 'inventory_item_id') return 'Material item';
+    if (field === 'inventory_store_id') return 'Source site store';
+    if (field === 'inventory_batch_id') return 'Batch';
+    if (field === 'unit_of_measure_id') return 'Unit';
+    if (field === 'external_material_reason')
+        return 'Why this is outside inventory';
     if (field === 'labour_source') return 'Labour source';
     if (field === 'subcontractor_id') return 'Subcontractor';
     if (field === 'hours') return 'Hours per worker';
@@ -2850,11 +3097,27 @@ function lineFieldRequired(
     line: Line,
 ): boolean {
     if (field === 'description') {
-        return section === 'Work quantities' || section === 'Delay details';
+        return section === 'Work Activities' || section === 'Delay details';
     }
 
     if (field === 'subcontractor_id') {
         return line.labour_source === 'subcontractor';
+    }
+
+    if (section === 'Material usage') {
+        if (field === 'external_material_reason')
+            return line.material_source === 'external';
+
+        return [
+            'material_source',
+            'inventory_item_id',
+            'inventory_store_id',
+            'inventory_batch_id',
+            'unit_of_measure_id',
+            'material_name',
+            'quantity',
+            'unit',
+        ].includes(field);
     }
 
     return ['trade_or_role', 'equipment_name', 'material_name'].includes(field);
@@ -2867,6 +3130,7 @@ function cleanLines(lines: Line[]): Line[] {
         'fuel_transaction_type',
         'fleet_posting_status',
         'labour_source',
+        'material_source',
     ]);
 
     return lines.filter((line) =>
@@ -2927,15 +3191,17 @@ function emptyEquipmentLine(): Line {
 
 function emptyMaterialLine(): Line {
     return {
+        material_source: 'site_store',
         inventory_item_id: '',
         inventory_store_id: '',
+        inventory_batch_id: '',
         unit_of_measure_id: '',
         material_name: '',
-        material_type: '',
         quantity: '',
         unit: '',
+        external_material_reason: '',
+        notes: '',
         rate_amount: '',
-        delivery_reference: '',
         currency_code: 'UGX',
     };
 }

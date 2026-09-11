@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['tenant_id', 'branch_id', 'equipment_location_id', 'project_id', 'site_id', 'code', 'name', 'type', 'address', 'is_active', 'created_by', 'updated_by'])]
+#[Fillable(['tenant_id', 'branch_id', 'equipment_location_id', 'project_id', 'site_id', 'is_default_for_site', 'code', 'name', 'type', 'address', 'is_active', 'created_by', 'updated_by'])]
 final class InventoryStore extends Model
 {
     use BelongsToTenant;
@@ -30,7 +30,7 @@ final class InventoryStore extends Model
     /** @return array<string, string> */
     public function casts(): array
     {
-        return ['type' => InventoryStoreType::class, 'is_active' => 'boolean', 'created_at' => 'datetime', 'updated_at' => 'datetime', 'deleted_at' => 'datetime'];
+        return ['type' => InventoryStoreType::class, 'is_default_for_site' => 'boolean', 'is_active' => 'boolean', 'created_at' => 'datetime', 'updated_at' => 'datetime', 'deleted_at' => 'datetime'];
     }
 
     /** @return BelongsTo<Branch, $this> */
@@ -79,6 +79,15 @@ final class InventoryStore extends Model
             return $query;
         }
 
-        return $query->whereIn('branch_id', $user->branches()->pluck('branches.id'));
+        $query->whereIn('branch_id', $user->branches()->pluck('branches.id'));
+
+        if ($user->can('inventory.stores.manage') || $user->can('inventory.stock.issue') || $user->can('inventory.stock.receive') || $user->can('inventory.stock.transfer')) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $query) use ($user): void {
+            $query->whereNull('site_id')
+                ->orWhereIn('site_id', Site::query()->visibleTo($user)->select('id'));
+        });
     }
 }

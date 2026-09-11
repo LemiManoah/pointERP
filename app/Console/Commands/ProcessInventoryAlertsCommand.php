@@ -19,7 +19,7 @@ final class ProcessInventoryAlertsCommand extends Command
         $asOf = $this->option('date') ? CarbonImmutable::parse((string) $this->option('date'))->endOfDay() : CarbonImmutable::now();
         $tenant = $this->option('tenant');
         $result = $action->handle($asOf, is_string($tenant) && $tenant !== '' ? $tenant : null);
-        $this->info(sprintf('Inventory alerts: %d low stock, %d recovered, %d overdue POs, %d DSR exceptions, %d notification(s).', $result['low_stock'], $result['recovered'], $result['overdue_orders'], $result['unreconciled_dsr'], $result['notifications']));
+        $this->info(sprintf('Inventory alerts: %d low stock, %d recovered, %d overdue POs, %d DSR exceptions, %d notification(s).', $result['low_stock'], $result['recovered'], $result['overdue_orders'], $result['material_usage_attention'], $result['notifications']));
 
         return self::SUCCESS;
     }

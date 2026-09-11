@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Enums\DsrMaterialReconciliationStatus;
+use App\Enums\DsrMaterialUsageStatus;
 use App\Enums\MaterialRequisitionStatus;
 use App\Enums\PurchaseOrderStatus;
 use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\DailySiteReportMaterialLine;
-use App\Models\DsrMaterialReconciliation;
 use App\Models\InventoryCategory;
 use App\Models\InventoryGoodsReceiptLine;
 use App\Models\InventoryItem;
@@ -56,8 +55,8 @@ final readonly class InventoryOperationsReport
             ->sortBy('expected_date')
             ->take(8)
             ->values();
-        $unreconciled = $dsrRows
-            ->filter(fn (array $row): bool => in_array($row['status'], [DsrMaterialReconciliationStatus::Pending->value, DsrMaterialReconciliationStatus::Partial->value, DsrMaterialReconciliationStatus::Exception->value, DsrMaterialReconciliationStatus::NotLinked->value], true))
+        $usageAttention = $dsrRows
+            ->filter(fn (array $row): bool => in_array($row['status'], [DsrMaterialUsageStatus::Pending->value, DsrMaterialUsageStatus::NeedsAttention->value], true))
             ->take(8)
             ->values();
 
@@ -72,15 +71,15 @@ final readonly class InventoryOperationsReport
                 'requisitions_awaiting_issue' => $requisitions->whereIn('status', [MaterialRequisitionStatus::Approved->value, MaterialRequisitionStatus::PartiallyIssued->value])->count(),
                 'overdue_purchase_orders' => $purchaseOrders->where('is_overdue', true)->count(),
                 'rejected_receipt_lines' => $rejectedReceipts->count(),
-                'unreconciled_dsr_lines' => $unreconciled->count(),
+                'material_usage_attention' => $usageAttention->count(),
             ],
             'lowStock' => $stockRows->where('is_low_stock', true)->sortBy('available')->take(8)->values(),
             'unfulfilledRequisitions' => $unfulfilled,
             'overduePurchaseOrders' => $overdueOrders,
             'rejectedReceipts' => $rejectedReceipts->take(8),
-            'unreconciledMaterials' => $unreconciled,
+            'materialUsageAttention' => $usageAttention,
             'canExport' => $actor->can('inventory.reports.export'),
-            'canExportDsr' => $actor->can('inventory.dsr-reconciliation.export'),
+            'canExportDsr' => $actor->can('inventory.reports.export'),
             'canViewCosts' => $actor->can('inventory.purchase-orders.view-costs') || $actor->can('inventory.receipts.view-costs'),
         ];
     }
@@ -271,30 +270,26 @@ final readonly class InventoryOperationsReport
                     ->when($scope['selected']['date_from'], fn (Builder $dateQuery, string $date): Builder => $dateQuery->whereDate('report_date', '>=', $date))
                     ->when($scope['selected']['date_to'], fn (Builder $dateQuery, string $date): Builder => $dateQuery->whereDate('report_date', '<=', $date));
             })
-            ->with(['report.project', 'report.site', 'item.stockUnit', 'reconciliations'])->latest()->get()->map(function (DailySiteReportMaterialLine $line): array {
-                $reported = (string) ($line->stock_unit_quantity ?? $line->quantity ?? '0');
-                $allocated = (string) $line->reconciliations
-                    ->reduce(fn (BigDecimal $total, DsrMaterialReconciliation $row): BigDecimal => $total->plus($row->allocated_quantity), BigDecimal::zero())
-                    ->toScale(4);
-                $direct = $this->sumReconciliationType($line->reconciliations, 'direct_issue');
-                $external = $this->sumReconciliationType($line->reconciliations, 'external_non_stock');
-
-                return [
-                    'id' => $line->id, 'report_id' => $line->daily_site_report_id, 'report_reference' => $line->report->reference,
-                    'report_date' => $line->report->report_date->toDateString(), 'project' => $line->report->project->name, 'site' => $line->report->site->name,
-                    'item' => $line->material_name, 'unit' => $line->item?->stockUnit->symbol ?? $line->item?->stockUnit->name ?? $line->unit,
-                    'status' => $line->inventory_reconciliation_status->value, 'reported_quantity' => $reported, 'allocated_quantity' => $allocated,
-                    'direct_issue_quantity' => $direct, 'external_quantity' => $external,
-                    'outstanding_quantity' => $this->nonNegativeDifference($reported, $allocated),
-                ];
-            })->values();
-    }
-
-    /** @param Collection<int, DsrMaterialReconciliation> $rows */
-    private function sumReconciliationType(Collection $rows, string $type): string
-    {
-        return (string) $rows->filter(fn (DsrMaterialReconciliation $row): bool => $row->type->value === $type)
-            ->reduce(fn (BigDecimal $total, DsrMaterialReconciliation $row): BigDecimal => $total->plus($row->allocated_quantity), BigDecimal::zero())->toScale(4);
+            ->with(['report.project', 'report.site', 'item.stockUnit', 'store', 'batch'])
+            ->latest()
+            ->get()
+            ->map(fn (DailySiteReportMaterialLine $line): array => [
+                'id' => $line->id,
+                'report_id' => $line->daily_site_report_id,
+                'report_reference' => $line->report->reference,
+                'report_date' => $line->report->report_date->toDateString(),
+                'project' => $line->report->project->name,
+                'site' => $line->report->site->name,
+                'item' => $line->material_name,
+                'unit' => $line->item?->stockUnit->symbol ?? $line->item?->stockUnit->name ?? $line->unit,
+                'source' => $line->material_source->label(),
+                'store' => $line->store?->name,
+                'batch' => $line->batch?->batch_number,
+                'status' => $line->material_usage_status->value,
+                'status_label' => $line->material_usage_status->label(),
+                'reported_quantity' => (string) ($line->stock_unit_quantity ?? $line->quantity ?? '0'),
+            ])
+            ->values();
     }
 
     private function nonNegativeDifference(string $left, string $right): string
@@ -422,7 +417,11 @@ final readonly class InventoryOperationsReport
      */
     private function dsrExport(array $scope): array
     {
-        return ['filename' => 'dsr-material-reconciliation', 'headers' => ['Report', 'Date', 'Project', 'Site', 'Material', 'Unit', 'Status', 'Reported', 'Allocated', 'Direct issue', 'External', 'Outstanding'], 'rows' => $this->dsrRows($scope)->map(fn (array $row): array => $this->exportRow([$row['report_reference'], $row['report_date'], $row['project'], $row['site'], $row['item'], $row['unit'], $row['status'], $row['reported_quantity'], $row['allocated_quantity'], $row['direct_issue_quantity'], $row['external_quantity'], $row['outstanding_quantity']]))->values()->all()];
+        return [
+            'filename' => 'dsr-material-usage',
+            'headers' => ['Report', 'Date', 'Project', 'Site', 'Material', 'Stock unit', 'Source', 'Store', 'Batch', 'Usage status', 'Quantity'],
+            'rows' => $this->dsrRows($scope)->map(fn (array $row): array => $this->exportRow([$row['report_reference'], $row['report_date'], $row['project'], $row['site'], $row['item'], $row['unit'], $row['source'], $row['store'], $row['batch'], $row['status_label'], $row['reported_quantity']]))->values()->all(),
+        ];
     }
 
     /**

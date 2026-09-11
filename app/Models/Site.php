@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -117,6 +118,18 @@ final class Site extends Model
     public function activities(): HasMany
     {
         return $this->hasMany(ProjectActivity::class);
+    }
+
+    /** @return HasMany<InventoryStore, $this> */
+    public function stores(): HasMany
+    {
+        return $this->hasMany(InventoryStore::class);
+    }
+
+    /** @return HasOne<InventoryStore, $this> */
+    public function defaultStore(): HasOne
+    {
+        return $this->hasOne(InventoryStore::class)->where('is_default_for_site', true);
     }
 
     /**

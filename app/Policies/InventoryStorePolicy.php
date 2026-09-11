@@ -25,7 +25,8 @@ final class InventoryStorePolicy
     {
         return $this->belongsToSameTenant($user, $store->tenant_id)
             && $this->canAccessBranch($user, $store->branch_id)
-            && $this->viewAny($user);
+            && $this->viewAny($user)
+            && $this->canAccessSiteStore($user, $store);
     }
 
     public function create(User $user): bool
@@ -46,5 +47,18 @@ final class InventoryStorePolicy
     public function forceDelete(User $user, InventoryStore $store): bool
     {
         return $this->view($user, $store) && $user->can('inventory.stores.delete');
+    }
+
+    private function canAccessSiteStore(User $user, InventoryStore $store): bool
+    {
+        if ($store->site_id === null) {
+            return true;
+        }
+
+        if ($user->can('branches.view-all') || $user->can('inventory.stores.manage') || $user->can('inventory.stock.issue') || $user->can('inventory.stock.receive') || $user->can('inventory.stock.transfer')) {
+            return true;
+        }
+
+        return $store->site()->visibleTo($user)->exists();
     }
 }

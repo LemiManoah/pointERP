@@ -244,9 +244,12 @@ export default function DailySiteReportsIndex({
                                             className="border-b last:border-0"
                                         >
                                             <td className="py-3 pr-4">
-                                                <div className="font-medium">
+                                                <Link
+                                                    href={`/daily-site-reports/${report.id}`}
+                                                    className="font-medium text-primary hover:underline"
+                                                >
                                                     {report.reference}
-                                                </div>
+                                                </Link>
                                                 <div className="text-muted-foreground">
                                                     {report.report_date}
                                                 </div>

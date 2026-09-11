@@ -20,6 +20,7 @@ final readonly class ApproveDailySiteReport
         private AuditLogger $auditLogger,
         private DailySiteReportNotificationService $notificationService,
         private PostApprovedDsrEquipmentLines $postEquipmentLines,
+        private PostApprovedDsrMaterialUsage $postMaterialUsage,
     ) {
         //
     }
@@ -62,6 +63,7 @@ final readonly class ApproveDailySiteReport
 
             $this->syncActivityQuantities($report);
             $this->postEquipmentLines->handle($report, $actor);
+            $this->postMaterialUsage->handle($report, $actor);
 
             $this->auditLogger->record('operations.daily_site_report.approved', $report, $actor, $oldValues, $report->only(['status', 'reviewed_by', 'reviewed_at', 'approved_by', 'approved_at']));
             DB::afterCommit(fn () => $this->notificationService->approved($report));
