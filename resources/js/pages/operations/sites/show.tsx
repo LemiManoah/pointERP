@@ -41,6 +41,7 @@ import {
     EquipmentScopePanel,
     type EquipmentScopeData,
 } from '../equipment/partials/equipment-scope-panel';
+import { SiteDialog } from '../projects/partials/site-dialog';
 
 type Site = {
     id: string;
@@ -56,7 +57,13 @@ type Site = {
     manager_id: string | null;
     manager_name: string | null;
     reporting_deadline: string | null;
-    status: string;
+    status:
+        | 'planned'
+        | 'active'
+        | 'suspended'
+        | 'completed'
+        | 'closed'
+        | 'archived';
 };
 
 type UserOption = {
@@ -83,6 +90,8 @@ type Props = {
     canUploadDocuments: boolean;
     fleet: EquipmentScopeData | null;
     canViewFleet: boolean;
+    canUpdateSite: boolean;
+    canManageSiteUsers: boolean;
 };
 
 type Assignment = {
@@ -104,6 +113,8 @@ export default function SiteShow({
     canUploadDocuments,
     fleet,
     canViewFleet,
+    canUpdateSite,
+    canManageSiteUsers,
 }: Props) {
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
@@ -126,11 +137,22 @@ export default function SiteShow({
                             {site.branch_name}
                         </p>
                     </div>
-                    <SiteAccessDialog
-                        siteId={site.id}
-                        users={users}
-                        assignedUsers={assignedUsers}
-                    />
+                    <div className="flex items-center gap-2">
+                        {canUpdateSite && (
+                            <SiteDialog
+                                projectId={site.project_id}
+                                site={site}
+                                users={users}
+                            />
+                        )}
+                        {canManageSiteUsers && (
+                            <SiteAccessDialog
+                                siteId={site.id}
+                                users={users}
+                                assignedUsers={assignedUsers}
+                            />
+                        )}
+                    </div>
                 </div>
 
                 <Card>

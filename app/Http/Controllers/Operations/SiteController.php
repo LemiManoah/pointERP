@@ -65,6 +65,8 @@ final class SiteController
             'canViewFleet' => $canViewFleet,
             'documents' => $this->linkedDocumentsFor($site, $currentUser),
             'canUploadDocuments' => Gate::forUser($currentUser)->allows('create', Document::class),
+            'canUpdateSite' => Gate::forUser($currentUser)->allows('update', $site),
+            'canManageSiteUsers' => Gate::forUser($currentUser)->allows('update', $site) && $currentUser->can('site-users.manage'),
             'users' => User::query()
                 ->where('tenant_id', $site->tenant_id)
                 ->where('is_active', true)

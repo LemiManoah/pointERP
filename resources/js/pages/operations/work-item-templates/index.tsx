@@ -2,11 +2,13 @@ import { Head, router, useForm } from '@inertiajs/react';
 import {
     ChevronDown,
     ChevronRight,
+    Download,
     Edit2,
     Layers,
     Plus,
     Search,
     Trash2,
+    Upload,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -124,6 +126,7 @@ export default function WorkItemTemplatesIndex({
 
     // Dialog states
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [importDialogOpen, setImportDialogOpen] = useState(false);
     const [editingTemplate, setEditingTemplate] =
         useState<WorkItemTemplate | null>(null);
 
@@ -137,6 +140,10 @@ export default function WorkItemTemplatesIndex({
         specifications: '',
         is_active: true,
         resources: [blankResource()] as ResourceTemplate[],
+    });
+
+    const importForm = useForm<{ file: File | null }>({
+        file: null,
     });
 
     const toggleExpand = (id: string) => {
@@ -285,12 +292,41 @@ export default function WorkItemTemplatesIndex({
                             labour norms).
                         </p>
                     </div>
-                    {can.manage && (
-                        <Button onClick={openCreateDialog} className="gap-2">
-                            <Plus className="size-4" />
-                            New work activity template
-                        </Button>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <a
+                            href="/work-item-templates/template/download"
+                            download
+                        >
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="gap-2"
+                            >
+                                <Download className="size-4" />
+                                Download CSV Template
+                            </Button>
+                        </a>
+                        {can.manage && (
+                            <>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setImportDialogOpen(true)}
+                                    className="gap-2"
+                                >
+                                    <Upload className="size-4" />
+                                    Import activity templates
+                                </Button>
+                                <Button
+                                    onClick={openCreateDialog}
+                                    className="gap-2"
+                                >
+                                    <Plus className="size-4" />
+                                    New work activity template
+                                </Button>
+                            </>
+                        )}
+                    </div>
                 </div>
 
                 {/* Filters */}
@@ -616,7 +652,7 @@ export default function WorkItemTemplatesIndex({
 
                 {/* Create/Edit Modal */}
                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                    <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+                    <DialogContent className="max-h-[92vh] w-[96vw] overflow-y-auto sm:max-w-6xl">
                         <DialogHeader>
                             <DialogTitle>
                                 {editingTemplate
@@ -822,10 +858,10 @@ export default function WorkItemTemplatesIndex({
                                     {form.data.resources.map((res, index) => (
                                         <div
                                             key={index}
-                                            className="grid items-end gap-2 rounded border bg-background p-3 sm:grid-cols-[8rem_minmax(12rem,1fr)_8rem_8rem_auto]"
+                                            className="grid items-center gap-3 rounded-lg border bg-background p-3.5 shadow-xs sm:grid-cols-[10rem_minmax(14rem,1fr)_8rem_9rem_3rem]"
                                         >
                                             <div>
-                                                <Label className="text-[11px]">
+                                                <Label className="text-xs font-medium text-muted-foreground">
                                                     Type
                                                 </Label>
                                                 <NativeSelect
@@ -836,7 +872,7 @@ export default function WorkItemTemplatesIndex({
                                                                 e.target.value,
                                                         })
                                                     }
-                                                    className="mt-1 h-8 text-xs"
+                                                    className="mt-1 h-9 text-xs"
                                                 >
                                                     {resourceTypes.map((t) => (
                                                         <NativeSelectOption
@@ -850,11 +886,11 @@ export default function WorkItemTemplatesIndex({
                                             </div>
 
                                             <div>
-                                                <Label className="text-[11px]">
+                                                <Label className="text-xs font-medium text-muted-foreground">
                                                     {res.resource_type ===
                                                     'material'
                                                         ? 'Link Inventory Item (Optional)'
-                                                        : 'Name *'}
+                                                        : 'Resource Description *'}
                                                 </Label>
                                                 {res.resource_type ===
                                                 'material' ? (
@@ -910,8 +946,8 @@ export default function WorkItemTemplatesIndex({
                                                                 },
                                                             )
                                                         }
-                                                        placeholder="e.g. Tipper Truck 15T"
-                                                        className="mt-1 h-8 text-xs"
+                                                        placeholder="e.g. Tipper Truck 15T / Drill Rig"
+                                                        className="mt-1 h-9 text-xs"
                                                         required
                                                     />
                                                 )}
@@ -931,14 +967,14 @@ export default function WorkItemTemplatesIndex({
                                                                 )
                                                             }
                                                             placeholder="Material name (if not in inventory)"
-                                                            className="mt-1 h-7 text-xs"
+                                                            className="mt-1.5 h-8 text-xs"
                                                             required
                                                         />
                                                     )}
                                             </div>
 
                                             <div>
-                                                <Label className="text-[11px]">
+                                                <Label className="text-xs font-medium text-muted-foreground">
                                                     Qty per unit *
                                                 </Label>
                                                 <Input
@@ -955,13 +991,13 @@ export default function WorkItemTemplatesIndex({
                                                         })
                                                     }
                                                     placeholder="1.0"
-                                                    className="mt-1 h-8 font-mono text-xs"
+                                                    className="mt-1 h-9 font-mono text-xs"
                                                     required
                                                 />
                                             </div>
 
                                             <div>
-                                                <Label className="text-[11px]">
+                                                <Label className="text-xs font-medium text-muted-foreground">
                                                     Unit Cost
                                                 </Label>
                                                 <Input
@@ -981,12 +1017,12 @@ export default function WorkItemTemplatesIndex({
                                                                 e.target.value,
                                                         })
                                                     }
-                                                    placeholder="Unit cost"
-                                                    className="mt-1 h-8 font-mono text-xs"
+                                                    placeholder="0.00"
+                                                    className="mt-1 h-9 font-mono text-xs"
                                                 />
                                             </div>
 
-                                            <div>
+                                            <div className="flex justify-end pt-5">
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
@@ -994,7 +1030,7 @@ export default function WorkItemTemplatesIndex({
                                                     onClick={() =>
                                                         removeResourceRow(index)
                                                     }
-                                                    className="h-8 px-2 text-destructive"
+                                                    className="h-9 w-9 p-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                                                     title="Remove resource"
                                                 >
                                                     <Trash2 className="size-4" />
@@ -1020,6 +1056,109 @@ export default function WorkItemTemplatesIndex({
                                     {editingTemplate
                                         ? 'Update Template'
                                         : 'Save Template'}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Import Modal */}
+                <Dialog
+                    open={importDialogOpen}
+                    onOpenChange={setImportDialogOpen}
+                >
+                    <DialogContent className="sm:max-w-lg">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <Upload className="size-5 text-primary" />
+                                <span>Import Work Activity Templates</span>
+                            </DialogTitle>
+                            <DialogDescription>
+                                Add reusable activities and resource norms to
+                                the library. This does not import a project BOQ
+                                or create an estimate.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                if (!importForm.data.file) return;
+                                importForm.post('/work-item-templates/import', {
+                                    forceFormData: true,
+                                    onSuccess: () => {
+                                        setImportDialogOpen(false);
+                                        importForm.reset();
+                                    },
+                                });
+                            }}
+                            className="flex flex-col gap-4 py-2"
+                        >
+                            <div className="rounded-md border border-dashed p-6 text-center">
+                                <input
+                                    type="file"
+                                    id="csv-file-upload"
+                                    accept=".csv,text/csv,text/plain"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        const file =
+                                            e.target.files?.[0] || null;
+                                        importForm.setData('file', file);
+                                    }}
+                                />
+                                <label
+                                    htmlFor="csv-file-upload"
+                                    className="flex cursor-pointer flex-col items-center gap-2"
+                                >
+                                    <Upload className="size-8 text-muted-foreground" />
+                                    <span className="text-sm font-medium">
+                                        {importForm.data.file
+                                            ? importForm.data.file.name
+                                            : 'Click to select CSV file'}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                        Only .csv files up to 5MB supported
+                                    </span>
+                                </label>
+                            </div>
+
+                            {importForm.errors.file && (
+                                <InputError message={importForm.errors.file} />
+                            )}
+
+                            <div className="flex items-center justify-between rounded bg-muted/40 p-3 text-xs text-muted-foreground">
+                                <span>Need the template format?</span>
+                                <a
+                                    href="/work-item-templates/template/download"
+                                    download
+                                    className="flex items-center gap-1 font-medium text-primary hover:underline"
+                                >
+                                    <Download className="size-3.5" />
+                                    Download sample CSV
+                                </a>
+                            </div>
+
+                            <DialogFooter className="mt-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                        setImportDialogOpen(false);
+                                        importForm.reset();
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={
+                                        !importForm.data.file ||
+                                        importForm.processing
+                                    }
+                                >
+                                    {importForm.processing
+                                        ? 'Importing...'
+                                        : 'Upload & Import'}
                                 </Button>
                             </DialogFooter>
                         </form>

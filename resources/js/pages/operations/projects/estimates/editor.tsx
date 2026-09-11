@@ -105,6 +105,7 @@ type WorkItemTemplate = {
     unit_symbol: string | null;
     default_selling_rate: string | null;
     default_unit_cost: string | null;
+    specifications?: string | null;
     resources: TemplateResource[];
 };
 
@@ -1023,9 +1024,9 @@ export default function EstimateEditor({
 
             {/* Library Picker Modal */}
             <Dialog open={libraryModalOpen} onOpenChange={setLibraryModalOpen}>
-                <DialogContent className="flex max-h-[85vh] max-w-3xl flex-col">
+                <DialogContent className="flex max-h-[92vh] w-[95vw] flex-col sm:max-w-5xl">
                     <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
+                        <DialogTitle className="flex items-center gap-2 text-lg">
                             <Layers className="size-5 text-primary" />
                             <span>
                                 {targetLineIndex !== null
@@ -1036,12 +1037,12 @@ export default function EstimateEditor({
                         <DialogDescription>
                             Select a standard work activity to copy its
                             specifications, unit of measure, rates, and resource
-                            consumption norms.
+                            consumption norms into this estimate.
                         </DialogDescription>
                     </DialogHeader>
 
                     {/* Filter bar */}
-                    <div className="flex flex-col gap-2.5 pt-2 sm:flex-row sm:items-center">
+                    <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center">
                         <div className="relative flex-1">
                             <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
@@ -1049,14 +1050,14 @@ export default function EstimateEditor({
                                 onChange={(e) =>
                                     setLibrarySearch(e.target.value)
                                 }
-                                placeholder="Search work activities or codes..."
-                                className="h-9 pl-9 text-xs"
+                                placeholder="Search work activities by name, code, or description..."
+                                className="h-10 pl-9 text-xs sm:text-sm"
                             />
                         </div>
                         <NativeSelect
                             value={libraryCategory}
                             onChange={(e) => setLibraryCategory(e.target.value)}
-                            className="h-9 w-48 text-xs"
+                            className="h-10 w-full text-xs sm:w-56 sm:text-sm"
                         >
                             <NativeSelectOption value="">
                                 All categories
@@ -1070,34 +1071,35 @@ export default function EstimateEditor({
                     </div>
 
                     {/* Template list */}
-                    <div className="mt-3 max-h-[50vh] flex-1 divide-y overflow-y-auto rounded-md border">
+                    <div className="mt-3 max-h-[60vh] flex-1 divide-y overflow-y-auto rounded-lg border">
                         {filteredTemplates.length === 0 ? (
-                            <div className="py-12 text-center text-sm text-muted-foreground">
-                                No templates found matching your search.
+                            <div className="py-14 text-center text-sm text-muted-foreground">
+                                No work activity templates found matching your
+                                search.
                             </div>
                         ) : (
                             filteredTemplates.map((template) => (
                                 <div
                                     key={template.id}
-                                    className="flex flex-col justify-between gap-3 p-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center"
+                                    className="flex flex-col justify-between gap-4 p-4 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center"
                                 >
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex flex-wrap items-center gap-1.5">
+                                    <div className="min-w-0 flex-1 space-y-1.5">
+                                        <div className="flex flex-wrap items-center gap-2">
                                             {template.code && (
                                                 <Badge
                                                     variant="outline"
-                                                    className="font-mono text-[10px]"
+                                                    className="font-mono text-xs"
                                                 >
                                                     {template.code}
                                                 </Badge>
                                             )}
                                             <Badge
                                                 variant="secondary"
-                                                className="text-[10px]"
+                                                className="text-xs"
                                             >
                                                 {template.category}
                                             </Badge>
-                                            <span className="truncate text-sm font-semibold">
+                                            <span className="text-sm font-semibold text-foreground">
                                                 {template.name}
                                             </span>
                                             <span className="font-mono text-xs text-muted-foreground">
@@ -1107,10 +1109,17 @@ export default function EstimateEditor({
                                                 ]
                                             </span>
                                         </div>
-                                        <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+
+                                        {template.specifications && (
+                                            <p className="line-clamp-2 text-xs text-muted-foreground">
+                                                {template.specifications}
+                                            </p>
+                                        )}
+
+                                        <div className="flex flex-wrap items-center gap-4 pt-0.5 text-xs text-muted-foreground">
                                             {template.default_unit_cost && (
                                                 <span>
-                                                    Cost:{' '}
+                                                    Dynamic Cost:{' '}
                                                     <span className="font-mono font-medium text-foreground">
                                                         {formatCurrencyAmount(
                                                             form.data
@@ -1124,8 +1133,8 @@ export default function EstimateEditor({
                                             )}
                                             {template.default_selling_rate && (
                                                 <span>
-                                                    Rate:{' '}
-                                                    <span className="font-mono font-medium text-primary">
+                                                    Suggested Rate:{' '}
+                                                    <span className="font-mono font-semibold text-primary">
                                                         {formatCurrencyAmount(
                                                             form.data
                                                                 .currency_code,
@@ -1136,18 +1145,19 @@ export default function EstimateEditor({
                                                     </span>
                                                 </span>
                                             )}
-                                            <span>
+                                            <span className="rounded bg-muted px-2 py-0.5 font-medium text-foreground">
                                                 {template.resources.length}{' '}
                                                 {template.resources.length === 1
-                                                    ? 'norm'
-                                                    : 'norms'}
+                                                    ? 'resource norm'
+                                                    : 'resource norms'}
                                             </span>
                                         </div>
                                     </div>
+
                                     <Button
                                         type="button"
                                         size="sm"
-                                        className="gap-1 self-end text-xs sm:self-auto"
+                                        className="gap-1.5 self-end px-4 text-xs font-medium sm:self-center"
                                         onClick={() => selectTemplate(template)}
                                     >
                                         <Check className="size-3.5" />

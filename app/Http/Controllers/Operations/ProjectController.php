@@ -80,6 +80,8 @@ final class ProjectController
                     'manager_name' => $site->manager?->name,
                     'reporting_deadline' => $site->reporting_deadline,
                     'status' => $site->status,
+                    'can_update' => Gate::forUser($user)->allows('update', $site),
+                    'can_archive' => Gate::forUser($user)->allows('delete', $site),
                 ]),
             'activities' => $project->activities
                 ->sortBy('sort_order')
@@ -117,6 +119,7 @@ final class ProjectController
             'fleet' => $canViewFleet ? $equipmentSummary->forProject($project, $user) : null,
             'canViewFleet' => $canViewFleet,
             'canUpdateProject' => Gate::forUser($user)->allows('update', $project),
+            'canCreateSite' => Gate::forUser($user)->allows('create', [Site::class, $project]),
             'canUploadDocuments' => Gate::forUser($user)->allows('create', Document::class),
             'canViewRates' => $this->canViewRates($user),
             'canViewEstimates' => $canViewEstimates,

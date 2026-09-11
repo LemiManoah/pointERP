@@ -12,7 +12,7 @@ final class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(RolePermissionSeeder::class);
-        $this->call(PointInvestmentSeeder::class);
-        $this->call(WorkItemTemplateSeeder::class);
+        $this->call(QuarryDemoSeeder::class);
+        $this->call(QuarryWorkItemTemplateSeeder::class);
     }
 }

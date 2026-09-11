@@ -101,6 +101,8 @@ use Illuminate\Support\Str;
 
 final class PointInvestmentSeeder extends Seeder
 {
+    public function __construct(private readonly bool $includeTestAliases = true) {}
+
     public function run(): void
     {
         $tenant = resolve(EnsureDefaultTenant::class)->handle();
@@ -196,6 +198,50 @@ final class PointInvestmentSeeder extends Seeder
             branchAccess: [$ironpointBranch],
             defaultBranch: $ironpointBranch,
         );
+
+        if ($this->includeTestAliases) {
+            $storeKeeperPos = $this->position('STORE-KEEPER', 'Store Keeper');
+            $this->user(
+                staffNumber: 'POINT-TEST-001',
+                name: 'Project Manager Gulu',
+                email: 'pm.gulu@point.test',
+                branch: $ironpointBranch,
+                position: $positions['PROJECT-MANAGER'],
+                roleName: 'Project Manager',
+                branchAccess: [$ironpointBranch],
+                defaultBranch: $ironpointBranch,
+            );
+            $this->user(
+                staffNumber: 'POINT-TEST-002',
+                name: 'Site Engineer Gulu',
+                email: 'engineer.gulu@point.test',
+                branch: $ironpointBranch,
+                position: $positions['SITE-ENGINEER'],
+                roleName: 'Site Engineer',
+                branchAccess: [$ironpointBranch],
+                defaultBranch: $ironpointBranch,
+            );
+            $this->user(
+                staffNumber: 'POINT-TEST-003',
+                name: 'Store Keeper Kampala',
+                email: 'store.kla@point.test',
+                branch: $ironpointBranch,
+                position: $storeKeeperPos,
+                roleName: 'Store Keeper',
+                branchAccess: [$ironpointBranch],
+                defaultBranch: $ironpointBranch,
+            );
+            $this->user(
+                staffNumber: 'POINT-TEST-004',
+                name: 'Site User Juba',
+                email: 'site.juba@point.test',
+                branch: $ironpointBranch,
+                position: $positions['SITE-ENGINEER'],
+                roleName: 'Site Engineer',
+                branchAccess: [$ironpointBranch],
+                defaultBranch: $ironpointBranch,
+            );
+        }
 
         $this->operationsDemoData(
             director: $lemi,
@@ -892,8 +938,8 @@ final class PointInvestmentSeeder extends Seeder
                 'branch_id' => $ugandaBranch->id,
                 'customer_id' => $unra->id,
                 'contract_id' => $contract->id,
-                'name' => 'Busunju - Kiboga - Hoima Road Rehabilitation',
-                'description' => 'Demo project based on the daily costing and IPC spreadsheets.',
+                'name' => 'Nakasongola Quarry & Aggregates Site',
+                'description' => 'Granite quarry operations, rock blasting, aggregate crushing and commercial supply.',
                 'manager_id' => $ugandaProjectManager->id,
                 'base_currency_code' => 'UGX',
                 'budget_amount' => '309073180813.0000',
@@ -909,15 +955,28 @@ final class PointInvestmentSeeder extends Seeder
         $busunjuSite = $this->site($roadProject, $ugandaSiteEngineer, 'BUSUNJU', 'Busunju Section', 'Km 0+000 - Km 74+000');
         $kibogaSite = $this->site($roadProject, $ugandaProjectManager, 'KIBOGA-HOIMA', 'Kiboga-Hoima Section', 'Km 74+000 - Km 145+000');
 
-        $roadProject->users()->syncWithoutDetaching([
+        $testPm = User::query()->where('email', 'pm.gulu@point.test')->first();
+        $testEngineer = User::query()->where('email', 'engineer.gulu@point.test')->first();
+
+        $roadProjectUsers = [
             $ugandaProjectManager->id => ['role' => 'Project Manager', 'can_manage' => true],
             $ugandaAuditor->id => ['role' => 'Auditor', 'can_manage' => false],
-        ]);
+        ];
+        if ($testPm) {
+            $roadProjectUsers[$testPm->id] = ['role' => 'Project Manager', 'can_manage' => true];
+        }
 
-        $busunjuSite->users()->syncWithoutDetaching([
+        $roadProject->users()->syncWithoutDetaching($roadProjectUsers);
+
+        $busunjuSiteUsers = [
             $ugandaSiteEngineer->id => ['role' => 'Site Engineer', 'can_submit_dsr' => true, 'can_review_dsr' => false],
             $ugandaProjectManager->id => ['role' => 'Project Manager', 'can_submit_dsr' => false, 'can_review_dsr' => true],
-        ]);
+        ];
+        if ($testEngineer) {
+            $busunjuSiteUsers[$testEngineer->id] = ['role' => 'Site Engineer', 'can_submit_dsr' => true, 'can_review_dsr' => false];
+        }
+
+        $busunjuSite->users()->syncWithoutDetaching($busunjuSiteUsers);
         $kibogaSite->users()->syncWithoutDetaching([
             $ugandaProjectManager->id => ['role' => 'Project Manager', 'can_submit_dsr' => true, 'can_review_dsr' => true],
         ]);
@@ -942,157 +1001,15 @@ final class PointInvestmentSeeder extends Seeder
         $this->seedProjectDocuments($director, $roadProject, $contract, $busunjuSite, $kibogaSite);
         $this->seedOperationalControls($director, $ugandaProjectManager, $ugandaSiteEngineer, $roadProject, $busunjuSite, $kibogaSite);
 
-        $southSudanCustomer = Customer::query()->updateOrCreate(
-            ['tenant_id' => $southSudanBranch->tenant_id, 'code' => 'SSRA'],
-            [
-                'branch_id' => $southSudanBranch->id,
-                'type' => Customer::TYPE_CLIENT,
-                'name' => 'South Sudan Roads Authority',
-                'status' => 'active',
-                'created_by' => $director->id,
-                'updated_by' => $director->id,
-            ],
-        );
-
-        $southSudanProject = Project::query()->updateOrCreate(
-            ['tenant_id' => $southSudanBranch->tenant_id, 'reference' => 'JUBA-ACCESS'],
-            [
-                'branch_id' => $southSudanBranch->id,
-                'customer_id' => $southSudanCustomer->id,
-                'contract_id' => null,
-                'name' => 'Juba Access Road Works',
-                'description' => 'USD-denominated remote road project for demonstrating project, site and DSR controls.',
-                'manager_id' => $southSudanSiteManager->id,
-                'base_currency_code' => 'USD',
-                'budget_amount' => '2500000.0000',
-                'starts_on' => now()->toDateString(),
-                'ends_on' => now()->addYear()->toDateString(),
-                'reporting_deadline' => '18:00',
-                'status' => 'active',
-                'created_by' => $director->id,
-                'updated_by' => $director->id,
-            ],
-        );
-        $southSudanProject->users()->syncWithoutDetaching([
-            $southSudanSiteManager->id => ['role' => 'Project Manager', 'can_manage' => true],
-            $ugandaSiteEngineer->id => ['role' => 'Site Engineer', 'can_manage' => false],
-        ]);
-        $jubaSite = $this->site($southSudanProject, $southSudanSiteManager, 'JUBA-MAIN', 'Juba Main Site', 'Juba access works');
-        $jubaSite->users()->syncWithoutDetaching([
-            $ugandaSiteEngineer->id => ['role' => 'Site Engineer', 'can_submit_dsr' => true, 'can_review_dsr' => false],
-            $southSudanSiteManager->id => ['role' => 'Project Manager', 'can_submit_dsr' => false, 'can_review_dsr' => true],
-        ]);
-
-        foreach ([
-            ['JAR-MOB', '10.01', 'Mobilisation and temporary facilities', 'month', '12.0000', '30000.0000', 10],
-            ['JAR-EW', '31.01', 'Road formation earthworks', 'm3', '50000.0000', '12.0000', 20],
-            ['JAR-DRN', '42.03', 'Drainage channel construction', 'm', '5000.0000', '75.0000', 30],
-        ] as [$code, $boqReference, $name, $unit, $quantity, $rate, $sortOrder]) {
-            ProjectActivity::query()->updateOrCreate(
-                ['tenant_id' => $southSudanProject->tenant_id, 'project_id' => $southSudanProject->id, 'code' => $code],
-                [
-                    'branch_id' => $southSudanProject->branch_id,
-                    'site_id' => $jubaSite->id,
-                    'boq_item_number' => $boqReference,
-                    'name' => $name,
-                    'unit' => $unit,
-                    'planned_quantity' => $quantity,
-                    'approved_quantity' => '0.0000',
-                    'rate_amount' => $rate,
-                    'currency_code' => 'USD',
-                    'status' => 'active',
-                    'sort_order' => $sortOrder,
-                    'created_by' => $director->id,
-                    'updated_by' => $director->id,
-                ],
-            );
-        }
-
-        ReportingCalendar::query()->updateOrCreate(
-            [
-                'tenant_id' => $southSudanProject->tenant_id,
-                'project_id' => $southSudanProject->id,
-                'site_id' => $jubaSite->id,
-                'name' => 'Juba project reporting calendar',
-            ],
-            [
-                'branch_id' => $southSudanProject->branch_id,
-                'timezone' => 'Africa/Kampala',
-                'reporting_deadline' => '18:00:00',
-                'working_days' => [1, 2, 3, 4, 5, 6],
-                'missing_escalation_days' => 1,
-                'is_active' => true,
-                'created_by' => $director->id,
-                'updated_by' => $director->id,
-            ],
-        );
-
-        $this->dailySiteReports($director, $southSudanSiteManager, $ugandaSiteEngineer, $southSudanProject, $jubaSite, $jubaSite, 'USD');
-
-        $this->seedDocument(
-            actor: $director,
-            typeCode: 'METHOD_STATEMENT',
-            branch: $southSudanBranch,
-            title: 'Juba Access Road Method Statement',
-            reference: 'JUBA-MS-001',
-            content: 'Approved construction method for earthworks, drainage and traffic control.',
-            links: [[$southSudanProject::class, $southSudanProject->id], [$jubaSite::class, $jubaSite->id]],
-            documentNumber: 'JAR-MS-001',
-            revision: '0',
-            discipline: 'Roadworks',
-            issuer: 'Ironpoint Engineering',
-        );
-        $this->seedDocument(
-            actor: $director,
-            typeCode: 'SITE_INSTRUCTION',
-            branch: $southSudanBranch,
-            title: 'Drainage alignment site instruction',
-            reference: 'JUBA-SI-014',
-            content: 'Instruction to adjust the drainage alignment around an existing utility crossing.',
-            links: [[$southSudanProject::class, $southSudanProject->id], [$jubaSite::class, $jubaSite->id]],
-            documentNumber: 'JAR-SI-014',
-            revision: 'A',
-            discipline: 'Drainage',
-            issuer: 'Resident Engineer',
-        );
-        $this->seedDocument(
-            actor: $director,
-            typeCode: 'PERMIT',
-            branch: $southSudanBranch,
-            title: 'Juba access road traffic diversion permit',
-            reference: 'JUBA-PERMIT-2026',
-            content: 'Traffic diversion permit included to demonstrate document-expiry monitoring.',
-            links: [[$southSudanProject::class, $southSudanProject->id], [$jubaSite::class, $jubaSite->id]],
-            expiresOn: now()->addDays(14)->toDateString(),
-            documentNumber: 'JAR-PERMIT-2026',
-            revision: 'A',
-            discipline: 'Traffic',
-            issuer: 'Road Authority',
-        );
-
-        $notificationKey = 'demo-juba-dsr-overdue';
-        if ($ugandaSiteEngineer->notifications()->where('data->seed_key', $notificationKey)->doesntExist()) {
-            $ugandaSiteEngineer->notify(new OperationalNotification([
-                'tenant_id' => $southSudanProject->tenant_id,
-                'branch_id' => $southSudanProject->branch_id,
-                'category' => 'daily_site_reports',
-                'severity' => 'warning',
-                'title' => 'Juba site report needs attention',
-                'message' => 'The Juba Main Site daily report is overdue and should be completed.',
-                'action_url' => '/daily-site-reports',
-                'seed_key' => $notificationKey,
-            ]));
-        }
-
         $this->seedEquipmentRegister(
             director: $director,
             ugandaBranch: $ugandaBranch,
             southSudanBranch: $southSudanBranch,
             ugandaProject: $roadProject,
-            southSudanProject: $southSudanProject,
+            southSudanProject: $roadProject,
             busunjuSite: $busunjuSite,
             kibogaSite: $kibogaSite,
-            jubaSite: $jubaSite,
+            jubaSite: $busunjuSite,
             subcontractor: $subcontractor,
             ugandaProjectManager: $ugandaProjectManager,
             ugandaSiteEngineer: $ugandaSiteEngineer,
@@ -1151,7 +1068,7 @@ final class PointInvestmentSeeder extends Seeder
             ),
             'JUBA' => EquipmentLocation::query()->updateOrCreate(
                 ['tenant_id' => $southSudanBranch->tenant_id, 'code' => 'JUBA-YARD'],
-                ['branch_id' => $southSudanBranch->id, 'project_id' => $southSudanProject->id, 'site_id' => $jubaSite->id, 'type' => 'site', 'name' => 'Juba Access Works Yard', 'address' => $jubaSite->location_name, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
+                ['branch_id' => $southSudanBranch->id, 'type' => 'depot', 'name' => 'Juba Access Works Yard', 'address' => 'Juba Main Depot', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
             ),
         ];
 

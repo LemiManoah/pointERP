@@ -15,6 +15,8 @@ use Illuminate\Database\Seeder;
 
 final class WorkItemTemplateSeeder extends Seeder
 {
+    public function __construct(private readonly bool $quarryOnly = false) {}
+
     public function run(): void
     {
         $tenants = Tenant::query()->get();
@@ -24,34 +26,191 @@ final class WorkItemTemplateSeeder extends Seeder
             $user = User::query()->where('tenant_id', $tenant->id)->first();
             $actorId = $user?->id;
 
-            $m3 = UnitOfMeasure::query()
-                ->where(fn ($q) => $q->whereNull('tenant_id')->orWhere('tenant_id', $tenant->id))
-                ->where('symbol', 'm³')
-                ->orWhere('symbol', 'm3')
-                ->firstOrFail();
+            $m3 = UnitOfMeasure::query()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'code' => 'M3'],
+                ['name' => 'Cubic metre', 'symbol' => 'm3', 'quantity_dimension' => 'volume', 'is_base_unit' => false, 'is_active' => true],
+            );
 
-            $m2 = UnitOfMeasure::query()
-                ->where(fn ($q) => $q->whereNull('tenant_id')->orWhere('tenant_id', $tenant->id))
-                ->where('symbol', 'm²')
-                ->orWhere('symbol', 'm2')
-                ->firstOrFail();
+            $m2 = UnitOfMeasure::query()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'code' => 'M2'],
+                ['name' => 'Square metre', 'symbol' => 'm2', 'quantity_dimension' => 'area', 'is_base_unit' => false, 'is_active' => true],
+            );
 
-            $m = UnitOfMeasure::query()
-                ->where(fn ($q) => $q->whereNull('tenant_id')->orWhere('tenant_id', $tenant->id))
-                ->where('symbol', 'm')
-                ->firstOrFail();
+            $m = UnitOfMeasure::query()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'code' => 'M'],
+                ['name' => 'Linear Metre', 'symbol' => 'm', 'quantity_dimension' => 'length', 'is_base_unit' => false, 'is_active' => true],
+            );
 
-            $bag = UnitOfMeasure::query()
-                ->where(fn ($q) => $q->whereNull('tenant_id')->orWhere('tenant_id', $tenant->id))
-                ->where(fn ($q) => $q->where('name', 'Bag')->orWhere('symbol', 'bag'))
-                ->first();
+            $bag = UnitOfMeasure::query()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'code' => 'BAG'],
+                ['name' => 'Bag', 'symbol' => 'bag', 'quantity_dimension' => 'count', 'is_base_unit' => false, 'is_active' => true],
+            );
 
-            $hr = UnitOfMeasure::query()
-                ->where(fn ($q) => $q->whereNull('tenant_id')->orWhere('tenant_id', $tenant->id))
-                ->where(fn ($q) => $q->where('name', 'Hour')->orWhere('symbol', 'hr'))
-                ->first();
+            $hr = UnitOfMeasure::query()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'code' => 'HOUR'],
+                ['name' => 'Hour', 'symbol' => 'hr', 'quantity_dimension' => 'time', 'is_base_unit' => true, 'is_active' => true],
+            );
+
+            $tonne = UnitOfMeasure::query()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'code' => 'TONNE'],
+                ['name' => 'Tonne', 'symbol' => 't', 'quantity_dimension' => 'mass', 'is_base_unit' => false, 'is_active' => true],
+            );
+
+            $kg = UnitOfMeasure::query()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'code' => 'KG'],
+                ['name' => 'Kilogram', 'symbol' => 'kg', 'quantity_dimension' => 'mass', 'is_base_unit' => true, 'is_active' => true],
+            );
+
+            $piece = UnitOfMeasure::query()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'code' => 'PIECE'],
+                ['name' => 'Piece', 'symbol' => 'pc', 'quantity_dimension' => 'count', 'is_base_unit' => true, 'is_active' => true],
+            );
 
             $templates = [
+                [
+                    'code' => 'QRY-BLAST-01',
+                    'category' => 'Quarry & Mining Operations',
+                    'name' => 'Rock Drilling & Primary Blasting in Hard Granite',
+                    'unit_of_measure_id' => $m3->id,
+                    'default_selling_rate' => '48000.0000',
+                    'specifications' => 'Primary quarry face benching 10-12m, 89mm blast holes with crawler rig, ANFO bulk charge and non-electric ms delay detonators.',
+                    'resources' => [
+                        [
+                            'resource_type' => EstimateResourceType::Equipment,
+                            'name' => 'Crawler Hydraulic Drill Rig 89mm',
+                            'unit_of_measure_id' => $hr->id,
+                            'quantity_per_work_unit' => '0.045000',
+                            'unit_cost' => '250000.0000',
+                            'notes' => 'Includes drill bit wear, shank adaptor, compressor fuel and operator',
+                        ],
+                        [
+                            'resource_type' => EstimateResourceType::Material,
+                            'name' => 'ANFO Bulk Explosives (Porous Prill & Fuel Oil)',
+                            'unit_of_measure_id' => $kg->id,
+                            'quantity_per_work_unit' => '0.750000',
+                            'unit_cost' => '12000.0000',
+                            'notes' => 'Bulk column charge powder factor 0.75 kg/m3',
+                        ],
+                        [
+                            'resource_type' => EstimateResourceType::Material,
+                            'name' => 'Cast Booster Primer 400g & Nonel Detonator',
+                            'unit_of_measure_id' => $piece->id,
+                            'quantity_per_work_unit' => '0.120000',
+                            'unit_cost' => '18000.0000',
+                            'notes' => 'Bottom hole initiation and surface tie-in trunkline',
+                        ],
+                        [
+                            'resource_type' => EstimateResourceType::Labour,
+                            'name' => 'Certified Quarry Blaster & Charging Gang',
+                            'unit_of_measure_id' => $hr->id,
+                            'quantity_per_work_unit' => '0.080000',
+                            'unit_cost' => '16000.0000',
+                            'notes' => 'Licensed shotfirer, hole charging, stemming and firing guard',
+                        ],
+                    ],
+                ],
+                [
+                    'code' => 'QRY-CRUSH-01',
+                    'category' => 'Quarry & Mining Operations',
+                    'name' => 'Primary Jaw Crushing & Secondary Cone Crushing',
+                    'unit_of_measure_id' => $tonne->id,
+                    'default_selling_rate' => '24000.0000',
+                    'specifications' => 'Feeding run-of-mine blasted rock into 150 TPH primary jaw and secondary cone crushing circuit to produce multi-fraction crushed stone.',
+                    'resources' => [
+                        [
+                            'resource_type' => EstimateResourceType::Equipment,
+                            'name' => 'Crushing & Screening Plant 150TPH',
+                            'unit_of_measure_id' => $hr->id,
+                            'quantity_per_work_unit' => '0.010000',
+                            'unit_cost' => '450000.0000',
+                            'notes' => 'Power generation fuel, jaw die plate wear, cone liner wear and plant operator',
+                        ],
+                        [
+                            'resource_type' => EstimateResourceType::Equipment,
+                            'name' => 'Wheel Loader 5T (Crusher Feed)',
+                            'unit_of_measure_id' => $hr->id,
+                            'quantity_per_work_unit' => '0.012000',
+                            'unit_cost' => '180000.0000',
+                            'notes' => 'Feeding primary hopper from blasted rock muckpile',
+                        ],
+                        [
+                            'resource_type' => EstimateResourceType::Labour,
+                            'name' => 'Crusher Maintenance & Chute Clearing Crew',
+                            'unit_of_measure_id' => $hr->id,
+                            'quantity_per_work_unit' => '0.030000',
+                            'unit_cost' => '8000.0000',
+                            'notes' => 'Feed monitoring and oversized rock picking',
+                        ],
+                    ],
+                ],
+                [
+                    'code' => 'QRY-STK-01',
+                    'category' => 'Quarry & Mining Operations',
+                    'name' => 'Aggregate Screening, Stockpiling & Weighbridge Loading',
+                    'unit_of_measure_id' => $tonne->id,
+                    'default_selling_rate' => '15000.0000',
+                    'specifications' => 'Triple-deck screen separation into 0/4 stone dust, 6/10mm chip, 14/20mm aggregate and base course, haulage to stock bays and loading customer tippers.',
+                    'resources' => [
+                        [
+                            'resource_type' => EstimateResourceType::Equipment,
+                            'name' => 'Wheel Loader (Stockpile Loading)',
+                            'unit_of_measure_id' => $hr->id,
+                            'quantity_per_work_unit' => '0.012000',
+                            'unit_cost' => '180000.0000',
+                            'notes' => 'Loading tippers at stock bays over certified weighbridge',
+                        ],
+                        [
+                            'resource_type' => EstimateResourceType::Equipment,
+                            'name' => 'Internal Stockyard Dump Truck 20T',
+                            'unit_of_measure_id' => $hr->id,
+                            'quantity_per_work_unit' => '0.015000',
+                            'unit_cost' => '90000.0000',
+                            'notes' => 'Conveyor discharge to segregated product bays within 500m',
+                        ],
+                        [
+                            'resource_type' => EstimateResourceType::Labour,
+                            'name' => 'Weighbridge Clerk & Tally Spotter',
+                            'unit_of_measure_id' => $hr->id,
+                            'quantity_per_work_unit' => '0.015000',
+                            'unit_cost' => '6000.0000',
+                            'notes' => 'Axle weight compliance, delivery note issuing and safety directing',
+                        ],
+                    ],
+                ],
+                [
+                    'code' => 'QRY-STRIP-01',
+                    'category' => 'Quarry & Mining Operations',
+                    'name' => 'Overburden Soil Stripping & Pit Development',
+                    'unit_of_measure_id' => $m3->id,
+                    'default_selling_rate' => '16000.0000',
+                    'specifications' => 'Stripping weathered topsoil and decomposed rock to expose fresh granite bed, hauling 1.5km to environmental spoil dump.',
+                    'resources' => [
+                        [
+                            'resource_type' => EstimateResourceType::Equipment,
+                            'name' => 'Hydraulic Excavator 30T',
+                            'unit_of_measure_id' => $hr->id,
+                            'quantity_per_work_unit' => '0.025000',
+                            'unit_cost' => '280000.0000',
+                            'notes' => 'Heavy bucket breakout and loading',
+                        ],
+                        [
+                            'resource_type' => EstimateResourceType::Equipment,
+                            'name' => 'Articulated Dump Truck (ADT) 30T',
+                            'unit_of_measure_id' => $hr->id,
+                            'quantity_per_work_unit' => '0.050000',
+                            'unit_cost' => '160000.0000',
+                            'notes' => 'Haulage over rough pit access ramps to spoil area',
+                        ],
+                        [
+                            'resource_type' => EstimateResourceType::Equipment,
+                            'name' => 'Bulldozer D6 / D7 (Dump Trimming)',
+                            'unit_of_measure_id' => $hr->id,
+                            'quantity_per_work_unit' => '0.015000',
+                            'unit_cost' => '220000.0000',
+                            'notes' => 'Spoil tip grading and safety bund maintenance',
+                        ],
+                    ],
+                ],
                 [
                     'code' => 'CONC-025',
                     'category' => 'Concrete Works',
@@ -63,7 +222,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Material,
                             'name' => 'Cement CEM II 42.5N',
-                            'unit_of_measure_id' => $bag?->id,
+                            'unit_of_measure_id' => $bag->id,
                             'quantity_per_work_unit' => '7.200000',
                             'unit_cost' => '38000.0000',
                             'notes' => '50kg bag',
@@ -87,7 +246,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Equipment,
                             'name' => 'Concrete Mixer 400L',
-                            'unit_of_measure_id' => $hr?->id,
+                            'unit_of_measure_id' => $hr->id,
                             'quantity_per_work_unit' => '0.350000',
                             'unit_cost' => '40000.0000',
                             'notes' => 'Including fuel and operator',
@@ -95,7 +254,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Equipment,
                             'name' => 'Poker Vibrator',
-                            'unit_of_measure_id' => $hr?->id,
+                            'unit_of_measure_id' => $hr->id,
                             'quantity_per_work_unit' => '0.350000',
                             'unit_cost' => '15000.0000',
                             'notes' => 'Petrol driven needle vibrator',
@@ -103,7 +262,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Labour,
                             'name' => 'Concreting Mason',
-                            'unit_of_measure_id' => $hr?->id,
+                            'unit_of_measure_id' => $hr->id,
                             'quantity_per_work_unit' => '0.500000',
                             'unit_cost' => '10000.0000',
                             'notes' => 'Skilled tradesman',
@@ -111,7 +270,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Labour,
                             'name' => 'Concreting Helper Gang',
-                            'unit_of_measure_id' => $hr?->id,
+                            'unit_of_measure_id' => $hr->id,
                             'quantity_per_work_unit' => '2.500000',
                             'unit_cost' => '4000.0000',
                             'notes' => 'Material handling & placing helpers',
@@ -129,7 +288,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Material,
                             'name' => 'Cement CEM II 32.5R',
-                            'unit_of_measure_id' => $bag?->id,
+                            'unit_of_measure_id' => $bag->id,
                             'quantity_per_work_unit' => '4.500000',
                             'unit_cost' => '34000.0000',
                             'notes' => '50kg bag',
@@ -153,7 +312,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Labour,
                             'name' => 'Concreting Crew',
-                            'unit_of_measure_id' => $hr?->id,
+                            'unit_of_measure_id' => $hr->id,
                             'quantity_per_work_unit' => '1.500000',
                             'unit_cost' => '10000.0000',
                             'notes' => 'Combined screeding & placing crew',
@@ -171,7 +330,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Equipment,
                             'name' => 'Hydraulic Excavator 20T',
-                            'unit_of_measure_id' => $hr?->id,
+                            'unit_of_measure_id' => $hr->id,
                             'quantity_per_work_unit' => '0.040000',
                             'unit_cost' => '220000.0000',
                             'notes' => 'Wet rate including operator & fuel',
@@ -179,7 +338,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Equipment,
                             'name' => 'Tipper Truck 15T',
-                            'unit_of_measure_id' => $hr?->id,
+                            'unit_of_measure_id' => $hr->id,
                             'quantity_per_work_unit' => '0.120000',
                             'unit_cost' => '30000.0000',
                             'notes' => 'Haulage within 2km',
@@ -187,7 +346,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Labour,
                             'name' => 'Banksman / Spotter',
-                            'unit_of_measure_id' => $hr?->id,
+                            'unit_of_measure_id' => $hr->id,
                             'quantity_per_work_unit' => '0.040000',
                             'unit_cost' => '5000.0000',
                             'notes' => 'Safety directing tippers',
@@ -213,7 +372,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Equipment,
                             'name' => 'Motor Grader 140K',
-                            'unit_of_measure_id' => $hr?->id,
+                            'unit_of_measure_id' => $hr->id,
                             'quantity_per_work_unit' => '0.030000',
                             'unit_cost' => '180000.0000',
                             'notes' => 'Spreading & camber formation',
@@ -221,7 +380,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Equipment,
                             'name' => 'Vibratory Steel Roller 10T',
-                            'unit_of_measure_id' => $hr?->id,
+                            'unit_of_measure_id' => $hr->id,
                             'quantity_per_work_unit' => '0.025000',
                             'unit_cost' => '120000.0000',
                             'notes' => 'Compaction passes',
@@ -229,7 +388,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Equipment,
                             'name' => 'Water Bowser 10,000L',
-                            'unit_of_measure_id' => $hr?->id,
+                            'unit_of_measure_id' => $hr->id,
                             'quantity_per_work_unit' => '0.020000',
                             'unit_cost' => '50000.0000',
                             'notes' => 'Optimum moisture watering',
@@ -263,7 +422,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Equipment,
                             'name' => 'Backhoe Loader (Lifting & Trenching)',
-                            'unit_of_measure_id' => $hr?->id,
+                            'unit_of_measure_id' => $hr->id,
                             'quantity_per_work_unit' => '0.150000',
                             'unit_cost' => '90000.0000',
                             'notes' => 'Lowering pipes into trench',
@@ -271,7 +430,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Labour,
                             'name' => 'Culvert Mason & Crew',
-                            'unit_of_measure_id' => $hr?->id,
+                            'unit_of_measure_id' => $hr->id,
                             'quantity_per_work_unit' => '1.000000',
                             'unit_cost' => '12000.0000',
                             'notes' => 'Jointing, alignment & packing',
@@ -297,7 +456,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Material,
                             'name' => 'Cement CEM II 42.5N',
-                            'unit_of_measure_id' => $bag?->id,
+                            'unit_of_measure_id' => $bag->id,
                             'quantity_per_work_unit' => '0.280000',
                             'unit_cost' => '38000.0000',
                             'notes' => 'Mortar binder',
@@ -313,7 +472,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Labour,
                             'name' => 'Blocklayer Mason',
-                            'unit_of_measure_id' => $hr?->id,
+                            'unit_of_measure_id' => $hr->id,
                             'quantity_per_work_unit' => '0.600000',
                             'unit_cost' => '10000.0000',
                             'notes' => 'Laying blockwork to line & level',
@@ -321,7 +480,7 @@ final class WorkItemTemplateSeeder extends Seeder
                         [
                             'resource_type' => EstimateResourceType::Labour,
                             'name' => 'Masonry Helper',
-                            'unit_of_measure_id' => $hr?->id,
+                            'unit_of_measure_id' => $hr->id,
                             'quantity_per_work_unit' => '0.800000',
                             'unit_cost' => '4000.0000',
                             'notes' => 'Mortar mixing & block lifting',
@@ -329,6 +488,10 @@ final class WorkItemTemplateSeeder extends Seeder
                     ],
                 ],
             ];
+
+            if ($this->quarryOnly) {
+                $templates = array_values(array_filter($templates, fn (array $template): bool => str_starts_with($template['code'], 'QRY-')));
+            }
 
             foreach ($templates as $data) {
                 // Dynamically calculate unit cost

@@ -48,7 +48,7 @@ import { SiteDialog, type Site } from './partials/site-dialog';
 
 type Props = {
     project: Project;
-    sites: Site[];
+    sites: SiteRow[];
     activities: ProjectActivity[];
     estimates: EstimateSummary[];
     performance: ProjectPerformance | null;
@@ -70,6 +70,12 @@ type Props = {
     fleet: EquipmentScopeData | null;
     canViewFleet: boolean;
     canUpdateProject: boolean;
+    canCreateSite: boolean;
+};
+
+type SiteRow = Site & {
+    can_update: boolean;
+    can_archive: boolean;
 };
 
 type EstimateSummary = {
@@ -150,6 +156,7 @@ export default function ProjectShow({
     fleet,
     canViewFleet,
     canUpdateProject,
+    canCreateSite,
 }: Props) {
     const confirm = useConfirmDialog();
     const [tab, setTab] = useState('sites');
@@ -270,7 +277,12 @@ export default function ProjectShow({
 
                     <TabsContent value="sites" className="mt-6 grid gap-6">
                         <div className="flex justify-end">
-                            <SiteDialog projectId={project.id} users={users} />
+                            {canCreateSite && (
+                                <SiteDialog
+                                    projectId={project.id}
+                                    users={users}
+                                />
+                            )}
                         </div>
                         <SiteTable
                             sites={activeSites}
@@ -475,7 +487,7 @@ function SiteTable({
     title,
     onArchive,
 }: {
-    sites: Site[];
+    sites: SiteRow[];
     users: Option[];
     title: string;
     onArchive: (site: Site) => void;
@@ -535,18 +547,24 @@ function SiteTable({
                                     </td>
                                     <td className="py-3">
                                         <div className="flex justify-end gap-2">
-                                            <SiteDialog
-                                                site={site}
-                                                projectId={site.project_id}
-                                                users={users}
-                                            />
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => onArchive(site)}
-                                            >
-                                                Archive
-                                            </Button>
+                                            {site.can_update && (
+                                                <SiteDialog
+                                                    site={site}
+                                                    projectId={site.project_id}
+                                                    users={users}
+                                                />
+                                            )}
+                                            {site.can_archive && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        onArchive(site)
+                                                    }
+                                                >
+                                                    Archive
+                                                </Button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -924,7 +942,7 @@ function ActivityTable({
     title,
 }: {
     activities: ProjectActivity[];
-    sites: Site[];
+    sites: SiteRow[];
     currencies: Option[];
     canViewRates: boolean;
     title: string;

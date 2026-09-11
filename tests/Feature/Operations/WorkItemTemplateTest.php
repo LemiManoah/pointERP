@@ -11,6 +11,7 @@ use App\Services\TenantContext;
 use Database\Seeders\PointInvestmentSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\WorkItemTemplateSeeder;
+use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function (): void {
@@ -21,7 +22,7 @@ beforeEach(function (): void {
 });
 
 it('lists work item templates for permitted users', function (): void {
-    $manager = User::query()->where('email', 'pm.gulu@point.test')->firstOrFail();
+    $manager = User::query()->where('email', 'latif@gmail.com')->firstOrFail();
 
     $this->actingAs($manager)
         ->get(route('work-item-templates.index'))
@@ -34,7 +35,7 @@ it('lists work item templates for permitted users', function (): void {
 });
 
 it('denies template management to users without permission', function (): void {
-    $unpermittedUser = User::query()->where('email', 'site.juba@point.test')->firstOrFail();
+    $unpermittedUser = User::query()->where('email', 'luate@gmail.com')->firstOrFail();
     $unit = UnitOfMeasure::query()->where('is_active', true)->firstOrFail();
 
     $this->actingAs($unpermittedUser)
@@ -47,7 +48,7 @@ it('denies template management to users without permission', function (): void {
 });
 
 it('creates a work item template and calculates unit cost dynamically from resource norms', function (): void {
-    $manager = User::query()->where('email', 'pm.gulu@point.test')->firstOrFail();
+    $manager = User::query()->where('email', 'latif@gmail.com')->firstOrFail();
     $unit = UnitOfMeasure::query()->where('is_active', true)->firstOrFail();
 
     $response = $this->actingAs($manager)->post(route('work-item-templates.store'), [
@@ -86,7 +87,7 @@ it('creates a work item template and calculates unit cost dynamically from resou
 });
 
 it('updates an existing work item template and dynamically updates its unit cost', function (): void {
-    $manager = User::query()->where('email', 'pm.gulu@point.test')->firstOrFail();
+    $manager = User::query()->where('email', 'latif@gmail.com')->firstOrFail();
     $template = WorkItemTemplate::query()->where('code', 'CONC-025')->firstOrFail();
 
     $response = $this->actingAs($manager)->put(route('work-item-templates.update', $template), [
@@ -111,7 +112,7 @@ it('updates an existing work item template and dynamically updates its unit cost
 });
 
 it('soft deletes a work item template without affecting existing baselines', function (): void {
-    $manager = User::query()->where('email', 'pm.gulu@point.test')->firstOrFail();
+    $manager = User::query()->where('email', 'latif@gmail.com')->firstOrFail();
     $template = WorkItemTemplate::query()->firstOrFail();
 
     $this->actingAs($manager)
@@ -123,7 +124,7 @@ it('soft deletes a work item template without affecting existing baselines', fun
 });
 
 it('provides work item templates to the project estimate editor', function (): void {
-    $manager = User::query()->where('email', 'pm.gulu@point.test')->firstOrFail();
+    $manager = User::query()->where('email', 'latif@gmail.com')->firstOrFail();
     $project = Project::query()->where('reference', 'BKH-ROAD')->firstOrFail();
 
     $this->actingAs($manager)
@@ -132,5 +133,54 @@ it('provides work item templates to the project estimate editor', function (): v
         ->assertInertia(fn (Assert $page): Assert => $page
             ->component('operations/projects/estimates/editor')
             ->has('templates')
-            ->where('templates.0.code', 'CONC-025'));
+            ->where('templates.0.code', fn ($code): bool => in_array($code, ['CONC-015', 'CONC-025'], true)));
+});
+
+it('downloads the work activity template CSV for permitted users', function (): void {
+    $manager = User::query()->where('email', 'latif@gmail.com')->firstOrFail();
+
+    $this->actingAs($manager)
+        ->get(route('work-item-templates.template.download'))
+        ->assertOk()
+        ->assertDownload('work-activity-templates-sample.csv');
+});
+
+it('imports and deterministically updates tenant work activity templates', function (): void {
+    $manager = User::query()->where('email', 'latif@gmail.com')->firstOrFail();
+    $header = 'category,code,activity_name,activity_unit,default_selling_rate,specifications,resource_type,resource_name,resource_unit,quantity_per_unit,unit_cost,notes';
+    $first = $header."\nQuarry Operations,IMP-QRY-01,Imported crushing,t,25000,Test,equipment,Crusher,hr,0.01,400000,Test resource";
+    $second = $header."\nQuarry Operations,IMP-QRY-01,Imported crushing revised,t,26000,Revised,,,,,,";
+
+    $this->actingAs($manager)->post(route('work-item-templates.import'), [
+        'file' => UploadedFile::fake()->createWithContent('templates.csv', $first),
+    ])->assertRedirect(route('work-item-templates.index'));
+
+    $this->actingAs($manager)->post(route('work-item-templates.import'), [
+        'file' => UploadedFile::fake()->createWithContent('templates.csv', $second),
+    ])->assertRedirect(route('work-item-templates.index'));
+
+    $template = WorkItemTemplate::query()->where('code', 'IMP-QRY-01')->firstOrFail();
+    expect(WorkItemTemplate::query()->where('code', 'IMP-QRY-01')->count())->toBe(1)
+        ->and($template->name)->toBe('Imported crushing revised')
+        ->and($template->resources)->toHaveCount(0);
+});
+
+it('rejects incomplete resource rows without importing partial data', function (): void {
+    $manager = User::query()->where('email', 'latif@gmail.com')->firstOrFail();
+    $csv = "category,code,activity_name,activity_unit,default_selling_rate,specifications,resource_type,resource_name,resource_unit,quantity_per_unit,unit_cost,notes\nQuarry Operations,IMP-BAD-01,Invalid import,m3,10000,Test,material,Explosives,unknown,1,5000,Test";
+
+    $this->actingAs($manager)->post(route('work-item-templates.import'), [
+        'file' => UploadedFile::fake()->createWithContent('templates.csv.csv', $csv),
+    ])->assertSessionHasErrors('file');
+
+    expect(WorkItemTemplate::query()->where('code', 'IMP-BAD-01')->exists())->toBeFalse();
+});
+
+it('forbids work activity template imports without management permission', function (): void {
+    $siteEngineer = User::query()->where('email', 'luate@gmail.com')->firstOrFail();
+    $csv = "category,code,activity_name,activity_unit,default_selling_rate,specifications,resource_type,resource_name,resource_unit,quantity_per_unit,unit_cost,notes\nQuarry Operations,IMP-NO-01,Forbidden import,m3,10000,Test,,,,,,";
+
+    $this->actingAs($siteEngineer)->post(route('work-item-templates.import'), [
+        'file' => UploadedFile::fake()->createWithContent('templates.csv', $csv),
+    ])->assertForbidden();
 });

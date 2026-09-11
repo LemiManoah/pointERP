@@ -128,6 +128,8 @@ use App\Http\Controllers\Operations\SiteUserController;
 use App\Http\Controllers\Operations\UnitOfMeasureController;
 use App\Http\Controllers\Operations\UnitOfMeasurePermanentDeleteController;
 use App\Http\Controllers\Operations\WorkItemTemplateController;
+use App\Http\Controllers\Operations\WorkItemTemplateDownloadController;
+use App\Http\Controllers\Operations\WorkItemTemplateImportController;
 use App\Http\Controllers\Resources\StaffController;
 use App\Http\Controllers\Resources\StaffPositionController;
 use App\Http\Controllers\SessionController;
@@ -186,6 +188,8 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('daily-site-reports/{dailySiteReport}/expenses', DsrExpenseController::class)->name('daily-site-reports.expenses.store');
     Route::resource('contracts', ContractController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
     Route::resource('projects', ProjectController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
+    Route::get('work-item-templates/template/download', WorkItemTemplateDownloadController::class)->name('work-item-templates.template.download');
+    Route::post('work-item-templates/import', WorkItemTemplateImportController::class)->name('work-item-templates.import');
     Route::resource('work-item-templates', WorkItemTemplateController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::get('projects/{project}/estimates/create', [ProjectEstimateController::class, 'create'])->name('project-estimates.create');
     Route::post('projects/{project}/estimates', [ProjectEstimateController::class, 'store'])->name('project-estimates.store');

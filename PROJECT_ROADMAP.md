@@ -135,16 +135,34 @@ Detailed implementation document: `phase3A.md`.
 
 SRS coverage: `INV-001` to `INV-007`.
 
-### Phase 3C - Workforce, Attendance and Leave
+### Phase 3C - Estimation, Work Planning and Plan vs Actual
 
-- Employee and contractor master records.
-- Project/site assignments, trades, employers and contract dates.
-- Leave requests, balances, approval/rejection and calendar.
-- Attendance/presence with supervisor confirmation.
-- Attendance-to-DSR prompts and workforce-count consistency exceptions.
-- Restricted HR fields and auditable corrections.
+- Versioned project estimates and approved baselines.
+- Reusable Work Activity Templates with labour, material, equipment and subcontractor norms.
+- Work Activities generated from approved estimate lines.
+- Approved DSR quantities compared with baseline quantities, value and expected resources.
+- CSV import for reusable Work Activity Templates.
+- Project BOQ/estimate XLSX import with preview, mapping and source-document retention remains pending.
 
-SRS coverage: `HR-001` to `HR-006`. Payroll remains later.
+Detailed implementation document: `phase3C.md`.
+
+### Phase 3D - Operational Expenses and Accountability
+
+- Expense categories and reusable expense items.
+- Draft, submit, approve/reject and payment workflow.
+- Project/site allocation, evidence, audit and DSR-linked draft expenses.
+- Operational expense sub-ledger only; formal accounting remains Phase 4.
+
+Detailed implementation document: `phase3D.md`.
+
+### Phase 3E - Point of Sale for Sellable Inventory
+
+- Counter sales over the existing inventory ledger.
+- Walk-in and known-customer sales, including automatic partial-payment credit balances.
+- Price-list resolution, stock/batch validation, receipts and controlled returns.
+- Operational sales sub-ledger only; formal accounting remains Phase 4.
+
+Detailed implementation document: `phase3E.md`.
 
 ### Phase 4 - Commercial and Financial Control
 
@@ -196,7 +214,7 @@ Later integrations such as live GPS, biometric attendance, payroll, statutory ac
 
 ## 7. Immediate Decision
 
-Run the Phase 2D migrations, seeders, focused tests and UAT. Once accepted, begin Phase 3 architecture with equipment, fleet and fuel control as the first implementation slice.
+Complete the quarry pilot handover plan, reconcile the implemented Phase 3A-3E workflows, and close the full local quality suite and UAT before expanding scope.
 
 Reason: PointERP can already capture daily operational data, but it does not yet provide the complete notification, escalation and exception-management loop required by `PRJ-005` to `PRJ-008`, `COM-003` to `COM-005`, and `RPT-001` to `RPT-006`. Closing that loop makes the existing work usable for management and gives Phase 3 modules a reusable notification and dashboard foundation.
 
