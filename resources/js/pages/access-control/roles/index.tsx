@@ -2,7 +2,6 @@ import { Head, Link, router } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -39,12 +38,7 @@ export default function RolesIndex({ roles, permissions }: Props) {
         const term = debouncedSearch.trim().toLowerCase();
 
         return roles.filter(
-            (role) =>
-                !term ||
-                [role.name, ...role.permissions]
-                    .join(' ')
-                    .toLowerCase()
-                    .includes(term),
+            (role) => !term || role.name.toLowerCase().includes(term),
         );
     }, [debouncedSearch, roles]);
 
@@ -130,18 +124,10 @@ export default function RolesIndex({ roles, permissions }: Props) {
                                                 {formatNumber(role.users_count)}
                                             </td>
                                             <td className="py-3 pr-4">
-                                                <div className="flex flex-wrap gap-2">
-                                                    {role.permissions.map(
-                                                        (permission) => (
-                                                            <Badge
-                                                                key={permission}
-                                                                variant="secondary"
-                                                            >
-                                                                {permission}
-                                                            </Badge>
-                                                        ),
-                                                    )}
-                                                </div>
+                                                {formatNumber(
+                                                    role.permissions.length,
+                                                )}{' '}
+                                                permissions
                                             </td>
                                             <td className="py-3">
                                                 <div className="flex justify-end gap-2">

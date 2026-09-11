@@ -25,11 +25,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read string|null $source_id
  * @property-read InventoryMovementType $movement_type
  * @property-read InventoryMovementStatus $status
+ * @property-read string|null $received_by_name
+ * @property-read CarbonInterface|null $received_at
+ * @property-read string|null $handover_note
+ * @property-read string|null $handover_document_disk
+ * @property-read string|null $handover_document_path
+ * @property-read string|null $handover_document_name
+ * @property-read string|null $handover_document_mime
+ * @property-read int|null $handover_document_size
  * @property-read CarbonInterface $posted_at
  * @property-read CarbonInterface|null $reversed_at
  */
 #[ObservedBy([InventoryStockMovementObserver::class])]
-#[Fillable(['tenant_id', 'branch_id', 'inventory_store_id', 'inventory_item_id', 'inventory_batch_id', 'movement_type', 'status', 'quantity', 'original_quantity', 'original_unit_id', 'conversion_multiplier', 'source_type', 'source_id', 'source_key', 'project_id', 'site_id', 'equipment_id', 'reversal_of_id', 'reason', 'posted_by', 'posted_at', 'reversed_by', 'reversed_at'])]
+#[Fillable(['tenant_id', 'branch_id', 'inventory_store_id', 'inventory_item_id', 'inventory_batch_id', 'movement_type', 'status', 'quantity', 'original_quantity', 'original_unit_id', 'conversion_multiplier', 'source_type', 'source_id', 'source_key', 'project_id', 'site_id', 'equipment_id', 'reversal_of_id', 'reason', 'received_by_name', 'received_at', 'handover_note', 'handover_document_disk', 'handover_document_path', 'handover_document_name', 'handover_document_mime', 'handover_document_size', 'posted_by', 'posted_at', 'reversed_by', 'reversed_at'])]
 final class InventoryStockMovement extends Model
 {
     use BelongsToTenant;
@@ -42,7 +50,7 @@ final class InventoryStockMovement extends Model
     /** @return array<string, string> */
     public function casts(): array
     {
-        return ['movement_type' => InventoryMovementType::class, 'status' => InventoryMovementStatus::class, 'quantity' => 'decimal:4', 'original_quantity' => 'decimal:4', 'conversion_multiplier' => 'decimal:10', 'posted_at' => 'datetime', 'reversed_at' => 'datetime', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
+        return ['movement_type' => InventoryMovementType::class, 'status' => InventoryMovementStatus::class, 'quantity' => 'decimal:4', 'original_quantity' => 'decimal:4', 'conversion_multiplier' => 'decimal:10', 'received_at' => 'datetime', 'handover_document_size' => 'integer', 'posted_at' => 'datetime', 'reversed_at' => 'datetime', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
     }
 
     /** @return BelongsTo<InventoryStore, $this> */

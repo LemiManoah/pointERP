@@ -34,6 +34,14 @@ return new class extends Migration
             $table->foreignUuid('equipment_id')->nullable()->constrained()->restrictOnDelete();
             $table->foreignUuid('reversal_of_id')->nullable();
             $table->text('reason');
+            $table->string('received_by_name')->nullable();
+            $table->timestamp('received_at')->nullable();
+            $table->text('handover_note')->nullable();
+            $table->string('handover_document_disk', 40)->nullable();
+            $table->text('handover_document_path')->nullable();
+            $table->string('handover_document_name')->nullable();
+            $table->string('handover_document_mime', 120)->nullable();
+            $table->unsignedBigInteger('handover_document_size')->nullable();
             $table->foreignUuid('posted_by')->constrained('users')->restrictOnDelete();
             $table->timestamp('posted_at');
             $table->foreignUuid('reversed_by')->nullable()->constrained('users')->nullOnDelete();

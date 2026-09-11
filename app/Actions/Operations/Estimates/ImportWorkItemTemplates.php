@@ -247,4 +247,3 @@ final readonly class ImportWorkItemTemplates
         return ['imported_templates' => $templateCount, 'imported_resources' => $resourceCount];
     }
 }
-

@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -59,7 +60,7 @@ final readonly class IssueMaterialRequisitionLine
                 throw ValidationException::withMessages(['quantity' => 'The issue exceeds the approved outstanding quantity of '.$outstanding->toScale(4).' stock units.']);
             }
 
-            $this->postMovement->handle($requisition->store, $item, [
+            $movement = $this->postMovement->handle($requisition->store, $item, [
                 'movement_type' => InventoryMovementType::Issue->value,
                 'original_quantity' => (string) $original,
                 'original_unit_id' => $line->unit_of_measure_id,
@@ -72,7 +73,31 @@ final readonly class IssueMaterialRequisitionLine
                 'project_id' => $requisition->project_id,
                 'site_id' => $requisition->site_id,
                 'reason' => $data['reason'],
+                'received_by_name' => $data['received_by_name'],
+                'received_at' => $data['received_on'].' '.$data['received_time'],
+                'handover_note' => $data['handover_note'] ?? null,
             ], $actor);
+
+            $document = $data['handover_document'] ?? null;
+            if ($document instanceof UploadedFile) {
+                $path = $document->store('inventory/handover/'.$requisition->tenant_id.'/'.$requisition->id, 'local');
+                if (! is_string($path)) {
+                    throw ValidationException::withMessages(['handover_document' => 'The handover document could not be stored.']);
+                }
+
+                $movement->forceFill([
+                    'handover_document_disk' => 'local',
+                    'handover_document_path' => $path,
+                    'handover_document_name' => $document->getClientOriginalName(),
+                    'handover_document_mime' => $document->getClientMimeType(),
+                    'handover_document_size' => $document->getSize(),
+                ])->save();
+                $this->auditLogger->record('inventory.requisition.handover_document_attached', $movement, $actor, [], [
+                    'document_name' => $document->getClientOriginalName(),
+                    'document_mime' => $document->getClientMimeType(),
+                    'document_size' => $document->getSize(),
+                ], (string) ($data['handover_note'] ?? $data['reason']), $requisition->branch);
+            }
 
             $previousIssued = (string) $line->issued_quantity;
             $issued = BigDecimal::of($previousIssued)->plus($stockQuantity);

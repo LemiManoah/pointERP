@@ -1,4 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
+import { format } from 'date-fns';
 import {
     ArrowDownToLine,
     CornerUpLeft,
@@ -7,6 +8,7 @@ import {
 } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useState } from 'react';
+import { DatePicker } from '@/components/date-picker';
 import InputError from '@/components/input-error';
 import { SearchableSelect } from '@/components/searchable-select';
 import { Button } from '@/components/ui/button';
@@ -219,6 +221,11 @@ export function IssueLineDialog({
         quantity: line.outstanding_request_unit_quantity,
         inventory_batch_id: '',
         reason: `Issue for requisition ${requisitionId}`,
+        received_by_name: '',
+        received_on: format(new Date(), 'yyyy-MM-dd'),
+        received_time: format(new Date(), 'HH:mm'),
+        handover_note: '',
+        handover_document: null as File | null,
         source_key: createUuid(),
     });
     const itemBatches = batches.filter(
@@ -235,13 +242,22 @@ export function IssueLineDialog({
             `/inventory/requisitions/${requisitionId}/lines/${line.id}/issue`,
             {
                 preserveScroll: true,
+                forceFormData: true,
                 onSuccess: () => {
                     setOpen(false);
+                    form.reset(
+                        'quantity',
+                        'inventory_batch_id',
+                        'received_by_name',
+                        'handover_note',
+                        'handover_document',
+                    );
                     form.setData('source_key', createUuid());
                 },
             },
         );
     };
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -255,18 +271,19 @@ export function IssueLineDialog({
                     <ArrowDownToLine /> Issue
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>Issue {line.item_name}</DialogTitle>
                     <DialogDescription>
-                        Outstanding:{' '}
+                        Record the stock released and the person who physically
+                        received it. Outstanding:{' '}
                         {formatNumber(line.outstanding_request_unit_quantity)}{' '}
                         {line.unit_name} (
                         {formatNumber(line.outstanding_quantity)}{' '}
                         {line.stock_unit_name}).
                     </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={submit} className="grid gap-4">
+                <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
                     <Field
                         label={`Quantity (${line.unit_name})`}
                         required
@@ -289,7 +306,7 @@ export function IssueLineDialog({
                             }
                         />
                     </Field>
-                    {line.tracking_type === 'batch' && (
+                    {line.tracking_type === 'batch' ? (
                         <Field
                             label="Batch"
                             required
@@ -309,22 +326,102 @@ export function IssueLineDialog({
                                 }
                             />
                         </Field>
+                    ) : (
+                        <div />
                     )}
                     <Field
-                        label="Issue reason"
+                        label="Received by"
                         required
-                        error={form.errors.reason}
+                        error={form.errors.received_by_name}
+                    >
+                        <Input
+                            value={form.data.received_by_name}
+                            onChange={(event) =>
+                                form.setData(
+                                    'received_by_name',
+                                    event.target.value,
+                                )
+                            }
+                            placeholder="Name of person receiving the stock"
+                        />
+                    </Field>
+                    <div className="grid grid-cols-[minmax(0,1fr)_8rem] gap-3">
+                        <Field
+                            label="Handover date"
+                            required
+                            error={form.errors.received_on}
+                        >
+                            <DatePicker
+                                value={form.data.received_on}
+                                onChange={(value) =>
+                                    form.setData('received_on', value)
+                                }
+                            />
+                        </Field>
+                        <Field
+                            label="Time"
+                            required
+                            error={form.errors.received_time}
+                        >
+                            <Input
+                                type="time"
+                                value={form.data.received_time}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'received_time',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </Field>
+                    </div>
+                    <div className="sm:col-span-2">
+                        <Field
+                            label="Issue reason"
+                            required
+                            error={form.errors.reason}
+                        >
+                            <Textarea
+                                value={form.data.reason}
+                                onChange={(event) =>
+                                    form.setData('reason', event.target.value)
+                                }
+                            />
+                        </Field>
+                    </div>
+                    <Field
+                        label="Handover note"
+                        error={form.errors.handover_note}
                     >
                         <Textarea
-                            value={form.data.reason}
+                            value={form.data.handover_note}
                             onChange={(event) =>
-                                form.setData('reason', event.target.value)
+                                form.setData(
+                                    'handover_note',
+                                    event.target.value,
+                                )
+                            }
+                            placeholder="Condition, vehicle, witness, or other note"
+                        />
+                    </Field>
+                    <Field
+                        label="Handover document"
+                        error={form.errors.handover_document}
+                    >
+                        <Input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                            onChange={(event) =>
+                                form.setData(
+                                    'handover_document',
+                                    event.target.files?.[0] ?? null,
+                                )
                             }
                         />
                     </Field>
-                    <DialogFooter>
+                    <DialogFooter className="sm:col-span-2">
                         <Button type="submit" disabled={form.processing}>
-                            Record issue
+                            Record issue and handover
                         </Button>
                     </DialogFooter>
                 </form>

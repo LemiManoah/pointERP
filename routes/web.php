@@ -106,6 +106,7 @@ use App\Http\Controllers\Operations\InventoryUnitConversionController;
 use App\Http\Controllers\Operations\InventoryUnitConversionPermanentDeleteController;
 use App\Http\Controllers\Operations\MaterialRequisitionController;
 use App\Http\Controllers\Operations\MaterialRequisitionIssueController;
+use App\Http\Controllers\Operations\MaterialRequisitionIssueDocumentController;
 use App\Http\Controllers\Operations\MaterialRequisitionReturnController;
 use App\Http\Controllers\Operations\MaterialRequisitionReviewController;
 use App\Http\Controllers\Operations\MaterialRequisitionSubmissionController;
@@ -253,6 +254,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('inventory/requisitions/{materialRequisition}/submit', MaterialRequisitionSubmissionController::class)->name('inventory.requisitions.submit');
     Route::post('inventory/requisitions/{materialRequisition}/review', MaterialRequisitionReviewController::class)->name('inventory.requisitions.review');
     Route::post('inventory/requisitions/{materialRequisition}/lines/{materialRequisitionLine}/issue', MaterialRequisitionIssueController::class)->name('inventory.requisitions.lines.issue');
+    Route::get('inventory/requisitions/{materialRequisition}/issues/{inventoryStockMovement}/document', MaterialRequisitionIssueDocumentController::class)->name('inventory.requisitions.issues.document');
     Route::post('inventory/requisitions/{materialRequisition}/lines/{materialRequisitionLine}/return', MaterialRequisitionReturnController::class)->name('inventory.requisitions.lines.return');
     Route::resource('inventory/purchase-orders', PurchaseOrderController::class)->only(['index', 'create', 'show', 'edit', 'store', 'update', 'destroy'])->names('inventory.purchase-orders');
     Route::post('inventory/purchase-orders/{purchaseOrder}/submit', PurchaseOrderSubmissionController::class)->name('inventory.purchase-orders.submit');

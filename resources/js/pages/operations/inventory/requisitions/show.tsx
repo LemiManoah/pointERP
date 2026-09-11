@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, FileDown, Send } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +45,11 @@ type Line = {
         original_quantity: string;
         posted_at: string;
         posted_by: string;
+        received_by_name: string | null;
+        received_at: string | null;
+        handover_note: string | null;
+        handover_document_name: string | null;
+        handover_document_url: string | null;
     }[];
 };
 type Requisition = {
@@ -357,42 +362,93 @@ export default function MaterialRequisitionShow(props: Props) {
                                 Issue and return history
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="grid gap-3">
-                            {requisition.lines.flatMap((line) =>
-                                line.movements.map((movement) => (
-                                    <div
-                                        key={movement.id}
-                                        className="flex flex-wrap items-center justify-between gap-3 border-b pb-3 last:border-0"
-                                    >
-                                        <div>
-                                            <span className="font-medium">
-                                                {line.item_name}
-                                            </span>
-                                            <div className="text-sm text-muted-foreground">
-                                                {label(movement.type)} by{' '}
-                                                {movement.posted_by}
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <span className="font-medium">
-                                                {formatNumber(
-                                                    Math.abs(
-                                                        Number(
-                                                            movement.quantity,
-                                                        ),
-                                                    ),
-                                                )}{' '}
-                                                {line.stock_unit_name}
-                                            </span>
-                                            <div className="text-sm text-muted-foreground">
-                                                {formatDateTime(
-                                                    movement.posted_at,
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )),
-                            )}
+                        <CardContent>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b text-left text-muted-foreground">
+                                            <Th>Item</Th>
+                                            <Th>Movement</Th>
+                                            <Th>Quantity</Th>
+                                            <Th>Receiver</Th>
+                                            <Th>Handover</Th>
+                                            <Th>Evidence</Th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {requisition.lines.flatMap((line) =>
+                                            line.movements.map((movement) => (
+                                                <tr
+                                                    key={movement.id}
+                                                    className="border-b last:border-0"
+                                                >
+                                                    <Td>
+                                                        <span className="font-medium">
+                                                            {line.item_name}
+                                                        </span>
+                                                    </Td>
+                                                    <Td>
+                                                        {label(movement.type)}
+                                                        <div className="text-xs text-muted-foreground">
+                                                            Recorded by{' '}
+                                                            {movement.posted_by}
+                                                        </div>
+                                                    </Td>
+                                                    <Td>
+                                                        {formatNumber(
+                                                            Math.abs(
+                                                                Number(
+                                                                    movement.quantity,
+                                                                ),
+                                                            ),
+                                                        )}{' '}
+                                                        {line.stock_unit_name}
+                                                    </Td>
+                                                    <Td>
+                                                        {movement.received_by_name ??
+                                                            'Not recorded'}
+                                                    </Td>
+                                                    <Td>
+                                                        {movement.received_at ??
+                                                            formatDateTime(
+                                                                movement.posted_at,
+                                                            )}
+                                                        {movement.handover_note && (
+                                                            <div className="max-w-64 text-xs whitespace-normal text-muted-foreground">
+                                                                {
+                                                                    movement.handover_note
+                                                                }
+                                                            </div>
+                                                        )}
+                                                    </Td>
+                                                    <Td>
+                                                        {movement.handover_document_url ? (
+                                                            <Button
+                                                                asChild
+                                                                size="sm"
+                                                                variant="outline"
+                                                            >
+                                                                <a
+                                                                    href={
+                                                                        movement.handover_document_url
+                                                                    }
+                                                                >
+                                                                    <FileDown />
+                                                                    Download
+                                                                </a>
+                                                            </Button>
+                                                        ) : (
+                                                            <span className="text-muted-foreground">
+                                                                None
+                                                            </span>
+                                                        )}
+                                                    </Td>
+                                                </tr>
+                                            )),
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </CardContent>
                     </Card>
                 )}

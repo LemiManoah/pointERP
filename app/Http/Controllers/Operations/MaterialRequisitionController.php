@@ -75,6 +75,23 @@ final class MaterialRequisitionController
 
             $stockUnit = $line->item?->stockUnit;
 
+            /** @var Collection<int, array<string, mixed>> $movements */
+            $movements = $line->stockMovements->map(fn (InventoryStockMovement $movement): array => [
+                'id' => $movement->id,
+                'type' => $movement->movement_type->value,
+                'quantity' => $movement->quantity,
+                'original_quantity' => $movement->original_quantity,
+                'posted_at' => $movement->posted_at->format('d M Y, H:i'),
+                'posted_by' => $movement->postedBy->name,
+                'received_by_name' => $movement->received_by_name,
+                'received_at' => $movement->received_at?->format('d M Y, H:i'),
+                'handover_note' => $movement->handover_note,
+                'handover_document_name' => $movement->handover_document_name,
+                'handover_document_url' => $movement->handover_document_path === null
+                    ? null
+                    : route('inventory.requisitions.issues.document', [$materialRequisition, $movement]),
+            ]);
+
             return [
                 'id' => $line->id,
                 'inventory_item_id' => $line->inventory_item_id,
@@ -96,7 +113,7 @@ final class MaterialRequisitionController
                 'notes' => $line->notes,
                 'available_stock' => $balance['available'] ?? null,
                 'reserved_quantity' => $reservation?->reserved_quantity,
-                'movements' => $line->stockMovements->map(fn (InventoryStockMovement $movement): array => ['id' => $movement->id, 'type' => $movement->movement_type->value, 'quantity' => $movement->quantity, 'original_quantity' => $movement->original_quantity, 'posted_at' => $movement->posted_at->format('d M Y, H:i'), 'posted_by' => $movement->postedBy->name]),
+                'movements' => $movements,
             ];
         });
         $lineItemIds = $materialRequisition->lines->pluck('inventory_item_id')->filter()->unique()->values()->all();

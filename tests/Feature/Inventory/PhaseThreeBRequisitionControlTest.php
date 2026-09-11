@@ -73,6 +73,12 @@ it('does not approve more stock than the source store can reserve', function ():
     $projectManager = User::query()->where('email', 'pm.gulu@point.test')->firstOrFail();
     $requisition = MaterialRequisition::query()->where('reference', 'MR-DEMO-GULU')->firstOrFail();
     $line = $requisition->lines()->firstOrFail();
+    $item = InventoryItem::query()->findOrFail($line->inventory_item_id);
+    $unavailableQuantity = (string) ((float) resolve(InventoryStockBalance::class)->for($requisition->store, $item)['available'] + 1);
+    $line->forceFill([
+        'requested_quantity' => $unavailableQuantity,
+        'stock_quantity' => $unavailableQuantity,
+    ])->save();
 
     $this->actingAs($projectManager)->post(route('inventory.requisitions.review', $requisition), [
         'decision' => 'approve',
@@ -107,16 +113,24 @@ it('partially issues and fulfils an approved requisition without losing its rese
     $this->actingAs($storeKeeper)->post(route('inventory.requisitions.lines.issue', [$requisition, $line]), [
         'quantity' => '10',
         'reason' => 'First crew collected ten vests.',
+        'received_by_name' => 'Kampala Site Foreman',
+        'received_on' => now()->toDateString(),
+        'received_time' => now()->format('H:i'),
+        'handover_note' => 'Counted at the store counter.',
         'source_key' => (string) Str::uuid(),
     ])->assertRedirect(route('inventory.requisitions.show', $requisition));
 
     expect($requisition->refresh()->status)->toBe(MaterialRequisitionStatus::PartiallyIssued)
         ->and($line->refresh()->issued_quantity)->toBe('10.0000')
+        ->and(InventoryStockMovement::query()->where('source_id', $line->id)->latest()->value('received_by_name'))->toBe('Kampala Site Foreman')
         ->and(resolve(InventoryStockBalance::class)->for($store, $item)['on_hand'])->toBe(number_format((float) $before - 10, 4, '.', ''));
 
     $this->actingAs($storeKeeper)->post(route('inventory.requisitions.lines.issue', [$requisition, $line]), [
         'quantity' => '15',
         'reason' => 'Remaining crew collected the balance.',
+        'received_by_name' => 'Kampala Site Foreman',
+        'received_on' => now()->toDateString(),
+        'received_time' => now()->format('H:i'),
         'source_key' => (string) Str::uuid(),
     ])->assertRedirect(route('inventory.requisitions.show', $requisition));
 
@@ -133,7 +147,7 @@ it('records unused material returns without rewriting the original issues', func
     $requisition = MaterialRequisition::query()->where('reference', 'MR-DEMO-KLA')->firstOrFail();
     $line = $requisition->lines()->firstOrFail();
 
-    $this->actingAs($storeKeeper)->post(route('inventory.requisitions.lines.issue', [$requisition, $line]), ['quantity' => '25', 'reason' => 'Crew issue.', 'source_key' => (string) Str::uuid()])->assertRedirect();
+    $this->actingAs($storeKeeper)->post(route('inventory.requisitions.lines.issue', [$requisition, $line]), ['quantity' => '25', 'reason' => 'Crew issue.', 'received_by_name' => 'Kampala Site Foreman', 'received_on' => now()->toDateString(), 'received_time' => now()->format('H:i'), 'source_key' => (string) Str::uuid()])->assertRedirect();
     $this->actingAs($director)->post(route('inventory.requisitions.lines.return', [$requisition, $line]), ['quantity' => '5', 'reason' => 'Five unused vests returned.', 'source_key' => (string) Str::uuid()])->assertRedirect();
 
     expect($line->refresh()->returned_quantity)->toBe('5.0000')
@@ -146,7 +160,7 @@ it('forbids users without issue authority and users outside the requisition bran
     $requisition = MaterialRequisition::query()->where('reference', 'MR-DEMO-KLA')->firstOrFail();
     $line = $requisition->lines()->firstOrFail();
 
-    $this->actingAs($siteManager)->post(route('inventory.requisitions.lines.issue', [$requisition, $line]), ['quantity' => '1', 'reason' => 'Must not issue.', 'source_key' => (string) Str::uuid()])->assertForbidden();
+    $this->actingAs($siteManager)->post(route('inventory.requisitions.lines.issue', [$requisition, $line]), ['quantity' => '1', 'reason' => 'Must not issue.', 'received_by_name' => 'Unauthorised receiver', 'received_on' => now()->toDateString(), 'received_time' => now()->format('H:i'), 'source_key' => (string) Str::uuid()])->assertForbidden();
 });
 
 it('creates and submits a material requisition through the user interface endpoints', function (): void {

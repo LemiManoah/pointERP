@@ -102,7 +102,9 @@ final readonly class PostInventoryStockMovement
                 'source_type' => $data['source_type'] ?? 'manual', 'source_id' => $data['source_id'] ?? null,
                 'source_key' => $data['source_key'], 'project_id' => $data['project_id'] ?? null,
                 'site_id' => $data['site_id'] ?? null, 'equipment_id' => $data['equipment_id'] ?? null,
-                'reason' => $data['reason'], 'posted_by' => $actor->id, 'posted_at' => now(),
+                'reason' => $data['reason'], 'received_by_name' => $data['received_by_name'] ?? null,
+                'received_at' => $data['received_at'] ?? null, 'handover_note' => $data['handover_note'] ?? null,
+                'posted_by' => $actor->id, 'posted_at' => now(),
             ]);
             $this->auditLogger->record('inventory.stock.posted', $movement, $actor, [], $movement->toArray(), (string) $data['reason'], $store->branch);
 
