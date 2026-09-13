@@ -161,6 +161,13 @@ const groups: SidebarGroupItem[] = [
                 permission: 'resources.staff.manage',
             },
             {
+                title: 'Workforce',
+                href: '/workforce/attendance',
+                icon: ClipboardCheck,
+                status: 'ready',
+                permission: 'workforce.view',
+            },
+            {
                 title: 'Equipment',
                 href: '/equipment',
                 icon: HardHat,

@@ -131,6 +131,10 @@ use App\Http\Controllers\Operations\WorkItemTemplateImportController;
 use App\Http\Controllers\Resources\StaffController;
 use App\Http\Controllers\Resources\StaffPositionController;
 use App\Http\Controllers\SessionController;
+use App\Http\Controllers\SiteAttendanceConfirmationController;
+use App\Http\Controllers\SiteAttendanceController;
+use App\Http\Controllers\SiteAttendanceReopenController;
+use App\Http\Controllers\StaffDeploymentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserEmailResetNotificationController;
 use App\Http\Controllers\UserEmailVerificationController;
@@ -138,6 +142,7 @@ use App\Http\Controllers\UserEmailVerificationNotificationController;
 use App\Http\Controllers\UserPasswordController;
 use App\Http\Controllers\UserProfileController;
 use App\Http\Controllers\UserTwoFactorAuthenticationController;
+use App\Http\Controllers\WorkforceTradeController;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -314,6 +319,20 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
 
     Route::resource('staff', StaffController::class)->only(['index', 'store', 'update', 'destroy'])->names('resources.staff');
     Route::resource('staff-positions', StaffPositionController::class)->only(['index', 'store', 'update', 'destroy'])->names('resources.staff-positions');
+
+    Route::get('workforce/attendance', [SiteAttendanceController::class, 'index'])->name('workforce.attendance.index');
+    Route::get('workforce/attendance/create', [SiteAttendanceController::class, 'create'])->name('workforce.attendance.create');
+    Route::post('workforce/attendance', [SiteAttendanceController::class, 'store'])->name('workforce.attendance.store');
+    Route::get('workforce/attendance/{siteAttendanceRegister}', [SiteAttendanceController::class, 'show'])->name('workforce.attendance.show');
+    Route::put('workforce/attendance/{siteAttendanceRegister}', [SiteAttendanceController::class, 'update'])->name('workforce.attendance.update');
+    Route::post('workforce/attendance/{siteAttendanceRegister}/confirm', SiteAttendanceConfirmationController::class)->name('workforce.attendance.confirm');
+    Route::post('workforce/attendance/{siteAttendanceRegister}/reopen', SiteAttendanceReopenController::class)->name('workforce.attendance.reopen');
+    Route::get('workforce', [StaffDeploymentController::class, 'index'])->name('workforce.index');
+    Route::post('workforce/trades', [WorkforceTradeController::class, 'store'])->name('workforce.trades.store');
+    Route::put('workforce/trades/{workforceTrade}', [WorkforceTradeController::class, 'update'])->name('workforce.trades.update');
+    Route::delete('workforce/trades/{workforceTrade}', [WorkforceTradeController::class, 'destroy'])->name('workforce.trades.destroy');
+    Route::post('workforce/deployments', [StaffDeploymentController::class, 'store'])->name('workforce.deployments.store');
+    Route::delete('workforce/deployments/{staffDeployment}', [StaffDeploymentController::class, 'destroy'])->name('workforce.deployments.destroy');
 });
 
 Route::middleware('auth')->group(function (): void {

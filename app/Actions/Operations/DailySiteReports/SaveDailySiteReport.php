@@ -25,6 +25,7 @@ use App\Models\ProjectActivity;
 use App\Models\Site;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
+use App\Models\WorkforceTrade;
 use App\Services\AuditLogger;
 use App\Services\InventoryQuantityConverter;
 use App\Services\RefreshDailySiteReportCosts;
@@ -330,6 +331,19 @@ final readonly class SaveDailySiteReport
             ->filter(fn (mixed $line): bool => is_array($line))
             ->map(function (array $line) use ($report): array {
                 $source = DsrLabourSource::tryFrom((string) ($line['labour_source'] ?? '')) ?? DsrLabourSource::Internal;
+                $tradeId = $line['workforce_trade_id'] ?? null;
+                $trade = is_string($tradeId) && $tradeId !== ''
+                    ? WorkforceTrade::query()
+                        ->where('tenant_id', $report->tenant_id)
+                        ->where('is_active', true)
+                        ->whereKey($tradeId)
+                        ->first()
+                    : null;
+
+                if (is_string($tradeId) && $tradeId !== '' && ! $trade instanceof WorkforceTrade) {
+                    throw ValidationException::withMessages(['labour_lines' => 'Select an active workforce trade for the labour entry.']);
+                }
+
                 $subcontractorId = $source === DsrLabourSource::Subcontractor ? ($line['subcontractor_id'] ?? null) : null;
                 $subcontractor = is_string($subcontractorId) ? Customer::query()
                     ->whereKey($subcontractorId)
@@ -345,6 +359,8 @@ final readonly class SaveDailySiteReport
                 return [
                     ...$line,
                     'labour_source' => $source->value,
+                    'workforce_trade_id' => $trade?->id,
+                    'trade_or_role' => $trade instanceof WorkforceTrade ? $trade->name : $line['trade_or_role'],
                     'subcontractor_id' => $subcontractor?->id,
                     'subcontractor_name' => $subcontractor?->name,
                 ];

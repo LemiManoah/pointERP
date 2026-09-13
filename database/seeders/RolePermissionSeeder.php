@@ -11,6 +11,18 @@ use Spatie\Permission\PermissionRegistrar;
 
 final class RolePermissionSeeder extends Seeder
 {
+    /** @var list<string> */
+    private const array WORKFORCE_PERMISSIONS = [
+        'workforce.view',
+        'workforce.trades.manage',
+        'workforce.deployments.manage',
+        'workforce.attendance.record',
+        'workforce.attendance.confirm',
+        'workforce.attendance.reopen',
+        'workforce.reports.view',
+        'daily-site-reports.override-labour-variance',
+    ];
+
     /**
      * @var array<string, list<string>>
      */
@@ -573,6 +585,7 @@ final class RolePermissionSeeder extends Seeder
     {
         return collect($this->roles)
             ->flatten()
+            ->merge(self::WORKFORCE_PERMISSIONS)
             ->unique()
             ->sort()
             ->values()

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\DsrLabourAttendanceStatus;
 use App\Models\Concerns\BelongsToTenant;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -36,6 +37,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string|null $output_value
  * @property-read string|null $input_cost
  * @property-read string|null $profit_loss
+ * @property-read DsrLabourAttendanceStatus|null $labour_attendance_status
+ * @property-read array<string, mixed>|null $labour_attendance_snapshot
+ * @property-read CarbonInterface|null $labour_attendance_checked_at
+ * @property-read string|null $labour_attendance_override_reason
+ * @property-read string|null $labour_attendance_override_by
  * @property-read string $status
  * @property-read CarbonInterface|null $expected_at
  * @property-read string|null $submitted_by
@@ -78,6 +84,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'output_value',
     'input_cost',
     'profit_loss',
+    'labour_attendance_status',
+    'labour_attendance_snapshot',
+    'labour_attendance_checked_at',
+    'labour_attendance_override_reason',
+    'labour_attendance_override_by',
     'status',
     'expected_at',
     'submitted_by',
@@ -132,6 +143,9 @@ final class DailySiteReport extends Model
             'output_value' => 'decimal:4',
             'input_cost' => 'decimal:4',
             'profit_loss' => 'decimal:4',
+            'labour_attendance_status' => DsrLabourAttendanceStatus::class,
+            'labour_attendance_snapshot' => 'array',
+            'labour_attendance_checked_at' => 'datetime',
             'expected_at' => 'datetime',
             'submitted_at' => 'datetime',
             'reviewed_at' => 'datetime',

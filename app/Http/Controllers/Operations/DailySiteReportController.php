@@ -28,7 +28,9 @@ use App\Models\Staff;
 use App\Models\TenantCurrency;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
+use App\Models\WorkforceTrade;
 use App\Services\BranchContext;
+use App\Services\DsrLabourAttendanceComparison;
 use App\Services\TenantContext;
 use App\Support\Operations\PresentsLinkedDocuments;
 use Illuminate\Database\Eloquent\Builder;
@@ -88,7 +90,7 @@ final class DailySiteReportController
             'reviews.reviewer',
             'corrections.requester',
             'workLines',
-            'labourLines',
+            'labourLines.trade',
             'equipmentLines',
             'materialLines',
             'materialLines.item.stockUnit',
@@ -100,6 +102,9 @@ final class DailySiteReportController
         ]);
         $canViewCosts = $this->canViewRates($user);
         $linkedDocuments = $this->linkedDocumentsFor($dailySiteReport, $user);
+        $labourAttendance = $dailySiteReport->isApproved() && is_array($dailySiteReport->labour_attendance_snapshot)
+            ? $dailySiteReport->labour_attendance_snapshot
+            : resolve(DsrLabourAttendanceComparison::class)->compare($dailySiteReport);
 
         return Inertia::render('operations/daily-site-reports/show', [
             'report' => [
@@ -143,6 +148,7 @@ final class DailySiteReportController
                 'correct' => Gate::forUser($user)->allows('correct', $dailySiteReport),
                 'createExpenseDraft' => Gate::forUser($user)->allows('createExpenseDraft', $dailySiteReport),
                 'manageExpenseItems' => Gate::forUser($user)->allows('create', ExpenseItem::class),
+                'overrideLabourVariance' => $user->can('daily-site-reports.override-labour-variance'),
             ],
             'materialUsage' => $dailySiteReport->materialLines->map(function (DailySiteReportMaterialLine $line): array {
                 $stockUnit = $line->item?->stockUnit;
@@ -165,6 +171,8 @@ final class DailySiteReportController
                 ];
             })->values()->all(),
             'canViewCosts' => $canViewCosts,
+            'labourAttendance' => $labourAttendance,
+            'workforceTrades' => WorkforceTrade::query()->where('tenant_id', $dailySiteReport->tenant_id)->where('is_active', true)->orderBy('name')->get()->map(fn (WorkforceTrade $trade): array => ['value' => $trade->id, 'label' => $trade->name, 'description' => $trade->code]),
             'labourSources' => collect(DsrLabourSource::cases())->map(fn (DsrLabourSource $source): array => ['value' => $source->value, 'label' => $source->label()]),
             'subcontractors' => Customer::query()->visibleTo($user)->where('type', Customer::TYPE_SUBCONTRACTOR)->where('status', 'active')->orderBy('name')->get()->map(fn (Customer $customer): array => ['value' => $customer->id, 'label' => $customer->name, 'description' => $customer->code]),
             'expenseDraftOptions' => [

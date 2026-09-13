@@ -12,6 +12,14 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
@@ -23,6 +31,8 @@ type Props = {
     staff: Staff[];
     branches: Option[];
     positions: Option[];
+    trades: Option[];
+    employmentTypes: Option[];
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -30,7 +40,13 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Staff', href: '/staff' },
 ];
 
-export default function StaffIndex({ staff, branches, positions }: Props) {
+export default function StaffIndex({
+    staff,
+    branches,
+    positions,
+    trades,
+    employmentTypes,
+}: Props) {
     const confirm = useConfirmDialog();
     const [search, setSearch] = useState('');
     const [status, setStatus] = useState('active');
@@ -48,6 +64,8 @@ export default function StaffIndex({ staff, branches, positions }: Props) {
                         staffMember.email,
                         staffMember.branch_name,
                         staffMember.position_name,
+                        staffMember.primary_trade_name,
+                        staffMember.employment_type_label,
                     ]
                         .join(' ')
                         .toLowerCase()
@@ -62,12 +80,10 @@ export default function StaffIndex({ staff, branches, positions }: Props) {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="grid gap-4">
                         <div>
-                            <h1 className="text-2xl font-semibold tracking-tight">
-                                Staff
-                            </h1>
+                            <h1 className="text-2xl font-semibold">Staff</h1>
                             <p className="mt-1 text-sm text-muted-foreground">
-                                Staff records are linked to branches and
-                                positions before ERP user access is created.
+                                Maintain worker records, employment type and
+                                practical trade.
                             </p>
                         </div>
                         <div className="relative">
@@ -78,20 +94,28 @@ export default function StaffIndex({ staff, branches, positions }: Props) {
                                     setSearch(event.target.value)
                                 }
                                 placeholder="Search staff"
-                                className="w-full pl-9 sm:w-64"
+                                className="w-full pl-9 sm:w-72"
                             />
                         </div>
                     </div>
-                    <StaffDialog branches={branches} positions={positions} />
+                    <StaffDialog
+                        branches={branches}
+                        positions={positions}
+                        trades={trades}
+                        employmentTypes={employmentTypes}
+                    />
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         <Button variant="secondary" asChild>
                             <Link href="/staff">Staff</Link>
                         </Button>
                         <Button variant="outline" asChild>
                             <Link href="/staff-positions">Positions</Link>
+                        </Button>
+                        <Button variant="outline" asChild>
+                            <Link href="/workforce">Deployments</Link>
                         </Button>
                     </div>
                     <Tabs value={status} onValueChange={setStatus}>
@@ -106,142 +130,137 @@ export default function StaffIndex({ staff, branches, positions }: Props) {
                     <CardHeader>
                         <CardTitle>Staff records</CardTitle>
                         <CardDescription>
-                            User accounts are created by selecting staff from
-                            this list.
+                            A staff record does not automatically create an ERP
+                            login account.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b text-left text-muted-foreground">
-                                        <th className="py-3 pr-4 font-medium">
-                                            Staff
-                                        </th>
-                                        <th className="py-3 pr-4 font-medium">
-                                            Branch
-                                        </th>
-                                        <th className="py-3 pr-4 font-medium">
-                                            Position
-                                        </th>
-                                        <th className="py-3 pr-4 font-medium">
-                                            Status
-                                        </th>
-                                        <th className="py-3 pr-4 font-medium">
-                                            User
-                                        </th>
-                                        <th className="py-3 text-right font-medium">
-                                            Actions
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredStaff.map((staffMember) => (
-                                        <tr
-                                            key={staffMember.id}
-                                            className="border-b last:border-0"
-                                        >
-                                            <td className="py-3 pr-4">
-                                                <div className="font-medium">
-                                                    {staffMember.staff_number}
-                                                </div>
-                                                <div>{staffMember.name}</div>
-                                                <div className="text-muted-foreground">
-                                                    {staffMember.email}
-                                                </div>
-                                            </td>
-                                            <td className="py-3 pr-4">
-                                                {staffMember.branch_name}
-                                            </td>
-                                            <td className="py-3 pr-4">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Staff</TableHead>
+                                    <TableHead>Branch</TableHead>
+                                    <TableHead>Position and trade</TableHead>
+                                    <TableHead>Employment</TableHead>
+                                    <TableHead>ERP account</TableHead>
+                                    <TableHead className="text-right">
+                                        Actions
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredStaff.map((staffMember) => (
+                                    <TableRow key={staffMember.id}>
+                                        <TableCell>
+                                            <div className="font-medium">
+                                                {staffMember.name}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {staffMember.staff_number} -{' '}
+                                                {staffMember.email}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            {staffMember.branch_name}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div>
                                                 {staffMember.position_name}
-                                            </td>
-                                            <td className="py-3 pr-4">
-                                                <Badge
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {staffMember.primary_trade_name ??
+                                                    'No primary trade'}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">
+                                                {
+                                                    staffMember.employment_type_label
+                                                }
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            {staffMember.has_user
+                                                ? 'Enabled'
+                                                : 'Not created'}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex justify-end gap-2">
+                                                <StaffDialog
+                                                    staff={staffMember}
+                                                    branches={branches}
+                                                    positions={positions}
+                                                    trades={trades}
+                                                    employmentTypes={
+                                                        employmentTypes
+                                                    }
+                                                />
+                                                <Button
                                                     variant={
                                                         staffMember.status ===
                                                         'active'
-                                                            ? 'default'
+                                                            ? 'destructive'
                                                             : 'secondary'
+                                                    }
+                                                    size="sm"
+                                                    onClick={() =>
+                                                        confirm({
+                                                            title:
+                                                                staffMember.status ===
+                                                                'active'
+                                                                    ? 'Deactivate staff member?'
+                                                                    : 'Activate staff member?',
+                                                            description:
+                                                                staffMember.name +
+                                                                ' will ' +
+                                                                (staffMember.status ===
+                                                                'active'
+                                                                    ? 'no longer'
+                                                                    : 'again') +
+                                                                ' be available for new assignments.',
+                                                            confirmLabel:
+                                                                staffMember.status ===
+                                                                'active'
+                                                                    ? 'Deactivate'
+                                                                    : 'Activate',
+                                                            variant:
+                                                                staffMember.status ===
+                                                                'active'
+                                                                    ? 'destructive'
+                                                                    : 'default',
+                                                            onConfirm: () =>
+                                                                router.delete(
+                                                                    '/staff/' +
+                                                                        staffMember.id,
+                                                                    {
+                                                                        preserveScroll: true,
+                                                                    },
+                                                                ),
+                                                        })
                                                     }
                                                 >
                                                     {staffMember.status ===
                                                     'active'
-                                                        ? 'Active'
-                                                        : 'Inactive'}
-                                                </Badge>
-                                            </td>
-                                            <td className="py-3 pr-4">
-                                                {staffMember.has_user
-                                                    ? 'Yes'
-                                                    : 'No'}
-                                            </td>
-                                            <td className="py-3">
-                                                <div className="flex justify-end gap-2">
-                                                    <StaffDialog
-                                                        staff={staffMember}
-                                                        branches={branches}
-                                                        positions={positions}
-                                                    />
-                                                    <Button
-                                                        variant={
-                                                            staffMember.status ===
-                                                            'active'
-                                                                ? 'destructive'
-                                                                : 'secondary'
-                                                        }
-                                                        size="sm"
-                                                        onClick={() =>
-                                                            confirm({
-                                                                title:
-                                                                    staffMember.status ===
-                                                                    'active'
-                                                                        ? 'Deactivate staff member?'
-                                                                        : 'Activate staff member?',
-                                                                description: `${staffMember.name} will ${staffMember.status === 'active' ? 'no longer' : 'again'} be available for user account assignment.`,
-                                                                confirmLabel:
-                                                                    staffMember.status ===
-                                                                    'active'
-                                                                        ? 'Deactivate'
-                                                                        : 'Activate',
-                                                                variant:
-                                                                    staffMember.status ===
-                                                                    'active'
-                                                                        ? 'destructive'
-                                                                        : 'default',
-                                                                onConfirm: () =>
-                                                                    router.delete(
-                                                                        `/staff/${staffMember.id}`,
-                                                                        {
-                                                                            preserveScroll: true,
-                                                                        },
-                                                                    ),
-                                                            })
-                                                        }
-                                                    >
-                                                        {staffMember.status ===
-                                                        'active'
-                                                            ? 'Deactivate'
-                                                            : 'Activate'}
-                                                    </Button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {filteredStaff.length === 0 && (
-                                        <tr>
-                                            <td
-                                                colSpan={6}
-                                                className="py-8 text-center text-muted-foreground"
-                                            >
-                                                No staff records match the
-                                                current tab and search.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                                        ? 'Deactivate'
+                                                        : 'Activate'}
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {filteredStaff.length === 0 && (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={6}
+                                            className="h-24 text-center text-muted-foreground"
+                                        >
+                                            No staff records match the current
+                                            tab and search.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
                     </CardContent>
                 </Card>
             </div>

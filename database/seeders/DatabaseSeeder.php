@@ -14,5 +14,8 @@ final class DatabaseSeeder extends Seeder
         $this->call(RolePermissionSeeder::class);
         $this->call(QuarryDemoSeeder::class);
         $this->call(QuarryWorkItemTemplateSeeder::class);
+        $this->call(WorkforceDemoSeeder::class);
+        $this->call(WorkforceAttendanceDemoSeeder::class);
+        $this->call(WorkforceDsrDemoSeeder::class);
     }
 }

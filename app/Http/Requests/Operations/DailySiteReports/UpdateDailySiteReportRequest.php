@@ -10,6 +10,7 @@ use App\Models\Customer;
 use App\Models\Equipment;
 use App\Models\ProjectActivity;
 use App\Models\Site;
+use App\Models\WorkforceTrade;
 use App\Services\TenantContext;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Foundation\Http\FormRequest;
@@ -63,6 +64,7 @@ final class UpdateDailySiteReportRequest extends FormRequest
             'work_lines.*.notes' => ['nullable', 'string'],
             'labour_lines' => ['array'],
             'labour_lines.*.labour_source' => ['nullable', Rule::enum(DsrLabourSource::class)],
+            'labour_lines.*.workforce_trade_id' => ['required_with:labour_lines', 'uuid', Rule::exists((new WorkforceTrade)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
             'labour_lines.*.subcontractor_id' => ['nullable', 'required_if:labour_lines.*.labour_source,subcontractor', 'uuid', Rule::exists((new Customer)->getTable(), 'id')->where('tenant_id', $tenantId)->where('type', Customer::TYPE_SUBCONTRACTOR)->where('status', 'active')],
             'labour_lines.*.trade_or_role' => ['required_with:labour_lines', 'string', 'max:255'],
             'labour_lines.*.subcontractor_name' => ['nullable', 'string', 'max:255'],

@@ -15,6 +15,10 @@ export type Staff = {
     id: string;
     branch_id: string;
     staff_position_id: string;
+    employment_type: string;
+    employment_type_label: string;
+    primary_trade_id: string | null;
+    primary_trade_name: string | null;
     staff_number: string;
     name: string;
     email: string;
@@ -33,6 +37,8 @@ export type Option = {
 type StaffFormData = Record<string, string> & {
     branch_id: string;
     staff_position_id: string;
+    employment_type: string;
+    primary_trade_id: string;
     staff_number: string;
     name: string;
     email: string;
@@ -44,6 +50,8 @@ type Props = {
     staff?: Staff;
     branches: Option[];
     positions: Option[];
+    trades: Option[];
+    employmentTypes: Option[];
     onCancel?: () => void;
     onSuccess?: () => void;
 };
@@ -52,12 +60,17 @@ export function StaffForm({
     staff,
     branches,
     positions,
+    trades,
+    employmentTypes,
     onCancel,
     onSuccess,
 }: Props) {
     const form = useForm<StaffFormData>({
         branch_id: staff?.branch_id ?? branches[0]?.id ?? '',
         staff_position_id: staff?.staff_position_id ?? positions[0]?.id ?? '',
+        employment_type:
+            staff?.employment_type ?? employmentTypes[0]?.id ?? 'permanent',
+        primary_trade_id: staff?.primary_trade_id ?? '',
         staff_number: staff?.staff_number ?? '',
         name: staff?.name ?? '',
         email: staff?.email ?? '',
@@ -69,9 +82,7 @@ export function StaffForm({
         event.preventDefault();
 
         if (staff) {
-            form.put(`/staff/${staff.id}`, {
-                onSuccess,
-            });
+            form.put('/staff/' + staff.id, { onSuccess });
 
             return;
         }
@@ -86,125 +97,168 @@ export function StaffForm({
 
     return (
         <form onSubmit={submit} className="grid gap-5">
-            <div className="grid gap-2">
-                <Label htmlFor="branch_id" required>
-                    Branch
-                </Label>
-                <SearchableSelect
-                    value={form.data.branch_id}
-                    onValueChange={(value) => form.setData('branch_id', value)}
-                    options={branches.map((branch) => ({
-                        value: branch.id,
-                        label: branch.name,
-                    }))}
-                    placeholder="Select branch"
-                    searchPlaceholder="Search branches..."
-                />
-                <InputError message={form.errors.branch_id} />
-            </div>
+            <div className="grid gap-5 md:grid-cols-2">
+                <div className="grid gap-2">
+                    <Label htmlFor="branch_id" required>
+                        Branch
+                    </Label>
+                    <SearchableSelect
+                        value={form.data.branch_id}
+                        onValueChange={(value) =>
+                            form.setData('branch_id', value)
+                        }
+                        options={branches.map((branch) => ({
+                            value: branch.id,
+                            label: branch.name,
+                        }))}
+                        placeholder="Select branch"
+                        searchPlaceholder="Search branches..."
+                    />
+                    <InputError message={form.errors.branch_id} />
+                </div>
 
-            <div className="grid gap-2">
-                <Label htmlFor="staff_position_id" required>
-                    Position
-                </Label>
-                <SearchableSelect
-                    value={form.data.staff_position_id}
-                    onValueChange={(value) =>
-                        form.setData('staff_position_id', value)
-                    }
-                    options={positions.map((position) => ({
-                        value: position.id,
-                        label: position.name,
-                    }))}
-                    placeholder="Select position"
-                    searchPlaceholder="Search positions..."
-                />
-                <InputError message={form.errors.staff_position_id} />
-            </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="staff_position_id" required>
+                        Position
+                    </Label>
+                    <SearchableSelect
+                        value={form.data.staff_position_id}
+                        onValueChange={(value) =>
+                            form.setData('staff_position_id', value)
+                        }
+                        options={positions.map((position) => ({
+                            value: position.id,
+                            label: position.name,
+                        }))}
+                        placeholder="Select position"
+                        searchPlaceholder="Search positions..."
+                    />
+                    <InputError message={form.errors.staff_position_id} />
+                </div>
 
-            <div className="grid gap-2">
-                <Label htmlFor="staff_number">Staff number</Label>
-                <Input
-                    id="staff_number"
-                    value={form.data.staff_number}
-                    onChange={(event) =>
-                        form.setData(
-                            'staff_number',
-                            event.target.value.toUpperCase(),
-                        )
-                    }
-                    placeholder="Generated automatically"
-                />
-                <InputError message={form.errors.staff_number} />
-            </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="employment_type" required>
+                        Employment type
+                    </Label>
+                    <SearchableSelect
+                        value={form.data.employment_type}
+                        onValueChange={(value) =>
+                            form.setData('employment_type', value)
+                        }
+                        options={employmentTypes.map((type) => ({
+                            value: type.id,
+                            label: type.name,
+                        }))}
+                        placeholder="Select employment type"
+                        searchPlaceholder="Search employment types..."
+                    />
+                    <InputError message={form.errors.employment_type} />
+                </div>
 
-            <div className="grid gap-2">
-                <Label htmlFor="name" required>
-                    Name
-                </Label>
-                <Input
-                    id="name"
-                    value={form.data.name}
-                    onChange={(event) =>
-                        form.setData('name', event.target.value)
-                    }
-                    placeholder="Full name"
-                />
-                <InputError message={form.errors.name} />
-            </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="primary_trade_id">Primary trade</Label>
+                    <SearchableSelect
+                        value={form.data.primary_trade_id}
+                        onValueChange={(value) =>
+                            form.setData('primary_trade_id', value)
+                        }
+                        options={[
+                            { value: '', label: 'No primary trade' },
+                            ...trades.map((trade) => ({
+                                value: trade.id,
+                                label: trade.name,
+                            })),
+                        ]}
+                        placeholder="Select primary trade"
+                        searchPlaceholder="Search trades..."
+                    />
+                    <InputError message={form.errors.primary_trade_id} />
+                </div>
 
-            <div className="grid gap-2">
-                <Label htmlFor="email" required>
-                    Email
-                </Label>
-                <Input
-                    id="email"
-                    type="email"
-                    value={form.data.email}
-                    onChange={(event) =>
-                        form.setData('email', event.target.value)
-                    }
-                    placeholder="staff@example.com"
-                />
-                <InputError message={form.errors.email} />
-            </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="staff_number">Staff number</Label>
+                    <Input
+                        id="staff_number"
+                        value={form.data.staff_number}
+                        onChange={(event) =>
+                            form.setData(
+                                'staff_number',
+                                event.target.value.toUpperCase(),
+                            )
+                        }
+                        placeholder="Generated automatically"
+                    />
+                    <InputError message={form.errors.staff_number} />
+                </div>
 
-            <div className="grid gap-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                    id="phone"
-                    value={form.data.phone}
-                    onChange={(event) =>
-                        form.setData('phone', event.target.value)
-                    }
-                    placeholder="+256..."
-                />
-                <InputError message={form.errors.phone} />
-            </div>
+                <div className="grid gap-2">
+                    <Label htmlFor="name" required>
+                        Name
+                    </Label>
+                    <Input
+                        id="name"
+                        value={form.data.name}
+                        onChange={(event) =>
+                            form.setData('name', event.target.value)
+                        }
+                        placeholder="Full name"
+                    />
+                    <InputError message={form.errors.name} />
+                </div>
 
-            <div className="grid gap-2">
-                <Label htmlFor="status" required>
-                    Status
-                </Label>
-                <NativeSelect
-                    id="status"
-                    value={form.data.status}
-                    onChange={(event) =>
-                        form.setData(
-                            'status',
-                            event.target.value as 'active' | 'inactive',
-                        )
-                    }
-                    className="w-full"
-                >
-                    <NativeSelectOption value="active">
-                        Active
-                    </NativeSelectOption>
-                    <NativeSelectOption value="inactive">
-                        Inactive
-                    </NativeSelectOption>
-                </NativeSelect>
-                <InputError message={form.errors.status} />
+                <div className="grid gap-2">
+                    <Label htmlFor="email" required>
+                        Email
+                    </Label>
+                    <Input
+                        id="email"
+                        type="email"
+                        value={form.data.email}
+                        onChange={(event) =>
+                            form.setData('email', event.target.value)
+                        }
+                        placeholder="staff@example.com"
+                    />
+                    <InputError message={form.errors.email} />
+                </div>
+
+                <div className="grid gap-2">
+                    <Label htmlFor="phone">Phone</Label>
+                    <Input
+                        id="phone"
+                        value={form.data.phone}
+                        onChange={(event) =>
+                            form.setData('phone', event.target.value)
+                        }
+                        placeholder="+256..."
+                    />
+                    <InputError message={form.errors.phone} />
+                </div>
+
+                <div className="grid gap-2">
+                    <Label htmlFor="status" required>
+                        Status
+                    </Label>
+                    <NativeSelect
+                        id="status"
+                        value={form.data.status}
+                        onChange={(event) =>
+                            form.setData(
+                                'status',
+                                event.target.value as 'active' | 'inactive',
+                            )
+                        }
+                        className="w-full"
+                    >
+                        <NativeSelectOption value="active">
+                            Active
+                        </NativeSelectOption>
+                        <NativeSelectOption value="inactive">
+                            Inactive
+                        </NativeSelectOption>
+                    </NativeSelect>
+                    <InputError message={form.errors.status} />
+                </div>
             </div>
 
             <div className="flex justify-end gap-3">

@@ -15,9 +15,17 @@ type Props = {
     staff?: Staff;
     branches: Option[];
     positions: Option[];
+    trades: Option[];
+    employmentTypes: Option[];
 };
 
-export function StaffDialog({ staff, branches, positions }: Props) {
+export function StaffDialog({
+    staff,
+    branches,
+    positions,
+    trades,
+    employmentTypes,
+}: Props) {
     const [open, setOpen] = useState(false);
     const isEditing = Boolean(staff);
 
@@ -32,19 +40,22 @@ export function StaffDialog({ staff, branches, positions }: Props) {
                     {isEditing ? 'Edit' : 'New staff'}
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl">
+            <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>
-                        {isEditing ? `Edit ${staff?.name}` : 'New staff'}
+                        {isEditing ? 'Edit ' + staff?.name : 'New staff'}
                     </DialogTitle>
                     <DialogDescription>
-                        Staff records are the source for creating ERP users.
+                        Position describes the job title. Trade describes the
+                        practical work capability used on site.
                     </DialogDescription>
                 </DialogHeader>
                 <StaffForm
                     staff={staff}
                     branches={branches}
                     positions={positions}
+                    trades={trades}
+                    employmentTypes={employmentTypes}
                     onCancel={() => setOpen(false)}
                     onSuccess={() => setOpen(false)}
                 />

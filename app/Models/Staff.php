@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\StaffEmploymentType;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Table;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -20,6 +22,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string $tenant_id
  * @property-read string $branch_id
  * @property-read string $staff_position_id
+ * @property-read StaffEmploymentType $employment_type
+ * @property-read string|null $primary_trade_id
  * @property-read string $staff_number
  * @property-read string $name
  * @property-read string $email
@@ -27,6 +31,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string $status
  * @property-read Branch $branch
  * @property-read StaffPosition $position
+ * @property-read WorkforceTrade|null $primaryTrade
  * @property-read User|null $user
  * @property-read CarbonInterface $created_at
  * @property-read CarbonInterface $updated_at
@@ -35,6 +40,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'tenant_id',
     'branch_id',
     'staff_position_id',
+    'employment_type',
+    'primary_trade_id',
     'staff_number',
     'name',
     'email',
@@ -50,9 +57,7 @@ final class Staff extends Model
     use HasUuids;
     use SoftDeletes;
 
-    /**
-     * @return array<string, string>
-     */
+    /** @return array<string, string> */
     public function casts(): array
     {
         return [
@@ -60,6 +65,8 @@ final class Staff extends Model
             'tenant_id' => 'string',
             'branch_id' => 'string',
             'staff_position_id' => 'string',
+            'employment_type' => StaffEmploymentType::class,
+            'primary_trade_id' => 'string',
             'staff_number' => 'string',
             'name' => 'string',
             'email' => 'string',
@@ -71,27 +78,33 @@ final class Staff extends Model
         ];
     }
 
-    /**
-     * @return BelongsTo<Branch, $this>
-     */
+    /** @return BelongsTo<Branch, $this> */
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
     }
 
-    /**
-     * @return BelongsTo<StaffPosition, $this>
-     */
+    /** @return BelongsTo<StaffPosition, $this> */
     public function position(): BelongsTo
     {
         return $this->belongsTo(StaffPosition::class, 'staff_position_id');
     }
 
-    /**
-     * @return HasOne<User, $this>
-     */
+    /** @return BelongsTo<WorkforceTrade, $this> */
+    public function primaryTrade(): BelongsTo
+    {
+        return $this->belongsTo(WorkforceTrade::class, 'primary_trade_id');
+    }
+
+    /** @return HasOne<User, $this> */
     public function user(): HasOne
     {
         return $this->hasOne(User::class);
+    }
+
+    /** @return HasMany<StaffDeployment, $this> */
+    public function deployments(): HasMany
+    {
+        return $this->hasMany(StaffDeployment::class);
     }
 }

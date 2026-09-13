@@ -1,7 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import {
-    AlertTriangle,
-} from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import {
     Area,
     AreaChart,

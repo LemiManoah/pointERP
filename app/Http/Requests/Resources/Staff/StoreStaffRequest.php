@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Resources\Staff;
 
+use App\Enums\StaffEmploymentType;
 use App\Models\Branch;
 use App\Models\Staff;
 use App\Models\StaffPosition;
+use App\Models\WorkforceTrade;
 use App\Rules\ValidEmail;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
@@ -20,9 +22,7 @@ final class StoreStaffRequest extends FormRequest
         return true;
     }
 
-    /**
-     * @return array<string, list<mixed>>
-     */
+    /** @return array<string, list<mixed>> */
     public function rules(): array
     {
         $tenantId = resolve(TenantContext::class)->id();
@@ -31,6 +31,8 @@ final class StoreStaffRequest extends FormRequest
         return [
             'branch_id' => ['required', 'uuid', Rule::exists((new Branch)->getTable(), 'id')->where('tenant_id', $tenantId)->where('status', 'active'), Rule::in($accessibleBranchIds)],
             'staff_position_id' => ['required', 'uuid', Rule::exists((new StaffPosition)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
+            'employment_type' => ['required', Rule::enum(StaffEmploymentType::class)],
+            'primary_trade_id' => ['nullable', 'uuid', Rule::exists((new WorkforceTrade)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
             'staff_number' => ['nullable', 'string', 'max:60', Rule::unique((new Staff)->getTable(), 'staff_number')->where('tenant_id', $tenantId)],
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', new ValidEmail, Rule::unique((new Staff)->getTable(), 'email')],
@@ -41,8 +43,6 @@ final class StoreStaffRequest extends FormRequest
 
     public function prepareForValidation(): void
     {
-        $this->merge([
-            'staff_number' => mb_strtoupper((string) $this->input('staff_number')),
-        ]);
+        $this->merge(['staff_number' => mb_strtoupper((string) $this->input('staff_number'))]);
     }
 }

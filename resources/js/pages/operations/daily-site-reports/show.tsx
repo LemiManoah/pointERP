@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import InputError from '@/components/input-error';
 import { SearchableSelect } from '@/components/searchable-select';
@@ -34,6 +35,14 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
@@ -134,6 +143,37 @@ type MaterialUsage = {
     batch_number: string | null;
     external_reason: string | null;
     posted_at: string | null;
+};
+type LabourAttendanceGroup = {
+    key: string;
+    labour_source: string;
+    trade_id: string | null;
+    trade_name: string;
+    subcontractor_id: string | null;
+    subcontractor_name: string | null;
+    attended_hours: number;
+    reported_hours: number;
+    variance_hours: number;
+    status: string;
+    status_label: string;
+};
+
+type LabourAttendance = {
+    status:
+        | 'matched'
+        | 'under_reported'
+        | 'over_reported'
+        | 'missing_attendance';
+    status_label: string;
+    attendance_available: boolean;
+    register_count: number;
+    attended_hours: number;
+    reported_hours: number;
+    variance_hours: number;
+    tolerance_hours: number;
+    groups: LabourAttendanceGroup[];
+    checked_at?: string;
+    override_reason?: string | null;
 };
 
 const numericLineFields = new Set([
@@ -305,6 +345,7 @@ type Props = {
         correct: boolean;
         createExpenseDraft: boolean;
         manageExpenseItems: boolean;
+        overrideLabourVariance: boolean;
     };
     reviews: Review[];
     corrections: Correction[];
@@ -321,6 +362,8 @@ type Props = {
     materialUsage: MaterialUsage[];
     units: string[];
     labourSources: SelectOption[];
+    workforceTrades: SelectOption[];
+    labourAttendance: LabourAttendance;
     subcontractors: SelectOption[];
     expenseDraftOptions: ExpenseDraftOptions;
 };
@@ -362,10 +405,11 @@ export default function DailySiteReportShow({
     materialUsage,
     units,
     labourSources,
+    workforceTrades,
+    labourAttendance,
     subcontractors,
     expenseDraftOptions,
 }: Props) {
-    const confirm = useConfirmDialog();
     const [tab, setTab] = useState('summary');
     const form = useForm<FormData>({
         site_id: report.site_id,
@@ -440,22 +484,12 @@ export default function DailySiteReportShow({
                         {can.return && <ReturnReportDialog report={report} />}
                         {can.correct && <CorrectionDialog report={report} />}
                         {can.approve && (
-                            <Button
-                                onClick={() =>
-                                    confirm({
-                                        title: 'Approve report?',
-                                        description: `${report.reference} will be locked from direct editing.`,
-                                        confirmLabel: 'Approve',
-                                        onConfirm: () =>
-                                            router.post(
-                                                `/daily-site-reports/${report.id}/approve`,
-                                            ),
-                                    })
-                                }
-                            >
-                                <CheckCircle2 />
-                                Approve
-                            </Button>
+                            <ApproveReportButton
+                                report={report}
+                                comparison={labourAttendance}
+                                canOverride={can.overrideLabourVariance}
+                                onLabourError={() => setTab('labour')}
+                            />
                         )}
                     </div>
                 </div>
@@ -535,10 +569,14 @@ export default function DailySiteReportShow({
                             <TabsTrigger value="costs-delays">
                                 Costs &amp; Delays
                             </TabsTrigger>
-                            <TabsTrigger value="evidence">Evidence</TabsTrigger>
-                            <TabsTrigger value="workflow">Workflow</TabsTrigger>
+                            <TabsTrigger value="documents">
+                                Documents
+                            </TabsTrigger>
                         </TabsList>
-                        <TabsContent value="summary" className="mt-6">
+                        <TabsContent
+                            value="summary"
+                            className="mt-6 grid gap-6"
+                        >
                             <Card>
                                 <CardHeader>
                                     <CardTitle>Daily summary</CardTitle>
@@ -646,6 +684,12 @@ export default function DailySiteReportShow({
                                     </div>
                                 </CardContent>
                             </Card>
+
+                            <WorkflowTrailCard
+                                reviews={reviews}
+                                corrections={corrections}
+                                reportId={report.id}
+                            />
                         </TabsContent>
                         <TabsContent value="work" className="mt-6 grid gap-6">
                             <LineCard
@@ -686,6 +730,9 @@ export default function DailySiteReportShow({
                             />
                         </TabsContent>
                         <TabsContent value="labour" className="mt-6 grid gap-6">
+                            <LabourAttendanceComparisonPanel
+                                comparison={labourAttendance}
+                            />
                             <LineCard
                                 title="Labour"
                                 disabled={!can.update}
@@ -693,13 +740,14 @@ export default function DailySiteReportShow({
                                 fields={[
                                     'labour_source',
                                     'subcontractor_id',
-                                    'trade_or_role',
+                                    'workforce_trade_id',
                                     'headcount',
                                     'hours',
                                     'person_hours',
                                     ...(canViewCosts ? ['rate_amount'] : []),
                                 ]}
                                 labourSources={labourSources}
+                                workforceTrades={workforceTrades}
                                 subcontractors={subcontractors}
                                 onAdd={() =>
                                     form.setData('labour_lines', [
@@ -792,6 +840,7 @@ export default function DailySiteReportShow({
                                 }
                             />
                             <MaterialUsageStatusCard lines={materialUsage} />
+                            <InputError message={form.errors.material_lines} />
                         </TabsContent>
                         <TabsContent
                             value="costs-delays"
@@ -826,11 +875,11 @@ export default function DailySiteReportShow({
                                 }
                             />
                         </TabsContent>
-                        <TabsContent value="evidence" className="mt-6">
+                        <TabsContent value="documents" className="mt-6">
                             <DocumentEvidenceTable
                                 documents={documents}
                                 emptyText="No documents linked to this report."
-                                title="Linked evidence"
+                                title="Documents"
                                 description="Drawings, sketches, permits, photos and other files tied to this daily report."
                                 actions={
                                     canUploadDocuments && (
@@ -843,189 +892,11 @@ export default function DailySiteReportShow({
                                                 type: 'daily_site_report',
                                                 id: report.id,
                                             }}
-                                            buttonLabel="Upload evidence"
+                                            buttonLabel="Upload document"
                                         />
                                     )
                                 }
                             />
-                        </TabsContent>
-                        <TabsContent value="workflow" className="mt-6">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Workflow trail</CardTitle>
-                                    <CardDescription>
-                                        Submit, return, approval and correction
-                                        events for this report.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    {[...corrections, ...reviews].length ===
-                                    0 ? (
-                                        <div className="text-sm text-muted-foreground">
-                                            No workflow events recorded yet.
-                                        </div>
-                                    ) : (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-sm">
-                                                <thead>
-                                                    <tr className="border-b text-left text-muted-foreground">
-                                                        <th className="py-3 pr-4 font-medium">
-                                                            Event
-                                                        </th>
-                                                        <th className="py-3 pr-4 font-medium">
-                                                            Status
-                                                        </th>
-                                                        <th className="py-3 pr-4 font-medium">
-                                                            Actor
-                                                        </th>
-                                                        <th className="py-3 pr-4 font-medium">
-                                                            Details
-                                                        </th>
-                                                        <th className="py-3 pr-4 font-medium">
-                                                            Date
-                                                        </th>
-                                                        <th className="py-3 text-right font-medium">
-                                                            Actions
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {reviews.map((review) => (
-                                                        <tr
-                                                            key={review.id}
-                                                            className="border-b last:border-0"
-                                                        >
-                                                            <td className="py-3 pr-4 font-medium capitalize">
-                                                                {review.action.replaceAll(
-                                                                    '_',
-                                                                    ' ',
-                                                                )}
-                                                            </td>
-                                                            <td className="py-3 pr-4">
-                                                                <Badge variant="outline">
-                                                                    Recorded
-                                                                </Badge>
-                                                            </td>
-                                                            <td className="py-3 pr-4">
-                                                                {review.reviewed_by ??
-                                                                    'Unknown user'}
-                                                            </td>
-                                                            <td className="min-w-64 py-3 pr-4 whitespace-normal">
-                                                                {review.remarks ??
-                                                                    '—'}
-                                                            </td>
-                                                            <td className="py-3 pr-4 whitespace-nowrap text-muted-foreground">
-                                                                {
-                                                                    review.created_at
-                                                                }
-                                                            </td>
-                                                            <td className="py-3 text-right" />
-                                                        </tr>
-                                                    ))}
-                                                    {corrections.map(
-                                                        (correction) => (
-                                                            <tr
-                                                                key={
-                                                                    correction.id
-                                                                }
-                                                                className="border-b last:border-0"
-                                                            >
-                                                                <td className="py-3 pr-4 font-medium">
-                                                                    Correction
-                                                                </td>
-                                                                <td className="py-3 pr-4">
-                                                                    <Badge
-                                                                        variant="outline"
-                                                                        className="capitalize"
-                                                                    >
-                                                                        {correction.status.replaceAll(
-                                                                            '_',
-                                                                            ' ',
-                                                                        )}
-                                                                    </Badge>
-                                                                </td>
-                                                                <td className="py-3 pr-4">
-                                                                    {correction.requested_by ??
-                                                                        'Unknown user'}
-                                                                </td>
-                                                                <td className="min-w-80 py-3 pr-4 whitespace-normal">
-                                                                    <div className="font-medium">
-                                                                        {
-                                                                            correction.reason
-                                                                        }
-                                                                    </div>
-                                                                    {correction.new_values && (
-                                                                        <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
-                                                                            {Object.entries(
-                                                                                correction.new_values,
-                                                                            ).map(
-                                                                                ([
-                                                                                    field,
-                                                                                    value,
-                                                                                ]) =>
-                                                                                    field ===
-                                                                                        'equipment_adjustments' &&
-                                                                                    Array.isArray(
-                                                                                        value,
-                                                                                    ) ? (
-                                                                                        <CorrectionAdjustmentSummary
-                                                                                            key={
-                                                                                                field
-                                                                                            }
-                                                                                            adjustments={
-                                                                                                value
-                                                                                            }
-                                                                                        />
-                                                                                    ) : (
-                                                                                        <div
-                                                                                            key={
-                                                                                                field
-                                                                                            }
-                                                                                            className="flex justify-between gap-4"
-                                                                                        >
-                                                                                            <span className="capitalize">
-                                                                                                {field.replaceAll(
-                                                                                                    '_',
-                                                                                                    ' ',
-                                                                                                )}
-                                                                                            </span>
-                                                                                            <span className="text-right font-medium text-foreground">
-                                                                                                {displayUnknown(
-                                                                                                    value,
-                                                                                                )}
-                                                                                            </span>
-                                                                                        </div>
-                                                                                    ),
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-                                                                </td>
-                                                                <td className="py-3 pr-4 whitespace-nowrap text-muted-foreground">
-                                                                    {
-                                                                        correction.created_at
-                                                                    }
-                                                                </td>
-                                                                <td className="py-3 text-right">
-                                                                    {correction.can_manage && (
-                                                                        <CorrectionActions
-                                                                            reportId={
-                                                                                report.id
-                                                                            }
-                                                                            correction={
-                                                                                correction
-                                                                            }
-                                                                        />
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        ),
-                                                    )}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
                         </TabsContent>
                     </Tabs>
 
@@ -1046,6 +917,155 @@ export default function DailySiteReportShow({
                 </form>
             </div>
         </AppLayout>
+    );
+}
+
+function WorkflowTrailCard({
+    reviews,
+    corrections,
+    reportId,
+}: {
+    reviews: Review[];
+    corrections: Correction[];
+    reportId: string;
+}) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Workflow trail</CardTitle>
+                <CardDescription>
+                    Submit, return, approval and correction events for this
+                    report.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {[...corrections, ...reviews].length === 0 ? (
+                    <div className="text-sm text-muted-foreground">
+                        No workflow events recorded yet.
+                    </div>
+                ) : (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="font-medium">
+                                    Event
+                                </TableHead>
+                                <TableHead className="font-medium">
+                                    Status
+                                </TableHead>
+                                <TableHead className="font-medium">
+                                    Actor
+                                </TableHead>
+                                <TableHead className="font-medium">
+                                    Details
+                                </TableHead>
+                                <TableHead className="font-medium">
+                                    Date
+                                </TableHead>
+                                <TableHead className="py-3 text-right font-medium">
+                                    Actions
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {reviews.map((review) => (
+                                <TableRow key={review.id}>
+                                    <TableCell className="font-medium capitalize">
+                                        {review.action.replaceAll('_', ' ')}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline">
+                                            Recorded
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        {review.reviewed_by ?? 'Unknown user'}
+                                    </TableCell>
+                                    <TableCell className="min-w-64 whitespace-normal">
+                                        {review.remarks ?? '—'}
+                                    </TableCell>
+                                    <TableCell className="text-muted-foreground">
+                                        {review.created_at}
+                                    </TableCell>
+                                    <TableCell className="text-right" />
+                                </TableRow>
+                            ))}
+                            {corrections.map((correction) => (
+                                <TableRow key={correction.id}>
+                                    <TableCell className="font-medium">
+                                        Correction
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge
+                                            variant="outline"
+                                            className="capitalize"
+                                        >
+                                            {correction.status.replaceAll(
+                                                '_',
+                                                ' ',
+                                            )}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        {correction.requested_by ??
+                                            'Unknown user'}
+                                    </TableCell>
+                                    <TableCell className="min-w-80 whitespace-normal">
+                                        <div className="font-medium">
+                                            {correction.reason}
+                                        </div>
+                                        {correction.new_values && (
+                                            <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
+                                                {Object.entries(
+                                                    correction.new_values,
+                                                ).map(([field, value]) =>
+                                                    field ===
+                                                        'equipment_adjustments' &&
+                                                    Array.isArray(value) ? (
+                                                        <CorrectionAdjustmentSummary
+                                                            key={field}
+                                                            adjustments={value}
+                                                        />
+                                                    ) : (
+                                                        <div
+                                                            key={field}
+                                                            className="flex justify-between gap-4"
+                                                        >
+                                                            <span className="capitalize">
+                                                                {field.replaceAll(
+                                                                    '_',
+                                                                    ' ',
+                                                                )}
+                                                            </span>
+                                                            <span className="text-right font-medium text-foreground">
+                                                                {displayUnknown(
+                                                                    value,
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                    ),
+                                                )}
+                                            </div>
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="text-muted-foreground">
+                                        {correction.created_at}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        {correction.can_manage && (
+                                            <CorrectionActions
+                                                reportId={reportId}
+                                                correction={correction}
+                                            />
+                                        )}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                )}
+            </CardContent>
+        </Card>
     );
 }
 
@@ -1144,6 +1164,273 @@ function CorrectionActions({
                 </DialogContent>
             </Dialog>
         </div>
+    );
+}
+
+function ApproveReportButton({
+    report,
+    comparison,
+    canOverride,
+    onLabourError,
+}: {
+    report: Report;
+    comparison: LabourAttendance;
+    canOverride: boolean;
+    onLabourError: () => void;
+}) {
+    const confirm = useConfirmDialog();
+    const [open, setOpen] = useState(false);
+    const form = useForm<{ labour_variance_override_reason: string }>({
+        labour_variance_override_reason: '',
+    });
+    const isOverReported = comparison.status === 'over_reported';
+
+    function approve(reason = '') {
+        router.post(
+            '/daily-site-reports/' + report.id + '/approve',
+            { labour_variance_override_reason: reason },
+            {
+                preserveScroll: true,
+                onSuccess: () => setOpen(false),
+                onError: (errors) => {
+                    onLabourError();
+                    toast.error(
+                        String(
+                            errors.labour_variance_override_reason ??
+                                Object.values(errors)[0] ??
+                                'The report could not be approved.',
+                        ),
+                    );
+                },
+            },
+        );
+    }
+
+    if (isOverReported && !canOverride) {
+        return (
+            <Button
+                type="button"
+                disabled
+                title="Reported labour exceeds confirmed attendance and you cannot override the variance."
+            >
+                <CheckCircle2 />
+                Approve
+            </Button>
+        );
+    }
+
+    if (isOverReported) {
+        return (
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                    <Button type="button">
+                        <CheckCircle2 />
+                        Approve
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Explain labour variance</DialogTitle>
+                        <DialogDescription>
+                            The DSR reports more person-hours than confirmed
+                            attendance. Your permission allows an override, but
+                            the reason will be stored with the approval and in
+                            the audit trail.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-2">
+                        <Label required>Override reason</Label>
+                        <Textarea
+                            value={form.data.labour_variance_override_reason}
+                            onChange={(event) =>
+                                form.setData(
+                                    'labour_variance_override_reason',
+                                    event.target.value,
+                                )
+                            }
+                            rows={4}
+                        />
+                        <InputError
+                            message={
+                                form.errors.labour_variance_override_reason
+                            }
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            disabled={
+                                form.processing ||
+                                form.data.labour_variance_override_reason.trim()
+                                    .length < 10
+                            }
+                            onClick={() =>
+                                approve(
+                                    form.data.labour_variance_override_reason,
+                                )
+                            }
+                        >
+                            Approve with reason
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        );
+    }
+
+    return (
+        <Button
+            type="button"
+            onClick={() =>
+                confirm({
+                    title: 'Approve report?',
+                    description:
+                        report.reference +
+                        ' will be locked from direct editing.',
+                    confirmLabel: 'Approve',
+                    onConfirm: () => approve(),
+                })
+            }
+        >
+            <CheckCircle2 />
+            Approve
+        </Button>
+    );
+}
+
+function LabourAttendanceComparisonPanel({
+    comparison,
+}: {
+    comparison: LabourAttendance;
+}) {
+    const message =
+        comparison.status === 'missing_attendance'
+            ? 'No confirmed attendance exists for this site and date. Approval is allowed, but the report will retain this warning.'
+            : comparison.status === 'over_reported'
+              ? 'Reported labour exceeds confirmed attendance. Approval requires override authority and a reason.'
+              : comparison.status === 'under_reported'
+                ? 'Confirmed attendance contains person-hours that are not allocated to this DSR.'
+                : 'Reported labour agrees with confirmed attendance within the allowed tolerance.';
+
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-start justify-between gap-4">
+                <div>
+                    <CardTitle>Attendance comparison</CardTitle>
+                    <CardDescription>{message}</CardDescription>
+                </div>
+                <Badge
+                    variant={
+                        comparison.status === 'matched'
+                            ? 'default'
+                            : 'secondary'
+                    }
+                >
+                    {comparison.status_label}
+                </Badge>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+                <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                    <div>
+                        <div className="text-muted-foreground">Registers</div>
+                        <div className="font-semibold">
+                            {comparison.register_count.toLocaleString()}
+                        </div>
+                    </div>
+                    <div>
+                        <div className="text-muted-foreground">Attended</div>
+                        <div className="font-semibold">
+                            {formatNumber(comparison.attended_hours)} hours
+                        </div>
+                    </div>
+                    <div>
+                        <div className="text-muted-foreground">Reported</div>
+                        <div className="font-semibold">
+                            {formatNumber(comparison.reported_hours)} hours
+                        </div>
+                    </div>
+                    <div>
+                        <div className="text-muted-foreground">Variance</div>
+                        <div className="font-semibold">
+                            {formatNumber(comparison.variance_hours)} hours
+                        </div>
+                    </div>
+                </div>
+                {comparison.groups.length > 0 && (
+                    <div className="overflow-x-auto rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Labour group</TableHead>
+                                    <TableHead>Source</TableHead>
+                                    <TableHead className="text-right">
+                                        Attended
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        Reported
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        Variance
+                                    </TableHead>
+                                    <TableHead>Status</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {comparison.groups.map((group) => (
+                                    <TableRow key={group.key}>
+                                        <TableCell>
+                                            <div className="font-medium">
+                                                {group.trade_name}
+                                            </div>
+                                            {group.subcontractor_name && (
+                                                <div className="text-xs text-muted-foreground">
+                                                    {group.subcontractor_name}
+                                                </div>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            {group.labour_source.replaceAll(
+                                                '_',
+                                                ' ',
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {formatNumber(group.attended_hours)}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {formatNumber(group.reported_hours)}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {formatNumber(group.variance_hours)}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">
+                                                {group.status_label}
+                                            </Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
+                {comparison.override_reason && (
+                    <Alert>
+                        <AlertTitle>Approved override</AlertTitle>
+                        <AlertDescription>
+                            {comparison.override_reason}
+                        </AlertDescription>
+                    </Alert>
+                )}
+            </CardContent>
+        </Card>
     );
 }
 
@@ -1687,97 +1974,80 @@ function MaterialUsageStatusCard({ lines }: { lines: MaterialUsage[] }) {
                         This report has no recorded material usage.
                     </p>
                 ) : (
-                    <div className="overflow-x-auto rounded-md border">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b bg-muted/40 text-left text-muted-foreground">
-                                    <th className="px-3 py-2 font-medium">
-                                        Material
-                                    </th>
-                                    <th className="px-3 py-2 font-medium">
-                                        Source
-                                    </th>
-                                    <th className="px-3 py-2 font-medium">
-                                        Reported usage
-                                    </th>
-                                    <th className="px-3 py-2 font-medium">
-                                        Store / batch
-                                    </th>
-                                    <th className="px-3 py-2 font-medium">
-                                        Status
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {lines.map((line) => (
-                                    <tr
-                                        key={line.id}
-                                        className="border-b last:border-0"
-                                    >
-                                        <td className="px-3 py-3 font-medium">
-                                            {line.material_name}
-                                        </td>
-                                        <td className="px-3 py-3">
-                                            {line.source_label}
-                                        </td>
-                                        <td className="px-3 py-3 tabular-nums">
-                                            {formatNumber(
-                                                line.reported_quantity ?? 0,
-                                            )}{' '}
-                                            {line.reported_unit ?? ''}
-                                            {line.stock_quantity !== null &&
-                                                line.stock_unit !== null &&
-                                                line.stock_unit !==
-                                                    line.reported_unit && (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Material</TableHead>
+                                <TableHead>Source</TableHead>
+                                <TableHead>Reported usage</TableHead>
+                                <TableHead>Store / batch</TableHead>
+                                <TableHead>Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {lines.map((line) => (
+                                <TableRow key={line.id}>
+                                    <TableCell className="font-medium">
+                                        {line.material_name}
+                                    </TableCell>
+                                    <TableCell>{line.source_label}</TableCell>
+                                    <TableCell className="tabular-nums">
+                                        {formatNumber(
+                                            line.reported_quantity ?? 0,
+                                        )}{' '}
+                                        {line.reported_unit ?? ''}
+                                        {line.stock_quantity !== null &&
+                                            line.stock_unit !== null &&
+                                            line.stock_unit !==
+                                                line.reported_unit && (
+                                                <div className="text-xs text-muted-foreground">
+                                                    {formatNumber(
+                                                        line.stock_quantity,
+                                                    )}{' '}
+                                                    {line.stock_unit} in stock
+                                                    units
+                                                </div>
+                                            )}
+                                    </TableCell>
+                                    <TableCell>
+                                        {line.source === 'external' ? (
+                                            <span className="text-muted-foreground">
+                                                Not from inventory
+                                            </span>
+                                        ) : (
+                                            <>
+                                                <div>
+                                                    {line.store_name ??
+                                                        'Site stock source not selected'}
+                                                </div>
+                                                {line.batch_number && (
                                                     <div className="text-xs text-muted-foreground">
-                                                        {formatNumber(
-                                                            line.stock_quantity,
-                                                        )}{' '}
-                                                        {line.stock_unit} in
-                                                        stock units
+                                                        Batch{' '}
+                                                        {line.batch_number}
                                                     </div>
                                                 )}
-                                        </td>
-                                        <td className="px-3 py-3">
-                                            {line.source === 'external' ? (
-                                                <span className="text-muted-foreground">
-                                                    Not from inventory
-                                                </span>
-                                            ) : (
-                                                <>
-                                                    <div>
-                                                        {line.store_name ??
-                                                            'Site stock source not selected'}
-                                                    </div>
-                                                    {line.batch_number && (
-                                                        <div className="text-xs text-muted-foreground">
-                                                            Batch{' '}
-                                                            {line.batch_number}
-                                                        </div>
-                                                    )}
-                                                </>
-                                            )}
-                                        </td>
-                                        <td className="px-3 py-3">
-                                            <Badge variant="outline">
-                                                {line.status_label}
-                                            </Badge>
-                                            {line.posted_at && (
-                                                <div className="mt-1 text-xs text-muted-foreground">
-                                                    {line.posted_at}
-                                                </div>
-                                            )}
-                                            {line.external_reason && (
-                                                <div className="mt-1 max-w-72 text-xs text-muted-foreground">
-                                                    {line.external_reason}
-                                                </div>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                            </>
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline">
+                                            {line.status_label}
+                                        </Badge>
+                                        {line.posted_at && (
+                                            <div className="mt-1 text-xs text-muted-foreground">
+                                                {line.posted_at}
+                                            </div>
+                                        )}
+                                        {line.external_reason && (
+                                            <div className="mt-1 max-w-72 text-xs text-muted-foreground">
+                                                {line.external_reason}
+                                            </div>
+                                        )}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
                 )}
             </CardContent>
         </Card>
@@ -2098,59 +2368,48 @@ function OtherCostsCard({
                         No other costs have been recorded.
                     </p>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b text-left text-muted-foreground">
-                                    <th className="py-3 pr-4 font-medium">
-                                        Expense
-                                    </th>
-                                    <th className="py-3 pr-4 font-medium">
-                                        Payee
-                                    </th>
-                                    <th className="py-3 pr-4 text-right font-medium">
-                                        Amount
-                                    </th>
-                                    <th className="py-3 font-medium">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {expenses.map((expense) => (
-                                    <tr
-                                        key={expense.id}
-                                        className="border-b last:border-0"
-                                    >
-                                        <td className="py-3 pr-4">
-                                            <a
-                                                href={`/expenses/${expense.id}`}
-                                                className="font-medium text-primary hover:underline"
-                                            >
-                                                {expense.item}
-                                            </a>
-                                            <div className="text-xs text-muted-foreground">
-                                                {expense.expense_number}
-                                            </div>
-                                        </td>
-                                        <td className="py-3 pr-4">
-                                            {expense.payee}
-                                        </td>
-                                        <td className="py-3 pr-4 text-right tabular-nums">
-                                            {expense.currency_code}{' '}
-                                            {formatNumber(expense.amount)}
-                                        </td>
-                                        <td className="py-3">
-                                            <Badge variant="outline">
-                                                {expense.status.replaceAll(
-                                                    '_',
-                                                    ' ',
-                                                )}
-                                            </Badge>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Expense</TableHead>
+                                <TableHead>Payee</TableHead>
+                                <TableHead className="text-right">
+                                    Amount
+                                </TableHead>
+                                <TableHead>Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {expenses.map((expense) => (
+                                <TableRow key={expense.id}>
+                                    <TableCell>
+                                        <a
+                                            href={`/expenses/${expense.id}`}
+                                            className="font-medium text-primary hover:underline"
+                                        >
+                                            {expense.item}
+                                        </a>
+                                        <div className="text-xs text-muted-foreground">
+                                            {expense.expense_number}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>{expense.payee}</TableCell>
+                                    <TableCell className="text-right tabular-nums">
+                                        {expense.currency_code}{' '}
+                                        {formatNumber(expense.amount)}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline">
+                                            {expense.status.replaceAll(
+                                                '_',
+                                                ' ',
+                                            )}
+                                        </Badge>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
                 )}
             </CardContent>
         </Card>
@@ -2171,6 +2430,7 @@ function LineCard({
     inventoryStores = [],
     units = [],
     labourSources = [],
+    workforceTrades = [],
     subcontractors = [],
 }: {
     title: string;
@@ -2186,6 +2446,7 @@ function LineCard({
     inventoryStores?: InventoryStoreOption[];
     units?: string[];
     labourSources?: SelectOption[];
+    workforceTrades?: SelectOption[];
     subcontractors?: SelectOption[];
 }) {
     const [editorOpen, setEditorOpen] = useState(false);
@@ -2370,6 +2631,23 @@ function LineCard({
         );
     }
 
+    function selectWorkforceTrade(index: number, tradeId: string) {
+        const trade = workforceTrades.find(
+            (option) => option.value === tradeId,
+        );
+        onChange(
+            lines.map((line, lineIndex) =>
+                lineIndex === index
+                    ? {
+                          ...line,
+                          workforce_trade_id: tradeId,
+                          trade_or_role: trade?.label ?? '',
+                      }
+                    : line,
+            ),
+        );
+    }
+
     function selectLabourSource(index: number, source: string) {
         onChange(
             lines.map((line, lineIndex) =>
@@ -2417,97 +2695,86 @@ function LineCard({
                         No {title.toLowerCase()} recorded.
                     </p>
                 ) : (
-                    <div className="overflow-x-auto rounded-md border">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b bg-muted/40 text-left text-muted-foreground">
-                                    <th className="px-3 py-2 font-medium">
-                                        Description
-                                    </th>
-                                    <th className="px-3 py-2 font-medium">
-                                        Quantity / time
-                                    </th>
-                                    <th className="px-3 py-2 font-medium">
-                                        Details
-                                    </th>
-                                    <th className="px-3 py-2 text-right font-medium">
-                                        Actions
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {lines.map((line, index) => {
-                                    const summary = lineTableSummary(
-                                        title,
-                                        line,
-                                        inventoryStores,
-                                    );
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Description</TableHead>
+                                <TableHead>Quantity / time</TableHead>
+                                <TableHead>Details</TableHead>
+                                <TableHead className="text-right">
+                                    Actions
+                                </TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {lines.map((line, index) => {
+                                const summary = lineTableSummary(
+                                    title,
+                                    line,
+                                    inventoryStores,
+                                );
 
-                                    return (
-                                        <tr
-                                            key={index}
-                                            className="border-b last:border-0"
-                                        >
-                                            <td className="px-3 py-3">
-                                                <div className="font-medium">
-                                                    {summary.primary}
+                                return (
+                                    <TableRow key={index}>
+                                        <TableCell>
+                                            <div className="font-medium">
+                                                {summary.primary}
+                                            </div>
+                                            {summary.secondary && (
+                                                <div className="text-xs text-muted-foreground">
+                                                    {summary.secondary}
                                                 </div>
-                                                {summary.secondary && (
-                                                    <div className="text-xs text-muted-foreground">
-                                                        {summary.secondary}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-3 py-3 tabular-nums">
-                                                {summary.quantity}
-                                            </td>
-                                            <td className="px-3 py-3 text-muted-foreground">
-                                                {summary.details}
-                                            </td>
-                                            <td className="px-3 py-3">
-                                                <div className="flex justify-end gap-1">
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="tabular-nums">
+                                            {summary.quantity}
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground">
+                                            {summary.details}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex justify-end gap-1">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() =>
+                                                        openLine(index)
+                                                    }
+                                                    title={`Edit ${lineSingularLabel(title)}`}
+                                                >
+                                                    <Pencil />
+                                                </Button>
+                                                {!disabled && (
                                                     <Button
                                                         type="button"
                                                         variant="ghost"
                                                         size="icon"
+                                                        className="text-destructive hover:text-destructive"
                                                         onClick={() =>
-                                                            openLine(index)
+                                                            onChange(
+                                                                lines.filter(
+                                                                    (
+                                                                        _,
+                                                                        lineIndex,
+                                                                    ) =>
+                                                                        lineIndex !==
+                                                                        index,
+                                                                ),
+                                                            )
                                                         }
-                                                        title={`Edit ${lineSingularLabel(title)}`}
+                                                        title={`Remove ${lineSingularLabel(title)}`}
                                                     >
-                                                        <Pencil />
+                                                        <Trash2 />
                                                     </Button>
-                                                    {!disabled && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="text-destructive hover:text-destructive"
-                                                            onClick={() =>
-                                                                onChange(
-                                                                    lines.filter(
-                                                                        (
-                                                                            _,
-                                                                            lineIndex,
-                                                                        ) =>
-                                                                            lineIndex !==
-                                                                            index,
-                                                                    ),
-                                                                )
-                                                            }
-                                                            title={`Remove ${lineSingularLabel(title)}`}
-                                                        >
-                                                            <Trash2 />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
                 )}
             </CardContent>
 
@@ -2621,6 +2888,22 @@ function LineCard({
                                                 )}
                                                 placeholder="Select material item"
                                                 searchPlaceholder="Search inventory..."
+                                                disabled={disabled}
+                                            />
+                                        ) : field === 'workforce_trade_id' ? (
+                                            <SearchableSelect
+                                                value={String(
+                                                    currentLine[field] ?? '',
+                                                )}
+                                                onValueChange={(value) =>
+                                                    selectWorkforceTrade(
+                                                        activeIndex,
+                                                        value,
+                                                    )
+                                                }
+                                                options={workforceTrades}
+                                                placeholder="Select workforce trade"
+                                                searchPlaceholder="Search trades..."
                                                 disabled={disabled}
                                             />
                                         ) : field === 'labour_source' ? (
@@ -3081,6 +3364,7 @@ function lineFieldLabel(field: string, section: string): string {
     if (field === 'external_material_reason')
         return 'Why this is outside inventory';
     if (field === 'labour_source') return 'Labour source';
+    if (field === 'workforce_trade_id') return 'Workforce trade';
     if (field === 'subcontractor_id') return 'Subcontractor';
     if (field === 'hours') return 'Hours per worker';
     if (field === 'person_hours') return 'Total person-hours';
@@ -3120,7 +3404,12 @@ function lineFieldRequired(
         ].includes(field);
     }
 
-    return ['trade_or_role', 'equipment_name', 'material_name'].includes(field);
+    return [
+        'workforce_trade_id',
+        'trade_or_role',
+        'equipment_name',
+        'material_name',
+    ].includes(field);
 }
 
 function cleanLines(lines: Line[]): Line[] {
@@ -3159,6 +3448,7 @@ function emptyWorkLine(): Line {
 function emptyLabourLine(): Line {
     return {
         labour_source: 'internal',
+        workforce_trade_id: '',
         subcontractor_id: '',
         trade_or_role: '',
         subcontractor_name: '',
