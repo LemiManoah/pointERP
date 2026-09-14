@@ -52,6 +52,7 @@ final class SiteAttendanceController
         return Inertia::render('operations/workforce/attendance/index', [
             'registers' => $registers->map(fn (SiteAttendanceRegister $register): array => $this->registerSummary($register)),
             'canCreate' => Gate::allows('create', SiteAttendanceRegister::class),
+            'canViewReports' => $actor->can('workforce.reports.view'),
         ]);
     }
 

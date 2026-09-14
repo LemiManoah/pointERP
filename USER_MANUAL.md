@@ -210,11 +210,11 @@ Draft → Submit → Review → Approve/Return → Archive
 2. Click "New Report" or open an expected report
 3. Fill in site, date, weather, conditions
 4. Add structured lines:
-   - **Work Quantities** — BOQ item, chainage, side, quantity, unit
+   - **Work Activities** — planned activity, location, completed quantity, and unit
    - **Labour** — trade, headcount, hours
    - **Equipment** — asset, status, hours, fuel
    - **Materials** — item, quantity, unit, delivery reference
-   - **Other Costs** — category, description, amount
+   - **Other Costs** — draft expenses linked back to the DSR
    - **Delays** — type, hours, cause, action
 5. Link evidence (photos, documents)
 6. Submit for review
@@ -231,13 +231,36 @@ Draft → Submit → Review → Approve/Return → Archive
 - Profit/loss per report
 - Cumulative approved quantities by BOQ item
 
-### 5.5 Reporting Calendars
+### 5.5 Workforce and Site Attendance
+
+The workforce module confirms who was expected at a site, who attended, and whether the labour reported in the DSR is supported by attendance.
+
+**Daily Flow:**
+1. A manager deploys staff to a project or site from Workforce Setup.
+2. The site engineer or foreman opens Site Attendance and loads deployed staff.
+3. Attendance is saved as a draft, checked, and confirmed for the day or night shift.
+4. The site engineer records DSR labour by source, trade, headcount, and hours per person.
+5. Before approval, the system compares DSR person-hours with confirmed attendance.
+6. The reviewer resolves exceptions or records an authorized override reason.
+
+**Exception Meanings:**
+- **Attendance unconfirmed** — the site deadline passed while attendance remained a draft.
+- **Missing attendance** — the DSR reports labour but no confirmed attendance exists for that site and date.
+- **Under-reported** — confirmed attendance is greater than labour allocated to the DSR.
+- **Over-reported** — DSR labour exceeds confirmed attendance; approval requires override permission and a reason.
+- **Attendance reopened** — attendance supporting a submitted or approved DSR was reopened and must be reviewed again.
+
+Users with `workforce.reports.view` can open **Attendance > Exceptions** and filter by project, site, and date. Notifications link directly to the affected attendance register or DSR. The scheduler runs `php artisan workforce:process-exceptions` hourly and deduplicates repeated alerts.
+
+The demo data includes matched, under-reported, approved-with-override, and overdue-attendance examples. To see historical DSR examples, widen the report's From date.
+
+### 5.6 Reporting Calendars
 
 - Define non-working days (holidays, rain days, site closures)
 - Expected DSRs generated automatically based on calendars
 - Missing report detection uses calendar-aware deadlines
 
-### 5.6 Documents
+### 5.7 Documents
 
 **Central Document Register:**
 - Upload files to private storage
@@ -534,13 +557,21 @@ Permissions are organized by module and action:
 | 3B.7 | DSR material integration — item linking, stock posting | 1 week |
 | 3B.8 | Reporting, seed data, hardening | 1 week |
 
-### Phase 3C — Workforce, Attendance, and Leave (4-6 weeks)
+### Phase 3F — Workforce and Site Attendance MVP ⚠️ LOCAL VERIFICATION
 
-- Employee and contractor master records
-- Project/site assignments with trades and employers
-- Leave requests, balances, approval workflow
-- Attendance/presence tracking
-- DSR workforce-count consistency checks
+| Component | Status |
+|-----------|--------|
+| Trade master and staff employment fields | ✅ Implemented |
+| Project/site deployment history | ✅ Implemented |
+| Day and night attendance registers | ✅ Implemented |
+| Confirm, lock, and controlled reopen workflow | ✅ Implemented |
+| DSR person-hour comparison and approval override | ✅ Implemented |
+| Exception report and deduplicated notifications | ✅ Implemented |
+| Quarry demonstration scenarios | ✅ Implemented |
+| Focused automated tests | ✅ Written; local execution pending |
+| Desktop and mobile UAT | ⏳ Pending |
+
+Payroll, leave, biometrics, and sensitive personal-data workflows remain outside this MVP.
 
 ### Phase 4 — Commercial and Financial Control (6-8 weeks)
 

@@ -344,10 +344,12 @@ Implementation status: implemented for local verification.
 
 ### HR.4 - Exceptions and Pilot Closure
 
+Implementation status: software implemented for local verification; desktop and mobile UAT remain pending.
+
 - Add missing-attendance and labour-variance notifications.
 - Add a small workforce exception report with project, site and date filters.
 - Seed one realistic quarry attendance and DSR scenario.
-- Complete desktop/mobile UAT and update the user manual.
+- The user manual and `WORKFORCE_UAT.md` are updated; desktop/mobile UAT execution remains pending.
 
 ## 12. Required Tests
 

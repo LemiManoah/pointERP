@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\DailySiteReportNotificationService;
 use App\Services\ReportingCalendarResolver;
+use App\Services\WorkforceExceptionNotificationService;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -24,6 +25,7 @@ final readonly class SubmitDailySiteReport
         private AuditLogger $auditLogger,
         private DailySiteReportNotificationService $notificationService,
         private ReportingCalendarResolver $calendarResolver,
+        private WorkforceExceptionNotificationService $workforceNotifications,
     ) {
         //
     }
@@ -67,7 +69,10 @@ final readonly class SubmitDailySiteReport
                 $evidenceOverrideReason,
             );
 
-            DB::afterCommit(fn () => $this->notificationService->submitted($report));
+            DB::afterCommit(function () use ($report): void {
+                $this->notificationService->submitted($report);
+                $this->workforceNotifications->reportSubmitted($report);
+            });
 
             return $report;
         });

@@ -93,7 +93,7 @@ final class WorkforceAttendanceDemoSeeder extends Seeder
             [
                 'tenant_id' => $project->tenant_id,
                 'site_id' => $crusherYard->id,
-                'attendance_date' => now()->toDateString(),
+                'attendance_date' => now()->subDay()->toDateString(),
                 'shift' => AttendanceShift::Night->value,
             ],
             [

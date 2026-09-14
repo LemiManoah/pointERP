@@ -142,6 +142,7 @@ use App\Http\Controllers\UserEmailVerificationNotificationController;
 use App\Http\Controllers\UserPasswordController;
 use App\Http\Controllers\UserProfileController;
 use App\Http\Controllers\UserTwoFactorAuthenticationController;
+use App\Http\Controllers\WorkforceExceptionController;
 use App\Http\Controllers\WorkforceTradeController;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Route;
@@ -320,6 +321,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::resource('staff', StaffController::class)->only(['index', 'store', 'update', 'destroy'])->names('resources.staff');
     Route::resource('staff-positions', StaffPositionController::class)->only(['index', 'store', 'update', 'destroy'])->names('resources.staff-positions');
 
+    Route::get('workforce/exceptions', WorkforceExceptionController::class)->name('workforce.exceptions.index');
     Route::get('workforce/attendance', [SiteAttendanceController::class, 'index'])->name('workforce.attendance.index');
     Route::get('workforce/attendance/create', [SiteAttendanceController::class, 'create'])->name('workforce.attendance.create');
     Route::post('workforce/attendance', [SiteAttendanceController::class, 'store'])->name('workforce.attendance.store');

@@ -27,7 +27,12 @@ final class WorkforceDsrDemoSeeder extends Seeder
 
         $reports = DailySiteReport::query()
             ->where('project_id', $project->id)
-            ->whereIn('status', [DailySiteReport::STATUS_SUBMITTED, DailySiteReport::STATUS_APPROVED])
+            ->whereIn('status', [
+                DailySiteReport::STATUS_SUBMITTED,
+                DailySiteReport::STATUS_APPROVED,
+                DailySiteReport::STATUS_RETURNED,
+            ])
+            ->oldest('report_date')
             ->get();
 
         foreach ($reports as $report) {
@@ -60,6 +65,12 @@ final class WorkforceDsrDemoSeeder extends Seeder
                 ],
             );
 
+            $attendanceHours = match ($report->status) {
+                DailySiteReport::STATUS_APPROVED => max(0, (float) $line->hours - 1),
+                DailySiteReport::STATUS_RETURNED => (float) $line->hours + 1,
+                default => (float) $line->hours,
+            };
+
             $register->records()->delete();
             $subcontractorId = $line->subcontractor_id;
             $subcontractorName = is_string($subcontractorId)
@@ -76,9 +87,13 @@ final class WorkforceDsrDemoSeeder extends Seeder
                 'subcontractor_name_snapshot' => is_string($subcontractorName) ? $subcontractorName : null,
                 'headcount' => $line->headcount,
                 'attendance_status' => AttendanceStatus::Present,
-                'regular_hours_per_person' => $line->hours,
+                'regular_hours_per_person' => $attendanceHours,
                 'overtime_hours_per_person' => 0,
-                'notes' => 'Demo attendance aligned with reported labour.',
+                'notes' => match ($report->status) {
+                    DailySiteReport::STATUS_APPROVED => 'Demo attendance intentionally below reported labour for the override scenario.',
+                    DailySiteReport::STATUS_RETURNED => 'Demo attendance intentionally above reported labour for the under-reporting scenario.',
+                    default => 'Demo attendance aligned with reported labour.',
+                },
             ]);
 
             if ($report->isApproved()) {
@@ -89,10 +104,12 @@ final class WorkforceDsrDemoSeeder extends Seeder
                     'labour_attendance_snapshot' => [
                         ...$comparison,
                         'checked_at' => $checkedAt->toIso8601String(),
-                        'override_reason' => null,
-                        'override_by' => null,
+                        'override_reason' => 'Approved quarry production record after supervisor verified the additional crew hours.',
+                        'override_by' => $actor->id,
                     ],
                     'labour_attendance_checked_at' => $checkedAt,
+                    'labour_attendance_override_reason' => 'Approved quarry production record after supervisor verified the additional crew hours.',
+                    'labour_attendance_override_by' => $actor->id,
                 ])->save();
             }
         }

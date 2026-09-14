@@ -8,12 +8,16 @@ use App\Enums\AttendanceRegisterStatus;
 use App\Models\SiteAttendanceRegister;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\WorkforceExceptionNotificationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final readonly class ReopenSiteAttendance
 {
-    public function __construct(private AuditLogger $auditLogger) {}
+    public function __construct(
+        private AuditLogger $auditLogger,
+        private WorkforceExceptionNotificationService $notifications,
+    ) {}
 
     public function handle(SiteAttendanceRegister $register, User $actor, string $reason): SiteAttendanceRegister
     {
@@ -42,6 +46,8 @@ final readonly class ReopenSiteAttendance
                 $reason,
                 $locked->branch,
             );
+
+            DB::afterCommit(fn (): int => $this->notifications->attendanceReopened($locked));
 
             return $locked;
         });

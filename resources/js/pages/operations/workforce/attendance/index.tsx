@@ -33,13 +33,21 @@ type Register = {
     person_hours: number;
     recorded_by_name: string;
 };
-type Props = { registers: Register[]; canCreate: boolean };
+type Props = {
+    registers: Register[];
+    canCreate: boolean;
+    canViewReports: boolean;
+};
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
     { title: 'Attendance', href: '/workforce/attendance' },
 ];
 
-export default function AttendanceIndex({ registers, canCreate }: Props) {
+export default function AttendanceIndex({
+    registers,
+    canCreate,
+    canViewReports,
+}: Props) {
     const [tab, setTab] = useState<'draft' | 'confirmed'>('draft');
     const [search, setSearch] = useState('');
     const term = useDebouncedValue(search).trim().toLowerCase();
@@ -100,6 +108,13 @@ export default function AttendanceIndex({ registers, canCreate }: Props) {
                         <Button asChild variant="outline">
                             <Link href="/workforce">Setup</Link>
                         </Button>
+                        {canViewReports && (
+                            <Button asChild variant="outline">
+                                <Link href="/workforce/exceptions">
+                                    Exceptions
+                                </Link>
+                            </Button>
+                        )}
                         {canCreate && (
                             <Button asChild>
                                 <Link href="/workforce/attendance/create">
