@@ -32,7 +32,6 @@ return new class extends Migration
             $table->foreign('inventory_item_id', 'est_res_item_fk')->references('id')->on('inventory_items')->restrictOnDelete();
             $table->foreign('unit_of_measure_id', 'est_res_unit_fk')->references('id')->on('unit_of_measures')->restrictOnDelete();
             $table->foreign('equipment_category_id', 'est_res_equipment_category_fk')->references('id')->on('equipment_categories')->nullOnDelete();
-            $table->foreign('workforce_trade_id', 'est_res_workforce_trade_fk')->references('id')->on('workforce_trades')->nullOnDelete();
             $table->foreign('subcontractor_id', 'est_res_subcontractor_fk')->references('id')->on('customers')->nullOnDelete();
             $table->index(['tenant_id', 'project_estimate_line_id'], 'est_res_scope_idx');
         });

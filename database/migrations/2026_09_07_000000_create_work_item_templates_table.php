@@ -55,7 +55,6 @@ return new class extends Migration
             $table->foreign('inventory_item_id', 'wirt_item_fk')->references('id')->on('inventory_items')->nullOnDelete();
             $table->foreign('unit_of_measure_id', 'wirt_unit_fk')->references('id')->on('unit_of_measures')->nullOnDelete();
             $table->foreign('equipment_category_id', 'wirt_equipment_category_fk')->references('id')->on('equipment_categories')->nullOnDelete();
-            $table->foreign('workforce_trade_id', 'wirt_workforce_trade_fk')->references('id')->on('workforce_trades')->nullOnDelete();
             $table->foreign('subcontractor_id', 'wirt_subcontractor_fk')->references('id')->on('customers')->nullOnDelete();
             $table->index(['tenant_id', 'work_item_template_id'], 'wirt_tenant_template_idx');
         });
