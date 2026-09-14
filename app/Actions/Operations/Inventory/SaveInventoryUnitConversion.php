@@ -20,21 +20,29 @@ final readonly class SaveInventoryUnitConversion
     public function handle(array $data, InventoryItem $item, User $actor, ?InventoryUnitConversion $conversion = null): InventoryUnitConversion
     {
         $fromUnit = UnitOfMeasure::query()->findOrFail($data['from_unit_id']);
+        $toUnit = UnitOfMeasure::query()->findOrFail($data['to_unit_id']);
         $stockUnit = $item->stockUnit()->firstOrFail();
-        if ($fromUnit->id === $stockUnit->id) {
-            throw ValidationException::withMessages(['from_unit_id' => 'Choose a unit different from the stock unit.']);
+
+        if ($fromUnit->id === $toUnit->id) {
+            throw ValidationException::withMessages(['to_unit_id' => 'Choose a different unit.']);
+        }
+
+        if ($fromUnit->id !== $stockUnit->id && $toUnit->id !== $stockUnit->id) {
+            throw ValidationException::withMessages([
+                'to_unit_id' => 'One side of the conversion must be the item stock unit ('.$stockUnit->name.').',
+            ]);
         }
 
         $conversion ??= InventoryUnitConversion::query()
             ->where('inventory_item_id', $item->id)
             ->where('from_unit_id', $fromUnit->id)
-            ->where('to_unit_id', $stockUnit->id)
+            ->where('to_unit_id', $toUnit->id)
             ->first();
         $attributes = [
             'tenant_id' => $this->tenantContext->id(),
             'inventory_item_id' => $item->id,
             'from_unit_id' => $fromUnit->id,
-            'to_unit_id' => $stockUnit->id,
+            'to_unit_id' => $toUnit->id,
             'multiplier' => $data['multiplier'],
             'divisor' => 1,
             'effective_from' => $data['effective_from'] ?? null,

@@ -25,11 +25,23 @@ final class InventoryQuantityConverter
             ->where('is_active', true)
             ->first();
 
-        if (! $conversion instanceof InventoryUnitConversion) {
-            throw ValidationException::withMessages(['unit_of_measure_id' => 'No active conversion exists from this unit to the item stock unit.']);
+        if ($conversion instanceof InventoryUnitConversion) {
+            return BigDecimal::of((string) $conversion->multiplier)
+                ->dividedBy((string) $conversion->divisor, 10, RoundingMode::HalfUp);
         }
 
-        return BigDecimal::of((string) $conversion->multiplier)
-            ->dividedBy((string) $conversion->divisor, 10, RoundingMode::HalfUp);
+        $reverse = InventoryUnitConversion::query()
+            ->where('inventory_item_id', $item->id)
+            ->where('from_unit_id', $item->stock_unit_id)
+            ->where('to_unit_id', $unitId)
+            ->where('is_active', true)
+            ->first();
+
+        if ($reverse instanceof InventoryUnitConversion) {
+            return BigDecimal::of((string) $reverse->divisor)
+                ->dividedBy((string) $reverse->multiplier, 10, RoundingMode::HalfUp);
+        }
+
+        throw ValidationException::withMessages(['unit_of_measure_id' => 'No active conversion exists between this unit and the item stock unit.']);
     }
 }

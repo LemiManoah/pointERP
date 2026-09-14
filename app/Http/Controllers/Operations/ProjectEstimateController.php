@@ -17,9 +17,9 @@ use App\Models\ProjectEstimateLine;
 use App\Models\Site;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
+use App\Models\WorkforceTrade;
 use App\Models\WorkItemResourceTemplate;
 use App\Models\WorkItemTemplate;
-use App\Models\WorkforceTrade;
 use App\Services\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -109,9 +109,9 @@ final class ProjectEstimateController
             'sites' => Site::query()->where('project_id', $project->id)->whereIn('status', ['planned', 'active', 'suspended'])->orderBy('name')->get(['id', 'name'])->map(fn (Site $site): array => ['value' => $site->id, 'label' => $site->name]),
             'units' => UnitOfMeasure::query()->where(fn (Builder $query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenantId))->where('is_active', true)->orderBy('name')->get(['id', 'name', 'symbol'])->map(fn (UnitOfMeasure $unit): array => ['value' => $unit->id, 'label' => sprintf('%s%s', $unit->name, $unit->symbol ? ' ('.$unit->symbol.')' : '')]),
             'items' => InventoryItem::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'stock_unit_id', 'default_unit_cost'])->map(fn (InventoryItem $item): array => ['value' => $item->id, 'label' => sprintf('%s - %s', $item->code, $item->name), 'unit_id' => $item->stock_unit_id, 'unit_cost' => $item->default_unit_cost]),
-            'equipmentCategories' => EquipmentCategory::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name'])->map(fn (EquipmentCategory $category): array => ['value' =>$category->id, 'label' => trim($category->code.' - '.$category->name)]),
-            'workforceTrades' => WorkforceTrade::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name'])->map(fn (WorkforceTrade $trade): array => ['value' =>$trade->id, 'label' => trim($trade->code.' - '.$trade->name)]),
-            'subcontractors' => Customer::query()->where('type', Customer::TYPE_SUBCONTRACTOR)->where('status', 'active')->orderBy('name')->get(['id', 'code', 'name'])->map(fn (Customer $customer): array => ['value' =>$customer->id, 'label' => trim($customer->code.' - '.$customer->name)]),
+            'equipmentCategories' => EquipmentCategory::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name'])->map(fn (EquipmentCategory $category): array => ['value' => $category->id, 'label' => mb_trim($category->code.' - '.$category->name)]),
+            'workforceTrades' => WorkforceTrade::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name'])->map(fn (WorkforceTrade $trade): array => ['value' => $trade->id, 'label' => mb_trim($trade->code.' - '.$trade->name)]),
+            'subcontractors' => Customer::query()->where('type', Customer::TYPE_SUBCONTRACTOR)->where('status', 'active')->orderBy('name')->get(['id', 'code', 'name'])->map(fn (Customer $customer): array => ['value' => $customer->id, 'label' => mb_trim($customer->code.' - '.$customer->name)]),
             'resourceTypes' => collect(EstimateResourceType::cases())->map(fn (EstimateResourceType $type): array => ['value' => $type->value, 'label' => $type->label()]),
             'templates' => WorkItemTemplate::query()
                 ->with(['unit', 'resources.unit', 'resources.inventoryItem', 'resources.equipmentCategory', 'resources.workforceTrade', 'resources.subcontractor'])

@@ -257,6 +257,9 @@ export default function EstimateEditor({
             resource_type: res.resource_type,
             inventory_item_id: res.inventory_item_id ?? '',
             unit_of_measure_id: res.unit_of_measure_id ?? '',
+            equipment_category_id: res.equipment_category_id,
+            workforce_trade_id: res.workforce_trade_id,
+            subcontractor_id: res.subcontractor_id,
             name: res.name,
             quantity_per_work_unit: String(res.quantity_per_work_unit),
             estimated_unit_cost: res.estimated_unit_cost
@@ -855,67 +858,188 @@ export default function EstimateEditor({
                                                                 ),
                                                             )}
                                                         </NativeSelect>
-                                                        {resource.resource_type === 'material' ? (
+                                                        {resource.resource_type ===
+                                                        'material' ? (
                                                             <SearchableSelect
-                                                                value={resource.inventory_item_id ?? ''}
-                                                                disabled={!editable}
-                                                                onValueChange={(value) => {
-                                                                    const item = items.find((option) => option.value === value);
-                                                                    updateResource(lineIndex, resourceIndex, {
-                                                                        inventory_item_id: value,
-                                                                        name: item?.label ?? resource.name,
-                                                                        unit_of_measure_id: item?.unit_id ?? resource.unit_of_measure_id,
-                                                                        estimated_unit_cost: item?.unit_cost ?? resource.estimated_unit_cost,
-                                                                    });
+                                                                value={
+                                                                    resource.inventory_item_id ??
+                                                                    ''
+                                                                }
+                                                                disabled={
+                                                                    !editable
+                                                                }
+                                                                onValueChange={(
+                                                                    value,
+                                                                ) => {
+                                                                    const item =
+                                                                        items.find(
+                                                                            (
+                                                                                option,
+                                                                            ) =>
+                                                                                option.value ===
+                                                                                value,
+                                                                        );
+                                                                    updateResource(
+                                                                        lineIndex,
+                                                                        resourceIndex,
+                                                                        {
+                                                                            inventory_item_id:
+                                                                                value,
+                                                                            name:
+                                                                                item?.label ??
+                                                                                resource.name,
+                                                                            unit_of_measure_id:
+                                                                                item?.unit_id ??
+                                                                                resource.unit_of_measure_id,
+                                                                            estimated_unit_cost:
+                                                                                item?.unit_cost ??
+                                                                                resource.estimated_unit_cost,
+                                                                        },
+                                                                    );
                                                                 }}
                                                                 options={items}
                                                                 placeholder="Select material"
                                                                 searchPlaceholder="Search materials..."
                                                             />
-                                                        ) : resource.resource_type === 'equipment' ? (
+                                                        ) : resource.resource_type ===
+                                                          'equipment' ? (
                                                             <SearchableSelect
-                                                                value={resource.equipment_category_id ?? ''}
-                                                                disabled={!editable}
-                                                                onValueChange={(value) => updateResource(lineIndex, resourceIndex, {
-                                                                    equipment_category_id: value || null,
-                                                                    name: equipmentCategories.find((option) => option.value === value)?.label ?? resource.name,
-                                                                })}
-                                                                options={equipmentCategories}
+                                                                value={
+                                                                    resource.equipment_category_id ??
+                                                                    ''
+                                                                }
+                                                                disabled={
+                                                                    !editable
+                                                                }
+                                                                onValueChange={(
+                                                                    value,
+                                                                ) =>
+                                                                    updateResource(
+                                                                        lineIndex,
+                                                                        resourceIndex,
+                                                                        {
+                                                                            equipment_category_id:
+                                                                                value ||
+                                                                                null,
+                                                                            name:
+                                                                                equipmentCategories.find(
+                                                                                    (
+                                                                                        option,
+                                                                                    ) =>
+                                                                                        option.value ===
+                                                                                        value,
+                                                                                )
+                                                                                    ?.label ??
+                                                                                resource.name,
+                                                                        },
+                                                                    )
+                                                                }
+                                                                options={
+                                                                    equipmentCategories
+                                                                }
                                                                 placeholder="Select equipment category"
                                                                 searchPlaceholder="Search equipment categories..."
                                                             />
-                                                        ) : resource.resource_type === 'labour' ? (
+                                                        ) : resource.resource_type ===
+                                                          'labour' ? (
                                                             <SearchableSelect
-                                                                value={resource.workforce_trade_id ?? ''}
-                                                                disabled={!editable}
-                                                                onValueChange={(value) => updateResource(lineIndex, resourceIndex, {
-                                                                    workforce_trade_id: value || null,
-                                                                    name: workforceTrades.find((option) => option.value === value)?.label ?? resource.name,
-                                                                })}
-                                                                options={workforceTrades}
+                                                                value={
+                                                                    resource.workforce_trade_id ??
+                                                                    ''
+                                                                }
+                                                                disabled={
+                                                                    !editable
+                                                                }
+                                                                onValueChange={(
+                                                                    value,
+                                                                ) =>
+                                                                    updateResource(
+                                                                        lineIndex,
+                                                                        resourceIndex,
+                                                                        {
+                                                                            workforce_trade_id:
+                                                                                value ||
+                                                                                null,
+                                                                            name:
+                                                                                workforceTrades.find(
+                                                                                    (
+                                                                                        option,
+                                                                                    ) =>
+                                                                                        option.value ===
+                                                                                        value,
+                                                                                )
+                                                                                    ?.label ??
+                                                                                resource.name,
+                                                                        },
+                                                                    )
+                                                                }
+                                                                options={
+                                                                    workforceTrades
+                                                                }
                                                                 placeholder="Select workforce trade"
                                                                 searchPlaceholder="Search workforce trades..."
                                                             />
-                                                        ) : resource.resource_type === 'subcontractor' ? (
+                                                        ) : resource.resource_type ===
+                                                          'subcontractor' ? (
                                                             <SearchableSelect
-                                                                value={resource.subcontractor_id ?? ''}
-                                                                disabled={!editable}
-                                                                onValueChange={(value) => updateResource(lineIndex, resourceIndex, {
-                                                                    subcontractor_id: value || null,
-                                                                    name: subcontractors.find((option) => option.value === value)?.label ?? resource.name,
-                                                                })}
-                                                                options={subcontractors}
+                                                                value={
+                                                                    resource.subcontractor_id ??
+                                                                    ''
+                                                                }
+                                                                disabled={
+                                                                    !editable
+                                                                }
+                                                                onValueChange={(
+                                                                    value,
+                                                                ) =>
+                                                                    updateResource(
+                                                                        lineIndex,
+                                                                        resourceIndex,
+                                                                        {
+                                                                            subcontractor_id:
+                                                                                value ||
+                                                                                null,
+                                                                            name:
+                                                                                subcontractors.find(
+                                                                                    (
+                                                                                        option,
+                                                                                    ) =>
+                                                                                        option.value ===
+                                                                                        value,
+                                                                                )
+                                                                                    ?.label ??
+                                                                                resource.name,
+                                                                        },
+                                                                    )
+                                                                }
+                                                                options={
+                                                                    subcontractors
+                                                                }
                                                                 placeholder="Select subcontractor"
                                                                 searchPlaceholder="Search subcontractors..."
                                                             />
                                                         ) : (
                                                             <Input
-                                                                value={resource.name}
-                                                                disabled={!editable}
+                                                                value={
+                                                                    resource.name
+                                                                }
+                                                                disabled={
+                                                                    !editable
+                                                                }
                                                                 placeholder="Describe the resource"
-                                                                onChange={(event) => updateResource(lineIndex, resourceIndex, {
-                                                                    name: event.target.value,
-                                                                })}
+                                                                onChange={(
+                                                                    event,
+                                                                ) =>
+                                                                    updateResource(
+                                                                        lineIndex,
+                                                                        resourceIndex,
+                                                                        {
+                                                                            name: event
+                                                                                .target
+                                                                                .value,
+                                                                        },
+                                                                    )
+                                                                }
                                                             />
                                                         )}
                                                         <SearchableSelect

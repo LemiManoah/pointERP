@@ -67,6 +67,7 @@ export type ConversionRegister = {
     item_name: string;
     item_code: string;
     from_unit_id: string;
+    to_unit_id: string;
     from_unit_name: string;
     from_unit_symbol: string | null;
     to_unit_name: string;

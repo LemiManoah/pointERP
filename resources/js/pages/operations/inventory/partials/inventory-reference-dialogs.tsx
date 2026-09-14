@@ -135,18 +135,14 @@ export function GlobalConversionDialog({
     const form = useForm({
         inventory_item_id: conversion?.inventory_item_id ?? '',
         from_unit_id: conversion?.from_unit_id ?? '',
+        to_unit_id: conversion?.to_unit_id ?? '',
         multiplier: conversion?.multiplier ?? '',
         effective_from: conversion?.effective_from ?? '',
         reason: conversion?.reason ?? '',
         is_active: conversion?.is_active ?? true,
         return_to: 'register',
     });
-    const selectedItem = items.find(
-        (item) => item.id === form.data.inventory_item_id,
-    );
-    const availableUnits = units.filter(
-        (unit) => unit.id !== selectedItem?.stock_unit_id && unit.is_active,
-    );
+    const availableUnits = units.filter((unit) => unit.is_active);
     function submit(event: FormEvent) {
         event.preventDefault();
         const options = {
@@ -184,8 +180,9 @@ export function GlobalConversionDialog({
                             : 'New unit conversion'}
                     </DialogTitle>
                     <DialogDescription>
-                        Add a transaction unit to an item by defining how much
-                        of its stock unit it represents.
+                        Define either direction, such as 1 bag = 50 kg. One side
+                        must be the item stock unit. of its stock unit it
+                        represents.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={submit} className="grid gap-4">
@@ -211,15 +208,13 @@ export function GlobalConversionDialog({
                                 onValueChange={(value) => {
                                     form.setData('inventory_item_id', value);
                                     form.setData('from_unit_id', '');
+                                    form.setData('to_unit_id', '');
                                 }}
                                 placeholder="Select item"
                             />
                         )}
                     </Field>
-                    <Field
-                        label="Additional unit"
-                        error={form.errors.from_unit_id}
-                    >
+                    <Field label="From unit" error={form.errors.from_unit_id}>
                         <SearchableSelect
                             value={form.data.from_unit_id}
                             options={availableUnits.map((unit) => ({
@@ -233,8 +228,22 @@ export function GlobalConversionDialog({
                             placeholder="Select unit"
                         />
                     </Field>
+                    <Field label="To unit" error={form.errors.to_unit_id}>
+                        <SearchableSelect
+                            value={form.data.to_unit_id}
+                            options={availableUnits.map((unit) => ({
+                                value: unit.id,
+                                label: unit.name,
+                                description: unit.symbol ?? unit.code,
+                            }))}
+                            onValueChange={(value) =>
+                                form.setData('to_unit_id', value)
+                            }
+                            placeholder="Select to unit"
+                        />
+                    </Field>
                     <Field
-                        label={`Stock-unit quantity for 1 additional unit${selectedItem?.stock_unit?.name ? ` (${selectedItem.stock_unit.name})` : ''}`}
+                        label="How many To units equal 1 From unit?"
                         error={form.errors.multiplier}
                     >
                         <Input

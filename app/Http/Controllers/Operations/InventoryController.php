@@ -77,7 +77,7 @@ final class InventoryController
             'conversions' => InventoryUnitConversion::query()->with(['item.stockUnit', 'fromUnit', 'toUnit'])->orderByDesc('is_active')->get()->map(fn (InventoryUnitConversion $conversion): array => [
                 'id' => $conversion->id, 'inventory_item_id' => $conversion->inventory_item_id,
                 'item_name' => $conversion->item->name, 'item_code' => $conversion->item->code,
-                'from_unit_id' => $conversion->from_unit_id, 'from_unit_name' => $conversion->fromUnit->name,
+                'from_unit_id' => $conversion->from_unit_id, 'to_unit_id' => $conversion->to_unit_id, 'from_unit_name' => $conversion->fromUnit->name,
                 'from_unit_symbol' => $conversion->fromUnit->symbol, 'to_unit_name' => $conversion->toUnit->name,
                 'to_unit_symbol' => $conversion->toUnit->symbol, 'multiplier' => $conversion->multiplier,
                 'effective_from' => $conversion->effective_from?->toDateString(), 'reason' => $conversion->reason, 'is_active' => $conversion->is_active,

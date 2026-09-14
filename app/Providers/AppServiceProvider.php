@@ -85,6 +85,7 @@ use App\Policies\UnitOfMeasurePolicy;
 use App\Policies\UserPolicy;
 use App\Services\BranchContext;
 use App\Services\TenantContext;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -99,6 +100,10 @@ final class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if ($this->app->environment('production')) {
+            DB::prohibitDestructiveCommands();
+        }
+
         Gate::policy(Branch::class, BranchPolicy::class);
         Gate::policy(BranchCurrency::class, BranchCurrencyPolicy::class);
         Gate::policy(Contract::class, ContractPolicy::class);
