@@ -36,6 +36,7 @@ type Option = {
 export type Conversion = {
     id: string;
     from_unit_id: string;
+    to_unit_id: string;
     multiplier: string;
     effective_from: string | null;
     reason: string | null;
@@ -116,6 +117,7 @@ export function ConversionDialog({
     const [open, setOpen] = useState(false);
     const form = useForm({
         from_unit_id: conversion?.from_unit_id ?? '',
+        to_unit_id: conversion?.to_unit_id ?? '',
         multiplier: conversion?.multiplier ?? '',
         effective_from: conversion?.effective_from ?? '',
         reason: conversion?.reason ?? '',
@@ -154,25 +156,41 @@ export function ConversionDialog({
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={submit} className="grid gap-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <Field
+                            label="From unit"
+                            error={form.errors.from_unit_id}
+                        >
+                            <SearchableSelect
+                                value={form.data.from_unit_id}
+                                options={units.map((unit) => ({
+                                    value: unit.id,
+                                    label: unit.name,
+                                    description: unit.symbol ?? unit.code,
+                                }))}
+                                onValueChange={(value) =>
+                                    form.setData('from_unit_id', value)
+                                }
+                                placeholder="Select from unit"
+                            />
+                        </Field>
+                        <Field label="To unit" error={form.errors.to_unit_id}>
+                            <SearchableSelect
+                                value={form.data.to_unit_id}
+                                options={units.map((unit) => ({
+                                    value: unit.id,
+                                    label: unit.name,
+                                    description: unit.symbol ?? unit.code,
+                                }))}
+                                onValueChange={(value) =>
+                                    form.setData('to_unit_id', value)
+                                }
+                                placeholder="Select to unit"
+                            />
+                        </Field>
+                    </div>
                     <Field
-                        label="Transaction unit"
-                        error={form.errors.from_unit_id}
-                    >
-                        <SearchableSelect
-                            value={form.data.from_unit_id}
-                            options={units.map((unit) => ({
-                                value: unit.id,
-                                label: unit.name,
-                                description: unit.symbol ?? unit.code,
-                            }))}
-                            onValueChange={(value) =>
-                                form.setData('from_unit_id', value)
-                            }
-                            placeholder="Select unit"
-                        />
-                    </Field>
-                    <Field
-                        label="Stock-unit quantity for 1 selected unit"
+                        label="How many To units equal 1 From unit?"
                         error={form.errors.multiplier}
                     >
                         <Input

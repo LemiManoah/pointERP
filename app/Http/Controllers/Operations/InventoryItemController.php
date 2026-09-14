@@ -93,6 +93,7 @@ final class InventoryItemController
             'conversions' => $inventoryItem->conversions->map(fn (InventoryUnitConversion $conversion): array => [
                 'id' => $conversion->id,
                 'from_unit_id' => $conversion->from_unit_id,
+                'to_unit_id' => $conversion->to_unit_id,
                 'from_unit' => $conversion->fromUnit?->only(['id', 'name', 'symbol']),
                 'to_unit' => $conversion->toUnit?->only(['id', 'name', 'symbol']),
                 'multiplier' => $conversion->multiplier,

@@ -14,7 +14,7 @@ use App\Models\TenantCurrency;
 use App\Models\User;
 use App\Services\TenantContext;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Date;
 use RuntimeException;
 
 final class IronPointProductionSeeder extends Seeder
@@ -60,7 +60,7 @@ final class IronPointProductionSeeder extends Seeder
             'timezone' => 'Africa/Kampala',
             'status' => 'active',
         ]);
-        $tenant->deleted_at = null;
+        $tenant->forceFill(['deleted_at' => null]);
         $tenant->save();
 
         resolve(TenantContext::class)->set($tenant);
@@ -110,7 +110,7 @@ final class IronPointProductionSeeder extends Seeder
                     'name' => $name,
                     'email' => $email,
                     'password' => 'password',
-                    'email_verified_at' => Carbon::now(),
+                    'email_verified_at' => Date::now(),
                     'is_active' => true,
                     'is_director' => true,
                     'is_support' => $email === 'lemi.manoah@gmail.com',
@@ -124,11 +124,20 @@ final class IronPointProductionSeeder extends Seeder
                 ]);
             }
 
-            $user->branches()->sync(collect($branches)->mapWithKeys(
+            $user->branches()->syncWithoutDetaching(collect($branches)->mapWithKeys(
                 fn (Branch $branch): array => [$branch->id => ['is_default' => $branch->code === 'IP-KLA-HQ']],
             )->all());
-            $user->syncRoles([$administrator]);
+            foreach ($branches as $branch) {
+                $user->branches()->updateExistingPivot($branch->id, [
+                    'is_default' => $branch->code === 'IP-KLA-HQ',
+                ]);
+            }
+
+            $user->assignRole($administrator);
         }
+
+        $this->call(IronPointReferenceSeeder::class);
+        $this->call(IronPointProductionDocumentTypeSeeder::class);
     }
 
     private function upsertBranch(Tenant $tenant, string $code, string $name, string $countryCode, string $currencyCode): Branch

@@ -16,9 +16,11 @@ final class StoreInventoryUnitConversionRequest extends FormRequest
     public function rules(): array
     {
         $tenantId = resolve(TenantContext::class)->id();
+        $unitRule = fn (Builder $query): Builder => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenantId);
 
         return [
-            'from_unit_id' => ['required', 'uuid', Rule::exists((new UnitOfMeasure)->getTable(), 'id')->where(fn (Builder $query): Builder => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenantId))->where('is_active', true)],
+            'from_unit_id' => ['required', 'uuid', Rule::exists((new UnitOfMeasure)->getTable(), 'id')->where($unitRule)->where('is_active', true)],
+            'to_unit_id' => ['required', 'uuid', Rule::exists((new UnitOfMeasure)->getTable(), 'id')->where($unitRule)->where('is_active', true)],
             'multiplier' => ['required', 'numeric', 'gt:0'],
             'effective_from' => ['nullable', 'date'],
             'reason' => ['nullable', 'string', 'max:2000'],
