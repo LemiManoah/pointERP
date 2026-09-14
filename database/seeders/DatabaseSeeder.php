@@ -11,17 +11,18 @@ final class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        if (app()->environment('production')) {
-            $this->call(IronPointProductionSeeder::class);
+        // if (app()->environment('production')) {
+        //     $this->call(IronPointProductionSeeder::class);
 
-            return;
-        }
+        //     return;
+        // }
 
+        $this->call(IronPointProductionSeeder::class);
         $this->call(RolePermissionSeeder::class);
-        $this->call(QuarryDemoSeeder::class);
-        $this->call(QuarryWorkItemTemplateSeeder::class);
-        $this->call(WorkforceDemoSeeder::class);
-        $this->call(WorkforceAttendanceDemoSeeder::class);
-        $this->call(WorkforceDsrDemoSeeder::class);
+        // $this->call(QuarryDemoSeeder::class);
+        // $this->call(QuarryWorkItemTemplateSeeder::class);
+        // $this->call(WorkforceDemoSeeder::class);
+        // $this->call(WorkforceAttendanceDemoSeeder::class);
+        // $this->call(WorkforceDsrDemoSeeder::class);
     }
 }
