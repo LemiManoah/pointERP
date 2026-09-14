@@ -918,277 +918,83 @@ export default function WorkItemTemplatesIndex({
 
                                             <div>
                                                 <Label className="text-xs font-medium text-muted-foreground">
-                                                    {res.resource_type ===
-                                                    'material'
-                                                        ? 'Link Inventory Item (Optional)'
-                                                        : res.resource_type ===
-                                                            'equipment'
-                                                          ? 'Link Equipment Category (Optional)'
-                                                          : res.resource_type ===
-                                                              'labour'
-                                                            ? 'Link Workforce Trade (Optional)'
-                                                            : res.resource_type ===
-                                                                'subcontractor'
-                                                              ? 'Link Subcontractor (Optional)'
-                                                              : 'Resource Description *'}
+                                                    {res.resource_type === 'material'
+                                                        ? 'Inventory Item'
+                                                        : res.resource_type === 'equipment'
+                                                          ? 'Equipment Category'
+                                                          : res.resource_type === 'labour'
+                                                            ? 'Workforce Trade'
+                                                            : res.resource_type === 'subcontractor'
+                                                              ? 'Subcontractor'
+                                                              : 'Resource Description'}
                                                 </Label>
-                                                {res.resource_type ===
-                                                    'material' && (
-                                                    <>
-                                                        <SearchableSelect
-                                                            value={
-                                                                res.inventory_item_id ??
-                                                                ''
-                                                            }
-                                                            onValueChange={(
-                                                                val,
-                                                            ) => {
-                                                                const item =
-                                                                    items.find(
-                                                                        (opt) =>
-                                                                            opt.value ===
-                                                                            val,
-                                                                    );
-                                                                updateResource(
-                                                                    index,
-                                                                    {
-                                                                        inventory_item_id:
-                                                                            val ||
-                                                                            null,
-                                                                        name:
-                                                                            item?.label ??
-                                                                            res.name,
-                                                                        unit_of_measure_id:
-                                                                            item?.unit_id ??
-                                                                            res.unit_of_measure_id,
-                                                                        unit_cost:
-                                                                            item?.unit_cost
-                                                                                ? String(
-                                                                                      item.unit_cost,
-                                                                                  )
-                                                                                : res.unit_cost,
-                                                                    },
-                                                                );
-                                                            }}
-                                                            options={items}
-                                                            placeholder="Pick stock item or type below..."
-                                                            className="mt-1"
-                                                        />
-                                                        {!res.inventory_item_id && (
-                                                            <Input
-                                                                value={res.name}
-                                                                onChange={(e) =>
-                                                                    updateResource(
-                                                                        index,
-                                                                        {
-                                                                            name: e
-                                                                                .target
-                                                                                .value,
-                                                                        },
-                                                                    )
-                                                                }
-                                                                placeholder="Material name (if not in inventory)"
-                                                                className="mt-1.5 h-8 text-xs"
-                                                                required
-                                                            />
-                                                        )}
-                                                    </>
-                                                )}
-
-                                                {res.resource_type ===
-                                                    'equipment' && (
-                                                    <>
-                                                        <SearchableSelect
-                                                            value={
-                                                                res.equipment_category_id ??
-                                                                ''
-                                                            }
-                                                            onValueChange={(
-                                                                val,
-                                                            ) => {
-                                                                const cat =
-                                                                    equipmentCategories.find(
-                                                                        (opt) =>
-                                                                            opt.value ===
-                                                                            val,
-                                                                    );
-                                                                updateResource(
-                                                                    index,
-                                                                    {
-                                                                        equipment_category_id:
-                                                                            val ||
-                                                                            null,
-                                                                        name:
-                                                                            cat?.label ??
-                                                                            res.name,
-                                                                    },
-                                                                );
-                                                            }}
-                                                            options={
-                                                                equipmentCategories
-                                                            }
-                                                            placeholder="Pick equipment category or type below..."
-                                                            className="mt-1"
-                                                        />
-                                                        {!res.equipment_category_id && (
-                                                            <Input
-                                                                value={res.name}
-                                                                onChange={(e) =>
-                                                                    updateResource(
-                                                                        index,
-                                                                        {
-                                                                            name: e
-                                                                                .target
-                                                                                .value,
-                                                                        },
-                                                                    )
-                                                                }
-                                                                placeholder="Equipment description (e.g. Tipper Truck 15T)"
-                                                                className="mt-1.5 h-8 text-xs"
-                                                                required
-                                                            />
-                                                        )}
-                                                    </>
-                                                )}
-
-                                                {res.resource_type ===
-                                                    'labour' && (
-                                                    <>
-                                                        <SearchableSelect
-                                                            value={
-                                                                res.workforce_trade_id ??
-                                                                ''
-                                                            }
-                                                            onValueChange={(
-                                                                val,
-                                                            ) => {
-                                                                const trade =
-                                                                    workforceTrades.find(
-                                                                        (opt) =>
-                                                                            opt.value ===
-                                                                            val,
-                                                                    );
-                                                                updateResource(
-                                                                    index,
-                                                                    {
-                                                                        workforce_trade_id:
-                                                                            val ||
-                                                                            null,
-                                                                        name:
-                                                                            trade?.label ??
-                                                                            res.name,
-                                                                    },
-                                                                );
-                                                            }}
-                                                            options={
-                                                                workforceTrades
-                                                            }
-                                                            placeholder="Pick workforce trade or type below..."
-                                                            className="mt-1"
-                                                        />
-                                                        {!res.workforce_trade_id && (
-                                                            <Input
-                                                                value={res.name}
-                                                                onChange={(e) =>
-                                                                    updateResource(
-                                                                        index,
-                                                                        {
-                                                                            name: e
-                                                                                .target
-                                                                                .value,
-                                                                        },
-                                                                    )
-                                                                }
-                                                                placeholder="Labour / Trade description (e.g. Mason, Steel Fixer)"
-                                                                className="mt-1.5 h-8 text-xs"
-                                                                required
-                                                            />
-                                                        )}
-                                                    </>
-                                                )}
-
-                                                {res.resource_type ===
-                                                    'subcontractor' && (
-                                                    <>
-                                                        <SearchableSelect
-                                                            value={
-                                                                res.subcontractor_id ??
-                                                                ''
-                                                            }
-                                                            onValueChange={(
-                                                                val,
-                                                            ) => {
-                                                                const sub =
-                                                                    subcontractors.find(
-                                                                        (opt) =>
-                                                                            opt.value ===
-                                                                            val,
-                                                                    );
-                                                                updateResource(
-                                                                    index,
-                                                                    {
-                                                                        subcontractor_id:
-                                                                            val ||
-                                                                            null,
-                                                                        name:
-                                                                            sub?.label ??
-                                                                            res.name,
-                                                                    },
-                                                                );
-                                                            }}
-                                                            options={
-                                                                subcontractors
-                                                            }
-                                                            placeholder="Pick subcontractor or type below..."
-                                                            className="mt-1"
-                                                        />
-                                                        {!res.subcontractor_id && (
-                                                            <Input
-                                                                value={res.name}
-                                                                onChange={(e) =>
-                                                                    updateResource(
-                                                                        index,
-                                                                        {
-                                                                            name: e
-                                                                                .target
-                                                                                .value,
-                                                                        },
-                                                                    )
-                                                                }
-                                                                placeholder="Subcontractor package or name"
-                                                                className="mt-1.5 h-8 text-xs"
-                                                                required
-                                                            />
-                                                        )}
-                                                    </>
-                                                )}
-
-                                                {![
-                                                    'material',
-                                                    'equipment',
-                                                    'labour',
-                                                    'subcontractor',
-                                                ].includes(
-                                                    res.resource_type,
-                                                ) && (
+                                                {res.resource_type === 'material' ? (
+                                                    <SearchableSelect
+                                                        value={res.inventory_item_id ?? ''}
+                                                        onValueChange={(val) => {
+                                                            const item = items.find((opt) => opt.value === val);
+                                                            updateResource(index, {
+                                                                inventory_item_id: val || null,
+                                                                name: item?.label ?? res.name,
+                                                                unit_of_measure_id: item?.unit_id ?? res.unit_of_measure_id,
+                                                                unit_cost: item?.unit_cost ? String(item.unit_cost) : res.unit_cost,
+                                                            });
+                                                        }}
+                                                        options={items}
+                                                        placeholder="Select material"
+                                                        className="mt-1"
+                                                    />
+                                                ) : res.resource_type === 'equipment' ? (
+                                                    <SearchableSelect
+                                                        value={res.equipment_category_id ?? ''}
+                                                        onValueChange={(val) => updateResource(index, {
+                                                            equipment_category_id: val || null,
+                                                            name: equipmentCategories.find((option) => option.value === val)?.label ?? res.name,
+                                                        })}
+                                                        options={equipmentCategories}
+                                                        placeholder="Select equipment category"
+                                                        className="mt-1"
+                                                    />
+                                                ) : res.resource_type === 'labour' ? (
+                                                    <SearchableSelect
+                                                        value={res.workforce_trade_id ?? ''}
+                                                        onValueChange={(val) => updateResource(index, {
+                                                            workforce_trade_id: val || null,
+                                                            name: workforceTrades.find((option) => option.value === val)?.label ?? res.name,
+                                                        })}
+                                                        options={workforceTrades}
+                                                        placeholder="Select workforce trade"
+                                                        className="mt-1"
+                                                    />
+                                                ) : res.resource_type === 'subcontractor' ? (
+                                                    <SearchableSelect
+                                                        value={res.subcontractor_id ?? ''}
+                                                        onValueChange={(val) => updateResource(index, {
+                                                            subcontractor_id: val || null,
+                                                            name: subcontractors.find((option) => option.value === val)?.label ?? res.name,
+                                                        })}
+                                                        options={subcontractors}
+                                                        placeholder="Select subcontractor"
+                                                        className="mt-1"
+                                                    />
+                                                ) : (
                                                     <Input
                                                         value={res.name}
-                                                        onChange={(e) =>
-                                                            updateResource(
-                                                                index,
-                                                                {
-                                                                    name: e
-                                                                        .target
-                                                                        .value,
-                                                                },
-                                                            )
-                                                        }
-                                                        placeholder="e.g. Other direct expense"
+                                                        onChange={(e) => updateResource(index, { name: e.target.value })}
+                                                        placeholder="Describe the resource"
                                                         className="mt-1 h-9 text-xs"
                                                         required
                                                     />
                                                 )}
-                                            </div>
+                                                {res.resource_type === 'material' && !res.inventory_item_id && (
+                                                    <Input
+                                                        value={res.name}
+                                                        onChange={(e) => updateResource(index, { name: e.target.value })}
+                                                        placeholder="Material name (if not in inventory)"
+                                                        className="mt-1.5 h-8 text-xs"
+                                                        required
+                                                    />
+                                                )}                                            </div>
 
                                             <div>
                                                 <Label className="text-xs font-medium text-muted-foreground">

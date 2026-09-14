@@ -11,6 +11,12 @@ final class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        if (app()->environment('production')) {
+            $this->call(IronPointProductionSeeder::class);
+
+            return;
+        }
+
         $this->call(RolePermissionSeeder::class);
         $this->call(QuarryDemoSeeder::class);
         $this->call(QuarryWorkItemTemplateSeeder::class);
