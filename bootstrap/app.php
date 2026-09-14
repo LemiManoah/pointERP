@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Exceptions\EmailErrorReport;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -27,6 +28,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->report(function (Throwable $exception): void {
+            resolve(EmailErrorReport::class)->handle($exception);
+        });
         $exceptions->respond(function (Response $response, Throwable $throwable, Request $request): Response {
             if (! in_array($response->getStatusCode(), [403, 404], true)) {
                 return $response;

@@ -16,6 +16,11 @@ return [
     |
     */
 
+    'error_notification' => [
+        'enabled' => (bool) env('ERROR_EMAIL_NOTIFICATIONS', false),
+        'email' => env('ERROR_NOTIFICATION_EMAIL'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],
