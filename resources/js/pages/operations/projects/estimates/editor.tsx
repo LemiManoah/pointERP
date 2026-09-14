@@ -2,6 +2,7 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ArrowLeft, Check, Layers, Plus, Search, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
+import { toast } from 'sonner';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import InputError from '@/components/input-error';
 import { SearchableSelect } from '@/components/searchable-select';
@@ -310,10 +311,22 @@ export default function EstimateEditor({
         event.preventDefault();
         if (!editable || form.processing) return;
 
+        const options = {
+            preserveScroll: true,
+            onError: (submissionErrors: Record<string, string>) => {
+                toast.error(
+                    String(
+                        Object.values(submissionErrors)[0] ??
+                            'The estimate could not be saved. Check the highlighted fields.',
+                    ),
+                );
+            },
+        };
+
         if (estimate) {
-            form.put(`/estimates/${estimate.id}`);
+            form.put(`/estimates/${estimate.id}`, options);
         } else {
-            form.post(`/projects/${project.id}/estimates`);
+            form.post(`/projects/${project.id}/estimates`, options);
         }
     }
 
@@ -628,6 +641,9 @@ export default function EstimateEditor({
                                                 placeholder="Select unit"
                                                 searchPlaceholder="Search units..."
                                             />
+                                            <InputError
+                                                message={errors[`lines.${lineIndex}.unit_of_measure_id`]}
+                                            />
                                         </Field>
                                         <Field
                                             label="Estimated quantity"
@@ -645,6 +661,9 @@ export default function EstimateEditor({
                                                             event.target.value,
                                                     })
                                                 }
+                                            />
+                                            <InputError
+                                                message={errors[`lines.${lineIndex}.planned_quantity`]}
                                             />
                                         </Field>
                                         {can.viewCosts && (
@@ -1008,15 +1027,20 @@ export default function EstimateEditor({
                         </div>
 
                         {editable && (
-                            <div className="flex justify-end border-t pt-5">
-                                <Button
-                                    type="submit"
-                                    disabled={form.processing}
-                                >
-                                    {form.processing && <Spinner />}
-                                    Save estimate
-                                </Button>
-                            </div>
+                            <>
+                                <InputError
+                                    message={errors.lines ?? errors.estimate}
+                                />
+                                <div className="flex justify-end border-t pt-5">
+                                    <Button
+                                        type="submit"
+                                        disabled={form.processing}
+                                    >
+                                        {form.processing && <Spinner />}
+                                        Save estimate
+                                    </Button>
+                                </div>
+                            </>
                         )}
                     </CardContent>
                 </Card>

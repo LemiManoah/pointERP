@@ -62,19 +62,32 @@ final readonly class PostApprovedDsrMaterialUsage
             ]);
         }
 
-        $movement = $this->postMovement->handle($store, $item, [
-            'movement_type' => InventoryMovementType::Issue->value,
-            'original_quantity' => $line->quantity,
-            'original_unit_id' => $line->unit_of_measure_id,
-            'conversion_multiplier' => $line->conversion_multiplier,
-            'inventory_batch_id' => $line->inventory_batch_id,
-            'source_type' => DailySiteReportMaterialLine::class,
-            'source_id' => $line->id,
-            'source_key' => 'dsr-material-usage:'.$line->id,
-            'project_id' => $report->project_id,
-            'site_id' => $report->site_id,
-            'reason' => 'Material used in approved DSR '.$report->reference.'.',
-        ], $actor);
+        try {
+            $movement = $this->postMovement->handle($store, $item, [
+                'movement_type' => InventoryMovementType::Issue->value,
+                'original_quantity' => $line->quantity,
+                'original_unit_id' => $line->unit_of_measure_id,
+                'conversion_multiplier' => $line->conversion_multiplier,
+                'inventory_batch_id' => $line->inventory_batch_id,
+                'source_type' => DailySiteReportMaterialLine::class,
+                'source_id' => $line->id,
+                'source_key' => 'dsr-material-usage:'.$line->id,
+                'project_id' => $report->project_id,
+                'site_id' => $report->site_id,
+                'reason' => 'Material used in approved DSR '.$report->reference.'.',
+            ], $actor);
+        } catch (ValidationException $exception) {
+            $detail = collect($exception->errors())->flatten()->first();
+
+            throw ValidationException::withMessages([
+                'material_lines' => sprintf(
+                    '%s cannot be issued from %s: %s Add or transfer stock to the site store, select an available batch where required, or mark the material as externally supplied.',
+                    $line->material_name,
+                    $store->name,
+                    is_string($detail) ? $detail : 'the stock entry is incomplete.',
+                ),
+            ]);
+        }
 
         $line->forceFill([
             'material_usage_status' => DsrMaterialUsageStatus::Posted,

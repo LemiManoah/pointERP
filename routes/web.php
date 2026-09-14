@@ -316,7 +316,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
 
     Route::redirect('access-control', '/users')->name('access-control.index');
     Route::resource('users', AccessUserController::class)->only(['index', 'store', 'update', 'destroy'])->names('access-control.users');
-    Route::resource('roles', AccessRoleController::class)->only(['index', 'store', 'update', 'destroy'])->names('access-control.roles');
+    Route::resource('roles', AccessRoleController::class)->only(['index', 'create', 'store', 'update', 'destroy'])->names('access-control.roles');
 
     Route::resource('staff', StaffController::class)->only(['index', 'store', 'update', 'destroy'])->names('resources.staff');
     Route::resource('staff-positions', StaffPositionController::class)->only(['index', 'store', 'update', 'destroy'])->names('resources.staff-positions');

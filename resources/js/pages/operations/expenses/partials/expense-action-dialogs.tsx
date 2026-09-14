@@ -2,6 +2,7 @@ import { router, useForm } from '@inertiajs/react';
 import { CreditCard, RotateCcw, XCircle } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import InputError from '@/components/input-error';
 import { SearchableSelect } from '@/components/searchable-select';
 import { Button } from '@/components/ui/button';
@@ -273,10 +274,26 @@ export function ReversePaymentButton({ paymentId }: { paymentId: string }) {
 }
 
 export function approveExpense(expenseId: string) {
-    router.post(`/expenses/${expenseId}/approve`);
+    router.post(`/expenses/${expenseId}/approve`, {}, {
+        onError: (errors) =>
+            toast.error(
+                String(
+                    Object.values(errors)[0] ??
+                        'The expense could not be approved.',
+                ),
+            ),
+    });
 }
 export function submitExpense(expenseId: string) {
-    router.post(`/expenses/${expenseId}/submit`);
+    router.post(`/expenses/${expenseId}/submit`, {}, {
+        onError: (errors) =>
+            toast.error(
+                String(
+                    Object.values(errors)[0] ??
+                        'The expense could not be submitted.',
+                ),
+            ),
+    });
 }
 function Field({
     label,

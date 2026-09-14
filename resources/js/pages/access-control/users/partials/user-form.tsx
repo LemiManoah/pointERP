@@ -250,7 +250,7 @@ export function UserForm({
             </div>
 
             <div className="grid gap-2">
-                <Label htmlFor="staff_id">Staff member</Label>
+                <Label htmlFor="staff_id" required>Staff member</Label>
                 <SearchableSelect
                     value={form.data.staff_id}
                     onValueChange={setStaffId}
@@ -272,7 +272,7 @@ export function UserForm({
             </div>
 
             <div className="grid gap-3">
-                <Label>Branch access</Label>
+                <Label required>Branch access</Label>
                 <div className="grid max-h-48 gap-2 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
                     {branchOptionsSource.map((branch) => (
                         <label
@@ -300,7 +300,7 @@ export function UserForm({
             </div>
 
             <div className="grid gap-2">
-                <Label>Default branch</Label>
+                <Label required>Default branch</Label>
                 <SearchableSelect
                     value={form.data.default_branch_id}
                     onValueChange={(value) =>
@@ -314,7 +314,7 @@ export function UserForm({
             </div>
 
             <div className="grid gap-2">
-                <Label htmlFor="password">
+                <Label htmlFor="password" required={!user}>
                     {user ? 'New password' : 'Password'}
                 </Label>
                 <PasswordInput
@@ -333,7 +333,7 @@ export function UserForm({
             </div>
 
             <div className="grid gap-2">
-                <Label htmlFor="password_confirmation">Confirm password</Label>
+                <Label htmlFor="password_confirmation" required={!user}>Confirm password</Label>
                 <PasswordInput
                     id="password_confirmation"
                     value={form.data.password_confirmation}

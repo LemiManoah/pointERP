@@ -31,7 +31,7 @@ final class UpdateProjectActivityRequest extends FormRequest
             'code' => ['nullable', 'string', 'max:80'],
             'boq_item_number' => ['nullable', 'string', 'max:80'],
             'name' => ['required', 'string', 'max:220'],
-            'unit' => ['nullable', 'string', 'max:40'],
+            'unit' => ['required', 'string', 'max:40'],
             'planned_quantity' => ['nullable', 'numeric', 'min:0'],
             'approved_quantity' => ['nullable', 'numeric', 'min:0'],
             'rate_amount' => ['nullable', 'numeric', 'min:0'],

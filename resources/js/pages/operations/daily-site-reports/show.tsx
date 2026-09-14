@@ -488,7 +488,7 @@ export default function DailySiteReportShow({
                                 report={report}
                                 comparison={labourAttendance}
                                 canOverride={can.overrideLabourVariance}
-                                onLabourError={() => setTab('labour')}
+                                onApprovalError={(targetTab) => setTab(targetTab)}
                             />
                         )}
                     </div>
@@ -1171,12 +1171,12 @@ function ApproveReportButton({
     report,
     comparison,
     canOverride,
-    onLabourError,
+    onApprovalError,
 }: {
     report: Report;
     comparison: LabourAttendance;
     canOverride: boolean;
-    onLabourError: () => void;
+    onApprovalError: (tab: string) => void;
 }) {
     const confirm = useConfirmDialog();
     const [open, setOpen] = useState(false);
@@ -1185,25 +1185,27 @@ function ApproveReportButton({
     });
     const isOverReported = comparison.status === 'over_reported';
 
-    function approve(reason = '') {
-        router.post(
-            '/daily-site-reports/' + report.id + '/approve',
-            { labour_variance_override_reason: reason },
-            {
-                preserveScroll: true,
-                onSuccess: () => setOpen(false),
-                onError: (errors) => {
-                    onLabourError();
-                    toast.error(
-                        String(
+    function approve() {
+        form.post('/daily-site-reports/' + report.id + '/approve', {
+            preserveScroll: true,
+            onSuccess: () => setOpen(false),
+            onError: (errors) => {
+                onApprovalError(
+                    errors.material_lines || errors.inventory_batch_id
+                        ? 'materials'
+                        : 'labour',
+                );
+                toast.error(
+                    String(
+                        errors.material_lines ??
+                            errors.inventory_batch_id ??
                             errors.labour_variance_override_reason ??
-                                Object.values(errors)[0] ??
-                                'The report could not be approved.',
-                        ),
-                    );
-                },
+                            Object.values(errors)[0] ??
+                            'The report could not be approved.',
+                    ),
+                );
             },
-        );
+        });
     }
 
     if (isOverReported && !canOverride) {
@@ -1271,11 +1273,8 @@ function ApproveReportButton({
                                 form.data.labour_variance_override_reason.trim()
                                     .length < 10
                             }
-                            onClick={() =>
-                                approve(
-                                    form.data.labour_variance_override_reason,
-                                )
-                            }
+                            onClick={approve}
+
                         >
                             Approve with reason
                         </Button>
@@ -1288,6 +1287,7 @@ function ApproveReportButton({
     return (
         <Button
             type="button"
+            disabled={form.processing}
             onClick={() =>
                 confirm({
                     title: 'Approve report?',
@@ -1295,7 +1295,7 @@ function ApproveReportButton({
                         report.reference +
                         ' will be locked from direct editing.',
                     confirmLabel: 'Approve',
-                    onConfirm: () => approve(),
+                    onConfirm: approve,
                 })
             }
         >

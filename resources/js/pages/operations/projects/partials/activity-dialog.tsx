@@ -59,6 +59,7 @@ type Props = {
     activity?: ProjectActivity;
     sites: Site[];
     currencies: Option[];
+    units: Option[];
     canViewRates: boolean;
 };
 
@@ -67,6 +68,7 @@ export function ActivityDialog({
     activity,
     sites,
     currencies,
+    units,
     canViewRates,
 }: Props) {
     const [open, setOpen] = useState(false);
@@ -188,13 +190,18 @@ export function ActivityDialog({
 
                     <div className="grid gap-4 sm:grid-cols-3">
                         <div className="grid gap-2">
-                            <Label htmlFor="unit">Unit</Label>
-                            <Input
-                                id="unit"
+                            <Label htmlFor="unit" required>Unit</Label>
+                            <SearchableSelect
                                 value={form.data.unit}
-                                onChange={(event) =>
-                                    form.setData('unit', event.target.value)
+                                onValueChange={(value) =>
+                                    form.setData('unit', value)
                                 }
+                                options={units.map((unit) => ({
+                                    value: unit.id,
+                                    label: unit.name,
+                                }))}
+                                placeholder="Select unit"
+                                searchPlaceholder="Search units..."
                             />
                             <InputError message={form.errors.unit} />
                         </div>

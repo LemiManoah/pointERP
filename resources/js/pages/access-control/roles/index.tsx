@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import { Button } from '@/components/ui/button';
@@ -71,7 +71,12 @@ export default function RolesIndex({ roles, permissions }: Props) {
                         </div>
                     </div>
                     <div className="lg:ml-auto">
-                        <RoleDialog permissions={permissions} />
+                        <Button asChild>
+                            <Link href="/roles/create">
+                                <Plus />
+                                New role
+                            </Link>
+                        </Button>
                     </div>
                 </div>
 

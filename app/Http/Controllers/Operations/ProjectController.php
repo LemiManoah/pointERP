@@ -17,6 +17,7 @@ use App\Models\ProjectActivity;
 use App\Models\ProjectEstimate;
 use App\Models\Site;
 use App\Models\TenantCurrency;
+use App\Models\UnitOfMeasure;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\BranchContext;
@@ -223,6 +224,15 @@ final class ProjectController
                     'email' => $optionUser->email,
                     'branch_ids' => $optionUser->branches()->pluck('branches.id')->values()->all(),
                     'can_view_all_branches' => $optionUser->can('branches.view-all'),
+                ]),
+            'activityUnits' => UnitOfMeasure::query()
+                ->where(fn (Builder $query): Builder => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenantId))
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['code', 'name', 'symbol'])
+                ->map(fn (UnitOfMeasure $unit): array => [
+                    'id' => $unit->symbol ?: $unit->code,
+                    'name' => sprintf('%s (%s)', $unit->name, $unit->symbol ?: $unit->code),
                 ]),
             'currencies' => TenantCurrency::query()
                 ->with('currency')

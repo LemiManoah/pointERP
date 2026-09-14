@@ -2,6 +2,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import InputError from '@/components/input-error';
 import { SearchableSelect } from '@/components/searchable-select';
@@ -241,10 +242,24 @@ export default function ExpenseForm(props: Props) {
                 : 'Save this expense draft?',
             description: `The expense total is ${formatCurrencyAmount(form.data.currency_code, total)}${paid > 0 ? ` and an initial payment of ${formatCurrencyAmount(form.data.currency_code, paid)} will be recorded, leaving ${formatCurrencyAmount(form.data.currency_code, total - paid)} outstanding` : ' with no initial payment'}. It will still require submission and approval.`,
             confirmLabel: isEditing ? 'Update draft' : 'Save draft',
-            onConfirm: () =>
-                isEditing
-                    ? form.put(`/expenses/${props.expense?.id}`)
-                    : form.post('/expenses'),
+            onConfirm: () => {
+                const options = {
+                    preserveScroll: true,
+                    onError: (submissionErrors: Record<string, string>) =>
+                        toast.error(
+                            String(
+                                Object.values(submissionErrors)[0] ??
+                                    'The expense could not be saved. Check the highlighted fields.',
+                            ),
+                        ),
+                };
+
+                if (isEditing) {
+                    form.put(`/expenses/${props.expense?.id}`, options);
+                } else {
+                    form.post('/expenses', options);
+                }
+            },
         });
     }
 

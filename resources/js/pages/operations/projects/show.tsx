@@ -64,6 +64,7 @@ type Props = {
     contracts: Option[];
     users: Option[];
     currencies: Option[];
+    activityUnits: Option[];
     canViewRates: boolean;
     canViewEstimates: boolean;
     canCreateEstimate: boolean;
@@ -150,6 +151,7 @@ export default function ProjectShow({
     contracts,
     users,
     currencies,
+    activityUnits,
     canViewRates,
     canViewEstimates,
     canCreateEstimate,
@@ -331,6 +333,7 @@ export default function ProjectShow({
                                     projectId={project.id}
                                     sites={sites}
                                     currencies={currencies}
+                                    units={activityUnits}
                                     canViewRates={canViewRates}
                                 />
                             </div>
@@ -339,6 +342,7 @@ export default function ProjectShow({
                             activities={activeActivities}
                             sites={sites}
                             currencies={currencies}
+                            units={activityUnits}
                             canViewRates={canViewRates}
                             title="Active work activities"
                         />
@@ -347,6 +351,7 @@ export default function ProjectShow({
                                 activities={inactiveActivities}
                                 sites={sites}
                                 currencies={currencies}
+                                units={activityUnits}
                                 canViewRates={canViewRates}
                                 title="Inactive work activities"
                             />
@@ -938,12 +943,14 @@ function ActivityTable({
     activities,
     sites,
     currencies,
+    units,
     canViewRates,
     title,
 }: {
     activities: ProjectActivity[];
     sites: SiteRow[];
     currencies: Option[];
+    units: Option[];
     canViewRates: boolean;
     title: string;
 }) {
@@ -1034,6 +1041,7 @@ function ActivityTable({
                                                     }
                                                     sites={sites}
                                                     currencies={currencies}
+                                                    units={units}
                                                     canViewRates={canViewRates}
                                                 />
                                             )}

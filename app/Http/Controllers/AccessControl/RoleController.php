@@ -43,6 +43,18 @@ final class RoleController
         ]);
     }
 
+    public function create(): Response
+    {
+        abort_unless(auth()->user()?->can('access-control.roles.manage'), 403);
+
+        return Inertia::render('access-control/roles/create', [
+            'permissions' => Permission::query()
+                ->orderBy('name')
+                ->pluck('name')
+                ->values()
+                ->all(),
+        ]);
+    }
     public function store(StoreRoleRequest $request, CreateRole $action): RedirectResponse
     {
         abort_unless($request->user()?->can('access-control.roles.manage'), 403);
