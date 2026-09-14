@@ -28,7 +28,13 @@ type Props = {
     standalone?: boolean;
 };
 
-export function RoleForm({ role, permissions, onCancel, onSuccess, standalone = false }: Props) {
+export function RoleForm({
+    role,
+    permissions,
+    onCancel,
+    onSuccess,
+    standalone = false,
+}: Props) {
     const form = useForm<RoleFormData>({
         name: role?.name ?? '',
         permissions: role?.permissions ?? [],
@@ -95,7 +101,9 @@ export function RoleForm({ role, permissions, onCancel, onSuccess, standalone = 
     return (
         <form onSubmit={submit} className="grid gap-5">
             <div className="grid gap-2">
-                <Label htmlFor="name" required>Role name</Label>
+                <Label htmlFor="name" required>
+                    Role name
+                </Label>
                 <Input
                     id="name"
                     value={form.data.name}
@@ -109,7 +117,9 @@ export function RoleForm({ role, permissions, onCancel, onSuccess, standalone = 
 
             <div className="grid gap-3">
                 <Label>Permissions</Label>
-                <div className={`grid gap-4 rounded-md border p-4 md:grid-cols-2 xl:grid-cols-3 ${standalone ? '' : 'max-h-[45dvh] overflow-y-auto'}`}>
+                <div
+                    className={`grid gap-4 rounded-md border p-4 md:grid-cols-2 xl:grid-cols-3 ${standalone ? '' : 'max-h-[45dvh] overflow-y-auto'}`}
+                >
                     {Object.entries(groupedPermissions).map(
                         ([module, modulePermissions]) => {
                             const allSelected = modulePermissions.every(

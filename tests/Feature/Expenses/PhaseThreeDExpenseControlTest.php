@@ -38,9 +38,10 @@ it('shows seeded expenses, payments, categories and items to an authorised user'
 
 it('enforces branch access even when the user has general expense permission', function (): void {
     $siteManager = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();
-    $kampalaExpense = Expense::query()->where('expense_number', 'EXP-DEMO-001')->firstOrFail();
+    $restrictedExpense = Expense::query()->where('expense_number', 'EXP-DEMO-001')->firstOrFail();
+    $siteManager->branches()->detach($restrictedExpense->branch_id);
 
-    $this->actingAs($siteManager)->get(route('expenses.show', $kampalaExpense))->assertForbidden();
+    $this->actingAs($siteManager)->get(route('expenses.show', $restrictedExpense))->assertForbidden();
 });
 
 it('allows permission-based self approval and keeps approved expenses immutable', function (): void {

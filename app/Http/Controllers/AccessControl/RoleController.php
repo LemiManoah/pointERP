@@ -55,6 +55,7 @@ final class RoleController
                 ->all(),
         ]);
     }
+
     public function store(StoreRoleRequest $request, CreateRole $action): RedirectResponse
     {
         abort_unless($request->user()?->can('access-control.roles.manage'), 403);

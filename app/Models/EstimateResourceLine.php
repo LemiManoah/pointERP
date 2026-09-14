@@ -19,6 +19,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read string $project_estimate_line_id
  * @property-read string|null $inventory_item_id
  * @property-read string|null $unit_of_measure_id
+ * @property-read string|null $equipment_category_id
+ * @property-read string|null $workforce_trade_id
+ * @property-read string|null $subcontractor_id
  * @property-read EstimateResourceType $resource_type
  * @property-read string $name
  * @property-read string $quantity_per_work_unit
@@ -26,8 +29,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read string|null $notes
  * @property-read InventoryItem|null $inventoryItem
  * @property-read UnitOfMeasure|null $unit
+ * @property-read EquipmentCategory|null $equipmentCategory
+ * @property-read WorkforceTrade|null $workforceTrade
+ * @property-read Customer|null $subcontractor
  */
-#[Fillable(['tenant_id', 'project_estimate_line_id', 'inventory_item_id', 'unit_of_measure_id', 'resource_type', 'name', 'quantity_per_work_unit', 'estimated_unit_cost', 'notes', 'sort_order'])]
+#[Fillable(['tenant_id', 'project_estimate_line_id', 'inventory_item_id', 'unit_of_measure_id', 'equipment_category_id', 'workforce_trade_id', 'subcontractor_id', 'resource_type', 'name', 'quantity_per_work_unit', 'estimated_unit_cost', 'notes', 'sort_order'])]
 final class EstimateResourceLine extends Model
 {
     use BelongsToTenant;
@@ -66,5 +72,23 @@ final class EstimateResourceLine extends Model
     public function unit(): BelongsTo
     {
         return $this->belongsTo(UnitOfMeasure::class, 'unit_of_measure_id');
+    }
+
+    /** @return BelongsTo<EquipmentCategory, $this> */
+    public function equipmentCategory(): BelongsTo
+    {
+        return $this->belongsTo(EquipmentCategory::class, 'equipment_category_id');
+    }
+
+    /** @return BelongsTo<WorkforceTrade, $this> */
+    public function workforceTrade(): BelongsTo
+    {
+        return $this->belongsTo(WorkforceTrade::class, 'workforce_trade_id');
+    }
+
+    /** @return BelongsTo<Customer, $this> */
+    public function subcontractor(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'subcontractor_id');
     }
 }

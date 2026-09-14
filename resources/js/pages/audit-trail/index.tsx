@@ -21,6 +21,14 @@ import {
     NativeSelectOption,
 } from '@/components/ui/native-select';
 import { Separator } from '@/components/ui/separator';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -87,8 +95,153 @@ function formatEvent(event: string | null) {
     return event?.replaceAll('.', ' ') ?? 'audit event';
 }
 
-function formatJson(value: unknown) {
-    return JSON.stringify(value ?? {}, null, 2);
+function formatFieldLabel(key: string): string {
+    return key
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatValue(value: unknown): React.ReactNode {
+    if (value === null || value === undefined || value === '') {
+        return <span className="text-muted-foreground">—</span>;
+    }
+    if (typeof value === 'boolean') {
+        return value ? (
+            <Badge
+                variant="outline"
+                className="border-emerald-300 bg-emerald-50 text-xs font-normal text-emerald-800"
+            >
+                Yes
+            </Badge>
+        ) : (
+            <Badge
+                variant="outline"
+                className="border-slate-300 bg-slate-50 text-xs font-normal text-slate-700"
+            >
+                No
+            </Badge>
+        );
+    }
+    if (typeof value === 'object') {
+        if (Array.isArray(value)) {
+            if (value.length === 0) {
+                return <span className="text-muted-foreground">—</span>;
+            }
+
+            return (
+                <div className="flex flex-wrap gap-1">
+                    {value.map((item, index) => (
+                        <span
+                            key={index}
+                            className="rounded bg-muted px-1.5 py-0.5 text-xs"
+                        >
+                            {typeof item === 'object'
+                                ? JSON.stringify(item)
+                                : String(item)}
+                        </span>
+                    ))}
+                </div>
+            );
+        }
+
+        return (
+            <span className="font-mono text-xs text-muted-foreground">
+                {JSON.stringify(value)}
+            </span>
+        );
+    }
+
+    if (typeof value === 'string' || typeof value === 'number') {
+        return <span className="break-words">{value}</span>;
+    }
+
+    return (
+        <span className="break-words">
+            {typeof value === 'bigint'
+                ? value.toString()
+                : JSON.stringify(value)}
+        </span>
+    );
+}
+
+function AuditChangesView({ changes }: { changes: Record<string, unknown> }) {
+    const rawOld =
+        changes['old'] && typeof changes['old'] === 'object'
+            ? (changes['old'] as Record<string, unknown>)
+            : {};
+    const rawNew =
+        changes['attributes'] && typeof changes['attributes'] === 'object'
+            ? (changes['attributes'] as Record<string, unknown>)
+            : {};
+
+    const allKeys = Array.from(
+        new Set([...Object.keys(rawOld), ...Object.keys(rawNew)]),
+    );
+
+    if (allKeys.length === 0) {
+        return (
+            <div className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
+                No specific field changes recorded for this event.
+            </div>
+        );
+    }
+
+    return (
+        <div className="overflow-hidden rounded-md border bg-card">
+            <div className="overflow-x-auto">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="bg-muted/40">
+                            <TableHead className="w-1/3 text-xs font-semibold">
+                                Changed field
+                            </TableHead>
+                            <TableHead className="w-1/3 text-xs font-semibold">
+                                Previous value
+                            </TableHead>
+                            <TableHead className="w-1/3 text-xs font-semibold">
+                                New value
+                            </TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {allKeys.map((key) => {
+                            const oldVal = rawOld[key];
+                            const newVal = rawNew[key];
+                            const isDifferent =
+                                JSON.stringify(oldVal) !==
+                                JSON.stringify(newVal);
+
+                            return (
+                                <TableRow
+                                    key={key}
+                                    className={
+                                        isDifferent
+                                            ? 'bg-amber-500/[0.03]'
+                                            : undefined
+                                    }
+                                >
+                                    <TableCell className="py-2.5 align-top">
+                                        <div className="text-xs font-medium text-foreground">
+                                            {formatFieldLabel(key)}
+                                        </div>
+                                        <div className="font-mono text-[10px] text-muted-foreground">
+                                            {key}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="py-2.5 align-top text-xs text-muted-foreground">
+                                        {formatValue(oldVal)}
+                                    </TableCell>
+                                    <TableCell className="py-2.5 align-top text-xs font-medium text-foreground">
+                                        {formatValue(newVal)}
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
+                    </TableBody>
+                </Table>
+            </div>
+        </div>
+    );
 }
 
 function applyFilters(filters: Filters) {
@@ -330,29 +483,10 @@ export default function AuditTrailIndex({
                                         </CollapsibleTrigger>
                                     </div>
                                     <CollapsibleContent>
-                                        <div className="grid gap-4 pb-4 lg:grid-cols-2">
-                                            <div className="rounded-md border bg-muted/30 p-3">
-                                                <div className="text-xs font-medium text-muted-foreground uppercase">
-                                                    Old values
-                                                </div>
-                                                <pre className="mt-2 max-h-72 overflow-auto text-xs leading-5">
-                                                    {formatJson(
-                                                        activity.changes['old'],
-                                                    )}
-                                                </pre>
-                                            </div>
-                                            <div className="rounded-md border bg-muted/30 p-3">
-                                                <div className="text-xs font-medium text-muted-foreground uppercase">
-                                                    New values
-                                                </div>
-                                                <pre className="mt-2 max-h-72 overflow-auto text-xs leading-5">
-                                                    {formatJson(
-                                                        activity.changes[
-                                                            'attributes'
-                                                        ],
-                                                    )}
-                                                </pre>
-                                            </div>
+                                        <div className="grid gap-4 pb-4">
+                                            <AuditChangesView
+                                                changes={activity.changes}
+                                            />
                                             <div className="text-sm text-muted-foreground lg:col-span-2">
                                                 <Separator className="mb-3" />
                                                 <div className="grid gap-2 md:grid-cols-3">

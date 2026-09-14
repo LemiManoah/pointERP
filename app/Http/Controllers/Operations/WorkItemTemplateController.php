@@ -8,9 +8,13 @@ use App\Actions\Operations\Estimates\DeleteWorkItemTemplate;
 use App\Actions\Operations\Estimates\SaveWorkItemTemplate;
 use App\Enums\EstimateResourceType;
 use App\Http\Requests\Operations\Estimates\StoreWorkItemTemplateRequest;
+use App\Models\Customer;
+use App\Models\EquipmentCategory;
 use App\Models\InventoryItem;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
+use App\Models\WorkforceTrade;
+use App\Models\WorkItemCategory;
 use App\Models\WorkItemResourceTemplate;
 use App\Models\WorkItemTemplate;
 use App\Services\TenantContext;
@@ -50,12 +54,10 @@ final class WorkItemTemplateController
 
         $templates = $query->paginate(20)->withQueryString();
 
-        $categories = WorkItemTemplate::query()
-            ->select('category')
-            ->distinct()
-            ->orderBy('category')
-            ->pluck('category')
-            ->all();
+        $categories = WorkItemCategory::query()->where('is_active', true)->orderBy('name')->pluck('name')->all();
+        if ($categories === []) {
+            $categories = WorkItemTemplate::query()->select('category')->distinct()->orderBy('category')->pluck('category')->all();
+        }
 
         $units = UnitOfMeasure::query()
             ->where(fn (Builder $q) => $q->whereNull('tenant_id')->orWhere('tenant_id', $tenantId))
@@ -76,6 +78,34 @@ final class WorkItemTemplateController
                 'label' => sprintf('%s - %s', $item->code, $item->name),
                 'unit_id' => $item->stock_unit_id,
                 'unit_cost' => $item->default_unit_cost,
+            ]);
+
+        $equipmentCategories = EquipmentCategory::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'code'])
+            ->map(fn (EquipmentCategory $cat): array => [
+                'value' => $cat->id,
+                'label' => sprintf('%s%s', $cat->code ? $cat->code.' - ' : '', $cat->name),
+            ]);
+
+        $workforceTrades = WorkforceTrade::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'code'])
+            ->map(fn (WorkforceTrade $trade): array => [
+                'value' => $trade->id,
+                'label' => sprintf('%s%s', $trade->code ? $trade->code.' - ' : '', $trade->name),
+            ]);
+
+        $subcontractors = Customer::query()
+            ->where('type', Customer::TYPE_SUBCONTRACTOR)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->get(['id', 'name', 'code'])
+            ->map(fn (Customer $sub): array => [
+                'value' => $sub->id,
+                'label' => sprintf('%s%s', $sub->code ? $sub->code.' - ' : '', $sub->name),
             ]);
 
         $resourceTypes = collect(EstimateResourceType::cases())->map(fn (EstimateResourceType $type): array => [
@@ -101,6 +131,9 @@ final class WorkItemTemplateController
                     'resource_type' => $res->resource_type->value,
                     'resource_type_label' => $res->resource_type->label(),
                     'inventory_item_id' => $res->inventory_item_id,
+                    'equipment_category_id' => $res->equipment_category_id,
+                    'workforce_trade_id' => $res->workforce_trade_id,
+                    'subcontractor_id' => $res->subcontractor_id,
                     'unit_of_measure_id' => $res->unit_of_measure_id,
                     'name' => $res->name,
                     'quantity_per_work_unit' => $res->quantity_per_work_unit,
@@ -112,6 +145,9 @@ final class WorkItemTemplateController
             'categories' => $categories,
             'units' => $units,
             'items' => $items,
+            'equipmentCategories' => $equipmentCategories,
+            'workforceTrades' => $workforceTrades,
+            'subcontractors' => $subcontractors,
             'resourceTypes' => $resourceTypes,
             'currencyCode' => resolve(TenantContext::class)->current()->default_currency_code,
             'filters' => [

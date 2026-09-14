@@ -250,7 +250,9 @@ export function UserForm({
             </div>
 
             <div className="grid gap-2">
-                <Label htmlFor="staff_id" required>Staff member</Label>
+                <Label htmlFor="staff_id" required>
+                    Staff member
+                </Label>
                 <SearchableSelect
                     value={form.data.staff_id}
                     onValueChange={setStaffId}
@@ -333,7 +335,9 @@ export function UserForm({
             </div>
 
             <div className="grid gap-2">
-                <Label htmlFor="password_confirmation" required={!user}>Confirm password</Label>
+                <Label htmlFor="password_confirmation" required={!user}>
+                    Confirm password
+                </Label>
                 <PasswordInput
                     id="password_confirmation"
                     value={form.data.password_confirmation}

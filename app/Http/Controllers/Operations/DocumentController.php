@@ -114,10 +114,9 @@ final class DocumentController
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Document saved.']);
 
-        foreach ((array) ($data['links'] ?? []) as $link) {
-            if (is_array($link) && ($link['type'] ?? null) === 'daily_site_report' && is_string($link['id'] ?? null)) {
-                return to_route('daily-site-reports.show', $link['id']);
-            }
+        $linkedRecordRedirect = $this->linkedRecordRedirect((array) ($data['links'] ?? []));
+        if ($linkedRecordRedirect instanceof RedirectResponse) {
+            return $linkedRecordRedirect;
         }
 
         return to_route('documents.show', $document);
@@ -150,6 +149,33 @@ final class DocumentController
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Document archive status changed.']);
 
         return to_route('documents.index');
+    }
+
+    /** @param array<array-key, mixed> $links */
+    private function linkedRecordRedirect(array $links): ?RedirectResponse
+    {
+        foreach ($links as $link) {
+            if (! is_array($link)) {
+                continue;
+            }
+
+            if (! is_string($link['id'] ?? null)) {
+                continue;
+            }
+
+            $route = match ($link['type'] ?? null) {
+                'daily_site_report' => 'daily-site-reports.show',
+                'expense' => 'expenses.show',
+                'project' => 'projects.show',
+                default => null,
+            };
+
+            if ($route !== null) {
+                return to_route($route, $link['id']);
+            }
+        }
+
+        return null;
     }
 
     /**

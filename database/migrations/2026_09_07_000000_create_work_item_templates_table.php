@@ -40,6 +40,9 @@ return new class extends Migration
             $table->string('resource_type', 24);
             $table->uuid('inventory_item_id')->nullable();
             $table->uuid('unit_of_measure_id')->nullable();
+            $table->uuid('equipment_category_id')->nullable();
+            $table->uuid('workforce_trade_id')->nullable();
+            $table->uuid('subcontractor_id')->nullable();
             $table->string('name', 220);
             $table->decimal('quantity_per_work_unit', 20, 6);
             $table->decimal('unit_cost', 20, 4)->nullable();
@@ -51,6 +54,9 @@ return new class extends Migration
             $table->foreign('work_item_template_id', 'wirt_template_fk')->references('id')->on('work_item_templates')->cascadeOnDelete();
             $table->foreign('inventory_item_id', 'wirt_item_fk')->references('id')->on('inventory_items')->nullOnDelete();
             $table->foreign('unit_of_measure_id', 'wirt_unit_fk')->references('id')->on('unit_of_measures')->nullOnDelete();
+            $table->foreign('equipment_category_id', 'wirt_equipment_category_fk')->references('id')->on('equipment_categories')->nullOnDelete();
+            $table->foreign('workforce_trade_id', 'wirt_workforce_trade_fk')->references('id')->on('workforce_trades')->nullOnDelete();
+            $table->foreign('subcontractor_id', 'wirt_subcontractor_fk')->references('id')->on('customers')->nullOnDelete();
             $table->index(['tenant_id', 'work_item_template_id'], 'wirt_tenant_template_idx');
         });
     }

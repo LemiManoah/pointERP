@@ -642,7 +642,11 @@ export default function EstimateEditor({
                                                 searchPlaceholder="Search units..."
                                             />
                                             <InputError
-                                                message={errors[`lines.${lineIndex}.unit_of_measure_id`]}
+                                                message={
+                                                    errors[
+                                                        `lines.${lineIndex}.unit_of_measure_id`
+                                                    ]
+                                                }
                                             />
                                         </Field>
                                         <Field
@@ -663,7 +667,11 @@ export default function EstimateEditor({
                                                 }
                                             />
                                             <InputError
-                                                message={errors[`lines.${lineIndex}.planned_quantity`]}
+                                                message={
+                                                    errors[
+                                                        `lines.${lineIndex}.planned_quantity`
+                                                    ]
+                                                }
                                             />
                                         </Field>
                                         {can.viewCosts && (

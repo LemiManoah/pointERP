@@ -16,7 +16,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
- * @phpstan-type EstimateResourcePayload array{resource_type: string, inventory_item_id?: string|null, unit_of_measure_id?: string|null, name: string, quantity_per_work_unit: numeric-string, estimated_unit_cost?: numeric-string|null, notes?: string|null}
+ * @phpstan-type EstimateResourcePayload array{resource_type: string, inventory_item_id?: string|null, unit_of_measure_id?: string|null, equipment_category_id?: string|null, workforce_trade_id?: string|null, subcontractor_id?: string|null, name: string, quantity_per_work_unit: numeric-string, estimated_unit_cost?: numeric-string|null, notes?: string|null}
  * @phpstan-type EstimateLinePayload array{work_item_key?: string|null, site_id?: string|null, unit_of_measure_id: string, boq_reference?: string|null, code?: string|null, name: string, planned_quantity: numeric-string, selling_rate?: numeric-string|null, estimated_unit_cost?: numeric-string|null, notes?: string|null, resources?: list<EstimateResourcePayload>}
  * @phpstan-type ProjectEstimatePayload array{title: string, currency_code: string, notes?: string|null, lines: list<EstimateLinePayload>}
  */
@@ -105,6 +105,9 @@ final readonly class SaveProjectEstimate
                         'resource_type' => $resource['resource_type'],
                         'inventory_item_id' => $resource['inventory_item_id'] ?? null,
                         'unit_of_measure_id' => $resource['unit_of_measure_id'] ?? null,
+                        'equipment_category_id' => $resource['equipment_category_id'] ?? null,
+                        'workforce_trade_id' => $resource['workforce_trade_id'] ?? null,
+                        'subcontractor_id' => $resource['subcontractor_id'] ?? null,
                         'name' => $resource['name'],
                         'quantity_per_work_unit' => $resource['quantity_per_work_unit'],
                         'estimated_unit_cost' => $resource['estimated_unit_cost'] ?? null,

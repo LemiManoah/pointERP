@@ -44,9 +44,11 @@ final readonly class ProcessWorkforceExceptions
                 if (! $register->site instanceof Site) {
                     continue;
                 }
+
                 if ($this->calendarResolver->deadlineAt($register->site, $register->attendance_date)->greaterThan($asOf)) {
                     continue;
                 }
+
                 $result['overdue_registers']++;
                 $result['notifications'] += $this->notifications->attendanceOverdue($register);
             }

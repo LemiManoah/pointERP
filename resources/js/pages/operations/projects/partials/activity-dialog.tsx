@@ -190,7 +190,9 @@ export function ActivityDialog({
 
                     <div className="grid gap-4 sm:grid-cols-3">
                         <div className="grid gap-2">
-                            <Label htmlFor="unit" required>Unit</Label>
+                            <Label htmlFor="unit" required>
+                                Unit
+                            </Label>
                             <SearchableSelect
                                 value={form.data.unit}
                                 onValueChange={(value) =>

@@ -26,10 +26,14 @@ export default function CreateRole({ permissions }: Props) {
                     <div>
                         <h1 className="text-2xl font-semibold">New role</h1>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            Name the role and select the permissions its users should receive.
+                            Name the role and select the permissions its users
+                            should receive.
                         </p>
                     </div>
-                    <Button variant="outline" onClick={() => router.visit('/roles')}>
+                    <Button
+                        variant="outline"
+                        onClick={() => router.visit('/roles')}
+                    >
                         <ArrowLeft />
                         Back to roles
                     </Button>

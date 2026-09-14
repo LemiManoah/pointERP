@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Search } from 'lucide-react';
+import { Eye, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import { Badge } from '@/components/ui/badge';
@@ -181,6 +181,21 @@ export default function ProjectsIndex({
                                             </td>
                                             <td className="py-3">
                                                 <div className="flex justify-end gap-2">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        asChild
+                                                    >
+                                                        <Link
+                                                            href={
+                                                                '/projects/' +
+                                                                project.id
+                                                            }
+                                                        >
+                                                            <Eye />
+                                                            View
+                                                        </Link>
+                                                    </Button>
                                                     <ProjectDialog
                                                         project={project}
                                                         branches={branches}

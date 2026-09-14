@@ -16,6 +16,9 @@ return new class extends Migration
             $table->uuid('project_estimate_line_id');
             $table->uuid('inventory_item_id')->nullable();
             $table->uuid('unit_of_measure_id')->nullable();
+            $table->uuid('equipment_category_id')->nullable();
+            $table->uuid('workforce_trade_id')->nullable();
+            $table->uuid('subcontractor_id')->nullable();
             $table->string('resource_type', 24);
             $table->string('name', 220);
             $table->decimal('quantity_per_work_unit', 20, 6);
@@ -28,6 +31,9 @@ return new class extends Migration
             $table->foreign('project_estimate_line_id', 'est_res_est_line_fk')->references('id')->on('project_estimate_lines')->cascadeOnDelete();
             $table->foreign('inventory_item_id', 'est_res_item_fk')->references('id')->on('inventory_items')->restrictOnDelete();
             $table->foreign('unit_of_measure_id', 'est_res_unit_fk')->references('id')->on('unit_of_measures')->restrictOnDelete();
+            $table->foreign('equipment_category_id', 'est_res_equipment_category_fk')->references('id')->on('equipment_categories')->nullOnDelete();
+            $table->foreign('workforce_trade_id', 'est_res_workforce_trade_fk')->references('id')->on('workforce_trades')->nullOnDelete();
+            $table->foreign('subcontractor_id', 'est_res_subcontractor_fk')->references('id')->on('customers')->nullOnDelete();
             $table->index(['tenant_id', 'project_estimate_line_id'], 'est_res_scope_idx');
         });
     }

@@ -407,25 +407,6 @@ export function PurchaseOrderReceiptForm(props: PurchaseOrderReceiptOptions) {
                                                             }
                                                         />
                                                     </Field>
-                                                    <Field label="Manufactured on">
-                                                        <Input
-                                                            type="date"
-                                                            value={
-                                                                line.manufactured_on
-                                                            }
-                                                            onChange={(event) =>
-                                                                updateLine(
-                                                                    index,
-                                                                    {
-                                                                        manufactured_on:
-                                                                            event
-                                                                                .target
-                                                                                .value,
-                                                                    },
-                                                                )
-                                                            }
-                                                        />
-                                                    </Field>
                                                     {orderLine.is_expires && (
                                                         <Field
                                                             label="Expires on"

@@ -83,9 +83,11 @@ final readonly class WorkforceExceptionReport
             if (! Gate::forUser($actor)->allows('view', $register)) {
                 continue;
             }
+
             if (! $register->site instanceof Site) {
                 continue;
             }
+
             if ($this->calendarResolver->deadlineAt($register->site, $register->attendance_date)->isFuture()) {
                 continue;
             }

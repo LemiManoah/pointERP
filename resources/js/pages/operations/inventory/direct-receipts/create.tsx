@@ -461,7 +461,7 @@ export default function AddStock({
                                                             }
                                                         />
                                                     </div>
-                                                    <div className="grid gap-2 lg:col-span-2">
+                                                    <div className="grid gap-2 lg:col-span-4">
                                                         <Label>
                                                             Expiry date
                                                             {item?.is_expires && (
@@ -496,31 +496,9 @@ export default function AddStock({
                                                             }
                                                         />
                                                     </div>
-                                                    <div className="grid gap-2 lg:col-span-2 lg:col-start-9">
-                                                        <Label>
-                                                            Manufactured on
-                                                        </Label>
-                                                        <Input
-                                                            type="date"
-                                                            value={
-                                                                line.manufactured_on
-                                                            }
-                                                            onChange={(event) =>
-                                                                updateLine(
-                                                                    index,
-                                                                    {
-                                                                        manufactured_on:
-                                                                            event
-                                                                                .target
-                                                                                .value,
-                                                                    },
-                                                                )
-                                                            }
-                                                        />
-                                                    </div>
                                                 </>
                                             ) : (
-                                                <div className="lg:col-span-3" />
+                                                <div className="lg:col-span-6" />
                                             )}
                                             <div className="flex items-end justify-end lg:col-span-1">
                                                 <Button

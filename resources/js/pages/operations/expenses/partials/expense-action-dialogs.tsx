@@ -274,26 +274,34 @@ export function ReversePaymentButton({ paymentId }: { paymentId: string }) {
 }
 
 export function approveExpense(expenseId: string) {
-    router.post(`/expenses/${expenseId}/approve`, {}, {
-        onError: (errors) =>
-            toast.error(
-                String(
-                    Object.values(errors)[0] ??
-                        'The expense could not be approved.',
+    router.post(
+        `/expenses/${expenseId}/approve`,
+        {},
+        {
+            onError: (errors) =>
+                toast.error(
+                    String(
+                        Object.values(errors)[0] ??
+                            'The expense could not be approved.',
+                    ),
                 ),
-            ),
-    });
+        },
+    );
 }
 export function submitExpense(expenseId: string) {
-    router.post(`/expenses/${expenseId}/submit`, {}, {
-        onError: (errors) =>
-            toast.error(
-                String(
-                    Object.values(errors)[0] ??
-                        'The expense could not be submitted.',
+    router.post(
+        `/expenses/${expenseId}/submit`,
+        {},
+        {
+            onError: (errors) =>
+                toast.error(
+                    String(
+                        Object.values(errors)[0] ??
+                            'The expense could not be submitted.',
+                    ),
                 ),
-            ),
-    });
+        },
+    );
 }
 function Field({
     label,

@@ -12,10 +12,11 @@ use App\Models\WorkItemResourceTemplate;
 use App\Models\WorkItemTemplate;
 use App\Services\AuditLogger;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
- * @phpstan-type WorkItemResourceTemplatePayload array{resource_type: string, inventory_item_id?: string|null, unit_of_measure_id?: string|null, name: string, quantity_per_work_unit: numeric-string, unit_cost?: numeric-string|null, notes?: string|null}
+ * @phpstan-type WorkItemResourceTemplatePayload array{resource_type: string, inventory_item_id?: string|null, unit_of_measure_id?: string|null, equipment_category_id?: string|null, workforce_trade_id?: string|null, subcontractor_id?: string|null, name: string, quantity_per_work_unit: numeric-string, unit_cost?: numeric-string|null, notes?: string|null}
  * @phpstan-type WorkItemTemplatePayload array{code?: string|null, category: string, name: string, unit_of_measure_id: string, default_selling_rate?: numeric-string|null, default_unit_cost?: numeric-string|null, specifications?: string|null, is_active?: bool, resources?: list<WorkItemResourceTemplatePayload>}
  */
 final readonly class SaveWorkItemTemplate
@@ -75,7 +76,7 @@ final readonly class SaveWorkItemTemplate
 
             $attributes = [
                 'tenant_id' => $tenant->id,
-                'code' => $data['code'] ?? null,
+                'code' => $this->code($data),
                 'category' => $data['category'],
                 'name' => $data['name'],
                 'unit_of_measure_id' => $data['unit_of_measure_id'],
@@ -114,6 +115,9 @@ final readonly class SaveWorkItemTemplate
                     'resource_type' => $type,
                     'inventory_item_id' => $resource['inventory_item_id'] ?? null,
                     'unit_of_measure_id' => $resource['unit_of_measure_id'] ?? null,
+                    'equipment_category_id' => $resource['equipment_category_id'] ?? null,
+                    'workforce_trade_id' => $resource['workforce_trade_id'] ?? null,
+                    'subcontractor_id' => $resource['subcontractor_id'] ?? null,
                     'name' => $resource['name'],
                     'quantity_per_work_unit' => (string) $resource['quantity_per_work_unit'],
                     'unit_cost' => $resourceCost,
@@ -134,5 +138,13 @@ final readonly class SaveWorkItemTemplate
 
             return $template;
         });
+    }
+
+    /** @param WorkItemTemplatePayload $data */
+    private function code(array $data): string
+    {
+        $code = mb_trim((string) ($data['code'] ?? ''));
+
+        return mb_strtoupper($code !== '' ? $code : Str::slug($data['name']));
     }
 }

@@ -76,8 +76,8 @@ final readonly class PostApprovedDsrMaterialUsage
                 'site_id' => $report->site_id,
                 'reason' => 'Material used in approved DSR '.$report->reference.'.',
             ], $actor);
-        } catch (ValidationException $exception) {
-            $detail = collect($exception->errors())->flatten()->first();
+        } catch (ValidationException $validationException) {
+            $detail = collect($validationException->errors())->flatten()->first();
 
             throw ValidationException::withMessages([
                 'material_lines' => sprintf(

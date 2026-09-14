@@ -125,6 +125,7 @@ use App\Http\Controllers\Operations\SiteController;
 use App\Http\Controllers\Operations\SiteUserController;
 use App\Http\Controllers\Operations\UnitOfMeasureController;
 use App\Http\Controllers\Operations\UnitOfMeasurePermanentDeleteController;
+use App\Http\Controllers\Operations\WorkItemCategoryController;
 use App\Http\Controllers\Operations\WorkItemTemplateController;
 use App\Http\Controllers\Operations\WorkItemTemplateDownloadController;
 use App\Http\Controllers\Operations\WorkItemTemplateImportController;
@@ -195,6 +196,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('work-item-templates/template/download', WorkItemTemplateDownloadController::class)->name('work-item-templates.template.download');
     Route::post('work-item-templates/import', WorkItemTemplateImportController::class)->name('work-item-templates.import');
     Route::resource('work-item-templates', WorkItemTemplateController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::resource('work-item-categories', WorkItemCategoryController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::get('projects/{project}/estimates/create', [ProjectEstimateController::class, 'create'])->name('project-estimates.create');
     Route::post('projects/{project}/estimates', [ProjectEstimateController::class, 'store'])->name('project-estimates.store');
     Route::get('estimates/{projectEstimate}', [ProjectEstimateController::class, 'show'])->name('project-estimates.show');

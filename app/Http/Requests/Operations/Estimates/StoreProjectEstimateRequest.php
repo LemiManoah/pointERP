@@ -5,17 +5,20 @@ declare(strict_types=1);
 namespace App\Http\Requests\Operations\Estimates;
 
 use App\Enums\EstimateResourceType;
+use App\Models\Customer;
+use App\Models\EquipmentCategory;
 use App\Models\InventoryItem;
 use App\Models\Site;
 use App\Models\TenantCurrency;
 use App\Models\UnitOfMeasure;
+use App\Models\WorkforceTrade;
 use App\Services\TenantContext;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * @phpstan-type EstimateResourcePayload array{resource_type: string, inventory_item_id?: string|null, unit_of_measure_id?: string|null, name: string, quantity_per_work_unit: numeric-string, estimated_unit_cost?: numeric-string|null, notes?: string|null}
+ * @phpstan-type EstimateResourcePayload array{resource_type: string, inventory_item_id?: string|null, unit_of_measure_id?: string|null, equipment_category_id?: string|null, workforce_trade_id?: string|null, subcontractor_id?: string|null, name: string, quantity_per_work_unit: numeric-string, estimated_unit_cost?: numeric-string|null, notes?: string|null}
  * @phpstan-type EstimateLinePayload array{work_item_key?: string|null, site_id?: string|null, unit_of_measure_id: string, boq_reference?: string|null, code?: string|null, name: string, planned_quantity: numeric-string, selling_rate?: numeric-string|null, estimated_unit_cost?: numeric-string|null, notes?: string|null, resources?: list<EstimateResourcePayload>}
  * @phpstan-type ProjectEstimatePayload array{title: string, currency_code: string, notes?: string|null, lines: list<EstimateLinePayload>}
  */
@@ -53,6 +56,9 @@ final class StoreProjectEstimateRequest extends FormRequest
             'lines.*.resources.*.resource_type' => ['required', Rule::enum(EstimateResourceType::class)],
             'lines.*.resources.*.inventory_item_id' => ['nullable', 'uuid', Rule::exists((new InventoryItem)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
             'lines.*.resources.*.unit_of_measure_id' => ['nullable', 'uuid', $unitRule],
+            'lines.*.resources.*.equipment_category_id' => ['nullable', 'uuid', Rule::exists((new EquipmentCategory)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
+            'lines.*.resources.*.workforce_trade_id' => ['nullable', 'uuid', Rule::exists((new WorkforceTrade)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
+            'lines.*.resources.*.subcontractor_id' => ['nullable', 'uuid', Rule::exists((new Customer)->getTable(), 'id')->where('tenant_id', $tenantId)->where('type', Customer::TYPE_SUBCONTRACTOR)->where('status', 'active')],
             'lines.*.resources.*.name' => ['required', 'string', 'max:220'],
             'lines.*.resources.*.quantity_per_work_unit' => ['required', 'numeric', 'gt:0'],
             'lines.*.resources.*.estimated_unit_cost' => ['nullable', 'numeric', 'min:0'],
@@ -76,7 +82,7 @@ final class StoreProjectEstimateRequest extends FormRequest
                     return $resource;
                 }
 
-                foreach (['inventory_item_id', 'unit_of_measure_id', 'estimated_unit_cost', 'notes'] as $field) {
+                foreach (['inventory_item_id', 'unit_of_measure_id', 'equipment_category_id', 'workforce_trade_id', 'subcontractor_id', 'estimated_unit_cost', 'notes'] as $field) {
                     $resource[$field] = ($resource[$field] ?? null) === '' ? null : ($resource[$field] ?? null);
                 }
 

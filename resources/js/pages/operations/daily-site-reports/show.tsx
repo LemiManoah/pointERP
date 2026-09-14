@@ -488,7 +488,9 @@ export default function DailySiteReportShow({
                                 report={report}
                                 comparison={labourAttendance}
                                 canOverride={can.overrideLabourVariance}
-                                onApprovalError={(targetTab) => setTab(targetTab)}
+                                onApprovalError={(targetTab) =>
+                                    setTab(targetTab)
+                                }
                             />
                         )}
                     </div>
@@ -577,113 +579,11 @@ export default function DailySiteReportShow({
                             value="summary"
                             className="mt-6 grid gap-6"
                         >
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Daily summary</CardTitle>
-                                    <CardDescription>
-                                        Weather, site conditions, work, issues
-                                        and compliance notes.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="grid gap-4">
-                                    <div className="grid gap-4 md:grid-cols-3">
-                                        <Field
-                                            label="Weather"
-                                            value={form.data.weather}
-                                            disabled={!can.update}
-                                            onChange={(value) =>
-                                                form.setData('weather', value)
-                                            }
-                                        />
-                                        <Field
-                                            label="Site conditions"
-                                            value={form.data.site_conditions}
-                                            disabled={!can.update}
-                                            onChange={(value) =>
-                                                form.setData(
-                                                    'site_conditions',
-                                                    value,
-                                                )
-                                            }
-                                        />
-                                        <Field
-                                            label="Completion %"
-                                            value={form.data.completion_percent}
-                                            disabled={!can.update}
-                                            onChange={(value) =>
-                                                form.setData(
-                                                    'completion_percent',
-                                                    value,
-                                                )
-                                            }
-                                        />
-                                    </div>
-                                    <TextAreaField
-                                        label="Work summary"
-                                        value={form.data.work_summary}
-                                        disabled={!can.update}
-                                        onChange={(value) =>
-                                            form.setData('work_summary', value)
-                                        }
-                                    />
-                                    <div className="grid gap-4 md:grid-cols-2">
-                                        <TextAreaField
-                                            label="Delays"
-                                            value={form.data.delay_summary}
-                                            disabled={!can.update}
-                                            onChange={(value) =>
-                                                form.setData(
-                                                    'delay_summary',
-                                                    value,
-                                                )
-                                            }
-                                        />
-                                        <TextAreaField
-                                            label="Visitors"
-                                            value={form.data.visitor_summary}
-                                            disabled={!can.update}
-                                            onChange={(value) =>
-                                                form.setData(
-                                                    'visitor_summary',
-                                                    value,
-                                                )
-                                            }
-                                        />
-                                    </div>
-                                    <div className="grid gap-4 md:grid-cols-3">
-                                        <TextAreaField
-                                            label="HSE"
-                                            value={form.data.hse_notes}
-                                            disabled={!can.update}
-                                            onChange={(value) =>
-                                                form.setData('hse_notes', value)
-                                            }
-                                        />
-                                        <TextAreaField
-                                            label="Environment"
-                                            value={form.data.environment_notes}
-                                            disabled={!can.update}
-                                            onChange={(value) =>
-                                                form.setData(
-                                                    'environment_notes',
-                                                    value,
-                                                )
-                                            }
-                                        />
-                                        <TextAreaField
-                                            label="Social"
-                                            value={form.data.social_notes}
-                                            disabled={!can.update}
-                                            onChange={(value) =>
-                                                form.setData(
-                                                    'social_notes',
-                                                    value,
-                                                )
-                                            }
-                                        />
-                                    </div>
-                                </CardContent>
-                            </Card>
+                            <DailySummaryCard
+                                form={form}
+                                report={report}
+                                canUpdate={can.update}
+                            />
 
                             <WorkflowTrailCard
                                 reviews={reviews}
@@ -1274,7 +1174,6 @@ function ApproveReportButton({
                                     .length < 10
                             }
                             onClick={approve}
-
                         >
                             Approve with reason
                         </Button>
@@ -1911,49 +1810,439 @@ function Metric({ label, value }: { label: string; value: string | null }) {
     );
 }
 
-function Field({
-    label,
-    value,
-    disabled,
-    onChange,
+function DailySummaryCard({
+    form,
+    report,
+    canUpdate,
 }: {
-    label: string;
-    value: string;
-    disabled: boolean;
-    onChange: (value: string) => void;
+    form: ReturnType<typeof useForm<FormData>>;
+    report: Report;
+    canUpdate: boolean;
 }) {
-    return (
-        <div className="grid gap-2">
-            <Label>{label}</Label>
-            <Input
-                value={value}
-                disabled={disabled}
-                onChange={(event) => onChange(event.target.value)}
-            />
-        </div>
-    );
-}
+    const [open, setOpen] = useState(false);
+    const [summaryDraft, setSummaryDraft] = useState({
+        weather: form.data.weather ?? '',
+        site_conditions: form.data.site_conditions ?? '',
+        completion_percent: form.data.completion_percent ?? '',
+        work_summary: form.data.work_summary ?? '',
+        delay_summary: form.data.delay_summary ?? '',
+        visitor_summary: form.data.visitor_summary ?? '',
+        hse_notes: form.data.hse_notes ?? '',
+        environment_notes: form.data.environment_notes ?? '',
+        social_notes: form.data.social_notes ?? '',
+    });
 
-function TextAreaField({
-    label,
-    value,
-    disabled,
-    onChange,
-}: {
-    label: string;
-    value: string;
-    disabled: boolean;
-    onChange: (value: string) => void;
-}) {
+    function handleOpen() {
+        setSummaryDraft({
+            weather: form.data.weather ?? '',
+            site_conditions: form.data.site_conditions ?? '',
+            completion_percent: form.data.completion_percent ?? '',
+            work_summary: form.data.work_summary ?? '',
+            delay_summary: form.data.delay_summary ?? '',
+            visitor_summary: form.data.visitor_summary ?? '',
+            hse_notes: form.data.hse_notes ?? '',
+            environment_notes: form.data.environment_notes ?? '',
+            social_notes: form.data.social_notes ?? '',
+        });
+        setOpen(true);
+    }
+
+    function handleSave() {
+        form.setData({
+            ...form.data,
+            ...summaryDraft,
+        });
+        form.transform((data) => ({
+            ...data,
+            ...summaryDraft,
+            work_lines: cleanLines(data.work_lines),
+            labour_lines: cleanLines(data.labour_lines),
+            equipment_lines: cleanLines(data.equipment_lines),
+            material_lines: cleanLines(data.material_lines),
+            delay_lines: cleanLines(data.delay_lines),
+        }));
+        form.put(`/daily-site-reports/${report.id}`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setOpen(false);
+            },
+        });
+    }
+
+    const hasAnyContent = Boolean(
+        form.data.weather ||
+        form.data.site_conditions ||
+        form.data.completion_percent ||
+        form.data.work_summary ||
+        form.data.delay_summary ||
+        form.data.visitor_summary ||
+        form.data.hse_notes ||
+        form.data.environment_notes ||
+        form.data.social_notes,
+    );
+
     return (
-        <div className="grid gap-2">
-            <Label>{label}</Label>
-            <Textarea
-                value={value}
-                disabled={disabled}
-                onChange={(event) => onChange(event.target.value)}
-            />
-        </div>
+        <>
+            <Card>
+                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <CardTitle>Daily summary</CardTitle>
+                        <CardDescription>
+                            Weather, site conditions, progress, operational
+                            delays, and safeguards.
+                        </CardDescription>
+                    </div>
+                    {canUpdate && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleOpen}
+                            className="w-fit"
+                        >
+                            <Pencil />
+                            {hasAnyContent
+                                ? 'Edit summary'
+                                : 'Add summary details'}
+                        </Button>
+                    )}
+                </CardHeader>
+                <CardContent className="grid gap-6">
+                    <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-lg border bg-muted/20 p-3.5">
+                            <div className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                Weather
+                            </div>
+                            <div className="mt-1.5 text-sm font-semibold text-foreground">
+                                {form.data.weather || (
+                                    <span className="font-normal text-muted-foreground italic">
+                                        Not recorded
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        <div className="rounded-lg border bg-muted/20 p-3.5">
+                            <div className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                Site Conditions
+                            </div>
+                            <div className="mt-1.5 text-sm font-semibold text-foreground">
+                                {form.data.site_conditions || (
+                                    <span className="font-normal text-muted-foreground italic">
+                                        Not recorded
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        <div className="rounded-lg border bg-muted/20 p-3.5">
+                            <div className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                Estimated Progress
+                            </div>
+                            <div className="mt-1.5 flex items-center gap-3">
+                                <div className="text-sm font-semibold text-foreground">
+                                    {form.data.completion_percent ? (
+                                        `${form.data.completion_percent}%`
+                                    ) : (
+                                        <span className="font-normal text-muted-foreground italic">
+                                            Not recorded
+                                        </span>
+                                    )}
+                                </div>
+                                {form.data.completion_percent && (
+                                    <div className="h-2 max-w-28 flex-1 overflow-hidden rounded-full bg-muted">
+                                        <div
+                                            className="h-full rounded-full bg-primary transition-all"
+                                            style={{
+                                                width: `${Math.min(100, Math.max(0, Number(form.data.completion_percent)))}%`,
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="rounded-lg border p-4">
+                        <div className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                            Work Summary
+                        </div>
+                        {form.data.work_summary ? (
+                            <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+                                {form.data.work_summary}
+                            </p>
+                        ) : (
+                            <p className="mt-2 text-xs text-muted-foreground italic">
+                                No work summary recorded for this date.
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div className="rounded-lg border p-4">
+                            <div className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                Delays &amp; Stoppages
+                            </div>
+                            {form.data.delay_summary ? (
+                                <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+                                    {form.data.delay_summary}
+                                </p>
+                            ) : (
+                                <p className="mt-2 text-xs text-muted-foreground italic">
+                                    No delays reported.
+                                </p>
+                            )}
+                        </div>
+                        <div className="rounded-lg border p-4">
+                            <div className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                Site Visitors
+                            </div>
+                            {form.data.visitor_summary ? (
+                                <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+                                    {form.data.visitor_summary}
+                                </p>
+                            ) : (
+                                <p className="mt-2 text-xs text-muted-foreground italic">
+                                    No visitors recorded.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-3">
+                        <div className="rounded-lg border p-4">
+                            <div className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                HSE (Health &amp; Safety)
+                            </div>
+                            {form.data.hse_notes ? (
+                                <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+                                    {form.data.hse_notes}
+                                </p>
+                            ) : (
+                                <p className="mt-2 text-xs text-muted-foreground italic">
+                                    No HSE notes recorded.
+                                </p>
+                            )}
+                        </div>
+                        <div className="rounded-lg border p-4">
+                            <div className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                Environmental
+                            </div>
+                            {form.data.environment_notes ? (
+                                <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+                                    {form.data.environment_notes}
+                                </p>
+                            ) : (
+                                <p className="mt-2 text-xs text-muted-foreground italic">
+                                    No environmental notes recorded.
+                                </p>
+                            )}
+                        </div>
+                        <div className="rounded-lg border p-4">
+                            <div className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                                Social &amp; Community
+                            </div>
+                            {form.data.social_notes ? (
+                                <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+                                    {form.data.social_notes}
+                                </p>
+                            ) : (
+                                <p className="mt-2 text-xs text-muted-foreground italic">
+                                    No social notes recorded.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Daily site summary</DialogTitle>
+                        <DialogDescription>
+                            Record weather, site conditions, work progress,
+                            operational delays, and compliance notes.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-5 py-2">
+                        <div className="grid gap-4 sm:grid-cols-3">
+                            <div className="grid gap-2">
+                                <Label htmlFor="summary_weather">Weather</Label>
+                                <Input
+                                    id="summary_weather"
+                                    value={summaryDraft.weather}
+                                    placeholder="e.g. Sunny, clear, 28°C"
+                                    onChange={(e) =>
+                                        setSummaryDraft({
+                                            ...summaryDraft,
+                                            weather: e.target.value,
+                                        })
+                                    }
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="summary_conditions">
+                                    Site conditions
+                                </Label>
+                                <Input
+                                    id="summary_conditions"
+                                    value={summaryDraft.site_conditions}
+                                    placeholder="e.g. Dry, good access"
+                                    onChange={(e) =>
+                                        setSummaryDraft({
+                                            ...summaryDraft,
+                                            site_conditions: e.target.value,
+                                        })
+                                    }
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="summary_completion">
+                                    Completion %
+                                </Label>
+                                <Input
+                                    id="summary_completion"
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.1"
+                                    value={summaryDraft.completion_percent}
+                                    placeholder="e.g. 45"
+                                    onChange={(e) =>
+                                        setSummaryDraft({
+                                            ...summaryDraft,
+                                            completion_percent: e.target.value,
+                                        })
+                                    }
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="summary_work">Work summary</Label>
+                            <Textarea
+                                id="summary_work"
+                                rows={3}
+                                value={summaryDraft.work_summary}
+                                placeholder="Summary of major tasks completed on site today..."
+                                onChange={(e) =>
+                                    setSummaryDraft({
+                                        ...summaryDraft,
+                                        work_summary: e.target.value,
+                                    })
+                                }
+                            />
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="summary_delays">
+                                    Delays &amp; Stoppages
+                                </Label>
+                                <Textarea
+                                    id="summary_delays"
+                                    rows={2}
+                                    value={summaryDraft.delay_summary}
+                                    placeholder="Weather delays, equipment downtime, shortages..."
+                                    onChange={(e) =>
+                                        setSummaryDraft({
+                                            ...summaryDraft,
+                                            delay_summary: e.target.value,
+                                        })
+                                    }
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="summary_visitors">
+                                    Visitors
+                                </Label>
+                                <Textarea
+                                    id="summary_visitors"
+                                    rows={2}
+                                    value={summaryDraft.visitor_summary}
+                                    placeholder="Clients, inspectors, consultants on site..."
+                                    onChange={(e) =>
+                                        setSummaryDraft({
+                                            ...summaryDraft,
+                                            visitor_summary: e.target.value,
+                                        })
+                                    }
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-3">
+                            <div className="grid gap-2">
+                                <Label htmlFor="summary_hse">
+                                    HSE (Health &amp; Safety)
+                                </Label>
+                                <Textarea
+                                    id="summary_hse"
+                                    rows={2}
+                                    value={summaryDraft.hse_notes}
+                                    placeholder="Safety briefings, PPE, incident notes..."
+                                    onChange={(e) =>
+                                        setSummaryDraft({
+                                            ...summaryDraft,
+                                            hse_notes: e.target.value,
+                                        })
+                                    }
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="summary_env">
+                                    Environmental
+                                </Label>
+                                <Textarea
+                                    id="summary_env"
+                                    rows={2}
+                                    value={summaryDraft.environment_notes}
+                                    placeholder="Dust, spills, runoff control..."
+                                    onChange={(e) =>
+                                        setSummaryDraft({
+                                            ...summaryDraft,
+                                            environment_notes: e.target.value,
+                                        })
+                                    }
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="summary_social">
+                                    Social &amp; Community
+                                </Label>
+                                <Textarea
+                                    id="summary_social"
+                                    rows={2}
+                                    value={summaryDraft.social_notes}
+                                    placeholder="Local community interactions, grievances..."
+                                    onChange={(e) =>
+                                        setSummaryDraft({
+                                            ...summaryDraft,
+                                            social_notes: e.target.value,
+                                        })
+                                    }
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            disabled={form.processing}
+                            onClick={handleSave}
+                        >
+                            Save summary
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
 
