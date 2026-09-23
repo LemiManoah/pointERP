@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Actions\Operations\Pos;
 
 use App\Actions\Operations\Inventory\PostInventoryStockMovement;
-use App\Enums\InventoryBatchStatus;
 use App\Enums\InventoryMovementType;
 use App\Enums\InventoryTrackingType;
 use App\Enums\PosPaymentMethod;
@@ -32,7 +31,6 @@ use App\Services\PosPriceResolver;
 use App\Services\TenantContext;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -189,7 +187,7 @@ final readonly class CompletePosSale
         }
 
         $remaining = $required;
-        $batches = InventoryBatch::query()->where('inventory_item_id', $item->id)->where('inventory_store_id', $store->id)->where('status', InventoryBatchStatus::Available->value)->where('is_active', true)->where(fn (Builder $query): Builder => $query->whereNull('expires_on')->orWhereDate('expires_on', '>=', today()))->orderByRaw('expires_on IS NULL')->oldest('expires_on')->oldest()->get();
+        $batches = $this->balances->sellableBatches($store, $item);
         foreach ($batches as $batch) {
             if ($remaining->isZero()) {
                 break;

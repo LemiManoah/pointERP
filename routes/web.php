@@ -227,6 +227,8 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('inventory-dashboard', InventoryOperationsDashboardController::class)->name('inventory.dashboard');
     Route::get('pos', [PosSaleController::class, 'index'])->name('pos.index');
     Route::post('pos', [PosSaleController::class, 'store'])->name('pos.store');
+    Route::post('pos/checkout', [PosSaleController::class, 'prepareCheckout'])->name('pos.checkout.prepare');
+    Route::get('pos/checkout', [PosSaleController::class, 'checkout'])->name('pos.checkout');
     Route::get('pos/{posSale}', [PosSaleController::class, 'show'])->name('pos.show');
     Route::post('pos/{posSale}/payments', PosPaymentController::class)->name('pos.payments.store');
     Route::get('inventory/reports/{report}', InventoryReportExportController::class)->name('inventory.reports.export');

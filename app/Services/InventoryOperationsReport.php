@@ -32,6 +32,39 @@ final readonly class InventoryOperationsReport
 {
     public function __construct(private BranchContext $branchContext) {}
 
+    /** @return array{count: int, nearExpiry: int, expired: int} */
+    public function lowStockSummary(User $actor, ?string $branchId = null): array
+    {
+        abort_unless($actor->can('inventory.stock.view'), 403);
+        $branchIds = $this->branchContext->accessibleBranchIds($actor);
+        if ($branchId !== null) {
+            $branchIds = in_array($branchId, $branchIds, true) ? [$branchId] : [];
+        }
+
+        $storeIds = InventoryStore::query()->where('tenant_id', $actor->tenant_id)
+            ->whereIn('branch_id', $branchIds)->where('is_active', true)->pluck('id')->all();
+        $rows = $this->stockRows($actor, ['store_ids' => $storeIds, 'selected' => ['item_id' => null, 'category_id' => null]])
+            ->where('is_low_stock', true)->sortBy('available')->values();
+
+        $today = now($actor->tenant->timezone ?: config('app.timezone'))->toDateString();
+        $cutoff = now($actor->tenant->timezone ?: config('app.timezone'))->addDays(30)->toDateString();
+        $batches = DB::table('inventory_stock_movements as movements')
+            ->join('inventory_batches as batches', 'batches.id', '=', 'movements.inventory_batch_id')
+            ->where('movements.tenant_id', $actor->tenant_id)->where('batches.tenant_id', $actor->tenant_id)
+            ->whereIn('movements.inventory_store_id', $storeIds)->whereNull('batches.deleted_at')
+            ->whereNotNull('batches.expires_on')->whereDate('batches.expires_on', '<=', $cutoff)
+            ->selectRaw('movements.inventory_store_id, movements.inventory_item_id, batches.id, batches.expires_on, SUM(movements.quantity) as on_hand')
+            ->groupBy('movements.inventory_store_id', 'movements.inventory_item_id', 'batches.id', 'batches.expires_on')
+            ->havingRaw('SUM(movements.quantity) > 0')->get();
+        $itemStore = fn (object $batch): string => $batch->inventory_store_id.':'.$batch->inventory_item_id;
+
+        return [
+            'count' => $rows->count(),
+            'nearExpiry' => $batches->filter(fn (object $batch): bool => substr((string) $batch->expires_on, 0, 10) >= $today)->unique($itemStore)->count(),
+            'expired' => $batches->filter(fn (object $batch): bool => substr((string) $batch->expires_on, 0, 10) < $today)->unique($itemStore)->count(),
+        ];
+    }
+
     /**
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
