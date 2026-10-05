@@ -38,7 +38,7 @@ final readonly class SaveProjectEstimate
             }
 
             if ($estimate instanceof ProjectEstimate && ! $estimate->isDraft()) {
-                throw ValidationException::withMessages(['estimate' => 'Only a draft estimate can be changed.']);
+                throw ValidationException::withMessages(['estimate' => 'Only a draft BOQ can be changed.']);
             }
 
             $oldValues = $estimate instanceof ProjectEstimate

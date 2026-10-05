@@ -78,7 +78,7 @@ it('approves a new estimate revision into work items without granting site users
 
     $draft = ProjectEstimate::query()->where('project_id', $project->id)->where('status', ProjectEstimateStatus::Draft)->firstOrFail();
     $this->actingAs($siteEngineer)->post(route('project-estimates.approve', $draft))->assertForbidden();
-    $this->actingAs($manager)->post(route('project-estimates.approve', $draft))->assertRedirect(route('projects.show', $project));
+    $this->actingAs($manager)->post(route('project-estimates.approve', $draft))->assertRedirect(route('projects.boq.show', $project));
 
     expect($draft->refresh()->status)->toBe(ProjectEstimateStatus::Approved)
         ->and($draft->is_baseline)->toBeTrue()

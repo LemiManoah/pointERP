@@ -27,6 +27,7 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use LogicException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * @phpstan-import-type BoqSheet from PreviewBoqImport
@@ -58,6 +59,15 @@ final class ProjectEstimateImportController
                 ->where(fn (Builder $query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $project->tenant_id))
                 ->orderBy('name')->get()->map(fn (UnitOfMeasure $unit): array => ['value' => $unit->id, 'label' => $unit->name.' ('.$unit->code.')']),
             'itemTypes' => collect(BoqItemType::cases())->map(fn (BoqItemType $type): array => ['value' => $type->value, 'label' => $type->label()]),
+        ]);
+    }
+
+    public function template(Project $project): BinaryFileResponse
+    {
+        Gate::authorize('create', [ProjectEstimate::class, $project]);
+
+        return response()->download(resource_path('templates/boq-import-template.xlsx'), 'BOQ-import-template.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
     }
 
@@ -123,7 +133,7 @@ final class ProjectEstimateImportController
                 Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
                 $base = isset($state['base_id']) ? ProjectEstimate::query()->where('project_id', $project->id)->whereKey($state['base_id'])->first() : null;
                 if ($this->fingerprint($base, $preview) !== $state['fingerprint']) {
-                    throw ValidationException::withMessages(['lines' => 'The estimate changed after preview. Preview again before saving.']);
+                    throw ValidationException::withMessages(['lines' => 'The BOQ changed after preview. Preview again before saving.']);
                 }
 
                 if ($state['target_id'] === null) {
@@ -151,7 +161,7 @@ final class ProjectEstimateImportController
                 }
 
                 if ($merged->count() > 2000) {
-                    throw ValidationException::withMessages(['lines' => 'An estimate supports at most 2,000 items.']);
+                    throw ValidationException::withMessages(['lines' => 'A BOQ supports at most 2,000 items.']);
                 }
 
                 /** @var ProjectEstimatePayload $payload */

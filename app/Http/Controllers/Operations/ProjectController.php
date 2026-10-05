@@ -22,6 +22,7 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\BranchContext;
 use App\Services\EquipmentScopeSummary;
+use App\Services\ProjectBoqSummary;
 use App\Services\ProjectPerformanceSummary;
 use App\Services\TenantContext;
 use App\Support\Operations\PresentsLinkedDocuments;
@@ -54,7 +55,7 @@ final class ProjectController
         ]);
     }
 
-    public function show(Project $project, EquipmentScopeSummary $equipmentSummary, ProjectPerformanceSummary $performanceSummary): Response
+    public function show(Project $project, EquipmentScopeSummary $equipmentSummary, ProjectPerformanceSummary $performanceSummary, ProjectBoqSummary $boqSummary): Response
     {
         Gate::authorize('view', $project);
 
@@ -106,6 +107,8 @@ final class ProjectController
                     'approved_by' => $estimate->approver?->name,
                     'approved_at' => $estimate->approved_at?->toDateTimeString(),
                 ]) : [],
+            'boq' => fn (): ?array => $canViewEstimates ? $boqSummary->forProject($project, $performanceSummary) : null,
+            'activeTab' => request()->query('tab', 'sites'),
             'performance' => $canViewEstimates ? $performanceSummary->forProject($project, $canViewEstimateCosts) : null,
             'assignedUsers' => $project->users
                 ->map(fn (User $assignedUser): array => [

@@ -1,8 +1,9 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ArrowLeft, Check, Layers, Plus, Search, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, Eye, Pencil, Layers, Plus, Search, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { toast } from 'sonner';
+import { show as showBoq } from '@/actions/App/Http/Controllers/Operations/ProjectBoqController';
 import {
     index as projectIndex,
     show as projectShow,
@@ -36,6 +37,7 @@ import {
     NativeSelectOption,
 } from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyAmount } from '@/lib/utils';
@@ -223,7 +225,7 @@ function blankLine(): EstimateLine {
 }
 
 function linesFrom(record: Estimate | null): EstimateLine[] {
-    if (!record || record.lines.length === 0) return [blankLine()];
+    if (!record || record.lines.length === 0) return [];
 
     return record.lines.map((line) => ({
         ...line,
@@ -271,6 +273,12 @@ export default function EstimateEditor({
     const [targetLineIndex, setTargetLineIndex] = useState<number | null>(null);
     const [librarySearch, setLibrarySearch] = useState('');
     const [libraryCategory, setLibraryCategory] = useState('');
+    const [editingIndex, setEditingIndex] = useState<number | null>(null);
+    const [lineSnapshot, setLineSnapshot] = useState<EstimateLine | null>(null);
+    const [viewingIndex, setViewingIndex] = useState<number | null>(null);
+    const [editingHeader, setEditingHeader] = useState(false);
+    const [headerSnapshot, setHeaderSnapshot] = useState({title: '', notes: ''});
+
 
     const templateCategories = useMemo(() => {
         return Array.from(new Set(templates.map((t) => t.category))).sort();
@@ -294,7 +302,7 @@ export default function EstimateEditor({
     const seed = estimate ?? source;
     const editable = estimate === null || can.update;
     const form = useForm({
-        title: estimate?.title ?? source?.title ?? `${project.name} estimate`,
+        title: estimate?.title ?? source?.title ?? `${project.name} BOQ`,
         currency_code:
             estimate?.currency_code ??
             source?.currency_code ??
@@ -306,10 +314,9 @@ export default function EstimateEditor({
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Projects', href: projectIndex.url() },
         { title: project.reference, href: projectShow.url(project.id) },
+        { title: 'BOQ', href: showBoq.url(project.id) },
         {
-            title: estimate
-                ? `Estimate v${estimate.version_number}`
-                : 'New estimate',
+            title: estimate ? `BOQ v${estimate.version_number}` : 'New BOQ',
             href: estimate ? show.url(estimate.id) : create.url(project.id),
         },
     ];
@@ -344,6 +351,8 @@ export default function EstimateEditor({
                 resources: mappedResources,
             });
         } else {
+            setLineSnapshot(null);
+            setEditingIndex(form.data.lines.length);
             form.setData('lines', [
                 ...form.data.lines,
                 {
@@ -364,6 +373,27 @@ export default function EstimateEditor({
 
         setLibraryModalOpen(false);
         setTargetLineIndex(null);
+    }
+
+    function editItem(index: number) {
+        setLineSnapshot(structuredClone(form.data.lines[index]));
+        setEditingIndex(index);
+    }
+
+    function addItem() {
+        const index = form.data.lines.length;
+        form.setData('lines', [...form.data.lines, blankLine()]);
+        setLineSnapshot(null);
+        setEditingIndex(index);
+    }
+
+    function cancelItem() {
+        if (editingIndex !== null) {
+            form.setData('lines', lineSnapshot
+                ? form.data.lines.map((line, index) => index === editingIndex ? lineSnapshot : line)
+                : form.data.lines.filter((_, index) => index !== editingIndex));
+        }
+        setEditingIndex(null);
     }
 
     function updateLine(index: number, values: Partial<EstimateLine>) {
@@ -393,11 +423,18 @@ export default function EstimateEditor({
 
         const options = {
             preserveScroll: true,
+            onSuccess: () => form.setDefaults(),
             onError: (submissionErrors: Record<string, string>) => {
+                const lineError = Object.keys(submissionErrors).find((key) => /^lines\.\d+\./.test(key));
+                if (lineError) editItem(Number(lineError.split('.')[1]));
+                else if (submissionErrors.title || submissionErrors.notes) {
+                    setHeaderSnapshot({title: form.data.title, notes: form.data.notes});
+                    setEditingHeader(true);
+                }
                 toast.error(
                     String(
                         Object.values(submissionErrors)[0] ??
-                            'The estimate could not be saved. Check the highlighted fields.',
+                            'The BOQ could not be saved. Check the highlighted fields.',
                     ),
                 );
             },
@@ -413,8 +450,8 @@ export default function EstimateEditor({
     const pricedCount = form.data.lines.filter(
         (line) => line.selling_rate.trim() !== '',
     ).length;
-    const fullyPriced = pricedCount === form.data.lines.length;
-    const fullyCosted = form.data.lines.every(
+    const fullyPriced = form.data.lines.length > 0 && pricedCount === form.data.lines.length;
+    const fullyCosted = form.data.lines.length > 0 && form.data.lines.every(
         (line) => line.estimated_unit_cost.trim() !== '',
     );
     const pricingLabel =
@@ -439,8 +476,9 @@ export default function EstimateEditor({
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={estimate ? estimate.title : 'New estimate'} />
+            <Head title={estimate ? estimate.title : 'New BOQ'} />
             <form
+                id="boq-revision-form"
                 onSubmit={submit}
                 className="flex flex-1 flex-col gap-6 p-4 md:p-6"
             >
@@ -449,10 +487,10 @@ export default function EstimateEditor({
                         <div className="flex flex-wrap items-center gap-2">
                             <h1 className="text-2xl font-semibold">
                                 {estimate
-                                    ? `Estimate version ${estimate.version_number}`
+                                    ? `BOQ revision ${estimate.version_number}`
                                     : source
-                                      ? 'New estimate revision'
-                                      : 'New project estimate'}
+                                      ? 'New BOQ revision'
+                                      : 'New BOQ'}
                             </h1>
                             {estimate?.status_label && (
                                 <Badge
@@ -472,9 +510,9 @@ export default function EstimateEditor({
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
                         <Button asChild type="button" variant="outline">
-                            <Link href={projectShow.url(project.id)}>
+                            <Link href={showBoq.url(project.id)}>
                                 <ArrowLeft />
-                                Project
+                                Back to BOQ
                             </Link>
                         </Button>
                         {editable && (
@@ -492,7 +530,7 @@ export default function EstimateEditor({
                                     confirm({
                                         title: 'Delete this draft?',
                                         description:
-                                            'The draft estimate and its work assumptions will be permanently removed.',
+                                            'The draft BOQ and its work assumptions will be permanently removed.',
                                         confirmLabel: 'Delete draft',
                                         variant: 'destructive',
                                         onConfirm: () =>
@@ -509,6 +547,8 @@ export default function EstimateEditor({
                         {can.approve && estimate?.status === 'draft' && (
                             <Button
                                 type="button"
+                                disabled={form.isDirty || form.processing}
+                                title={form.isDirty ? 'Save the revision before approving it' : undefined}
                                 onClick={() =>
                                     confirm({
                                         title: 'Approve this baseline?',
@@ -525,7 +565,7 @@ export default function EstimateEditor({
                                 }
                             >
                                 <Check />
-                                Approve baseline
+                                {form.isDirty ? 'Save before approval' : 'Approve baseline'}
                             </Button>
                         )}
                     </div>
@@ -533,10 +573,21 @@ export default function EstimateEditor({
 
                 <Card>
                     <CardContent className="grid gap-6 pt-6">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                            <dl className="grid flex-1 gap-4 sm:grid-cols-3">
+                                <Info label="BOQ title" value={form.data.title} />
+                                <Info label="Currency" value={form.data.currency_code} />
+                                <Info label="Approval" value={estimate?.approved_by ? `${estimate.approved_by} · ${estimate.approved_at ?? ''}` : 'Not approved'} />
+                                <div className="sm:col-span-3"><Info label="Notes" value={form.data.notes} /></div>
+                            </dl>
+                            {editable && <Button type="button" variant="outline" onClick={() => {setHeaderSnapshot({title: form.data.title, notes: form.data.notes}); setEditingHeader(true);}}><Pencil />Edit revision details</Button>}
+                        </div>
+                        <Dialog open={editingHeader} onOpenChange={(open) => {if (!open) {form.setData({...form.data, ...headerSnapshot}); setEditingHeader(false);}}}>
+                            <DialogContent><DialogHeader><DialogTitle>Edit revision details</DialogTitle><DialogDescription>Apply changes, then save the BOQ revision.</DialogDescription></DialogHeader>
                         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_12rem]">
                             <div className="grid gap-2">
                                 <Label htmlFor="title" required>
-                                    Estimate title
+                                    BOQ title
                                 </Label>
                                 <Input
                                     id="title"
@@ -560,6 +611,22 @@ export default function EstimateEditor({
                             </div>
                         </div>
 
+                        <div className="grid gap-2">
+                            <Label htmlFor="notes">Notes</Label>
+                            <Textarea
+                                id="notes"
+                                value={form.data.notes}
+                                disabled={!editable}
+                                onChange={(event) =>
+                                    form.setData('notes', event.target.value)
+                                }
+                            />
+                            <InputError message={form.errors.notes} />
+                        </div>
+
+                                <Button type="button" onClick={() => setEditingHeader(false)}>Apply changes</Button>
+                            </DialogContent>
+                        </Dialog>
                         {can.viewCosts && (
                             <div className="grid gap-4 sm:grid-cols-3">
                                 <Metric
@@ -574,7 +641,7 @@ export default function EstimateEditor({
                                     }
                                 />
                                 <Metric
-                                    label="Estimated cost"
+                                    label="Internal cost"
                                     value={
                                         fullyCosted
                                             ? formatCurrencyAmount(
@@ -585,7 +652,7 @@ export default function EstimateEditor({
                                     }
                                 />
                                 <Metric
-                                    label="Estimated margin"
+                                    label="Expected margin"
                                     value={
                                         fullyPriced && fullyCosted
                                             ? formatCurrencyAmount(
@@ -611,21 +678,8 @@ export default function EstimateEditor({
                                 complete.
                             </p>
                         )}
-                        <div className="grid gap-2">
-                            <Label htmlFor="notes">Notes</Label>
-                            <Textarea
-                                id="notes"
-                                value={form.data.notes}
-                                disabled={!editable}
-                                onChange={(event) =>
-                                    form.setData('notes', event.target.value)
-                                }
-                            />
-                            <InputError message={form.errors.notes} />
-                        </div>
-
                         <div className="flex items-center justify-between gap-3 border-t pt-5">
-                            <h2 className="font-semibold">Estimate lines</h2>
+                            <h2 className="font-semibold">BOQ items</h2>
                             {editable && (
                                 <div className="flex items-center gap-2">
                                     <Button
@@ -643,12 +697,7 @@ export default function EstimateEditor({
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        onClick={() =>
-                                            form.setData('lines', [
-                                                ...form.data.lines,
-                                                blankLine(),
-                                            ])
-                                        }
+                                        onClick={addItem}
                                     >
                                         <Plus />
                                         Add custom item
@@ -657,60 +706,22 @@ export default function EstimateEditor({
                             )}
                         </div>
 
-                        <div className="grid gap-6">
-                            {form.data.lines.map((line, lineIndex) => (
-                                <section
-                                    key={`${line.work_item_key ?? 'new'}-${lineIndex}`}
-                                    className="grid gap-4 border-b pb-6 last:border-0 last:pb-0"
-                                >
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div className="flex items-center gap-3">
-                                            <h3 className="font-medium">
-                                                Estimate line {lineIndex + 1}
-                                            </h3>
-                                            {editable && (
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                                                    onClick={() => {
-                                                        setTargetLineIndex(
-                                                            lineIndex,
-                                                        );
-                                                        setLibraryModalOpen(
-                                                            true,
-                                                        );
-                                                    }}
-                                                >
-                                                    <Layers className="size-3.5" />
-                                                    Load template
-                                                </Button>
-                                            )}
-                                        </div>
-                                        {editable &&
-                                            form.data.lines.length > 1 && (
-                                                <Button
-                                                    type="button"
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    title="Remove estimate line"
-                                                    onClick={() =>
-                                                        form.setData(
-                                                            'lines',
-                                                            form.data.lines.filter(
-                                                                (_, index) =>
-                                                                    index !==
-                                                                    lineIndex,
-                                                            ),
-                                                        )
-                                                    }
-                                                >
-                                                    <Trash2 />
-                                                </Button>
-                                            )}
-                                    </div>
-
+                        <Table>
+                            <TableHeader><TableRow><TableHead>BOQ item</TableHead><TableHead>Unit</TableHead><TableHead className="text-right">Quantity</TableHead>{can.viewCosts && <><TableHead className="text-right">Rate</TableHead><TableHead className="text-right">Amount</TableHead></>}<TableHead>Item type</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                            <TableBody>{form.data.lines.map((line, index) => <TableRow key={line.work_item_key ?? index}>
+                                <TableCell className="min-w-56 whitespace-normal"><div className="font-medium">{line.boq_reference ? `${line.boq_reference} · ` : ''}{line.name || 'New BOQ item'}</div><div className="text-xs text-muted-foreground">{[line.bill, line.section, line.element].filter(Boolean).join(' / ')}</div>{Object.keys(errors).some((key) => key.startsWith(`lines.${index}.`)) && <div className="text-xs text-destructive">Needs correction — open Edit</div>}</TableCell>
+                                <TableCell>{units.find((unit) => unit.value === line.unit_of_measure_id)?.label ?? '—'}</TableCell>
+                                <TableCell className="text-right tabular-nums">{line.planned_quantity || '—'}</TableCell>
+                                {can.viewCosts && <><TableCell className="text-right tabular-nums">{line.selling_rate === '' ? 'Unpriced' : formatCurrencyAmount(form.data.currency_code, Number(line.selling_rate))}</TableCell><TableCell className="text-right tabular-nums">{line.selling_rate === '' || line.planned_quantity === '' ? 'Not available' : formatCurrencyAmount(form.data.currency_code, Number(line.selling_rate) * Number(line.planned_quantity))}</TableCell></>}
+                                <TableCell><Badge variant="secondary">{itemTypes.find((type) => type.value === line.item_type)?.label ?? line.item_type}</Badge></TableCell>
+                                <TableCell><div className="flex justify-end gap-2"><Button type="button" variant="outline" size="sm" onClick={() => setViewingIndex(index)}><Eye />View details</Button>{editable && <><Button type="button" variant="outline" size="sm" onClick={() => editItem(index)}><Pencil />Edit</Button><Button type="button" variant="ghost" size="icon" aria-label={`Remove BOQ item ${line.name}`} onClick={() => confirm({title: 'Remove BOQ item?', description: 'This removes the item from this draft. Save the revision to keep the change.', confirmLabel: 'Remove', onConfirm: () => form.setData('lines', form.data.lines.filter((_, rowIndex) => rowIndex !== index))})}><Trash2 /></Button></>}</div></TableCell>
+                            </TableRow>)}{form.data.lines.length === 0 && <TableRow><TableCell colSpan={can.viewCosts ? 7 : 5} className="h-24 text-center text-muted-foreground">No BOQ items yet. Add an item or pick from the library.</TableCell></TableRow>}</TableBody>
+                        </Table>
+                        <Dialog open={editingIndex !== null} onOpenChange={(open) => {if (!open) cancelItem();}}>
+                            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
+                                <DialogHeader><DialogTitle>{lineSnapshot ? 'Edit BOQ item' : 'Add BOQ item'}</DialogTitle><DialogDescription>Apply changes to the table, then save the BOQ revision.</DialogDescription></DialogHeader>
+                                {form.data.lines.map((line, lineIndex) => lineIndex === editingIndex ? <div key={lineIndex} className="grid gap-4">
+                                    <div className="flex justify-end"><Button type="button" variant="outline" onClick={() => {setTargetLineIndex(lineIndex); setLibraryModalOpen(true);}}><Layers />Load template</Button></div>
                                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                                         {(
                                             [
@@ -723,10 +734,10 @@ export default function EstimateEditor({
                                                 key={field}
                                                 label={
                                                     field === 'section'
-                                                        ? 'Section / floor'
+                                                        ? 'Section / floor (e.g. Ground floor)'
                                                         : field === 'bill'
-                                                          ? 'Bill'
-                                                          : 'Element'
+                                                          ? 'Bill (e.g. Main building)'
+                                                          : 'Element (e.g. Substructure)'
                                                 }
                                             >
                                                 <Input
@@ -860,10 +871,7 @@ export default function EstimateEditor({
                                                 }
                                             />
                                         </Field>
-                                        <Field
-                                            label="Estimated quantity"
-                                            required
-                                        >
+                                        <Field label="BOQ quantity" required>
                                             <Input
                                                 type="number"
                                                 min="0"
@@ -904,7 +912,7 @@ export default function EstimateEditor({
                                             </Field>
                                         )}
                                         {can.viewCosts && (
-                                            <Field label="Internal unit cost">
+                                            <Field label="Internal unit cost (optional)">
                                                 <Input
                                                     type="number"
                                                     min="0"
@@ -1109,7 +1117,7 @@ export default function EstimateEditor({
                                     </details>
                                     <details className="group rounded-md border px-4 py-3">
                                         <summary className="cursor-pointer font-medium">
-                                            Resource assumptions (
+                                            Internal costing · resources (
                                             {line.resources.length})
                                         </summary>
                                         <div className="mt-4 grid gap-4">
@@ -1462,9 +1470,19 @@ export default function EstimateEditor({
                                             )}
                                         </div>
                                     </details>
-                                </section>
-                            ))}
-                        </div>
+
+                                </div> : null)}
+                                <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={cancelItem}>Cancel</Button><Button type="button" onClick={() => setEditingIndex(null)}>Apply changes</Button></div>
+                            </DialogContent>
+                        </Dialog>
+                        <Dialog open={viewingIndex !== null} onOpenChange={(open) => {if (!open) setViewingIndex(null);}}>
+                            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+                                <DialogHeader><DialogTitle>BOQ item details</DialogTitle><DialogDescription>{viewingIndex === null ? '' : form.data.lines[viewingIndex]?.name}</DialogDescription></DialogHeader>
+                                {viewingIndex !== null && form.data.lines[viewingIndex] && <ItemDetails line={form.data.lines[viewingIndex]} units={units} sites={sites} itemTypes={itemTypes} resourceTypes={resourceTypes} canViewCosts={can.viewCosts} currency={form.data.currency_code} equipmentCategories={equipmentCategories} workforceTrades={workforceTrades} subcontractors={subcontractors} />}
+                                {editable && viewingIndex !== null && <div className="flex justify-end"><Button type="button" onClick={() => {editItem(viewingIndex); setViewingIndex(null);}}><Pencil />Edit BOQ item</Button></div>}
+                            </DialogContent>
+                        </Dialog>
+
 
                         {editable && (
                             <>
@@ -1477,7 +1495,7 @@ export default function EstimateEditor({
                                         disabled={form.processing}
                                     >
                                         {form.processing && <Spinner />}
-                                        Save estimate
+                                        Save BOQ
                                     </Button>
                                 </div>
                             </>
@@ -1494,14 +1512,14 @@ export default function EstimateEditor({
                             <Layers className="size-5 text-primary" />
                             <span>
                                 {targetLineIndex !== null
-                                    ? `Load Template for Estimate Line ${targetLineIndex + 1}`
+                                    ? `Load Template for BOQ Item ${targetLineIndex + 1}`
                                     : 'Pick Work Activity from Library'}
                             </span>
                         </DialogTitle>
                         <DialogDescription>
                             Select a standard work activity to copy its
                             specifications, unit of measure, rates, and resource
-                            consumption norms into this estimate.
+                            consumption norms into this BOQ.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1662,4 +1680,26 @@ function Metric({ label, value }: { label: string; value: string }) {
             <div className="mt-1 font-semibold">{value}</div>
         </div>
     );
+}
+
+function Info({label, value}: {label: string; value: string | null | undefined}) {
+    return <div><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 text-sm font-medium whitespace-pre-line">{value || '—'}</dd></div>;
+}
+
+function ItemDetails({line, units, sites, itemTypes, resourceTypes, canViewCosts, currency, equipmentCategories, workforceTrades, subcontractors}: {line: EstimateLine; units: Option[]; sites: Option[]; itemTypes: Option[]; resourceTypes: Option[]; canViewCosts: boolean; currency: string; equipmentCategories: Option[]; workforceTrades: Option[]; subcontractors: Option[]}) {
+    const label = (options: Option[], value: string | null) => options.find((option) => option.value === value)?.label ?? value ?? '';
+    const money = (value: string) => value === '' ? 'Not provided' : formatCurrencyAmount(currency, Number(value));
+    return <div className="space-y-5">
+        <dl className="grid gap-4 sm:grid-cols-3">
+            <Info label="Reference" value={line.boq_reference} /><Info label="Bill" value={line.bill} /><Info label="Section / floor" value={line.section} /><Info label="Element" value={line.element} /><Info label="Item type" value={label(itemTypes, line.item_type)} /><Info label="Site" value={line.site_id ? label(sites, line.site_id) : 'Project-wide'} /><Info label="Unit" value={label(units, line.unit_of_measure_id)} /><Info label="Quantity" value={line.planned_quantity} /><Info label="Internal code" value={line.code} />
+            {canViewCosts && <><Info label="Client rate" value={line.selling_rate === '' ? 'Unpriced' : money(line.selling_rate)} /><Info label="Amount" value={line.selling_rate === '' || line.planned_quantity === '' ? 'Not available' : money(String(Number(line.selling_rate) * Number(line.planned_quantity)))} /><Info label="Internal unit cost" value={money(line.estimated_unit_cost)} /></>}
+            <div className="sm:col-span-3"><Info label="Description" value={line.description} /></div><div className="sm:col-span-3"><Info label="Notes" value={line.notes} /></div>
+            <Info label="Source document" value={line.source_document} /><Info label="Source sheet" value={line.source_sheet} /><Info label="Source row" value={line.source_row} />
+        </dl>
+        <h3 className="font-semibold">Resource assumptions</h3>
+        <Table><TableHeader><TableRow><TableHead>Resource</TableHead><TableHead>Type</TableHead><TableHead>Unit</TableHead><TableHead className="text-right">Quantity per work unit</TableHead>{canViewCosts && <TableHead className="text-right">Unit cost</TableHead>}</TableRow></TableHeader><TableBody>
+            {line.resources.map((resource, index) => <TableRow key={index}><TableCell className="whitespace-normal"><div className="font-medium">{resource.name}</div><div className="text-xs text-muted-foreground">{[label(equipmentCategories, resource.equipment_category_id), label(workforceTrades, resource.workforce_trade_id), label(subcontractors, resource.subcontractor_id), resource.notes].filter(Boolean).join(' · ')}</div></TableCell><TableCell>{label(resourceTypes, resource.resource_type)}</TableCell><TableCell>{label(units, resource.unit_of_measure_id)}</TableCell><TableCell className="text-right tabular-nums">{resource.quantity_per_work_unit || '—'}</TableCell>{canViewCosts && <TableCell className="text-right tabular-nums">{money(resource.estimated_unit_cost)}</TableCell>}</TableRow>)}
+            {line.resources.length === 0 && <TableRow><TableCell colSpan={canViewCosts ? 5 : 4} className="h-20 text-center text-muted-foreground">No resource assumptions recorded.</TableCell></TableRow>}
+        </TableBody></Table>
+    </div>;
 }

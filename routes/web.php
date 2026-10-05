@@ -200,7 +200,9 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::resource('work-item-templates', WorkItemTemplateController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::resource('work-item-categories', WorkItemCategoryController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::get('projects/{project}/boq', [ProjectBoqController::class, 'show'])->name('projects.boq.show');
+    Route::get('projects/{project}/boq/items/{item}', [ProjectBoqController::class, 'item'])->name('projects.boq.item');
     Route::post('projects/{project}/boq/activities', [ProjectBoqController::class, 'storeActivity'])->name('projects.boq.activities.store');
+    Route::get('projects/{project}/estimates/import/template', [ProjectEstimateImportController::class, 'template'])->name('project-estimates.import.template');
     Route::get('projects/{project}/estimates/import', [ProjectEstimateImportController::class, 'index'])->name('project-estimates.import');
     Route::post('projects/{project}/estimates/import', [ProjectEstimateImportController::class, 'upload'])->middleware('throttle:10,1')->name('project-estimates.import.upload');
     Route::post('projects/{project}/estimates/import/{import}/preview', [ProjectEstimateImportController::class, 'preview'])->whereUuid('import')->name('project-estimates.import.preview');

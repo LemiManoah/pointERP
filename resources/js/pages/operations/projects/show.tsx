@@ -1,7 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
-import { show as showBoq } from '@/actions/App/Http/Controllers/Operations/ProjectBoqController';
-import { index as importBoq } from '@/actions/App/Http/Controllers/Operations/ProjectEstimateImportController';
+import { show as showProject } from '@/actions/App/Http/Controllers/Operations/ProjectController';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,7 +15,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import {
     formatCurrencyAmount,
-    formatDateTime,
     formatNumber,
 } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
@@ -33,6 +31,7 @@ import {
     EquipmentScopePanel,
     type EquipmentScopeData,
 } from '../equipment/partials/equipment-scope-panel';
+import { BoqPanel, type BoqProps } from './boq';
 import {
     ProjectAccessDialog,
     type AssignedProjectUser,
@@ -49,6 +48,8 @@ import {
 import { SiteDialog, type Site } from './partials/site-dialog';
 
 type Props = {
+    boq: BoqProps | null;
+    activeTab: string;
     project: Project;
     sites: SiteRow[];
     activities: ProjectActivity[];
@@ -145,10 +146,11 @@ type ProjectPerformance = {
 };
 
 export default function ProjectShow({
+    boq,
+    activeTab,
     project,
     sites,
     activities,
-    estimates,
     performance,
     assignedUsers,
     documents,
@@ -165,14 +167,15 @@ export default function ProjectShow({
     activityUnits,
     canViewRates,
     canViewEstimates,
-    canCreateEstimate,
     fleet,
     canViewFleet,
     canUpdateProject,
     canCreateSite,
 }: Props) {
     const confirm = useConfirmDialog();
-    const [tab, setTab] = useState('sites');
+    const [tab, setTab] = useState(
+        activeTab === 'boq' && canViewEstimates ? 'boq' : 'sites',
+    );
     const activeSites = sites.filter((site) =>
         ['planned', 'active', 'suspended'].includes(site.status),
     );
@@ -227,15 +230,6 @@ export default function ProjectShow({
                     </div>
                 </div>
 
-                {canViewEstimates && (
-                    <div>
-                        <Button asChild>
-                            <Link href={showBoq(project.id)}>
-                                BoQ and progress
-                            </Link>
-                        </Button>
-                    </div>
-                )}
                 <Card>
                     <CardHeader>
                         <CardTitle>Daily reporting control</CardTitle>
@@ -272,13 +266,26 @@ export default function ProjectShow({
                     </CardContent>
                 </Card>
 
-                <Tabs value={tab} onValueChange={setTab}>
+                <Tabs
+                    value={tab}
+                    onValueChange={(value) => {
+                        setTab(value);
+                        router.get(
+                            showProject.url(project.id),
+                            { tab: value },
+                            {
+                                preserveState: true,
+                                preserveScroll: true,
+                                replace: true,
+                                only: ['boq', 'activeTab'],
+                            },
+                        );
+                    }}
+                >
                     <TabsList className="h-auto flex-wrap justify-start">
                         <TabsTrigger value="sites">Sites</TabsTrigger>
                         {canViewEstimates && (
-                            <TabsTrigger value="estimates">
-                                Estimates
-                            </TabsTrigger>
+                            <TabsTrigger value="boq">BOQ</TabsTrigger>
                         )}
                         <TabsTrigger value="activities">
                             Work Activities
@@ -296,6 +303,12 @@ export default function ProjectShow({
                         <TabsTrigger value="access">Access</TabsTrigger>
                         <TabsTrigger value="documents">Documents</TabsTrigger>
                     </TabsList>
+
+                    {canViewEstimates && boq && (
+                        <TabsContent value="boq" className="mt-6">
+                            <BoqPanel {...boq} />
+                        </TabsContent>
+                    )}
 
                     <TabsContent value="sites" className="mt-6 grid gap-6">
                         <div className="flex justify-end">
@@ -335,16 +348,6 @@ export default function ProjectShow({
                             />
                         )}
                     </TabsContent>
-
-                    {canViewEstimates && (
-                        <TabsContent value="estimates" className="mt-6">
-                            <EstimateTable
-                                projectId={project.id}
-                                estimates={estimates}
-                                canCreate={canCreateEstimate}
-                            />
-                        </TabsContent>
-                    )}
 
                     <TabsContent value="activities" className="mt-6 grid gap-6">
                         {!performance && (
@@ -601,123 +604,6 @@ function SiteTable({
                                         className="py-8 text-center text-muted-foreground"
                                     >
                                         No sites in this section.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
-function EstimateTable({
-    projectId,
-    estimates,
-    canCreate,
-}: {
-    projectId: string;
-    estimates: EstimateSummary[];
-    canCreate: boolean;
-}) {
-    return (
-        <Card>
-            <CardHeader className="flex-row items-center justify-between gap-4">
-                <div>
-                    <CardTitle>Estimate revisions</CardTitle>
-                    <CardDescription>
-                        Draft and approved project baselines.
-                    </CardDescription>
-                </div>
-                {canCreate && (
-                    <div className="flex gap-2">
-                        <Button asChild variant="outline">
-                            <Link href={importBoq.url(projectId)}>
-                                Import Excel BOQ
-                            </Link>
-                        </Button>
-                        <Button asChild>
-                            <Link
-                                href={`/projects/${projectId}/estimates/create`}
-                            >
-                                {estimates.length > 0
-                                    ? 'New revision'
-                                    : 'New estimate'}
-                            </Link>
-                        </Button>
-                    </div>
-                )}
-            </CardHeader>
-            <CardContent>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b text-left text-muted-foreground">
-                                <th className="py-3 pr-4 font-medium">
-                                    Version
-                                </th>
-                                <th className="py-3 pr-4 font-medium">Title</th>
-                                <th className="py-3 pr-4 font-medium">Items</th>
-                                <th className="py-3 pr-4 font-medium">
-                                    Status
-                                </th>
-                                <th className="py-3 font-medium">Approved</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {estimates.map((estimate) => (
-                                <tr
-                                    key={estimate.id}
-                                    className="border-b last:border-0"
-                                >
-                                    <td className="py-3 pr-4">
-                                        v{estimate.version_number}
-                                    </td>
-                                    <td className="py-3 pr-4">
-                                        <Link
-                                            href={`/estimates/${estimate.id}`}
-                                            className="font-medium hover:underline"
-                                        >
-                                            {estimate.title}
-                                        </Link>
-                                        <div className="text-muted-foreground">
-                                            {estimate.currency_code}
-                                        </div>
-                                    </td>
-                                    <td className="py-3 pr-4">
-                                        {formatNumber(estimate.lines_count)}
-                                    </td>
-                                    <td className="py-3 pr-4">
-                                        <Badge
-                                            variant={
-                                                estimate.is_baseline
-                                                    ? 'default'
-                                                    : 'secondary'
-                                            }
-                                        >
-                                            {estimate.status_label}
-                                        </Badge>
-                                    </td>
-                                    <td className="py-3">
-                                        {estimate.approved_by ?? 'Not approved'}
-                                        {estimate.approved_at && (
-                                            <div className="text-muted-foreground">
-                                                {formatDateTime(
-                                                    estimate.approved_at,
-                                                )}
-                                            </div>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                            {estimates.length === 0 && (
-                                <tr>
-                                    <td
-                                        colSpan={5}
-                                        className="py-8 text-center text-muted-foreground"
-                                    >
-                                        No estimate revisions recorded.
                                     </td>
                                 </tr>
                             )}

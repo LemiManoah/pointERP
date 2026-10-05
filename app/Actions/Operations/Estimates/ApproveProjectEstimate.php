@@ -33,7 +33,7 @@ final readonly class ApproveProjectEstimate
             $estimate->load(['lines.unit', 'project.branch']);
 
             if (! $estimate->isDraft()) {
-                throw ValidationException::withMessages(['estimate' => 'Only a draft estimate can become the baseline.']);
+                throw ValidationException::withMessages(['estimate' => 'Only a draft BOQ can become the baseline.']);
             }
 
             if ($estimate->lines->isEmpty()) {

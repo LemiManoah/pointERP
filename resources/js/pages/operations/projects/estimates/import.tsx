@@ -1,10 +1,12 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
+import { show as showBoq } from '@/actions/App/Http/Controllers/Operations/ProjectBoqController';
 import { show as projectShow } from '@/actions/App/Http/Controllers/Operations/ProjectController';
 import {
     index,
     upload,
+    template,
     preview as previewImport,
     store,
 } from '@/actions/App/Http/Controllers/Operations/ProjectEstimateImportController';
@@ -124,9 +126,7 @@ export default function BoqImport(props: Props) {
                         </p>
                     </div>
                     <Button asChild variant="outline">
-                        <Link href={projectShow.url(project.id)}>
-                            Back to project
-                        </Link>
+                        <Link href={showBoq.url(project.id)}>Back to BOQ</Link>
                     </Button>
                 </div>
                 <form
@@ -153,16 +153,23 @@ export default function BoqImport(props: Props) {
                         }
                     />
                     <Errors errors={uploadForm.errors} />
-                    <Button
-                        className="w-fit"
-                        disabled={
-                            !uploadForm.data.file || uploadForm.processing
-                        }
-                    >
-                        {uploadForm.processing
-                            ? 'Reading workbook...'
-                            : 'Upload workbook'}
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                        <Button
+                            className="w-fit"
+                            disabled={
+                                !uploadForm.data.file || uploadForm.processing
+                            }
+                        >
+                            {uploadForm.processing
+                                ? 'Reading workbook...'
+                                : 'Upload workbook'}
+                        </Button>
+                        <Button asChild variant="outline">
+                            <a href={template.url(project.id)}>
+                                Download Excel template
+                            </a>
+                        </Button>
+                    </div>
                     {filename && (
                         <p className="text-sm text-muted-foreground">
                             Current workbook: {filename}. Imports expire after
@@ -216,21 +223,26 @@ function Mapping({
 }) {
     const form = useForm({
         target_id: '',
-        sheets: sheets.map((sheet) => ({
-            sheet: sheet.id,
-            selected: false,
-            start_row: 1,
-            end_row: sheet.last_row,
-            bill: sheet.name,
-            section: '',
-            element: '',
-            reference: 'B',
-            description: 'C',
-            unit: 'D',
-            quantity: 'E',
-            rate: 'F',
-            amount: 'G',
-        })),
+        sheets: sheets.map((sheet) => {
+            const isTemplate =
+                sheet.sample['1']?.A?.value === 'Reference' &&
+                sheet.sample['1']?.B?.value === 'Description';
+            return {
+                sheet: sheet.id,
+                selected: false,
+                start_row: isTemplate ? 2 : 1,
+                end_row: sheet.last_row,
+                bill: sheet.name,
+                section: '',
+                element: '',
+                reference: isTemplate ? 'A' : 'B',
+                description: isTemplate ? 'B' : 'C',
+                unit: isTemplate ? 'C' : 'D',
+                quantity: isTemplate ? 'D' : 'E',
+                rate: isTemplate ? 'E' : 'F',
+                amount: isTemplate ? 'F' : 'G',
+            };
+        }),
     });
     function submit(event: FormEvent) {
         event.preventDefault();
@@ -514,7 +526,7 @@ function Review({
                 />
             </label>
             <label className="grid gap-1 text-sm">
-                Estimate notes
+                BOQ notes
                 <Textarea
                     value={form.data.notes}
                     onChange={(event) =>

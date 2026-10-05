@@ -15,6 +15,7 @@ use App\Models\ProjectActivity;
 use App\Models\ProjectEstimate;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
+use App\Models\WorkItemTemplate;
 use App\Services\ProjectPerformanceSummary;
 use App\Services\TenantContext;
 use Database\Seeders\PointInvestmentSeeder;
@@ -39,6 +40,35 @@ beforeEach(function (): void {
     resolve(ApproveProjectEstimate::class)->handle($this->estimate, $this->actor);
     $this->activity = ProjectActivity::query()->where('estimate_work_item_key', $this->line['work_item_key'])->firstOrFail();
     Notification::fake();
+});
+
+it('offers active library activities without exposing template costs on BOQ details', function (): void {
+    $this->actor->givePermissionTo('work-item-templates.view');
+    $template = WorkItemTemplate::query()->create([
+        'tenant_id' => $this->actor->tenant_id,
+        'category' => 'Earthworks', 'name' => 'Library excavation',
+        'unit_of_measure_id' => $this->unit->id,
+        'default_selling_rate' => '999', 'default_unit_cost' => '123', 'is_active' => true,
+    ]);
+    $inactive = WorkItemTemplate::query()->create([
+        'tenant_id' => $this->actor->tenant_id,
+        'category' => 'Earthworks', 'name' => 'Inactive excavation',
+        'unit_of_measure_id' => $this->unit->id, 'is_active' => false,
+    ]);
+
+    $this->actingAs($this->actor)
+        ->get(route('projects.boq.item', ['project' => $this->project, 'item' => $this->activity->boq_item_id]))
+        ->assertOk()->assertInertia(fn (Assert $page): Assert => $page
+            ->where('can.viewActivityLibrary', true)
+            ->where('activityTemplates', function ($templates) use ($template, $inactive): bool {
+                $rows = collect($templates);
+                $row = $rows->firstWhere('id', $template->id);
+
+                return $row !== null && $row['unit_of_measure_id'] === $this->unit->id
+                    && ! array_key_exists('default_unit_cost', $row)
+                    && ! array_key_exists('default_selling_rate', $row)
+                    && ! $rows->contains('id', $inactive->id);
+            }));
 });
 
 it('aggregates distinct measured activities once and excludes supporting and draft quantities', function (): void {
@@ -96,11 +126,24 @@ it('rejects cross-project BoQ activity links', function (): void {
 
 it('serves the BoQ screen without exposing prices to quantity-only users', function (): void {
     $engineer = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();
-    $this->actingAs($engineer)->get(route('projects.boq.show', $this->project))->assertOk()
+    $this->actingAs($engineer)->get(route('projects.boq.show', $this->project))
+        ->assertRedirect(route('projects.show', ['project' => $this->project, 'tab' => 'boq']));
+    $this->get(route('projects.show', ['project' => $this->project, 'tab' => 'boq']))->assertOk()
+        ->assertInertia(fn (Assert $page): Assert => $page->component('operations/projects/show')
+            ->where('activeTab', 'boq')->where('boq.can.viewCosts', false)
+            ->where('boq.performance.work_items.0.baseline_revenue', null));
+    $this->get(route('projects.boq.item', ['project' => $this->project, 'item' => $this->activity->boq_item_id]))->assertOk()
         ->assertInertia(fn (Assert $page): Assert => $page->component('operations/projects/boq')
+            ->where('itemId', $this->activity->boq_item_id)
             ->where('can.viewCosts', false)->where('performance.work_items.0.baseline_revenue', null));
     $outsider = User::query()->where('email', 'site.juba@point.test')->firstOrFail();
     $this->actingAs($outsider)->get(route('projects.boq.show', $this->project))->assertForbidden();
+});
+
+it('rejects BOQ item details outside the project approved schedule', function (): void {
+    $this->actingAs($this->actor)
+        ->get(route('projects.boq.item', ['project' => $this->project, 'item' => (string) Str::uuid()]))
+        ->assertNotFound();
 });
 
 it('creates an isolated idempotent demo project', function (): void {

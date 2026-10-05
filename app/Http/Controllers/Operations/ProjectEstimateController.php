@@ -54,7 +54,7 @@ final class ProjectEstimateController
         $data = $request->validated();
         $estimate = $action->handle($project, $data, $actor);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Estimate draft saved.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'BOQ draft saved.']);
 
         return to_route('project-estimates.show', $estimate);
     }
@@ -76,7 +76,7 @@ final class ProjectEstimateController
         $data = $request->validated();
         $action->handle($projectEstimate->project, $data, $actor, $projectEstimate);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Estimate draft updated.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'BOQ draft updated.']);
 
         return to_route('project-estimates.show', $projectEstimate);
     }
@@ -87,9 +87,9 @@ final class ProjectEstimateController
         $project = $projectEstimate->project;
         $projectEstimate->delete();
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Draft estimate deleted.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Draft BOQ deleted.']);
 
-        return to_route('projects.show', $project);
+        return to_route('projects.boq.show', $project);
     }
 
     private function editor(Project $project, ?ProjectEstimate $estimate, ?ProjectEstimate $source = null): Response

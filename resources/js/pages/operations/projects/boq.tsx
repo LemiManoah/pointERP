@@ -1,8 +1,11 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useState } from 'react';
+import { ArrowLeft, Plus, Search } from 'lucide-react';
+import { SearchableSelect } from '@/components/searchable-select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { show as showReport } from '@/actions/App/Http/Controllers/Operations/DailySiteReportController';
 import {
-    show,
+    item as showItem,
     storeActivity,
 } from '@/actions/App/Http/Controllers/Operations/ProjectBoqController';
 import { show as showProject } from '@/actions/App/Http/Controllers/Operations/ProjectController';
@@ -36,6 +39,7 @@ type Item = {
     site_id: string | null;
     item_type: string;
     unit: string;
+    unit_of_measure_id: string;
     source_document: string | null;
     source_sheet: string | null;
     source_row: number | null;
@@ -58,7 +62,8 @@ type Row = {
     baseline_revenue: string | null;
     earned_output: string | null;
 };
-type Props = {
+export type BoqProps = {
+    itemId?: string;
     project: { id: string; name: string; reference: string };
     performance: null | {
         baseline: { version_number: number; currency_code: string };
@@ -70,6 +75,7 @@ type Props = {
         work_items: Row[];
     };
     items: Item[];
+    activityTemplates: { id: string; name: string; code: string | null; category: string; unit: string; unit_of_measure_id: string }[];
     activities: {
         id: string;
         boq_item_id: string;
@@ -100,6 +106,7 @@ type Props = {
     }[];
     sites: { id: string; name: string }[];
     can: {
+        viewActivityLibrary: boolean;
         createActivity: boolean;
         createEstimate: boolean;
         viewCosts: boolean;
@@ -108,7 +115,9 @@ type Props = {
 const number = (value: string | number) =>
     Number(value).toLocaleString(undefined, { maximumFractionDigits: 4 });
 
-export default function Boq({
+export function BoqPanel({
+    itemId,
+    activityTemplates,
     project,
     performance,
     items,
@@ -118,8 +127,9 @@ export default function Boq({
     revisions,
     sites,
     can,
-}: Props) {
+}: BoqProps) {
     const [search, setSearch] = useState('');
+    const [libraryId, setLibraryId] = useState('');
     const [selected, setSelected] = useState<Item | null>(null);
     const form = useForm({
         project_id: project.id,
@@ -138,6 +148,7 @@ export default function Boq({
     );
     function addActivity(item: Item) {
         setSelected(item);
+        setLibraryId('');
         form.setData({
             project_id: project.id,
             boq_item_id: item.id,
@@ -149,442 +160,132 @@ export default function Boq({
         });
         form.clearErrors();
     }
+    const currentRow = performance?.work_items.find((row) => row.boq_item_id === itemId);
+    const currentItem = items.find((item) => item.id === itemId);
+    const children = activities.filter((activity) => activity.boq_item_id === itemId);
+    const evidence = measurements.filter((entry) => entry.boq_item_id === itemId);
+    const measured = currentRow?.item_type === 'measured';
+    const currency = performance?.baseline.currency_code ?? '';
+    const money = (value: string | null) => value === null ? 'Unpriced' : `${currency} ${number(value)}`;
+    const libraryOptions = activityTemplates.filter((template) => form.data.progress_method === 'supporting' || template.unit_of_measure_id === selected?.unit_of_measure_id);
     return (
-        <AppLayout
-            breadcrumbs={[
-                { title: project.reference, href: showProject.url(project.id) },
-                { title: 'BoQ and progress', href: show.url(project.id) },
-            ]}
-        >
-            <Head title={`BoQ · ${project.name}`} />
-            <div className="flex flex-col gap-6 p-4 md:p-6">
-                <div className="flex flex-wrap items-start justify-between gap-4">
+        <>
+            <div className="flex flex-col gap-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <p className="text-sm text-muted-foreground">
-                            {project.name}
-                        </p>
-                        <h1 className="text-2xl font-semibold">
-                            BoQ and progress
-                        </h1>
-                        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-                            The approved schedule defines the scope. Activities
-                            organise delivery. Only approved measured output
-                            reduces the balance.
+                        <h1 className="text-2xl font-semibold">{itemId ? currentItem?.name ?? 'BOQ item' : 'BOQ'}</h1>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            {itemId ? `${project.name} · BOQ item ${currentRow?.boq_reference ?? '—'}` : 'Approved BOQ items and revisions.'}
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" asChild>
-                            <Link href={showProject(project.id)}>
-                                Project overview
-                            </Link>
-                        </Button>
-                        {can.createEstimate && (
-                            <>
-                                <Button variant="outline" asChild>
-                                    <Link href={importBoq(project.id)}>
-                                        Import Excel BoQ
-                                    </Link>
-                                </Button>
-                                <Button asChild>
-                                    <Link href={createEstimate(project.id)}>
-                                        {performance
-                                            ? 'Create revision'
-                                            : 'Create BoQ'}
-                                    </Link>
-                                </Button>
-                            </>
-                        )}
+                        {itemId && <Button variant="outline" asChild><Link href={showProject(project.id, {query: {tab: 'boq'}})}><ArrowLeft />Back to BOQ</Link></Button>}
+                        {itemId && measured && currentItem && can.createActivity && <Button onClick={() => addActivity(currentItem)}><Plus />Add activity</Button>}
+                        {!itemId && can.createEstimate && <>
+                            <Button variant="outline" asChild><Link href={importBoq(project.id)}>Import Excel BOQ</Link></Button>
+                            <Button asChild><Link href={createEstimate(project.id)}><Plus />{performance ? 'Create revision' : 'Create BOQ'}</Link></Button>
+                        </>}
                     </div>
                 </div>
-                {project.reference === 'BOQ-DEMO-COE' && (
-                    <Card className="border-blue-300 bg-blue-50/50 dark:bg-blue-950/20">
-                        <CardHeader>
-                            <CardTitle>
-                                Walkthrough: Centre of Excellence
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2 text-sm">
-                            <p>
-                                This is a demonstration, not the live contract.
-                                The excavation quantity and rate come from the
-                                client’s workbook; site measurements are
-                                fictional.
-                            </p>
-                            <p>
-                                <strong>Start with item B:</strong> 1,648 m³
-                                planned. Two approved reports contribute 100 +
-                                150 = 250 m³, leaving 1,398 m³. Setting-out
-                                supports the work and adds no excavation
-                                quantity. A draft report is waiting and
-                                contributes nothing yet.
-                            </p>
-                            <p>
-                                Expand the item to see its activities and
-                                evidence. Use “Add activity” for another area or
-                                task. Use “Create revision” to change the plan
-                                while preserving approved progress.
-                            </p>
-                        </CardContent>
-                    </Card>
-                )}
-                <div className="grid gap-4 sm:grid-cols-3">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-sm text-muted-foreground">
-                                Current baseline
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="text-xl font-semibold">
-                            {performance
-                                ? `Revision ${performance.baseline.version_number}`
-                                : 'Awaiting approval'}
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-sm text-muted-foreground">
-                                Schedule items
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="text-xl font-semibold">
-                            {items.length}
-                            <p className="mt-1 text-xs font-normal text-muted-foreground">
-                                Different measurement units are never added
-                                together.
-                            </p>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-sm text-muted-foreground">
-                                Pricing
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="text-xl font-semibold">
-                            {can.viewCosts
-                                ? (performance?.pricing?.status.replaceAll(
-                                      '_',
-                                      ' ',
-                                  ) ?? 'No baseline')
-                                : 'Restricted'}
-                            <p className="mt-1 text-xs font-normal text-muted-foreground">
-                                A blank rate remains unpriced. Allowances have
-                                no physical progress.
-                            </p>
-                        </CardContent>
-                    </Card>
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h2 className="text-lg font-semibold">
-                        Approved BoQ schedule
-                    </h2>
-                    <Input
-                        className="max-w-sm"
-                        aria-label="Search BoQ"
-                        placeholder="Search description, reference or bill…"
-                        value={search}
-                        onChange={(event) => setSearch(event.target.value)}
-                    />
-                </div>
-                {!performance && (
-                    <Card>
-                        <CardContent className="p-6">
-                            Import or enter the schedule, review it, then
-                            approve the draft to establish the baseline.
-                        </CardContent>
-                    </Card>
-                )}
-                {performance && rows.length === 0 && (
-                    <p className="text-muted-foreground">
-                        No matching BoQ items.
-                    </p>
-                )}
-                <div className="space-y-3">
-                    {rows.map((row) => {
-                        const item = items.find(
-                            (item) => item.id === row.boq_item_id,
-                        );
-                        const children = activities.filter(
-                            (activity) =>
-                                activity.boq_item_id === row.boq_item_id,
-                        );
-                        const evidence = measurements.filter(
-                            (entry) => entry.boq_item_id === row.boq_item_id,
-                        );
-                        const measured = row.item_type === 'measured';
-                        return (
-                            <details
-                                key={row.id}
-                                className="rounded-xl border bg-card"
-                                open={search ? true : undefined}
-                            >
-                                <summary className="cursor-pointer p-4 marker:text-muted-foreground">
-                                    <span className="ml-2 font-semibold">
-                                        {row.boq_reference ?? '—'} · {row.name}
-                                    </span>
-                                    <div className="mt-2 text-xs text-muted-foreground">
-                                        {[row.bill, row.section, row.element]
-                                            .filter(Boolean)
-                                            .join(' / ')}
-                                    </div>
-                                    <div className="mt-4 grid gap-3 text-sm sm:grid-cols-4">
-                                        <span>
-                                            Baseline{' '}
-                                            <strong className="block">
-                                                {number(row.planned_quantity)}{' '}
-                                                {row.unit}
-                                            </strong>
-                                        </span>
-                                        <span>
-                                            Approved{' '}
-                                            <strong className="block">
-                                                {measured
-                                                    ? `${number(row.approved_progress)} ${row.unit}`
-                                                    : 'Not measured'}
-                                            </strong>
-                                        </span>
-                                        <span>
-                                            Remaining{' '}
-                                            <strong className="block">
-                                                {measured
-                                                    ? `${number(row.remaining_quantity)} ${row.unit}`
-                                                    : 'Allowance'}
-                                            </strong>
-                                        </span>
-                                        <span>
-                                            Completion{' '}
-                                            <strong className="block">
-                                                {measured
-                                                    ? `${number(row.completion_percent)}%`
-                                                    : 'Not applicable'}
-                                            </strong>
-                                        </span>
-                                    </div>
-                                    {Number(row.overrun_quantity) > 0 && (
-                                        <p className="mt-2 text-sm text-amber-700">
-                                            Exceeds baseline by{' '}
-                                            {number(row.overrun_quantity)}{' '}
-                                            {row.unit}; review the scope
-                                            revision.
-                                        </p>
-                                    )}
-                                </summary>
-                                <div className="space-y-5 border-t p-4">
-                                    {item?.description && (
-                                        <p className="text-sm whitespace-pre-line text-muted-foreground">
-                                            {item.description}
-                                        </p>
-                                    )}
-                                    {item?.source_document && (
-                                        <p className="text-xs text-muted-foreground">
-                                            Source: {item.source_document} ·{' '}
-                                            {item.source_sheet} · row{' '}
-                                            {item.source_row}
-                                        </p>
-                                    )}
-                                    {can.viewCosts && performance && (
-                                        <p className="text-sm">
-                                            Baseline value:{' '}
-                                            {row.baseline_revenue === null
-                                                ? 'Unpriced'
-                                                : `${performance.baseline.currency_code} ${number(row.baseline_revenue)}`}{' '}
-                                            · Earned measured output:{' '}
-                                            {row.earned_output === null
-                                                ? 'Not available'
-                                                : `${performance.baseline.currency_code} ${number(row.earned_output)}`}
-                                        </p>
-                                    )}
-                                    <div className="flex items-center justify-between gap-3">
-                                        <h3 className="font-semibold">
-                                            Execution activities
-                                        </h3>
-                                        {measured &&
-                                            item &&
-                                            can.createActivity && (
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() =>
-                                                        addActivity(item)
-                                                    }
-                                                >
-                                                    Add activity
-                                                </Button>
-                                            )}
-                                    </div>
-                                    {children.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground">
-                                            No physical activities for this
-                                            allowance.
-                                        </p>
-                                    ) : (
-                                        <div className="space-y-2">
-                                            {children.map((activity) => (
-                                                <div
-                                                    key={activity.id}
-                                                    className="flex flex-wrap justify-between gap-2 rounded-lg bg-muted/40 p-3 text-sm"
-                                                >
-                                                    <span>
-                                                        {activity.name}{' '}
-                                                        {activity.status !==
-                                                            'active' && (
-                                                            <Badge variant="secondary">
-                                                                Inactive
-                                                            </Badge>
-                                                        )}
-                                                    </span>
-                                                    <span>
-                                                        {activity.progress_method ===
-                                                        'supporting' ? (
-                                                            <Badge variant="secondary">
-                                                                Supporting · no
-                                                                BoQ output
-                                                            </Badge>
-                                                        ) : (
-                                                            `Measured output · ${number(activity.approved_quantity)} ${activity.unit} approved`
-                                                        )}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                    <h3 className="font-semibold">
-                                        Approved measurement history
-                                    </h3>
-                                    {evidence.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground">
-                                            No approved measurements yet.
-                                        </p>
-                                    ) : (
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-left text-sm">
-                                                <thead>
-                                                    <tr className="border-b">
-                                                        <th className="py-2">
-                                                            Date
-                                                        </th>
-                                                        <th>Description</th>
-                                                        <th className="text-right">
-                                                            Quantity
-                                                        </th>
-                                                        <th className="pl-4">
-                                                            Evidence
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {evidence.map((entry) => (
-                                                        <tr
-                                                            key={entry.id}
-                                                            className="border-b last:border-0"
-                                                        >
-                                                            <td className="py-3 pr-4 whitespace-nowrap">
-                                                                {entry.date}
-                                                            </td>
-                                                            <td className="min-w-48 pr-4">
-                                                                {
-                                                                    entry.description
-                                                                }
-                                                            </td>
-                                                            <td className="text-right whitespace-nowrap">
-                                                                {number(
-                                                                    entry.quantity,
-                                                                )}{' '}
-                                                                {entry.unit}
-                                                            </td>
-                                                            <td className="pl-4 whitespace-nowrap">
-                                                                {entry.report_id ? (
-                                                                    <Link
-                                                                        className="text-primary underline"
-                                                                        href={showReport(
-                                                                            entry.report_id,
-                                                                        )}
-                                                                    >
-                                                                        Open
-                                                                        report
-                                                                    </Link>
-                                                                ) : entry.legacy ? (
-                                                                    'Legacy balance · review required'
-                                                                ) : (
-                                                                    'Approved record'
-                                                                )}
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    )}
-                                </div>
-                            </details>
-                        );
-                    })}
-                </div>
-                <div className="grid gap-6 lg:grid-cols-2">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Revision history</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            {revisions.map((revision) => (
-                                <div
-                                    key={revision.id}
-                                    className="flex justify-between gap-2 text-sm"
-                                >
-                                    <Link
-                                        className="underline"
-                                        href={showEstimate(revision.id)}
-                                    >
-                                        V{revision.version_number} ·{' '}
-                                        {revision.title}
-                                    </Link>
-                                    <Badge
-                                        variant={
-                                            revision.is_baseline
-                                                ? 'default'
-                                                : 'secondary'
-                                        }
-                                    >
-                                        {revision.is_baseline
-                                            ? 'Baseline'
-                                            : revision.status}
-                                    </Badge>
-                                </div>
-                            ))}
-                            <p className="text-xs text-muted-foreground">
-                                Draft revisions do not change the approved
-                                quantities or scope until approval.
-                            </p>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Site reports</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            {reports.map((report) => (
-                                <div
-                                    key={report.id}
-                                    className="flex justify-between gap-2 text-sm"
-                                >
-                                    <Link
-                                        className="underline"
-                                        href={showReport(report.id)}
-                                    >
-                                        {report.date} · {report.reference}
-                                    </Link>
-                                    <Badge variant="secondary">
-                                        {report.status}
-                                    </Badge>
-                                </div>
-                            ))}
-                            <p className="text-xs text-muted-foreground">
-                                Draft and submitted reports contribute no
-                                approved progress.
-                            </p>
-                        </CardContent>
-                    </Card>
-                </div>
+                {!itemId ? <>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="relative w-full sm:max-w-sm">
+                            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input className="pl-9" aria-label="Search BOQ items" placeholder="Search BOQ items, references or bills..." value={search} onChange={(event) => setSearch(event.target.value)} />
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                            <span>{rows.length} BOQ items</span>
+                            <Badge variant="secondary">{performance ? `Approved revision ${performance.baseline.version_number}` : 'Awaiting approval'}</Badge>
+                            {can.viewCosts && performance?.pricing && <Badge variant="outline">{performance.pricing.status.replaceAll('_', ' ')}</Badge>}
+                        </div>
+                    </div>
+                    <Card><CardContent className="pt-6">
+                        <Table>
+                            <TableHeader><TableRow>
+                                <TableHead>BOQ item</TableHead><TableHead>Unit</TableHead>
+                                <TableHead className="text-right">Quantity</TableHead>
+                                <TableHead className="text-right">Approved output</TableHead>
+                                <TableHead className="text-right">Remaining</TableHead>
+                                <TableHead className="text-right">Completion</TableHead>
+                                {can.viewCosts && <TableHead className="text-right">Amount ({currency})</TableHead>}
+                            </TableRow></TableHeader>
+                            <TableBody>
+                                {rows.map((row) => <TableRow key={row.id}>
+                                    <TableCell className="min-w-64 max-w-96 whitespace-normal">
+                                        <Link className="font-medium text-primary hover:underline" href={showItem({project: project.id, item: row.boq_item_id})}>{row.boq_reference ? `${row.boq_reference} · ` : ''}{row.name}</Link>
+                                        <div className="text-xs text-muted-foreground">{[row.bill, row.section, row.element].filter(Boolean).join(' / ')}</div>
+                                        {Number(row.overrun_quantity) > 0 && <div className="text-xs text-amber-700">Over baseline by {number(row.overrun_quantity)} {row.unit}</div>}
+                                    </TableCell>
+                                    <TableCell>{row.unit}</TableCell>
+                                    <TableCell className="text-right tabular-nums">{number(row.planned_quantity)}</TableCell>
+                                    <TableCell className="text-right tabular-nums">{row.item_type === 'measured' ? number(row.approved_progress) : '—'}</TableCell>
+                                    <TableCell className="text-right tabular-nums">{row.item_type === 'measured' ? number(row.remaining_quantity) : 'Allowance'}</TableCell>
+                                    <TableCell className="text-right tabular-nums">{row.item_type === 'measured' ? `${number(row.completion_percent)}%` : '—'}</TableCell>
+                                    {can.viewCosts && <TableCell className="text-right tabular-nums">{row.baseline_revenue === null ? 'Unpriced' : number(row.baseline_revenue)}</TableCell>}
+                                </TableRow>)}
+                                {rows.length === 0 && <EmptyRow columns={can.viewCosts ? 7 : 6} text={performance ? 'No matching BOQ items.' : 'Create or import a BOQ, then approve it to display the schedule.'} />}
+                            </TableBody>
+                        </Table>
+                    </CardContent></Card>
+                    <div className="grid gap-5 xl:grid-cols-2">
+                        <Card><CardHeader><CardTitle>BOQ revisions</CardTitle></CardHeader><CardContent>
+                            <Table><TableHeader><TableRow><TableHead>Revision</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                                <TableBody>{revisions.map((revision) => <TableRow key={revision.id}>
+                                    <TableCell className="whitespace-normal"><Link className="font-medium text-primary hover:underline" href={showEstimate(revision.id)}>V{revision.version_number} · {revision.title}</Link></TableCell>
+                                    <TableCell><Badge variant={revision.is_baseline ? 'default' : 'secondary'}>{revision.is_baseline ? 'Current baseline' : revision.status}</Badge></TableCell>
+                                </TableRow>)}{revisions.length === 0 && <EmptyRow columns={2} text="No BOQ revisions yet." />}</TableBody>
+                            </Table>
+                        </CardContent></Card>
+                        <Card><CardHeader><CardTitle>Site reports</CardTitle></CardHeader><CardContent>
+                            <Table><TableHeader><TableRow><TableHead>Report</TableHead><TableHead>Date</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                                <TableBody>{reports.map((report) => <TableRow key={report.id}>
+                                    <TableCell><Link className="font-medium text-primary hover:underline" href={showReport(report.id)}>{report.reference}</Link></TableCell><TableCell>{report.date}</TableCell><TableCell><Badge variant="secondary">{report.status}</Badge></TableCell>
+                                </TableRow>)}{reports.length === 0 && <EmptyRow columns={3} text="No site reports available." />}</TableBody>
+                            </Table>
+                        </CardContent></Card>
+                    </div>
+                </> : currentRow && currentItem && <>
+                    <Card><CardHeader><CardTitle>BOQ item details</CardTitle></CardHeader><CardContent className="space-y-5">
+                        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            <Detail label="Reference" value={currentRow.boq_reference ?? '—'} />
+                            <Detail label="Bill" value={currentRow.bill ?? '—'} />
+                            <Detail label="Section" value={currentRow.section ?? '—'} />
+                            <Detail label="Element" value={currentRow.element ?? '—'} />
+                            <Detail label="Item type" value={currentRow.item_type.replaceAll('_', ' ')} />
+                            <Detail label="Unit" value={currentRow.unit} />
+                            <Detail label="Site" value={sites.find((site) => site.id === currentItem.site_id)?.name ?? 'Project-wide'} />
+                            <Detail label="Baseline" value={`Revision ${performance?.baseline.version_number}`} />
+                        </dl>
+                        {currentItem.description && <div><p className="text-sm text-muted-foreground">Description</p><p className="mt-1 text-sm whitespace-pre-line">{currentItem.description}</p></div>}
+                        {currentItem.source_document && <p className="text-xs text-muted-foreground">Source: {currentItem.source_document} · {currentItem.source_sheet} · row {currentItem.source_row}</p>}
+                    </CardContent></Card>
+                    <Card><CardHeader><CardTitle>Quantity and progress</CardTitle></CardHeader><CardContent>
+                        <Table><TableHeader><TableRow><TableHead className="text-right">BOQ quantity</TableHead><TableHead className="text-right">Approved output</TableHead><TableHead className="text-right">Remaining</TableHead><TableHead className="text-right">Over baseline</TableHead><TableHead className="text-right">Completion</TableHead>{can.viewCosts && <><TableHead className="text-right">BOQ amount</TableHead><TableHead className="text-right">Earned output</TableHead></>}</TableRow></TableHeader>
+                            <TableBody><TableRow>
+                                <TableCell className="text-right tabular-nums">{number(currentRow.planned_quantity)} {currentRow.unit}</TableCell>
+                                <TableCell className="text-right tabular-nums">{measured ? `${number(currentRow.approved_progress)} ${currentRow.unit}` : 'Not measured'}</TableCell>
+                                <TableCell className="text-right tabular-nums">{measured ? `${number(currentRow.remaining_quantity)} ${currentRow.unit}` : 'Allowance'}</TableCell>
+                                <TableCell className="text-right tabular-nums">{measured ? `${number(currentRow.overrun_quantity)} ${currentRow.unit}` : '—'}</TableCell>
+                                <TableCell className="text-right tabular-nums">{measured ? `${number(currentRow.completion_percent)}%` : '—'}</TableCell>
+                                {can.viewCosts && <><TableCell className="text-right tabular-nums">{money(currentRow.baseline_revenue)}</TableCell><TableCell className="text-right tabular-nums">{currentRow.earned_output === null ? 'Not available' : money(currentRow.earned_output)}</TableCell></>}
+                            </TableRow></TableBody>
+                        </Table>
+                    </CardContent></Card>
+                    <Card><CardHeader><CardTitle>Work activities</CardTitle></CardHeader><CardContent>
+                        <Table><TableHeader><TableRow><TableHead>Activity</TableHead><TableHead>Contribution</TableHead><TableHead>Unit</TableHead><TableHead className="text-right">Approved output</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                            <TableBody>{children.map((activity) => <TableRow key={activity.id}>
+                                <TableCell className="font-medium whitespace-normal">{activity.name}</TableCell><TableCell><Badge variant="outline">{activity.progress_method === 'supporting' ? 'Supporting' : 'Measured output'}</Badge></TableCell><TableCell>{activity.unit}</TableCell><TableCell className="text-right tabular-nums">{activity.progress_method === 'supporting' ? 'Does not count' : number(activity.approved_quantity)}</TableCell><TableCell><Badge variant="secondary">{activity.status}</Badge></TableCell>
+                            </TableRow>)}{children.length === 0 && <EmptyRow columns={5} text={measured ? 'No activities linked to this BOQ item yet.' : 'This allowance has no measured work activities.'} />}</TableBody>
+                        </Table>
+                    </CardContent></Card>
+                    <Card><CardHeader><CardTitle>Approved measurements</CardTitle></CardHeader><CardContent>
+                        <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Activity / description</TableHead><TableHead className="text-right">Quantity</TableHead><TableHead>Evidence</TableHead></TableRow></TableHeader>
+                            <TableBody>{evidence.map((entry) => <TableRow key={entry.id}>
+                                <TableCell>{entry.date}</TableCell><TableCell className="min-w-56 whitespace-normal"><div className="font-medium">{children.find((activity) => activity.id === entry.activity_id)?.name ?? 'BOQ item measurement'}</div><div className="text-xs text-muted-foreground">{entry.description}</div></TableCell><TableCell className="text-right tabular-nums">{number(entry.quantity)} {entry.unit}</TableCell><TableCell>{entry.report_id ? <Link className="font-medium text-primary hover:underline" href={showReport(entry.report_id)}>Open report</Link> : entry.legacy ? <Badge variant="outline">Legacy balance · review required</Badge> : 'Approved record'}</TableCell>
+                            </TableRow>)}{evidence.length === 0 && <EmptyRow columns={4} text="No approved measurements for this BOQ item yet." />}</TableBody>
+                        </Table>
+                    </CardContent></Card>
+                </>}
             </div>
             <Dialog
                 open={selected !== null}
@@ -594,11 +295,10 @@ export default function Boq({
             >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Add execution activity</DialogTitle>
+                        <DialogTitle>Add activity to BOQ item</DialogTitle>
                     </DialogHeader>
                     <p className="text-sm text-muted-foreground">
-                        Linked to {selected?.name}. The BoQ quantity stays on
-                        the parent item.
+                        BOQ item: {selected?.name}. Its approved quantity and rate stay unchanged.
                     </p>
                     <form
                         className="space-y-4"
@@ -610,6 +310,22 @@ export default function Boq({
                             });
                         }}
                     >
+                        {can.viewActivityLibrary && <div className="space-y-2">
+                            <Label>Work activity library</Label>
+                            <SearchableSelect
+                                value={libraryId}
+                                placeholder="Select a library activity or enter your own"
+                                searchPlaceholder="Search name, code or category..."
+                                emptyMessage="No matching library activities for this unit."
+                                options={[{value: '', label: 'Custom activity'}, ...libraryOptions.map((template) => ({value: template.id, label: `${template.code ? `${template.code} · ` : ''}${template.name}`, description: `${template.category} · ${template.unit}`}))]}
+                                onValueChange={(value) => {
+                                    setLibraryId(value);
+                                    const template = libraryOptions.find((template) => template.id === value);
+                                    if (template) form.setData({...form.data, name: template.name, unit: form.data.progress_method === 'measured' ? selected?.unit ?? template.unit : template.unit});
+                                }}
+                            />
+                            <p className="text-xs text-muted-foreground">Copies the activity name and unit. Measured activities must use the BOQ item's unit. Library prices and resource estimates are not copied.</p>
+                        </div>}
                         <div className="space-y-2">
                             <Label htmlFor="activity-name">Activity name</Label>
                             <Input
@@ -624,12 +340,13 @@ export default function Boq({
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="progress-method">
-                                Contribution to BoQ
+                                Contribution to BOQ item
                             </Label>
                             <NativeSelect
                                 id="progress-method"
                                 value={form.data.progress_method}
                                 onChange={(event) => {
+                                    setLibraryId('');
                                     form.setData(
                                         'progress_method',
                                         event.target.value,
@@ -703,6 +420,48 @@ export default function Boq({
                     </form>
                 </DialogContent>
             </Dialog>
+        </>
+    );
+}
+
+export default function BoqItem(props: BoqProps) {
+    const item = props.items.find((item) => item.id === props.itemId);
+    return (
+        <AppLayout
+            breadcrumbs={[
+                {
+                    title: props.project.reference,
+                    href: showProject.url(props.project.id),
+                },
+                {
+                    title: 'BOQ',
+                    href: showProject.url(props.project.id, {
+                        query: { tab: 'boq' },
+                    }),
+                },
+                {
+                    title: item?.name ?? 'Item details',
+                    href: showItem.url({
+                        project: props.project.id,
+                        item: props.itemId!,
+                    }),
+                },
+            ]}
+        >
+            <Head
+                title={`${item?.name ?? 'BOQ item'} · ${props.project.name}`}
+            />
+            <div className="p-4 md:p-6">
+                <BoqPanel {...props} />
+            </div>
         </AppLayout>
     );
+}
+
+function EmptyRow({columns, text}: {columns: number; text: string}) {
+    return <TableRow><TableCell colSpan={columns} className="h-24 text-center text-muted-foreground">{text}</TableCell></TableRow>;
+}
+
+function Detail({label, value}: {label: string; value: string}) {
+    return <div><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 text-sm font-medium">{value}</dd></div>;
 }
