@@ -17,6 +17,9 @@ final class DashboardController
         $user = $request->user();
         abort_unless($user instanceof User, 403);
 
-        return Inertia::render('dashboard', $dashboard->handle($user, $request->validated()));
+        /** @var array{period?: string, from?: string|null, to?: string|null, currency?: string|null} $filters */
+        $filters = $request->validated();
+
+        return Inertia::render('dashboard', $dashboard->handle($user, $filters));
     }
 }

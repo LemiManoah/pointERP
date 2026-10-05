@@ -3,6 +3,19 @@ import { ArrowLeft, Check, Layers, Plus, Search, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { toast } from 'sonner';
+import {
+    index as projectIndex,
+    show as projectShow,
+} from '@/actions/App/Http/Controllers/Operations/ProjectController';
+import approveEstimate from '@/actions/App/Http/Controllers/Operations/ProjectEstimateApprovalController';
+import {
+    create,
+    store,
+    show,
+    update,
+    destroy,
+} from '@/actions/App/Http/Controllers/Operations/ProjectEstimateController';
+import { index as importBoq } from '@/actions/App/Http/Controllers/Operations/ProjectEstimateImportController';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import InputError from '@/components/input-error';
 import { SearchableSelect } from '@/components/searchable-select';
@@ -43,6 +56,14 @@ type Resource = {
     notes: string;
 };
 type EstimateLine = {
+    bill: string;
+    section: string;
+    element: string;
+    item_type: string;
+    description: string;
+    source_document: string;
+    source_sheet: string;
+    source_row: string;
     work_item_key: string | null;
     site_id: string;
     unit_of_measure_id: string;
@@ -67,7 +88,32 @@ type Estimate = {
     approved_by: string | null;
     approved_at: string | null;
     lines: Array<
-        Omit<EstimateLine, 'site_id' | 'boq_reference' | 'code' | 'notes'> & {
+        Omit<
+            EstimateLine,
+            | 'site_id'
+            | 'boq_reference'
+            | 'code'
+            | 'notes'
+            | 'bill'
+            | 'section'
+            | 'element'
+            | 'description'
+            | 'source_document'
+            | 'source_sheet'
+            | 'source_row'
+            | 'selling_rate'
+            | 'estimated_unit_cost'
+            | 'resources'
+        > & {
+            bill: string | null;
+            section: string | null;
+            element: string | null;
+            description: string | null;
+            source_document: string | null;
+            source_sheet: string | null;
+            source_row: number | null;
+            selling_rate: string | null;
+            estimated_unit_cost: string | null;
             site_id: string | null;
             boq_reference: string | null;
             code: string | null;
@@ -132,6 +178,7 @@ type Props = {
     workforceTrades: Option[];
     subcontractors: Option[];
     resourceTypes: Option[];
+    itemTypes: Option[];
     templates?: WorkItemTemplate[];
     can: { update: boolean; approve: boolean; viewCosts: boolean };
 };
@@ -153,6 +200,14 @@ function blankResource(): Resource {
 
 function blankLine(): EstimateLine {
     return {
+        bill: '',
+        section: '',
+        element: '',
+        item_type: 'measured',
+        description: '',
+        source_document: '',
+        source_sheet: '',
+        source_row: '',
         work_item_key: null,
         site_id: '',
         unit_of_measure_id: '',
@@ -172,6 +227,14 @@ function linesFrom(record: Estimate | null): EstimateLine[] {
 
     return record.lines.map((line) => ({
         ...line,
+        bill: line.bill ?? '',
+        section: line.section ?? '',
+        element: line.element ?? '',
+        item_type: line.item_type ?? 'measured',
+        description: line.description ?? '',
+        source_document: line.source_document ?? '',
+        source_sheet: line.source_sheet ?? '',
+        source_row: line.source_row == null ? '' : String(line.source_row),
         site_id: line.site_id ?? '',
         boq_reference: line.boq_reference ?? '',
         code: line.code ?? '',
@@ -199,6 +262,7 @@ export default function EstimateEditor({
     workforceTrades,
     subcontractors,
     resourceTypes,
+    itemTypes,
     templates = [],
     can,
 }: Props) {
@@ -240,15 +304,13 @@ export default function EstimateEditor({
     });
     const errors = form.errors as Record<string, string | undefined>;
     const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Projects', href: '/projects' },
-        { title: project.reference, href: `/projects/${project.id}` },
+        { title: 'Projects', href: projectIndex.url() },
+        { title: project.reference, href: projectShow.url(project.id) },
         {
             title: estimate
                 ? `Estimate v${estimate.version_number}`
                 : 'New estimate',
-            href: estimate
-                ? `/estimates/${estimate.id}`
-                : `/projects/${project.id}/estimates/create`,
+            href: estimate ? show.url(estimate.id) : create.url(project.id),
         },
     ];
 
@@ -342,12 +404,25 @@ export default function EstimateEditor({
         };
 
         if (estimate) {
-            form.put(`/estimates/${estimate.id}`, options);
+            form.put(update.url(estimate.id), options);
         } else {
-            form.post(`/projects/${project.id}/estimates`, options);
+            form.post(store.url(project.id), options);
         }
     }
 
+    const pricedCount = form.data.lines.filter(
+        (line) => line.selling_rate.trim() !== '',
+    ).length;
+    const fullyPriced = pricedCount === form.data.lines.length;
+    const fullyCosted = form.data.lines.every(
+        (line) => line.estimated_unit_cost.trim() !== '',
+    );
+    const pricingLabel =
+        pricedCount === 0
+            ? 'Unpriced'
+            : fullyPriced
+              ? 'Fully priced'
+              : 'Partially priced';
     const baselineRevenue = form.data.lines.reduce(
         (sum, line) =>
             sum +
@@ -397,11 +472,18 @@ export default function EstimateEditor({
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
                         <Button asChild type="button" variant="outline">
-                            <Link href={`/projects/${project.id}`}>
+                            <Link href={projectShow.url(project.id)}>
                                 <ArrowLeft />
                                 Project
                             </Link>
                         </Button>
+                        {editable && (
+                            <Button asChild type="button" variant="outline">
+                                <Link href={importBoq.url(project.id)}>
+                                    Import Excel BOQ
+                                </Link>
+                            </Button>
+                        )}
                         {estimate?.status === 'draft' && editable && (
                             <Button
                                 type="button"
@@ -415,7 +497,7 @@ export default function EstimateEditor({
                                         variant: 'destructive',
                                         onConfirm: () =>
                                             router.delete(
-                                                `/estimates/${estimate.id}`,
+                                                destroy.url(estimate.id),
                                             ),
                                     })
                                 }
@@ -431,11 +513,13 @@ export default function EstimateEditor({
                                     confirm({
                                         title: 'Approve this baseline?',
                                         description:
-                                            'This version will become the project baseline and its estimate lines will become the work activities used by daily reports.',
+                                            'This version will become the quantity baseline. Measured items will be available in daily reports. Missing rates remain unpriced; lump sums and provisional sums do not create daily quantity activities.',
                                         confirmLabel: 'Approve baseline',
                                         onConfirm: () =>
                                             router.post(
-                                                `/estimates/${estimate.id}/approve`,
+                                                approveEstimate.url(
+                                                    estimate.id,
+                                                ),
                                             ),
                                     })
                                 }
@@ -479,29 +563,54 @@ export default function EstimateEditor({
                         {can.viewCosts && (
                             <div className="grid gap-4 sm:grid-cols-3">
                                 <Metric
-                                    label="Estimated revenue"
-                                    value={formatCurrencyAmount(
-                                        form.data.currency_code,
-                                        baselineRevenue,
-                                    )}
+                                    label="BOQ value"
+                                    value={
+                                        fullyPriced
+                                            ? formatCurrencyAmount(
+                                                  form.data.currency_code,
+                                                  baselineRevenue,
+                                              )
+                                            : pricingLabel
+                                    }
                                 />
                                 <Metric
                                     label="Estimated cost"
-                                    value={formatCurrencyAmount(
-                                        form.data.currency_code,
-                                        baselineCost,
-                                    )}
+                                    value={
+                                        fullyCosted
+                                            ? formatCurrencyAmount(
+                                                  form.data.currency_code,
+                                                  baselineCost,
+                                              )
+                                            : 'Costing incomplete'
+                                    }
                                 />
                                 <Metric
                                     label="Estimated margin"
-                                    value={formatCurrencyAmount(
-                                        form.data.currency_code,
-                                        baselineRevenue - baselineCost,
-                                    )}
+                                    value={
+                                        fullyPriced && fullyCosted
+                                            ? formatCurrencyAmount(
+                                                  form.data.currency_code,
+                                                  baselineRevenue -
+                                                      baselineCost,
+                                              )
+                                            : 'Not available'
+                                    }
                                 />
                             </div>
                         )}
 
+                        {can.viewCosts && (
+                            <p className="text-sm text-muted-foreground">
+                                <Badge variant="secondary">
+                                    {pricingLabel}
+                                </Badge>{' '}
+                                {pricedCount} of {form.data.lines.length} items
+                                priced. Blank rates remain unpriced; enter 0
+                                only for a confirmed zero rate. Quantity
+                                baselines can be approved before pricing is
+                                complete.
+                            </p>
+                        )}
                         <div className="grid gap-2">
                             <Label htmlFor="notes">Notes</Label>
                             <Textarea
@@ -602,8 +711,92 @@ export default function EstimateEditor({
                                             )}
                                     </div>
 
+                                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                        {(
+                                            [
+                                                'bill',
+                                                'section',
+                                                'element',
+                                            ] as const
+                                        ).map((field) => (
+                                            <Field
+                                                key={field}
+                                                label={
+                                                    field === 'section'
+                                                        ? 'Section / floor'
+                                                        : field === 'bill'
+                                                          ? 'Bill'
+                                                          : 'Element'
+                                                }
+                                            >
+                                                <Input
+                                                    value={line[field]}
+                                                    disabled={!editable}
+                                                    onChange={(event) =>
+                                                        updateLine(lineIndex, {
+                                                            [field]:
+                                                                event.target
+                                                                    .value,
+                                                        })
+                                                    }
+                                                />
+                                                <InputError
+                                                    message={
+                                                        errors[
+                                                            `lines.${lineIndex}.${field}`
+                                                        ]
+                                                    }
+                                                />
+                                            </Field>
+                                        ))}
+                                        <Field label="Item type">
+                                            <NativeSelect
+                                                value={line.item_type}
+                                                disabled={!editable}
+                                                onChange={(event) =>
+                                                    updateLine(lineIndex, {
+                                                        item_type:
+                                                            event.target.value,
+                                                        ...(event.target
+                                                            .value !==
+                                                        'measured'
+                                                            ? {
+                                                                  planned_quantity:
+                                                                      '1',
+                                                              }
+                                                            : {}),
+                                                    })
+                                                }
+                                            >
+                                                {itemTypes.map((type) => (
+                                                    <NativeSelectOption
+                                                        key={type.value}
+                                                        value={type.value}
+                                                    >
+                                                        {type.label}
+                                                    </NativeSelectOption>
+                                                ))}
+                                            </NativeSelect>
+                                            <InputError
+                                                message={
+                                                    errors[
+                                                        `lines.${lineIndex}.item_type`
+                                                    ]
+                                                }
+                                            />
+                                        </Field>
+                                    </div>
+                                    {line.item_type !== 'measured' && (
+                                        <p className="text-sm text-muted-foreground">
+                                            Enter a quantity of 1 and the total
+                                            allowance as the rate. This item is
+                                            included in the BOQ value and does
+                                            not create a daily quantity
+                                            activity.
+                                        </p>
+                                    )}
                                     <div className="grid gap-4 lg:grid-cols-2">
-                                        <Field label="Activity name" required>
+                                        <Field label="Item name" required>
                                             <Input
                                                 value={line.name}
                                                 disabled={!editable}
@@ -693,7 +886,7 @@ export default function EstimateEditor({
                                             />
                                         </Field>
                                         {can.viewCosts && (
-                                            <Field label="Selling rate">
+                                            <Field label="Contract selling rate">
                                                 <Input
                                                     type="number"
                                                     min="0"
@@ -711,7 +904,7 @@ export default function EstimateEditor({
                                             </Field>
                                         )}
                                         {can.viewCosts && (
-                                            <Field label="Estimated unit cost">
+                                            <Field label="Internal unit cost">
                                                 <Input
                                                     type="number"
                                                     min="0"
@@ -729,6 +922,22 @@ export default function EstimateEditor({
                                                     }
                                                 />
                                                 {(() => {
+                                                    if (
+                                                        line.resources.some(
+                                                            (resource) =>
+                                                                resource.estimated_unit_cost.trim() ===
+                                                                    '' ||
+                                                                resource.quantity_per_work_unit.trim() ===
+                                                                    '',
+                                                        )
+                                                    ) {
+                                                        return (
+                                                            <p className="text-xs text-muted-foreground">
+                                                                Resource costing
+                                                                incomplete
+                                                            </p>
+                                                        );
+                                                    }
                                                     const resCost =
                                                         line.resources.reduce(
                                                             (sum, r) =>
@@ -811,6 +1020,93 @@ export default function EstimateEditor({
                                         </Field>
                                     </div>
 
+                                    <Field label="Full description / specification">
+                                        <Textarea
+                                            value={line.description}
+                                            disabled={!editable}
+                                            onChange={(event) =>
+                                                updateLine(lineIndex, {
+                                                    description:
+                                                        event.target.value,
+                                                })
+                                            }
+                                        />
+                                        <InputError
+                                            message={
+                                                errors[
+                                                    `lines.${lineIndex}.description`
+                                                ]
+                                            }
+                                        />
+                                    </Field>
+                                    <details className="rounded-md border px-4 py-3">
+                                        <summary className="cursor-pointer font-medium">
+                                            Source reference
+                                        </summary>
+                                        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                                            {(
+                                                [
+                                                    'source_document',
+                                                    'source_sheet',
+                                                    'source_row',
+                                                ] as const
+                                            ).map((field) => (
+                                                <Field
+                                                    key={field}
+                                                    label={
+                                                        field ===
+                                                        'source_document'
+                                                            ? 'Document name'
+                                                            : field ===
+                                                                'source_sheet'
+                                                              ? 'Sheet name'
+                                                              : 'Excel row'
+                                                    }
+                                                >
+                                                    <Input
+                                                        type={
+                                                            field ===
+                                                            'source_row'
+                                                                ? 'number'
+                                                                : 'text'
+                                                        }
+                                                        min={
+                                                            field ===
+                                                            'source_row'
+                                                                ? 1
+                                                                : undefined
+                                                        }
+                                                        step={
+                                                            field ===
+                                                            'source_row'
+                                                                ? 1
+                                                                : undefined
+                                                        }
+                                                        value={line[field]}
+                                                        disabled={!editable}
+                                                        onChange={(event) =>
+                                                            updateLine(
+                                                                lineIndex,
+                                                                {
+                                                                    [field]:
+                                                                        event
+                                                                            .target
+                                                                            .value,
+                                                                },
+                                                            )
+                                                        }
+                                                    />
+                                                    <InputError
+                                                        message={
+                                                            errors[
+                                                                `lines.${lineIndex}.${field}`
+                                                            ]
+                                                        }
+                                                    />
+                                                </Field>
+                                            ))}
+                                        </div>
+                                    </details>
                                     <details className="group rounded-md border px-4 py-3">
                                         <summary className="cursor-pointer font-medium">
                                             Resource assumptions (
@@ -1299,7 +1595,8 @@ export default function EstimateEditor({
                                                     </span>
                                                 </span>
                                             )}
-                                            {template.default_selling_rate && (
+                                            {template.default_selling_rate !==
+                                                null && (
                                                 <span>
                                                     Suggested Rate:{' '}
                                                     <span className="font-mono font-semibold text-primary">

@@ -60,22 +60,24 @@ final readonly class BuildDashboard
         $canReceived = $canSales && $user->can('pos.view-payments');
         $canPaid = $canExpenses && $user->can('expense-payments.view');
 
+        /** @var Collection<int, PosSale> $sales */
         $sales = $canSales ? $this->scope(PosSale::query(), $user)
             ->whereIn('status', [PosSaleStatus::Completed, PosSaleStatus::PartiallyReturned, PosSaleStatus::Returned])
             ->unless($user->can('pos.view-all-sales'), fn (Builder $query): Builder => $query->where('sold_by', $user->id))
             ->get(['id', 'currency_code', 'total_amount', 'balance_due', 'completed_at']) : collect();
+        /** @var Collection<int, Expense> $expenses */
         $expenses = $canExpenses ? $this->scope(Expense::query(), $user)->get()
             ->filter(fn (Expense $expense): bool => Gate::forUser($user)->allows('view', $expense)) : collect();
         $receipts = $canReceived ? $this->scope(PosPayment::query(), $user)
-            ->whereIn('pos_sale_id', $sales->modelKeys())->where('status', PosPaymentStatus::Recorded)
+            ->whereIn('pos_sale_id', $sales->pluck('id')->all())->where('status', PosPaymentStatus::Recorded)
             ->where('recorded_at', '>=', $start)->where('recorded_at', '<', $end)->get() : collect();
         $payments = $canPaid ? $this->scope(ExpensePayment::query(), $user)
-            ->whereIn('expense_id', $expenses->modelKeys())->where('status', ExpensePaymentStatus::Recorded)->get() : collect();
+            ->whereIn('expense_id', $expenses->pluck('id')->all())->where('status', ExpensePaymentStatus::Recorded)->get() : collect();
         $periodPayments = $payments->filter(fn (ExpensePayment $payment): bool => $payment->paid_at->gte($start) && $payment->paid_at->lt($end));
 
         $currencies = $sales->pluck('currency_code')->merge($expenses->pluck('currency_code'))
             ->merge($receipts->pluck('currency_code'))->merge($periodPayments->pluck('currency_code'))->unique()->sort()->values();
-        $defaultCurrency = $this->branches->current($user)?->default_currency_code ?? $user->tenant->default_currency_code;
+        $defaultCurrency = $this->branches->current($user)->default_currency_code ?? $user->tenant->default_currency_code;
         if ($currencies->isEmpty()) {
             $currencies = collect([$defaultCurrency]);
         }
@@ -103,6 +105,7 @@ final readonly class BuildDashboard
                 $paidCount = $periodExpenses->filter(fn (Expense $expense): bool => BigDecimal::of($this->sum($paidByExpense->get($expense->id, collect()), 'amount'))->isGreaterThanOrEqualTo($expense->total_amount))->count();
                 $subtitle = $paidCount.' paid · '.($periodExpenses->count() - $paidCount).' unpaid';
             }
+
             $cards[] = [...$this->card('expenses', 'Expenses', $this->sum($periodExpenses, 'total_amount'), $periodExpenses->count(), 'Approved costs in the selected period. Paid means fully settled by recorded payments; unpaid includes partly paid expenses. Payment status is current.', route('expenses.index')), 'subtitle' => $subtitle];
         }
 

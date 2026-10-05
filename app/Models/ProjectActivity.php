@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
+ * @property-read string|null $boq_item_id
  * @property-read string $id
  * @property-read string $tenant_id
  * @property-read string $branch_id
@@ -32,6 +33,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string|null $rate_amount
  * @property-read string|null $estimated_unit_cost
  * @property-read string|null $currency_code
+ * @property-read string $progress_method
  * @property-read string $status
  * @property-read int $sort_order
  * @property-read string $created_by
@@ -44,6 +46,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read Site|null $site
  */
 #[Fillable([
+    'boq_item_id',
+    'progress_method',
     'tenant_id',
     'branch_id',
     'project_id',

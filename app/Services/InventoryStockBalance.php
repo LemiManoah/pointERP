@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Enums\InventoryReservationStatus;
 use App\Enums\InventoryBatchStatus;
+use App\Enums\InventoryReservationStatus;
 use App\Enums\InventoryTrackingType;
 use App\Models\InventoryBatch;
-use Illuminate\Database\Eloquent\Builder;
 use App\Models\InventoryItem;
 use App\Models\InventoryReservation;
 use App\Models\InventoryStockMovement;
 use App\Models\InventoryStore;
 use Brick\Math\BigDecimal;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 final class InventoryStockBalance
@@ -56,6 +56,7 @@ final class InventoryStockBalance
             foreach ($this->sellableBatches($store, $item) as $batch) {
                 $batchTotal = $batchTotal->plus($this->forBatch($store, $item, $batch->id));
             }
+
             if ($batchTotal->isLessThan($available)) {
                 $available = $batchTotal;
             }

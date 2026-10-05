@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace App\Actions\Operations\DailySiteReports;
 
+use App\Actions\Operations\Boq\PostReportProgress;
 use App\Enums\DsrLabourAttendanceStatus;
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportReview;
 use App\Models\ExpectedDailySiteReport;
+use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\DailySiteReportNotificationService;
 use App\Services\DsrLabourAttendanceComparison;
-use Illuminate\Database\Eloquent\Builder;
+use Brick\Math\BigDecimal;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -25,6 +27,7 @@ final readonly class ApproveDailySiteReport
         private DsrLabourAttendanceComparison $labourComparison,
         private PostApprovedDsrEquipmentLines $postEquipmentLines,
         private PostApprovedDsrMaterialUsage $postMaterialUsage,
+        private PostReportProgress $postProgress,
     ) {
         //
     }
@@ -32,6 +35,16 @@ final readonly class ApproveDailySiteReport
     public function handle(DailySiteReport $report, User $actor, ?string $labourVarianceOverrideReason = null): DailySiteReport
     {
         return DB::transaction(function () use ($actor, $labourVarianceOverrideReason, $report): DailySiteReport {
+            Project::query()->whereKey($report->project_id)->lockForUpdate()->firstOrFail();
+            $report = DailySiteReport::query()->whereKey($report->id)->lockForUpdate()->firstOrFail();
+            if ($report->status === DailySiteReport::STATUS_APPROVED) {
+                return $report;
+            }
+
+            if (! in_array($report->status, [DailySiteReport::STATUS_SUBMITTED, DailySiteReport::STATUS_REVIEWED], true)) {
+                throw ValidationException::withMessages(['report' => 'Submit the report before approving it.']);
+            }
+
             $report->loadMissing('workLines');
             $labourComparison = $this->labourComparison->compare($report);
             $isOverReported = $labourComparison['status'] === DsrLabourAttendanceStatus::OverReported->value;
@@ -95,6 +108,7 @@ final readonly class ApproveDailySiteReport
                     'marked_at' => now(),
                 ]);
 
+            $this->postProgress->handle($report, $actor);
             $this->syncActivityQuantities($report);
             $this->postEquipmentLines->handle($report, $actor);
             $this->postMaterialUsage->handle($report, $actor);
@@ -126,18 +140,26 @@ final readonly class ApproveDailySiteReport
     private function syncActivityQuantities(DailySiteReport $report): void
     {
         foreach ($report->workLines as $line) {
+            if ($line->boq_item_id) {
+                continue;
+            }
+
+            if (! $line->project_activity_id) {
+                continue;
+            }
+
             $activity = ProjectActivity::query()
                 ->where('tenant_id', $report->tenant_id)
                 ->where('project_id', $report->project_id)
-                ->when($line->project_activity_id, fn (Builder $query) => $query->whereKey($line->project_activity_id))
-                ->when(! $line->project_activity_id && $line->boq_item_number, fn (Builder $query) => $query->where('boq_item_number', $line->boq_item_number))
+                ->whereKey($line->project_activity_id)
+                ->lockForUpdate()
                 ->first();
 
             if (! $activity instanceof ProjectActivity) {
                 continue;
             }
 
-            $approvedQuantity = (float) $activity->approved_quantity + (float) $line->quantity;
+            $approvedQuantity = (string) BigDecimal::of($activity->approved_quantity ?? '0')->plus($line->quantity ?? '0');
             $activity->forceFill(['approved_quantity' => $approvedQuantity])->save();
         }
     }

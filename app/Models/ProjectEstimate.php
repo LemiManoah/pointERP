@@ -83,6 +83,20 @@ final class ProjectEstimate extends Model
         return $this->hasMany(ProjectEstimateLine::class)->orderBy('sort_order');
     }
 
+    /** @return array{status: string, priced_items: int, total_items: int} */
+    public function pricingSummary(): array
+    {
+        $this->loadMissing('lines');
+        $total = $this->lines->count();
+        $priced = $this->lines->filter(fn (ProjectEstimateLine $line): bool => $line->selling_rate !== null)->count();
+
+        return [
+            'status' => $priced === 0 ? 'unpriced' : ($priced === $total ? 'fully_priced' : 'partially_priced'),
+            'priced_items' => $priced,
+            'total_items' => $total,
+        ];
+    }
+
     public function isDraft(): bool
     {
         return $this->status === ProjectEstimateStatus::Draft;

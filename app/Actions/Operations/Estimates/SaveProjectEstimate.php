@@ -6,6 +6,7 @@ namespace App\Actions\Operations\Estimates;
 
 use App\Enums\ProjectEstimateStatus;
 use App\Models\Project;
+use App\Models\ProjectBoqItem;
 use App\Models\ProjectEstimate;
 use App\Models\ProjectEstimateLine;
 use App\Models\Site;
@@ -17,7 +18,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * @phpstan-type EstimateResourcePayload array{resource_type: string, inventory_item_id?: string|null, unit_of_measure_id?: string|null, equipment_category_id?: string|null, workforce_trade_id?: string|null, subcontractor_id?: string|null, name: string, quantity_per_work_unit: numeric-string, estimated_unit_cost?: numeric-string|null, notes?: string|null}
- * @phpstan-type EstimateLinePayload array{work_item_key?: string|null, site_id?: string|null, unit_of_measure_id: string, boq_reference?: string|null, code?: string|null, name: string, planned_quantity: numeric-string, selling_rate?: numeric-string|null, estimated_unit_cost?: numeric-string|null, notes?: string|null, resources?: list<EstimateResourcePayload>}
+ * @phpstan-type EstimateLinePayload array{bill?: string|null, section?: string|null, element?: string|null, item_type?: string, description?: string|null, source_document?: string|null, source_sheet?: string|null, source_row?: int|null, work_item_key?: string|null, site_id?: string|null, unit_of_measure_id: string, boq_reference?: string|null, code?: string|null, name: string, planned_quantity: numeric-string, selling_rate?: numeric-string|null, estimated_unit_cost?: numeric-string|null, notes?: string|null, resources?: list<EstimateResourcePayload>}
  * @phpstan-type ProjectEstimatePayload array{title: string, currency_code: string, notes?: string|null, lines: list<EstimateLinePayload>}
  */
 final readonly class SaveProjectEstimate
@@ -31,6 +32,11 @@ final readonly class SaveProjectEstimate
     public function handle(Project $project, array $data, User $actor, ?ProjectEstimate $estimate = null): ProjectEstimate
     {
         return DB::transaction(function () use ($actor, $data, $estimate, $project): ProjectEstimate {
+            Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
+            if ($estimate instanceof ProjectEstimate) {
+                $estimate = ProjectEstimate::query()->whereKey($estimate->id)->lockForUpdate()->firstOrFail();
+            }
+
             if ($estimate instanceof ProjectEstimate && ! $estimate->isDraft()) {
                 throw ValidationException::withMessages(['estimate' => 'Only a draft estimate can be changed.']);
             }
@@ -76,13 +82,26 @@ final readonly class SaveProjectEstimate
 
                 $this->assertSiteBelongsToProject($lineData['site_id'] ?? null, $project, $index);
 
+                $boqItem = ProjectBoqItem::query()->firstOrCreate(
+                    ['project_id' => $project->id, 'work_item_key' => $workItemKey],
+                    ['tenant_id' => $project->tenant_id],
+                );
                 $line = $estimate->lines()->where('work_item_key', $workItemKey)->first();
                 $attributes = [
                     'tenant_id' => $project->tenant_id,
+                    'boq_item_id' => $boqItem->id,
                     'site_id' => $lineData['site_id'] ?? null,
                     'unit_of_measure_id' => $lineData['unit_of_measure_id'],
                     'work_item_key' => $workItemKey,
                     'boq_reference' => $lineData['boq_reference'] ?? null,
+                    'bill' => $lineData['bill'] ?? null,
+                    'section' => $lineData['section'] ?? null,
+                    'element' => $lineData['element'] ?? null,
+                    'item_type' => $lineData['item_type'] ?? 'measured',
+                    'description' => $lineData['description'] ?? null,
+                    'source_document' => $lineData['source_document'] ?? null,
+                    'source_sheet' => $lineData['source_sheet'] ?? null,
+                    'source_row' => $lineData['source_row'] ?? null,
                     'code' => $lineData['code'] ?? null,
                     'name' => $lineData['name'],
                     'planned_quantity' => $lineData['planned_quantity'],

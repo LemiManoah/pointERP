@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\BoqItemType;
 use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -15,11 +16,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 
 /**
+ * @property-read string|null $boq_item_id
  * @property-read string $id
  * @property-read string $tenant_id
  * @property-read string $project_estimate_id
  * @property-read string|null $site_id
  * @property-read string $unit_of_measure_id
+ * @property-read BoqItemType $item_type
+ * @property-read string|null $bill
+ * @property-read string|null $section
+ * @property-read string|null $element
+ * @property-read string|null $description
+ * @property-read string|null $source_document
+ * @property-read string|null $source_sheet
+ * @property-read int|null $source_row
  * @property-read string $work_item_key
  * @property-read string|null $boq_reference
  * @property-read string|null $code
@@ -33,7 +43,8 @@ use Illuminate\Support\Collection;
  * @property-read UnitOfMeasure $unit
  * @property-read Collection<int, EstimateResourceLine> $resources
  */
-#[Fillable(['tenant_id', 'project_estimate_id', 'site_id', 'unit_of_measure_id', 'work_item_key', 'boq_reference', 'code', 'name', 'planned_quantity', 'selling_rate', 'estimated_unit_cost', 'sort_order', 'notes'])]
+#[Fillable([
+    'boq_item_id', 'tenant_id', 'project_estimate_id', 'site_id', 'unit_of_measure_id', 'work_item_key', 'boq_reference', 'code', 'name', 'planned_quantity', 'selling_rate', 'estimated_unit_cost', 'sort_order', 'notes', 'bill', 'section', 'element', 'item_type', 'description', 'source_document', 'source_sheet', 'source_row'])]
 final class ProjectEstimateLine extends Model
 {
     use BelongsToTenant;
@@ -43,10 +54,14 @@ final class ProjectEstimateLine extends Model
 
     use HasUuids;
 
+    protected $attributes = ['item_type' => 'measured'];
+
     /** @return array<string, string> */
     public function casts(): array
     {
         return [
+            'item_type' => BoqItemType::class,
+            'source_row' => 'integer',
             'planned_quantity' => 'decimal:4',
             'selling_rate' => 'decimal:4',
             'estimated_unit_cost' => 'decimal:4',

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Enums\PosSalePaymentStatus;
 use App\Models\Customer;
+use App\Models\InventoryBatch;
 use App\Models\InventoryItem;
 use App\Models\InventoryPriceTier;
 use App\Models\InventoryStockMovement;
@@ -184,13 +185,13 @@ it('guards checkout access and does not reveal another users session cart', func
     $this->post(route('pos.checkout.prepare'), [])->assertForbidden();
 });
 
-
 it('sells shared batches using stock movements rather than batch store metadata', function (): void {
     $cashier = User::query()->where('email', 'cashier.kla@point.test')->firstOrFail();
     $store = InventoryStore::query()->where('code', 'KLA-MAIN-STORE')->firstOrFail();
     $item = InventoryItem::query()->where('code', 'CEM-42')->firstOrFail();
-    $batch = \App\Models\InventoryBatch::query()->where('inventory_item_id', $item->id)->firstOrFail();
+    $batch = InventoryBatch::query()->where('inventory_item_id', $item->id)->firstOrFail();
     $batch->update(['inventory_store_id' => null, 'expires_on' => now()->addDays(10)]);
+
     $balances = resolve(InventoryStockBalance::class);
     expect($balances->availableForPos($store, $item))->toBe($balances->for($store, $item)['available']);
     $this->actingAs($cashier)->post(route('pos.store'), [
@@ -205,8 +206,9 @@ it('sells shared batches using stock movements rather than batch store metadata'
 it('excludes expired and blocked batches from displayed POS availability', function (): void {
     $store = InventoryStore::query()->where('code', 'KLA-MAIN-STORE')->firstOrFail();
     $item = InventoryItem::query()->where('code', 'CEM-42')->firstOrFail();
-    $batches = \App\Models\InventoryBatch::query()->where('inventory_item_id', $item->id);
+    $batches = InventoryBatch::query()->where('inventory_item_id', $item->id);
     $batches->update(['expires_on' => now()->subDay()]);
+
     expect(resolve(InventoryStockBalance::class)->availableForPos($store, $item))->toBe('0.0000');
     $batches->update(['expires_on' => now()->addMonth(), 'is_active' => false]);
     expect(resolve(InventoryStockBalance::class)->availableForPos($store, $item))->toBe('0.0000');
@@ -218,8 +220,10 @@ it('uses stock location even when batch metadata names another store', function 
     $otherStore = $store->replicate();
     $otherStore->fill(['code' => 'POS-EMPTY-STORE', 'name' => 'Empty POS test store', 'site_id' => null, 'is_default_for_site' => false]);
     $otherStore->save();
-    $batch = \App\Models\InventoryBatch::query()->where('inventory_item_id', $item->id)->firstOrFail();
+
+    $batch = InventoryBatch::query()->where('inventory_item_id', $item->id)->firstOrFail();
     $batch->update(['inventory_store_id' => $otherStore->id, 'expires_on' => now()->addMonth()]);
+
     $balances = resolve(InventoryStockBalance::class);
     expect($balances->sellableBatches($store, $item)->modelKeys())->toContain($batch->id)
         ->and($balances->availableForPos($store, $item))->toBe($balances->for($store, $item)['available'])

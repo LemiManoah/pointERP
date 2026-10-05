@@ -5,9 +5,11 @@ declare(strict_types=1);
 use App\Enums\ExpenseStatus;
 use App\Models\Branch;
 use App\Models\DailySiteReport;
+use App\Models\Equipment;
 use App\Models\Expense;
 use App\Models\ExpenseLine;
 use App\Models\ExpensePayment;
+use App\Models\InventoryBatch;
 use App\Models\InventoryPriceTier;
 use App\Models\InventoryStore;
 use App\Models\InventoryStoreItem;
@@ -228,11 +230,10 @@ it('shows work queues using the corresponding operational permissions', function
     'fleet' => [['equipment.view', 'equipment.dashboard.view'], ['equipment-unavailable', 'maintenance-open']],
 ]);
 
-
 it('counts stocked expiry dates at the thirty day boundary', function (): void {
     $this->dashboardUser->syncPermissions(['inventory.stock.view', 'branches.view-all']);
-    $batch = \App\Models\InventoryBatch::query()->whereHas('store', fn ($query) => $query->where('branch_id', $this->dashboardBranch))->firstOrFail();
-    \App\Models\InventoryBatch::query()->update(['expires_on' => null]);
+    $batch = InventoryBatch::query()->whereHas('store', fn ($query) => $query->where('branch_id', $this->dashboardBranch))->firstOrFail();
+    InventoryBatch::query()->update(['expires_on' => null]);
     foreach ([[-1, 0, 1], [0, 1, 0], [30, 1, 0], [31, 0, 0]] as [$days, $near, $expired]) {
         $batch->update(['expires_on' => now()->addDays($days)->toDateString()]);
         $this->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
@@ -254,21 +255,22 @@ it('shows current paid and unpaid counts for approved period expenses', function
 
 it('limits equipment summaries to the three highest priority nonzero statuses', function (): void {
     $this->dashboardUser->syncPermissions(['equipment.view', 'equipment.dashboard.view', 'branches.view-all']);
-    $template = \App\Models\Equipment::query()->where('branch_id', $this->dashboardBranch)->firstOrFail();
-    \App\Models\Equipment::query()->where('branch_id', $this->dashboardBranch)->update(['is_active' => false]);
+    $template = Equipment::query()->where('branch_id', $this->dashboardBranch)->firstOrFail();
+    Equipment::query()->where('branch_id', $this->dashboardBranch)->update(['is_active' => false]);
     foreach (['available', 'assigned', 'under_maintenance', 'out_of_service'] as $status) {
         $equipment = $template->replicate();
         $equipment->fill([
-            'asset_code' => 'DASH-'.strtoupper($status), 'serial_number' => null,
+            'asset_code' => 'DASH-'.mb_strtoupper($status), 'serial_number' => null,
             'registration_number' => null, 'chassis_number' => null,
             'is_active' => true, 'current_status' => $status,
         ]);
         $equipment->save();
     }
+
     $this->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
         ->where('operationalCards.0.id', 'equipment')->where('operationalCards.0.count', 4)
         ->where('operationalCards.0.subtitle', '1 out of service · 1 maintenance · 1 assigned'));
-    \App\Models\Equipment::query()->where('branch_id', $this->dashboardBranch)->where('current_status', 'out_of_service')->update(['is_active' => false]);
+    Equipment::query()->where('branch_id', $this->dashboardBranch)->where('current_status', 'out_of_service')->update(['is_active' => false]);
     $this->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
         ->where('operationalCards.0.count', 3)->where('operationalCards.0.subtitle', '1 maintenance · 1 assigned · 1 available'));
 });

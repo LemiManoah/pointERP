@@ -60,8 +60,8 @@ final readonly class InventoryOperationsReport
 
         return [
             'count' => $rows->count(),
-            'nearExpiry' => $batches->filter(fn (object $batch): bool => substr((string) $batch->expires_on, 0, 10) >= $today)->unique($itemStore)->count(),
-            'expired' => $batches->filter(fn (object $batch): bool => substr((string) $batch->expires_on, 0, 10) < $today)->unique($itemStore)->count(),
+            'nearExpiry' => $batches->filter(fn (object $batch): bool => mb_substr((string) $batch->expires_on, 0, 10) >= $today)->unique($itemStore)->count(),
+            'expired' => $batches->filter(fn (object $batch): bool => mb_substr((string) $batch->expires_on, 0, 10) < $today)->unique($itemStore)->count(),
         ];
     }
 

@@ -26,7 +26,6 @@ import {
 } from '@/components/ui/chart';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
     Select,
     SelectContent,
@@ -34,6 +33,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import { formatNumber } from '@/lib/utils';
 import { dashboard } from '@/routes';
@@ -89,7 +94,14 @@ type Props = {
         description: string;
         href: string;
     }[];
+};
 
+type DashboardSection = {
+    id: string;
+    title: string;
+    description: string;
+    cardIds: string[];
+    queueIds: string[];
 };
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: dashboard.url() },
@@ -109,6 +121,38 @@ const money = (amount: string | number) =>
     formatNumber(amount, { maximumFractionDigits: 2 });
 const shortMoney = (amount: number) =>
     formatNumber(amount, { notation: 'compact', maximumFractionDigits: 1 });
+
+const dashboardSections: DashboardSection[] = [
+    {
+        id: 'finance',
+        title: 'Finance',
+        description:
+            'Money received, approved costs, and outstanding balances.',
+        cardIds: ['sales', 'expenses', 'receivables', 'payables'],
+        queueIds: [],
+    },
+    {
+        id: 'projects',
+        title: 'Projects and site reporting',
+        description: 'Progress and reports that need your attention.',
+        cardIds: ['projects', 'dsr-approval', 'dsr-review', 'dsr-pending'],
+        queueIds: ['dsr-drafts', 'dsr-returned'],
+    },
+    {
+        id: 'inventory',
+        title: 'Inventory',
+        description: 'Stock risks and requests waiting for action.',
+        cardIds: ['low-stock'],
+        queueIds: ['requisitions-issue', 'orders-open'],
+    },
+    {
+        id: 'equipment',
+        title: 'Equipment',
+        description: 'Asset availability and maintenance workload.',
+        cardIds: ['equipment'],
+        queueIds: ['equipment-unavailable', 'maintenance-open'],
+    },
+];
 
 export default function Dashboard({
     filters,
@@ -149,22 +193,37 @@ export default function Dashboard({
                 ) : (
                     <>
                         <TooltipProvider delayDuration={200}>
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                                {cards.map((card) => (
-                                    <StatCard key={card.id} id={card.id} title={card.title}
-                                        value={money(card.amount)} currency={filters.currency}
-                                        href={card.href} description={card.description}
-                                        subtitle={card.subtitle ?? (formatNumber(card.count) + ' ' + (card.id === 'sales' || card.id === 'receivables' ? (card.count === 1 ? 'sale' : 'sales') : (card.count === 1 ? 'expense' : 'expenses')))}
+                            {dashboardSections.map((section) => {
+                                const sectionCards = [
+                                    ...cards.filter((card) =>
+                                        section.cardIds.includes(card.id),
+                                    ),
+                                    ...operationalCards.filter((card) =>
+                                        section.cardIds.includes(card.id),
+                                    ),
+                                ];
+                                const sectionQueues = workQueues.filter(
+                                    (queue) =>
+                                        section.queueIds.includes(queue.id),
+                                );
+
+                                if (
+                                    sectionCards.length === 0 &&
+                                    sectionQueues.length === 0
+                                ) {
+                                    return null;
+                                }
+
+                                return (
+                                    <DashboardSection
+                                        key={section.id}
+                                        section={section}
+                                        cards={sectionCards}
+                                        queues={sectionQueues}
+                                        currency={filters.currency}
                                     />
-                                ))}
-                                {operationalCards.map((card) => (
-                                    <StatCard key={card.id} id={card.id} title={card.title}
-                                        value={formatNumber(card.count)} href={card.href}
-                                        description={card.description} subtitle={card.subtitle}
-                                        nearExpiry={card.nearExpiry} expired={card.expired}
-                                    />
-                                ))}
-                            </div>
+                                );
+                            })}
                         </TooltipProvider>
                         {cashFlow && (
                             <div className="grid min-w-0 gap-6 xl:grid-cols-5">
@@ -178,40 +237,6 @@ export default function Dashboard({
                                 />
                             </div>
                         )}
-                        {workQueues.length > 0 && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-base">
-                                        Work queues
-                                    </CardTitle>
-                                    <CardDescription>
-                                        Current work in your accessible branches
-                                        · across all dates
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="grid gap-x-8 md:grid-cols-2">
-                                    {workQueues.map((queue) => (
-                                        <Link
-                                            key={queue.id}
-                                            href={queue.href}
-                                            className="flex items-center justify-between gap-4 border-b py-4 hover:text-primary focus-visible:outline-2 focus-visible:outline-ring"
-                                        >
-                                            <div>
-                                                <p className="text-sm font-medium">
-                                                    {queue.title}
-                                                </p>
-                                                <p className="mt-1 text-xs text-muted-foreground">
-                                                    {queue.description}
-                                                </p>
-                                            </div>
-                                            <span className="text-2xl font-semibold tabular-nums">
-                                                {formatNumber(queue.count)}
-                                            </span>
-                                        </Link>
-                                    ))}
-                                </CardContent>
-                            </Card>
-                        )}
                     </>
                 )}
             </div>
@@ -219,7 +244,106 @@ export default function Dashboard({
     );
 }
 
-function StatCard({ id, title, value, currency, href, description, subtitle, nearExpiry, expired }: {
+function DashboardSection({
+    section,
+    cards,
+    queues,
+    currency,
+}: {
+    section: DashboardSection;
+    cards: (Metric | NonNullable<Props['operationalCards']>[number])[];
+    queues: NonNullable<Props['workQueues']>;
+    currency: string;
+}) {
+    return (
+        <section className="grid gap-3">
+            <div>
+                <h2 className="text-base font-semibold">{section.title}</h2>
+                <p className="text-sm text-muted-foreground">
+                    {section.description}
+                </p>
+            </div>
+            {cards.length > 0 && (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    {cards.map((card) =>
+                        'amount' in card ? (
+                            <StatCard
+                                key={card.id}
+                                id={card.id}
+                                title={card.title}
+                                value={money(card.amount)}
+                                currency={currency}
+                                href={card.href}
+                                description={card.description}
+                                subtitle={
+                                    card.subtitle ??
+                                    `${formatNumber(card.count)} ${card.id === 'sales' || card.id === 'receivables' ? (card.count === 1 ? 'sale' : 'sales') : card.count === 1 ? 'expense' : 'expenses'}`
+                                }
+                            />
+                        ) : (
+                            <StatCard
+                                key={card.id}
+                                id={card.id}
+                                title={card.title}
+                                value={formatNumber(card.count)}
+                                href={card.href}
+                                description={card.description}
+                                subtitle={card.subtitle}
+                                nearExpiry={card.nearExpiry}
+                                expired={card.expired}
+                            />
+                        ),
+                    )}
+                </div>
+            )}
+            {queues.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-base">
+                            Needs attention
+                        </CardTitle>
+                        <CardDescription>
+                            Work waiting for action in your accessible branches.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-x-8 md:grid-cols-2">
+                        {queues.map((queue) => (
+                            <Link
+                                key={queue.id}
+                                href={queue.href}
+                                className="flex items-center justify-between gap-4 border-b py-4 hover:text-primary focus-visible:outline-2 focus-visible:outline-ring"
+                            >
+                                <div>
+                                    <p className="text-sm font-medium">
+                                        {queue.title}
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        {queue.description}
+                                    </p>
+                                </div>
+                                <span className="text-2xl font-semibold tabular-nums">
+                                    {formatNumber(queue.count)}
+                                </span>
+                            </Link>
+                        ))}
+                    </CardContent>
+                </Card>
+            )}
+        </section>
+    );
+}
+
+function StatCard({
+    id,
+    title,
+    value,
+    currency,
+    href,
+    description,
+    subtitle,
+    nearExpiry,
+    expired,
+}: {
     id: string;
     title: string;
     value: string;
@@ -233,25 +357,55 @@ function StatCard({ id, title, value, currency, href, description, subtitle, nea
     return (
         <Tooltip>
             <TooltipTrigger asChild>
-                <Link href={href} className="min-w-0 rounded-xl focus-visible:outline-2 focus-visible:outline-ring">
+                <Link
+                    href={href}
+                    className="min-w-0 rounded-xl focus-visible:outline-2 focus-visible:outline-ring"
+                >
                     <Card className="h-44 gap-0 py-5 transition-colors hover:bg-muted/30">
                         <CardContent className="flex h-full min-w-0 flex-col justify-between px-5">
                             <div className="flex items-center justify-between gap-2">
-                                <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-                                {currency ? <span className="text-xs text-muted-foreground">{currency}</span> : <ArrowUpRight className="size-4 text-muted-foreground" aria-hidden="true" />}
+                                <CardTitle className="text-sm font-medium text-muted-foreground">
+                                    {title}
+                                </CardTitle>
+                                {currency ? (
+                                    <span className="text-xs text-muted-foreground">
+                                        {currency}
+                                    </span>
+                                ) : (
+                                    <ArrowUpRight
+                                        className="size-4 text-muted-foreground"
+                                        aria-hidden="true"
+                                    />
+                                )}
                             </div>
-                            <p data-testid={'metric-' + id} className="text-2xl font-semibold tracking-tight break-words tabular-nums">{value}</p>
-                            {nearExpiry !== undefined && expired !== undefined ? (
+                            <p
+                                data-testid={'metric-' + id}
+                                className="text-2xl font-semibold tracking-tight break-words tabular-nums"
+                            >
+                                {value}
+                            </p>
+                            {nearExpiry !== undefined &&
+                            expired !== undefined ? (
                                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs tabular-nums">
-                                    <span className="text-amber-700 dark:text-amber-400">{formatNumber(nearExpiry)} near expiry</span>
-                                    <span className="text-destructive">{formatNumber(expired)} expired</span>
+                                    <span className="text-amber-700 dark:text-amber-400">
+                                        {formatNumber(nearExpiry)} near expiry
+                                    </span>
+                                    <span className="text-destructive">
+                                        {formatNumber(expired)} expired
+                                    </span>
                                 </div>
-                            ) : <p className="min-h-4 text-xs text-muted-foreground">{subtitle}</p>}
+                            ) : (
+                                <p className="min-h-4 text-xs text-muted-foreground">
+                                    {subtitle}
+                                </p>
+                            )}
                         </CardContent>
                     </Card>
                 </Link>
             </TooltipTrigger>
-            <TooltipContent className="max-w-72" side="bottom">{description}</TooltipContent>
+            <TooltipContent className="max-w-72" side="bottom">
+                {description}
+            </TooltipContent>
         </Tooltip>
     );
 }

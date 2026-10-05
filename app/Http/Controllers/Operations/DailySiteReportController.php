@@ -319,7 +319,7 @@ final class DailySiteReportController
                     'id' => $activity->id,
                     'project_id' => $activity->project_id,
                     'site_id' => $activity->site_id,
-                    'label' => $activity->name,
+                    'label' => $activity->name.($activity->boq_item_id ? ($activity->progress_method === 'supporting' ? ' · Supporting (no BoQ output)' : ' · Measured output') : ''),
                     'boq_item_number' => $activity->boq_item_number,
                     'unit' => $activity->unit,
                     'rate_amount' => $this->canViewRates($user) ? $activity->rate_amount : null,

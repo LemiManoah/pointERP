@@ -21,6 +21,7 @@ use App\Models\InventoryBatch;
 use App\Models\InventoryItem;
 use App\Models\InventoryStore;
 use App\Models\InventoryStoreItem;
+use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\Site;
 use App\Models\UnitOfMeasure;
@@ -57,7 +58,12 @@ final readonly class SaveDailySiteReport
     {
         return DB::transaction(function () use ($actor, $data, $report): DailySiteReport {
             $site = Site::query()->with('project')->findOrFail($data['site_id']);
-            $oldValues = $report?->fresh()?->toArray() ?? [];
+            Project::query()->whereKey($site->project_id)->lockForUpdate()->firstOrFail();
+            if ($report?->exists) {
+                $report = DailySiteReport::query()->whereKey($report->id)->lockForUpdate()->firstOrFail();
+            }
+
+            $oldValues = $report?->toArray() ?? [];
             $report ??= new DailySiteReport();
 
             if ($report->exists && $report->isApproved()) {
@@ -158,7 +164,7 @@ final readonly class SaveDailySiteReport
                 $activityId = $line['project_activity_id'] ?? null;
 
                 if (! is_string($activityId) || $activityId === '') {
-                    return $line;
+                    return [...$line, 'boq_item_id' => null, 'counts_towards_boq' => false];
                 }
 
                 $activity = ProjectActivity::query()
@@ -180,9 +186,12 @@ final readonly class SaveDailySiteReport
                 return [
                     ...$line,
                     'boq_item_number' => $activity->boq_item_number,
-                    'description' => $activity->name,
+                    'description' => filled($line['description'] ?? null) ? $line['description'] : $activity->name,
+                    'boq_item_id' => $activity->boq_item_id,
+                    'counts_towards_boq' => $activity->boq_item_id !== null && $activity->progress_method === 'measured',
                     'unit' => $activity->unit,
-                    'rate_amount' => $activity->rate_amount,
+                    'rate_amount' => $activity->progress_method === 'supporting' ? null : $activity->rate_amount,
+                    'amount' => null,
                     'currency_code' => $activity->currency_code,
                 ];
             })
