@@ -42,6 +42,91 @@ beforeEach(function (): void {
     Notification::fake();
 });
 
+it('values preliminaries in the BOQ without creating measured activities or earned output', function (): void {
+    $timeUnit = UnitOfMeasure::query()->where('tenant_id', $this->actor->tenant_id)->where('code', 'HOUR')->firstOrFail();
+    $fixed = [...$this->line, 'work_item_key' => (string) Str::uuid(), 'name' => 'Site establishment',
+        'item_type' => 'preliminary_fixed', 'planned_quantity' => '1', 'selling_rate' => '5000000'];
+    $time = [...$this->line, 'work_item_key' => (string) Str::uuid(), 'name' => 'Site supervision',
+        'item_type' => 'preliminary_time', 'unit_of_measure_id' => $timeUnit->id,
+        'planned_quantity' => '6', 'selling_rate' => '2000000'];
+    $draft = resolve(SaveProjectEstimate::class)->handle($this->project,
+        ['title' => 'Preliminaries baseline', 'currency_code' => 'UGX', 'lines' => [$this->line, $fixed, $time]], $this->actor);
+    resolve(ApproveProjectEstimate::class)->handle($draft, $this->actor);
+    $summary = resolve(ProjectPerformanceSummary::class)->forProject($this->project, true);
+    $rows = collect($summary['work_items'])->keyBy('item_type');
+
+    expect($rows['preliminary_fixed']['baseline_revenue'])->toBe('5000000.0000')
+        ->and($rows['preliminary_time']['baseline_revenue'])->toBe('12000000.0000')
+        ->and($rows['preliminary_fixed']['earned_output'])->toBeNull()
+        ->and($rows['preliminary_time']['earned_output'])->toBeNull()
+        ->and($summary['totals']['baseline_revenue'])->toBe('58200000.0000')
+        ->and($summary['totals']['earned_output'])->toBe('0.0000')
+        ->and(ProjectActivity::query()->whereIn('estimate_work_item_key', [$fixed['work_item_key'], $time['work_item_key']])->exists())->toBeFalse();
+
+    $time['selling_rate'] = null;
+    $unpriced = resolve(SaveProjectEstimate::class)->handle($this->project,
+        ['title' => 'Unpriced preliminaries', 'currency_code' => 'UGX', 'lines' => [$this->line, $time]], $this->actor);
+    resolve(ApproveProjectEstimate::class)->handle($unpriced, $this->actor);
+    $summary = resolve(ProjectPerformanceSummary::class)->forProject($this->project, true);
+    expect($summary['totals']['baseline_revenue'])->toBeNull()
+        ->and($summary['totals']['earned_output'])->toBe('0.0000');
+});
+
+it('calculates percentage additions and deductions from an explicit BOQ base', function (): void {
+    $adjustment = [...$this->line,
+        'work_item_key' => (string) Str::uuid(), 'boq_reference' => 'OH&P',
+        'name' => 'Contractor overhead and profit', 'item_type' => 'percentage_adjustment',
+        'planned_quantity' => '1', 'selling_rate' => null, 'estimated_unit_cost' => null,
+        'percentage_rate' => '10', 'percentage_base_keys' => [$this->line['work_item_key']], 'resources' => [],
+    ];
+    $draft = resolve(SaveProjectEstimate::class)->handle($this->project,
+        ['title' => 'Percentage baseline', 'currency_code' => 'UGX', 'lines' => [$this->line, $adjustment]], $this->actor);
+    resolve(ApproveProjectEstimate::class)->handle($draft, $this->actor);
+    $summary = resolve(ProjectPerformanceSummary::class)->forProject($this->project, true);
+    $percentage = collect($summary['work_items'])->firstWhere('item_type', 'percentage_adjustment');
+
+    expect($percentage['baseline_revenue'])->toBe('4120000.0000')
+        ->and($percentage['earned_output'])->toBeNull()
+        ->and($summary['totals']['baseline_revenue'])->toBe('45320000.0000')
+        ->and(ProjectActivity::query()->where('estimate_work_item_key', $adjustment['work_item_key'])->exists())->toBeFalse();
+
+    $deduction = [...$adjustment, 'percentage_rate' => '-5'];
+    $revisedBase = [...$this->line, 'planned_quantity' => '1000'];
+    $revision = resolve(SaveProjectEstimate::class)->handle($this->project,
+        ['title' => 'Percentage deduction', 'currency_code' => 'UGX', 'lines' => [$revisedBase, $deduction]], $this->actor);
+    resolve(ApproveProjectEstimate::class)->handle($revision, $this->actor);
+    $summary = resolve(ProjectPerformanceSummary::class)->forProject($this->project, true);
+    expect(collect($summary['work_items'])->firstWhere('item_type', 'percentage_adjustment')['baseline_revenue'])->toBe('-1250000.0000')
+        ->and($summary['totals']['baseline_revenue'])->toBe('23750000.0000');
+});
+
+it('rejects missing, removed or percentage calculation bases', function (array $baseKeys): void {
+    $key = (string) Str::uuid();
+    $adjustment = [...$this->line, 'work_item_key' => $key, 'item_type' => 'percentage_adjustment',
+        'planned_quantity' => '1', 'selling_rate' => null, 'estimated_unit_cost' => null,
+        'percentage_rate' => '10', 'percentage_base_keys' => $baseKeys === ['self'] ? [$key] : $baseKeys, 'resources' => []];
+    expect(fn () => resolve(SaveProjectEstimate::class)->handle($this->project,
+        ['title' => 'Invalid percentage', 'currency_code' => 'UGX', 'lines' => [$adjustment]], $this->actor))
+        ->toThrow(ValidationException::class);
+})->with([
+    'no base' => [[]],
+    'removed base' => [["00000000-0000-0000-0000-000000000001"]],
+    'itself' => [['self']],
+]);
+
+it('rejects an invalid preliminary quantity or time unit through the request and action', function (string $type, string $quantity, string $error): void {
+    $line = [...$this->line, 'work_item_key' => (string) Str::uuid(), 'item_type' => $type, 'planned_quantity' => $quantity];
+    $payload = ['title' => 'Invalid preliminary', 'currency_code' => 'UGX', 'lines' => [$line]];
+    $this->actingAs($this->actor)->post(route('project-estimates.store', $this->project), $payload)
+        ->assertSessionHasErrors('lines.0.'.$error);
+    expect(fn () => resolve(SaveProjectEstimate::class)->handle($this->project, $payload, $this->actor))
+        ->toThrow(ValidationException::class);
+})->with([
+    ['preliminary_fixed', '2', 'planned_quantity'],
+    ['preliminary_time', '6', 'unit_of_measure_id'],
+    ['preliminary_time', '0', 'planned_quantity'],
+]);
+
 it('offers active library activities without exposing template costs on BOQ details', function (): void {
     $this->actor->givePermissionTo('work-item-templates.view');
     $template = WorkItemTemplate::query()->create([
@@ -59,16 +144,16 @@ it('offers active library activities without exposing template costs on BOQ deta
     $this->actingAs($this->actor)
         ->get(route('projects.boq.item', ['project' => $this->project, 'item' => $this->activity->boq_item_id]))
         ->assertOk()->assertInertia(fn (Assert $page): Assert => $page
-            ->where('can.viewActivityLibrary', true)
-            ->where('activityTemplates', function ($templates) use ($template, $inactive): bool {
-                $rows = collect($templates);
-                $row = $rows->firstWhere('id', $template->id);
+        ->where('can.viewActivityLibrary', true)
+        ->where('activityTemplates', function ($templates) use ($template, $inactive): bool {
+            $rows = collect($templates);
+            $row = $rows->firstWhere('id', $template->id);
 
-                return $row !== null && $row['unit_of_measure_id'] === $this->unit->id
-                    && ! array_key_exists('default_unit_cost', $row)
-                    && ! array_key_exists('default_selling_rate', $row)
-                    && ! $rows->contains('id', $inactive->id);
-            }));
+            return $row !== null && $row['unit_of_measure_id'] === $this->unit->id
+                && ! array_key_exists('default_unit_cost', $row)
+                && ! array_key_exists('default_selling_rate', $row)
+                && $rows->doesntContain('id', $inactive->id);
+        }));
 });
 
 it('aggregates distinct measured activities once and excludes supporting and draft quantities', function (): void {
@@ -144,6 +229,50 @@ it('rejects BOQ item details outside the project approved schedule', function ()
     $this->actingAs($this->actor)
         ->get(route('projects.boq.item', ['project' => $this->project, 'item' => (string) Str::uuid()]))
         ->assertNotFound();
+});
+
+it('keeps removed BOQ item history readable and preserves progress when reintroduced', function (): void {
+    BoqProgressEntry::query()->create(['tenant_id' => $this->project->tenant_id, 'project_id' => $this->project->id,
+        'boq_item_id' => $this->activity->boq_item_id, 'project_activity_id' => $this->activity->id,
+        'estimate_line_id' => $this->activity->estimate_line_id, 'source_key' => 'fixture:'.Str::uuid(),
+        'quantity' => '250', 'unit' => $this->activity->unit, 'measurement_date' => '2026-09-10', 'description' => 'Approved measurement']);
+    $replacement = resolve(SaveProjectEstimate::class)->handle($this->project,
+        ['title' => 'Different scope', 'currency_code' => 'UGX', 'lines' => [[...$this->line,
+            'work_item_key' => (string) Str::uuid(), 'name' => 'Other excavation']]], $this->actor);
+    resolve(ApproveProjectEstimate::class)->handle($replacement, $this->actor);
+
+    $this->actingAs($this->actor)->get(route('projects.boq.item', ['project' => $this->project, 'item' => $this->activity->boq_item_id]))
+        ->assertOk()->assertInertia(fn (Assert $page): Assert => $page
+        ->where('historical', true)->where('can.createActivity', false)
+        ->where('performance.work_items.0.approved_progress', '250.0000')
+        ->where('archivedItems.0.id', $this->activity->boq_item_id)->has('measurements', 1));
+    expect($this->activity->fresh()->status)->toBe('inactive');
+    expect(fn () => resolve(SaveProjectActivity::class)->handle(['project_id' => $this->project->id,
+        'boq_item_id' => $this->activity->boq_item_id, 'name' => 'Cannot add', 'unit' => 'm3', 'status' => 'active'], $this->actor))
+        ->toThrow(ValidationException::class);
+
+    $restored = resolve(SaveProjectEstimate::class)->handle($this->project,
+        ['title' => 'Scope restored', 'currency_code' => 'UGX', 'lines' => [[...$this->line, 'planned_quantity' => '1800']]], $this->actor);
+    resolve(ApproveProjectEstimate::class)->handle($restored, $this->actor);
+    $row = resolve(ProjectPerformanceSummary::class)->forProject($this->project, true)['work_items'][0];
+    expect($row['approved_progress'])->toBe('250.0000')->and($row['remaining_quantity'])->toBe('1550.0000');
+    $this->get(route('projects.boq.item', ['project' => $this->project, 'item' => $this->activity->boq_item_id]))
+        ->assertOk()->assertInertia(fn (Assert $page): Assert => $page->where('historical', false));
+});
+
+it('rejects a unit change when reported BOQ work returns after removal', function (): void {
+    BoqProgressEntry::query()->create(['tenant_id' => $this->project->tenant_id, 'project_id' => $this->project->id,
+        'boq_item_id' => $this->activity->boq_item_id, 'project_activity_id' => $this->activity->id,
+        'estimate_line_id' => $this->activity->estimate_line_id, 'source_key' => 'fixture:'.Str::uuid(),
+        'quantity' => '10', 'unit' => $this->activity->unit, 'measurement_date' => '2026-09-10', 'description' => 'Approved measurement']);
+    $replacement = resolve(SaveProjectEstimate::class)->handle($this->project,
+        ['title' => 'Other scope', 'currency_code' => 'UGX', 'lines' => [[...$this->line, 'work_item_key' => (string) Str::uuid()]]], $this->actor);
+    resolve(ApproveProjectEstimate::class)->handle($replacement, $this->actor);
+    $otherUnit = UnitOfMeasure::query()->where('code', 'M2')->firstOrFail();
+    $restored = resolve(SaveProjectEstimate::class)->handle($this->project,
+        ['title' => 'Changed unit', 'currency_code' => 'UGX', 'lines' => [[...$this->line, 'unit_of_measure_id' => $otherUnit->id]]], $this->actor);
+    expect(fn () => resolve(ApproveProjectEstimate::class)->handle($restored, $this->actor))->toThrow(ValidationException::class);
+    expect($replacement->fresh()->is_baseline)->toBeTrue();
 });
 
 it('creates an isolated idempotent demo project', function (): void {

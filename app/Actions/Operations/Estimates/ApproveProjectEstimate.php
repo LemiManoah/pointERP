@@ -6,6 +6,7 @@ namespace App\Actions\Operations\Estimates;
 
 use App\Enums\BoqItemType;
 use App\Enums\ProjectEstimateStatus;
+use App\Enums\UnitDimension;
 use App\Models\BoqProgressEntry;
 use App\Models\DailySiteReportWorkLine;
 use App\Models\Project;
@@ -20,7 +21,7 @@ use Illuminate\Validation\ValidationException;
 
 final readonly class ApproveProjectEstimate
 {
-    public function __construct(private AuditLogger $auditLogger)
+    public function __construct(private AuditLogger $auditLogger, private ValidatePercentageAdjustments $validatePercentages)
     {
         //
     }
@@ -30,7 +31,8 @@ final readonly class ApproveProjectEstimate
         return DB::transaction(function () use ($actor, $estimate): ProjectEstimate {
             Project::query()->whereKey($estimate->project_id)->lockForUpdate()->firstOrFail();
             $estimate = ProjectEstimate::query()->whereKey($estimate->id)->lockForUpdate()->firstOrFail();
-            $estimate->load(['lines.unit', 'project.branch']);
+            $estimate->load(['lines.unit', 'lines.resources', 'project.branch']);
+            $this->validatePercentages->handle($estimate->lines->toArray());
 
             if (! $estimate->isDraft()) {
                 throw ValidationException::withMessages(['estimate' => 'Only a draft BOQ can become the baseline.']);
@@ -59,14 +61,24 @@ final readonly class ApproveProjectEstimate
             }
 
             foreach ($estimate->lines as $line) {
+                if ($line->item_type->requiresSingleQuantity() && (float) $line->planned_quantity !== 1.0) {
+                    throw ValidationException::withMessages(['estimate' => 'Fixed amounts require a quantity of 1 before approval.']);
+                }
+                if ($line->item_type === BoqItemType::PreliminaryTime
+                    && ((float) $line->planned_quantity <= 0 || $line->unit->quantity_dimension !== UnitDimension::Time)) {
+                    throw ValidationException::withMessages(['estimate' => 'Time-based preliminaries require a positive duration and a time unit before approval.']);
+                }
                 if ($line->item_type !== BoqItemType::Measured
                     && (DailySiteReportWorkLine::query()->where('boq_item_id', $line->boq_item_id)->exists()
                         || BoqProgressEntry::query()->where('boq_item_id', $line->boq_item_id)->exists())) {
                     throw ValidationException::withMessages(['estimate' => 'A reported BoQ item must remain measured. Create a separate allowance.']);
                 }
 
-                $previousLine = ProjectEstimateLine::query()->where('boq_item_id', $line->boq_item_id)
-                    ->whereHas('estimate', fn (Builder $query) => $query->where('is_baseline', true))->first();
+                $previousRevision = ProjectEstimate::query()->where('project_id', $estimate->project_id)
+                    ->whereNotNull('approved_at')
+                    ->whereHas('lines', fn (Builder $query) => $query->where('boq_item_id', $line->boq_item_id))
+                    ->orderByDesc('version_number')->first();
+                $previousLine = $previousRevision?->lines()->where('boq_item_id', $line->boq_item_id)->first();
                 if ($previousLine && $previousLine->unit_of_measure_id !== $line->unit_of_measure_id
                     && (DailySiteReportWorkLine::query()->where('boq_item_id', $line->boq_item_id)->exists()
                         || BoqProgressEntry::query()->where('boq_item_id', $line->boq_item_id)->exists())) {

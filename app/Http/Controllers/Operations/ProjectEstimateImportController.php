@@ -57,7 +57,7 @@ final class ProjectEstimateImportController
             'drafts' => ProjectEstimate::query()->where('project_id', $project->id)->where('status', 'draft')->orderByDesc('version_number')->get(['id', 'title', 'version_number']),
             'units' => UnitOfMeasure::query()->where('is_active', true)
                 ->where(fn (Builder $query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $project->tenant_id))
-                ->orderBy('name')->get()->map(fn (UnitOfMeasure $unit): array => ['value' => $unit->id, 'label' => $unit->name.' ('.$unit->code.')']),
+                ->orderBy('name')->get()->map(fn (UnitOfMeasure $unit): array => ['value' => $unit->id, 'label' => $unit->name.' ('.$unit->code.')', 'dimension' => $unit->quantity_dimension->value]),
             'itemTypes' => collect(BoqItemType::cases())->map(fn (BoqItemType $type): array => ['value' => $type->value, 'label' => $type->label()]),
         ]);
     }
@@ -156,7 +156,14 @@ final class ProjectEstimateImportController
                         throw ValidationException::withMessages(['lines' => 'Only unambiguous items from this preview can be imported.']);
                     }
 
-                    $allowed = array_intersect_key($line, array_flip(['bill', 'section', 'element', 'item_type', 'name', 'description', 'unit_of_measure_id', 'planned_quantity', 'selling_rate', 'boq_reference']));
+                    $allowed = array_intersect_key($line, array_flip(['bill', 'section', 'element', 'item_type', 'name', 'description', 'unit_of_measure_id', 'planned_quantity', 'selling_rate', 'percentage_rate', 'percentage_base_keys', 'boq_reference']));
+                    if ($candidate['line']['item_type'] === 'percentage_adjustment' && ($allowed['item_type'] ?? null) !== 'percentage_adjustment') {
+                        throw ValidationException::withMessages(['lines' => 'Percentage adjustments must retain their calculation type.']);
+                    }
+                    if (in_array($candidate['line']['item_type'], ['preliminary_fixed', 'preliminary_time'], true)
+                        && ! in_array($allowed['item_type'] ?? null, ['preliminary_fixed', 'preliminary_time'], true)) {
+                        throw ValidationException::withMessages(['lines' => 'Keep preliminary entries as fixed or time-based preliminaries. Correct the source mapping if this classification is wrong.']);
+                    }
                     $merged->put($line['work_item_key'], [...$candidate['line'], ...$allowed]);
                 }
 

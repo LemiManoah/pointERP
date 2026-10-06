@@ -1,8 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { useState } from 'react';
 import { ArrowLeft, Plus, Search } from 'lucide-react';
-import { SearchableSelect } from '@/components/searchable-select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useState } from 'react';
 import { show as showReport } from '@/actions/App/Http/Controllers/Operations/DailySiteReportController';
 import {
     item as showItem,
@@ -15,6 +13,7 @@ import {
 } from '@/actions/App/Http/Controllers/Operations/ProjectEstimateController';
 import { index as importBoq } from '@/actions/App/Http/Controllers/Operations/ProjectEstimateImportController';
 import InputError from '@/components/input-error';
+import { SearchableSelect } from '@/components/searchable-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +29,14 @@ import {
     NativeSelect,
     NativeSelectOption,
 } from '@/components/ui/native-select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 
 type Item = {
@@ -52,6 +59,13 @@ type Row = {
     section: string | null;
     element: string | null;
     item_type: string;
+    percentage_rate: string | null;
+    percentage_base_keys: string[];
+    percentage_base_items: {
+        name: string;
+        reference: string | null;
+        amount: string | null;
+    }[];
     name: string;
     unit: string;
     planned_quantity: string;
@@ -63,6 +77,13 @@ type Row = {
     earned_output: string | null;
 };
 export type BoqProps = {
+    historical: boolean;
+    archivedItems: {
+        id: string;
+        name: string;
+        reference: string | null;
+        revision: number;
+    }[];
     itemId?: string;
     project: { id: string; name: string; reference: string };
     performance: null | {
@@ -75,7 +96,14 @@ export type BoqProps = {
         work_items: Row[];
     };
     items: Item[];
-    activityTemplates: { id: string; name: string; code: string | null; category: string; unit: string; unit_of_measure_id: string }[];
+    activityTemplates: {
+        id: string;
+        name: string;
+        code: string | null;
+        category: string;
+        unit: string;
+        unit_of_measure_id: string;
+    }[];
     activities: {
         id: string;
         boq_item_id: string;
@@ -112,10 +140,22 @@ export type BoqProps = {
         viewCosts: boolean;
     };
 };
+const itemTypeLabels: Record<string, string> = {
+    measured: 'Measured work',
+    lump_sum: 'Lump sum',
+    provisional_sum: 'Provisional sum',
+    preliminary_fixed: 'Fixed preliminary',
+    preliminary_time: 'Time-based preliminary',
+    percentage_adjustment: 'Percentage adjustment',
+};
+const itemTypeLabel = (type: string) => itemTypeLabels[type] ?? type.replaceAll('_', ' ');
+
 const number = (value: string | number) =>
     Number(value).toLocaleString(undefined, { maximumFractionDigits: 4 });
 
 export function BoqPanel({
+    historical,
+    archivedItems,
     itemId,
     activityTemplates,
     project,
@@ -160,132 +200,749 @@ export function BoqPanel({
         });
         form.clearErrors();
     }
-    const currentRow = performance?.work_items.find((row) => row.boq_item_id === itemId);
+    const currentRow = performance?.work_items.find(
+        (row) => row.boq_item_id === itemId,
+    );
     const currentItem = items.find((item) => item.id === itemId);
-    const children = activities.filter((activity) => activity.boq_item_id === itemId);
-    const evidence = measurements.filter((entry) => entry.boq_item_id === itemId);
+    const children = activities.filter(
+        (activity) => activity.boq_item_id === itemId,
+    );
+    const evidence = measurements.filter(
+        (entry) => entry.boq_item_id === itemId,
+    );
     const measured = currentRow?.item_type === 'measured';
     const currency = performance?.baseline.currency_code ?? '';
-    const money = (value: string | null) => value === null ? 'Unpriced' : `${currency} ${number(value)}`;
-    const libraryOptions = activityTemplates.filter((template) => form.data.progress_method === 'supporting' || template.unit_of_measure_id === selected?.unit_of_measure_id);
+    const money = (value: string | null) =>
+        value === null ? 'Unpriced' : `${currency} ${number(value)}`;
+    const libraryOptions = activityTemplates.filter(
+        (template) =>
+            form.data.progress_method === 'supporting' ||
+            template.unit_of_measure_id === selected?.unit_of_measure_id,
+    );
     return (
         <>
             <div className="flex flex-col gap-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <h1 className="text-2xl font-semibold">{itemId ? currentItem?.name ?? 'BOQ item' : 'BOQ'}</h1>
+                        <h1 className="text-2xl font-semibold">
+                            {itemId ? (currentItem?.name ?? 'BOQ item') : 'BOQ'}
+                        </h1>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            {itemId ? `${project.name} · BOQ item ${currentRow?.boq_reference ?? '—'}` : 'Approved BOQ items and revisions.'}
+                            {itemId
+                                ? `${project.name} · BOQ item ${currentRow?.boq_reference ?? '—'}`
+                                : 'Approved BOQ items and revisions.'}
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        {itemId && <Button variant="outline" asChild><Link href={showProject(project.id, {query: {tab: 'boq'}})}><ArrowLeft />Back to BOQ</Link></Button>}
-                        {itemId && measured && currentItem && can.createActivity && <Button onClick={() => addActivity(currentItem)}><Plus />Add activity</Button>}
-                        {!itemId && can.createEstimate && <>
-                            <Button variant="outline" asChild><Link href={importBoq(project.id)}>Import Excel BOQ</Link></Button>
-                            <Button asChild><Link href={createEstimate(project.id)}><Plus />{performance ? 'Create revision' : 'Create BOQ'}</Link></Button>
-                        </>}
+                        {itemId && (
+                            <Button variant="outline" asChild>
+                                <Link
+                                    href={showProject(project.id, {
+                                        query: { tab: 'boq' },
+                                    })}
+                                >
+                                    <ArrowLeft />
+                                    Back to BOQ
+                                </Link>
+                            </Button>
+                        )}
+                        {itemId &&
+                            measured &&
+                            currentItem &&
+                            can.createActivity && (
+                                <Button
+                                    onClick={() => addActivity(currentItem)}
+                                >
+                                    <Plus />
+                                    Add activity
+                                </Button>
+                            )}
+                        {!itemId && can.createEstimate && (
+                            <>
+                                <Button variant="outline" asChild>
+                                    <Link href={importBoq(project.id)}>
+                                        Import Excel BOQ
+                                    </Link>
+                                </Button>
+                                <Button asChild>
+                                    <Link href={createEstimate(project.id)}>
+                                        <Plus />
+                                        {performance
+                                            ? 'Create revision'
+                                            : 'Create BOQ'}
+                                    </Link>
+                                </Button>
+                            </>
+                        )}
                     </div>
                 </div>
-                {!itemId ? <>
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="relative w-full sm:max-w-sm">
-                            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input className="pl-9" aria-label="Search BOQ items" placeholder="Search BOQ items, references or bills..." value={search} onChange={(event) => setSearch(event.target.value)} />
+                {itemId && historical && (
+                    <p className="text-sm text-muted-foreground">
+                        This BOQ item is no longer in the current baseline.
+                        Showing its last approved scope and all recorded
+                        approved measurements. New activities cannot be added
+                        here.
+                    </p>
+                )}
+                {!itemId ? (
+                    <>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="relative w-full sm:max-w-sm">
+                                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    className="pl-9"
+                                    aria-label="Search BOQ items"
+                                    placeholder="Search BOQ items, references or bills..."
+                                    value={search}
+                                    onChange={(event) =>
+                                        setSearch(event.target.value)
+                                    }
+                                />
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                                <span>{rows.length} BOQ items</span>
+                                <Badge variant="secondary">
+                                    {performance
+                                        ? `Approved revision ${performance.baseline.version_number}`
+                                        : 'Awaiting approval'}
+                                </Badge>
+                                {can.viewCosts && performance?.pricing && (
+                                    <Badge variant="outline">
+                                        {performance.pricing.status.replaceAll(
+                                            '_',
+                                            ' ',
+                                        )}
+                                    </Badge>
+                                )}
+                            </div>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                            <span>{rows.length} BOQ items</span>
-                            <Badge variant="secondary">{performance ? `Approved revision ${performance.baseline.version_number}` : 'Awaiting approval'}</Badge>
-                            {can.viewCosts && performance?.pricing && <Badge variant="outline">{performance.pricing.status.replaceAll('_', ' ')}</Badge>}
+                        <Card>
+                            <CardContent className="pt-6">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>BOQ item</TableHead>
+                                            <TableHead>Unit</TableHead>
+                                            <TableHead className="text-right">
+                                                Quantity
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                Approved output
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                Remaining
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                Completion
+                                            </TableHead>
+                                            {can.viewCosts && (
+                                                <TableHead className="text-right">
+                                                    Amount ({currency})
+                                                </TableHead>
+                                            )}
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {rows.map((row) => (
+                                            <TableRow key={row.id}>
+                                                <TableCell className="max-w-96 min-w-64 whitespace-normal">
+                                                    <Link
+                                                        className="font-medium text-primary hover:underline"
+                                                        href={showItem({
+                                                            project: project.id,
+                                                            item: row.boq_item_id,
+                                                        })}
+                                                    >
+                                                        {row.boq_reference
+                                                            ? `${row.boq_reference} · `
+                                                            : ''}
+                                                        {row.name}
+                                                    </Link>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {itemTypeLabel(row.item_type)}
+                                                        {row.item_type !== 'measured' && ' · excluded from measured progress'}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {[
+                                                            row.bill,
+                                                            row.section,
+                                                            row.element,
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join(' / ')}
+                                                    </div>
+                                                    {Number(
+                                                        row.overrun_quantity,
+                                                    ) > 0 && (
+                                                        <div className="text-xs text-amber-700">
+                                                            Over baseline by{' '}
+                                                            {number(
+                                                                row.overrun_quantity,
+                                                            )}{' '}
+                                                            {row.unit}
+                                                        </div>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {row.unit}
+                                                </TableCell>
+                                                <TableCell className="text-right tabular-nums">
+                                                    {row.item_type === 'percentage_adjustment'
+                                                        ? row.percentage_rate === null
+                                                            ? 'Unpriced'
+                                                            : `${number(row.percentage_rate)}%`
+                                                        : number(row.planned_quantity)}
+                                                </TableCell>
+                                                <TableCell className="text-right tabular-nums">
+                                                    {row.item_type ===
+                                                    'measured'
+                                                        ? number(
+                                                              row.approved_progress,
+                                                          )
+                                                        : '—'}
+                                                </TableCell>
+                                                <TableCell className="text-right tabular-nums">
+                                                    {row.item_type ===
+                                                    'measured'
+                                                        ? number(
+                                                              row.remaining_quantity,
+                                                          )
+                                                        : 'Allowance'}
+                                                </TableCell>
+                                                <TableCell className="text-right tabular-nums">
+                                                    {row.item_type ===
+                                                    'measured'
+                                                        ? `${number(row.completion_percent)}%`
+                                                        : '—'}
+                                                </TableCell>
+                                                {can.viewCosts && (
+                                                    <TableCell className="text-right tabular-nums">
+                                                        {row.baseline_revenue ===
+                                                        null
+                                                            ? 'Unpriced'
+                                                            : number(
+                                                                  row.baseline_revenue,
+                                                              )}
+                                                    </TableCell>
+                                                )}
+                                            </TableRow>
+                                        ))}
+                                        {rows.length === 0 && (
+                                            <EmptyRow
+                                                columns={can.viewCosts ? 7 : 6}
+                                                text={
+                                                    performance
+                                                        ? 'No matching BOQ items.'
+                                                        : 'Create or import a BOQ, then approve it to display the schedule.'
+                                                }
+                                            />
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+                        {archivedItems.length > 0 && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Previous BOQ items</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>BOQ item</TableHead>
+                                                <TableHead>
+                                                    Last approved revision
+                                                </TableHead>
+                                                <TableHead>Status</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {archivedItems.map((item) => (
+                                                <TableRow key={item.id}>
+                                                    <TableCell className="whitespace-normal">
+                                                        <Link
+                                                            className="font-medium text-primary hover:underline"
+                                                            href={showItem({
+                                                                project:
+                                                                    project.id,
+                                                                item: item.id,
+                                                            })}
+                                                        >
+                                                            {item.reference
+                                                                ? `${item.reference} · `
+                                                                : ''}
+                                                            {item.name}
+                                                        </Link>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        Revision {item.revision}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant="outline">
+                                                            Removed from current
+                                                            scope
+                                                        </Badge>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
+                            </Card>
+                        )}
+                        <div className="grid gap-5 xl:grid-cols-2">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>BOQ revisions</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Revision</TableHead>
+                                                <TableHead>Status</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {revisions.map((revision) => (
+                                                <TableRow key={revision.id}>
+                                                    <TableCell className="whitespace-normal">
+                                                        <Link
+                                                            className="font-medium text-primary hover:underline"
+                                                            href={showEstimate(
+                                                                revision.id,
+                                                            )}
+                                                        >
+                                                            V
+                                                            {
+                                                                revision.version_number
+                                                            }{' '}
+                                                            · {revision.title}
+                                                        </Link>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge
+                                                            variant={
+                                                                revision.is_baseline
+                                                                    ? 'default'
+                                                                    : 'secondary'
+                                                            }
+                                                        >
+                                                            {revision.is_baseline
+                                                                ? 'Current baseline'
+                                                                : revision.status}
+                                                        </Badge>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {revisions.length === 0 && (
+                                                <EmptyRow
+                                                    columns={2}
+                                                    text="No BOQ revisions yet."
+                                                />
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
+                            </Card>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Site reports</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Report</TableHead>
+                                                <TableHead>Date</TableHead>
+                                                <TableHead>Status</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {reports.map((report) => (
+                                                <TableRow key={report.id}>
+                                                    <TableCell>
+                                                        <Link
+                                                            className="font-medium text-primary hover:underline"
+                                                            href={showReport(
+                                                                report.id,
+                                                            )}
+                                                        >
+                                                            {report.reference}
+                                                        </Link>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {report.date}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant="secondary">
+                                                            {report.status}
+                                                        </Badge>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {reports.length === 0 && (
+                                                <EmptyRow
+                                                    columns={3}
+                                                    text="No site reports available."
+                                                />
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
+                            </Card>
                         </div>
-                    </div>
-                    <Card><CardContent className="pt-6">
-                        <Table>
-                            <TableHeader><TableRow>
-                                <TableHead>BOQ item</TableHead><TableHead>Unit</TableHead>
-                                <TableHead className="text-right">Quantity</TableHead>
-                                <TableHead className="text-right">Approved output</TableHead>
-                                <TableHead className="text-right">Remaining</TableHead>
-                                <TableHead className="text-right">Completion</TableHead>
-                                {can.viewCosts && <TableHead className="text-right">Amount ({currency})</TableHead>}
-                            </TableRow></TableHeader>
-                            <TableBody>
-                                {rows.map((row) => <TableRow key={row.id}>
-                                    <TableCell className="min-w-64 max-w-96 whitespace-normal">
-                                        <Link className="font-medium text-primary hover:underline" href={showItem({project: project.id, item: row.boq_item_id})}>{row.boq_reference ? `${row.boq_reference} · ` : ''}{row.name}</Link>
-                                        <div className="text-xs text-muted-foreground">{[row.bill, row.section, row.element].filter(Boolean).join(' / ')}</div>
-                                        {Number(row.overrun_quantity) > 0 && <div className="text-xs text-amber-700">Over baseline by {number(row.overrun_quantity)} {row.unit}</div>}
-                                    </TableCell>
-                                    <TableCell>{row.unit}</TableCell>
-                                    <TableCell className="text-right tabular-nums">{number(row.planned_quantity)}</TableCell>
-                                    <TableCell className="text-right tabular-nums">{row.item_type === 'measured' ? number(row.approved_progress) : '—'}</TableCell>
-                                    <TableCell className="text-right tabular-nums">{row.item_type === 'measured' ? number(row.remaining_quantity) : 'Allowance'}</TableCell>
-                                    <TableCell className="text-right tabular-nums">{row.item_type === 'measured' ? `${number(row.completion_percent)}%` : '—'}</TableCell>
-                                    {can.viewCosts && <TableCell className="text-right tabular-nums">{row.baseline_revenue === null ? 'Unpriced' : number(row.baseline_revenue)}</TableCell>}
-                                </TableRow>)}
-                                {rows.length === 0 && <EmptyRow columns={can.viewCosts ? 7 : 6} text={performance ? 'No matching BOQ items.' : 'Create or import a BOQ, then approve it to display the schedule.'} />}
-                            </TableBody>
-                        </Table>
-                    </CardContent></Card>
-                    <div className="grid gap-5 xl:grid-cols-2">
-                        <Card><CardHeader><CardTitle>BOQ revisions</CardTitle></CardHeader><CardContent>
-                            <Table><TableHeader><TableRow><TableHead>Revision</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-                                <TableBody>{revisions.map((revision) => <TableRow key={revision.id}>
-                                    <TableCell className="whitespace-normal"><Link className="font-medium text-primary hover:underline" href={showEstimate(revision.id)}>V{revision.version_number} · {revision.title}</Link></TableCell>
-                                    <TableCell><Badge variant={revision.is_baseline ? 'default' : 'secondary'}>{revision.is_baseline ? 'Current baseline' : revision.status}</Badge></TableCell>
-                                </TableRow>)}{revisions.length === 0 && <EmptyRow columns={2} text="No BOQ revisions yet." />}</TableBody>
-                            </Table>
-                        </CardContent></Card>
-                        <Card><CardHeader><CardTitle>Site reports</CardTitle></CardHeader><CardContent>
-                            <Table><TableHeader><TableRow><TableHead>Report</TableHead><TableHead>Date</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-                                <TableBody>{reports.map((report) => <TableRow key={report.id}>
-                                    <TableCell><Link className="font-medium text-primary hover:underline" href={showReport(report.id)}>{report.reference}</Link></TableCell><TableCell>{report.date}</TableCell><TableCell><Badge variant="secondary">{report.status}</Badge></TableCell>
-                                </TableRow>)}{reports.length === 0 && <EmptyRow columns={3} text="No site reports available." />}</TableBody>
-                            </Table>
-                        </CardContent></Card>
-                    </div>
-                </> : currentRow && currentItem && <>
-                    <Card><CardHeader><CardTitle>BOQ item details</CardTitle></CardHeader><CardContent className="space-y-5">
-                        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                            <Detail label="Reference" value={currentRow.boq_reference ?? '—'} />
-                            <Detail label="Bill" value={currentRow.bill ?? '—'} />
-                            <Detail label="Section" value={currentRow.section ?? '—'} />
-                            <Detail label="Element" value={currentRow.element ?? '—'} />
-                            <Detail label="Item type" value={currentRow.item_type.replaceAll('_', ' ')} />
-                            <Detail label="Unit" value={currentRow.unit} />
-                            <Detail label="Site" value={sites.find((site) => site.id === currentItem.site_id)?.name ?? 'Project-wide'} />
-                            <Detail label="Baseline" value={`Revision ${performance?.baseline.version_number}`} />
-                        </dl>
-                        {currentItem.description && <div><p className="text-sm text-muted-foreground">Description</p><p className="mt-1 text-sm whitespace-pre-line">{currentItem.description}</p></div>}
-                        {currentItem.source_document && <p className="text-xs text-muted-foreground">Source: {currentItem.source_document} · {currentItem.source_sheet} · row {currentItem.source_row}</p>}
-                    </CardContent></Card>
-                    <Card><CardHeader><CardTitle>Quantity and progress</CardTitle></CardHeader><CardContent>
-                        <Table><TableHeader><TableRow><TableHead className="text-right">BOQ quantity</TableHead><TableHead className="text-right">Approved output</TableHead><TableHead className="text-right">Remaining</TableHead><TableHead className="text-right">Over baseline</TableHead><TableHead className="text-right">Completion</TableHead>{can.viewCosts && <><TableHead className="text-right">BOQ amount</TableHead><TableHead className="text-right">Earned output</TableHead></>}</TableRow></TableHeader>
-                            <TableBody><TableRow>
-                                <TableCell className="text-right tabular-nums">{number(currentRow.planned_quantity)} {currentRow.unit}</TableCell>
-                                <TableCell className="text-right tabular-nums">{measured ? `${number(currentRow.approved_progress)} ${currentRow.unit}` : 'Not measured'}</TableCell>
-                                <TableCell className="text-right tabular-nums">{measured ? `${number(currentRow.remaining_quantity)} ${currentRow.unit}` : 'Allowance'}</TableCell>
-                                <TableCell className="text-right tabular-nums">{measured ? `${number(currentRow.overrun_quantity)} ${currentRow.unit}` : '—'}</TableCell>
-                                <TableCell className="text-right tabular-nums">{measured ? `${number(currentRow.completion_percent)}%` : '—'}</TableCell>
-                                {can.viewCosts && <><TableCell className="text-right tabular-nums">{money(currentRow.baseline_revenue)}</TableCell><TableCell className="text-right tabular-nums">{currentRow.earned_output === null ? 'Not available' : money(currentRow.earned_output)}</TableCell></>}
-                            </TableRow></TableBody>
-                        </Table>
-                    </CardContent></Card>
-                    <Card><CardHeader><CardTitle>Work activities</CardTitle></CardHeader><CardContent>
-                        <Table><TableHeader><TableRow><TableHead>Activity</TableHead><TableHead>Contribution</TableHead><TableHead>Unit</TableHead><TableHead className="text-right">Approved output</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-                            <TableBody>{children.map((activity) => <TableRow key={activity.id}>
-                                <TableCell className="font-medium whitespace-normal">{activity.name}</TableCell><TableCell><Badge variant="outline">{activity.progress_method === 'supporting' ? 'Supporting' : 'Measured output'}</Badge></TableCell><TableCell>{activity.unit}</TableCell><TableCell className="text-right tabular-nums">{activity.progress_method === 'supporting' ? 'Does not count' : number(activity.approved_quantity)}</TableCell><TableCell><Badge variant="secondary">{activity.status}</Badge></TableCell>
-                            </TableRow>)}{children.length === 0 && <EmptyRow columns={5} text={measured ? 'No activities linked to this BOQ item yet.' : 'This allowance has no measured work activities.'} />}</TableBody>
-                        </Table>
-                    </CardContent></Card>
-                    <Card><CardHeader><CardTitle>Approved measurements</CardTitle></CardHeader><CardContent>
-                        <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Activity / description</TableHead><TableHead className="text-right">Quantity</TableHead><TableHead>Evidence</TableHead></TableRow></TableHeader>
-                            <TableBody>{evidence.map((entry) => <TableRow key={entry.id}>
-                                <TableCell>{entry.date}</TableCell><TableCell className="min-w-56 whitespace-normal"><div className="font-medium">{children.find((activity) => activity.id === entry.activity_id)?.name ?? 'BOQ item measurement'}</div><div className="text-xs text-muted-foreground">{entry.description}</div></TableCell><TableCell className="text-right tabular-nums">{number(entry.quantity)} {entry.unit}</TableCell><TableCell>{entry.report_id ? <Link className="font-medium text-primary hover:underline" href={showReport(entry.report_id)}>Open report</Link> : entry.legacy ? <Badge variant="outline">Legacy balance · review required</Badge> : 'Approved record'}</TableCell>
-                            </TableRow>)}{evidence.length === 0 && <EmptyRow columns={4} text="No approved measurements for this BOQ item yet." />}</TableBody>
-                        </Table>
-                    </CardContent></Card>
-                </>}
+                    </>
+                ) : (
+                    currentRow &&
+                    currentItem && (
+                        <>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>BOQ item details</CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-5">
+                                    <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                        <Detail
+                                            label="Reference"
+                                            value={
+                                                currentRow.boq_reference ?? '—'
+                                            }
+                                        />
+                                        <Detail
+                                            label="Bill"
+                                            value={currentRow.bill ?? '—'}
+                                        />
+                                        <Detail
+                                            label="Section"
+                                            value={currentRow.section ?? '—'}
+                                        />
+                                        <Detail
+                                            label="Element"
+                                            value={currentRow.element ?? '—'}
+                                        />
+                                        <Detail
+                                            label="Item type"
+                                            value={itemTypeLabel(currentRow.item_type)}
+                                        />
+                                        <Detail
+                                            label="Unit"
+                                            value={currentRow.unit}
+                                        />
+                                        <Detail
+                                            label="Site"
+                                            value={
+                                                sites.find(
+                                                    (site) =>
+                                                        site.id ===
+                                                        currentItem.site_id,
+                                                )?.name ?? 'Project-wide'
+                                            }
+                                        />
+                                        <Detail
+                                            label={
+                                                historical
+                                                    ? 'Last approved scope'
+                                                    : 'Baseline'
+                                            }
+                                            value={`Revision ${performance?.baseline.version_number}`}
+                                        />
+                                    </dl>
+                                    {currentItem.description && (
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">
+                                                Description
+                                            </p>
+                                            <p className="mt-1 text-sm whitespace-pre-line">
+                                                {currentItem.description}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {currentItem.source_document && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Source:{' '}
+                                            {currentItem.source_document} ·{' '}
+                                            {currentItem.source_sheet} · row{' '}
+                                            {currentItem.source_row}
+                                        </p>
+                                    )}
+                                </CardContent>
+                            </Card>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>{measured ? 'Quantity and progress' : 'Planned BOQ value'}</CardTitle>
+                                    {['preliminary_fixed', 'preliminary_time'].includes(currentRow.item_type) && (
+                                        <p className="text-sm text-muted-foreground">
+                                            {currentRow.item_type === 'preliminary_time'
+                                                ? 'Planned duration × agreed rate per time unit.'
+                                                : 'Quantity 1 × agreed fixed amount.'}{' '}
+                                            Payment certification is a separate step.
+                                        </p>
+                                    )}
+                                    {currentRow.item_type === 'percentage_adjustment' && (
+                                        <p className="text-sm text-muted-foreground">
+                                            {currentRow.percentage_rate === null
+                                                ? 'Percentage not priced.'
+                                                : `${number(currentRow.percentage_rate)}% of the selected BOQ items.`}{' '}
+                                            This value does not count as measured progress.
+                                        </p>
+                                    )}
+                                </CardHeader>
+                                <CardContent>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="text-right">
+                                                    {currentRow.item_type === 'percentage_adjustment'
+                                                        ? 'Percentage'
+                                                        : currentRow.item_type === 'preliminary_time'
+                                                          ? 'Planned duration'
+                                                          : 'BOQ quantity'}
+                                                </TableHead>
+                                                <TableHead className="text-right">
+                                                    Approved output
+                                                </TableHead>
+                                                <TableHead className="text-right">
+                                                    Remaining
+                                                </TableHead>
+                                                <TableHead className="text-right">
+                                                    Over baseline
+                                                </TableHead>
+                                                <TableHead className="text-right">
+                                                    Completion
+                                                </TableHead>
+                                                {can.viewCosts && (
+                                                    <>
+                                                        <TableHead className="text-right">
+                                                            BOQ amount
+                                                        </TableHead>
+                                                        <TableHead className="text-right">
+                                                            Earned output
+                                                        </TableHead>
+                                                    </>
+                                                )}
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            <TableRow>
+                                                <TableCell className="text-right tabular-nums">
+                                                    {currentRow.item_type === 'percentage_adjustment'
+                                                        ? currentRow.percentage_rate === null
+                                                            ? 'Unpriced'
+                                                            : `${number(currentRow.percentage_rate)}%`
+                                                        : `${number(currentRow.planned_quantity)} ${currentRow.unit}`}
+                                                </TableCell>
+                                                <TableCell className="text-right tabular-nums">
+                                                    {measured
+                                                        ? `${number(currentRow.approved_progress)} ${currentRow.unit}`
+                                                        : 'Not measured'}
+                                                </TableCell>
+                                                <TableCell className="text-right tabular-nums">
+                                                    {measured
+                                                        ? `${number(currentRow.remaining_quantity)} ${currentRow.unit}`
+                                                        : 'Allowance'}
+                                                </TableCell>
+                                                <TableCell className="text-right tabular-nums">
+                                                    {measured
+                                                        ? `${number(currentRow.overrun_quantity)} ${currentRow.unit}`
+                                                        : '—'}
+                                                </TableCell>
+                                                <TableCell className="text-right tabular-nums">
+                                                    {measured
+                                                        ? `${number(currentRow.completion_percent)}%`
+                                                        : '—'}
+                                                </TableCell>
+                                                {can.viewCosts && (
+                                                    <>
+                                                        <TableCell className="text-right tabular-nums">
+                                                            {money(
+                                                                currentRow.baseline_revenue,
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-right tabular-nums">
+                                                            {currentRow.earned_output ===
+                                                            null
+                                                                ? 'Not available'
+                                                                : money(
+                                                                      currentRow.earned_output,
+                                                                  )}
+                                                        </TableCell>
+                                                    </>
+                                                )}
+                                            </TableRow>
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
+                            </Card>
+                            {currentRow.item_type === 'percentage_adjustment' && (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>Calculation base</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>BOQ item</TableHead>
+                                                    {can.viewCosts && <TableHead className="text-right">Base amount</TableHead>}
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {currentRow.percentage_base_items.map((base, index) => (
+                                                    <TableRow key={`${base.reference ?? ''}:${base.name}:${index}`}>
+                                                        <TableCell>{base.reference ? `${base.reference} · ` : ''}{base.name}</TableCell>
+                                                        {can.viewCosts && <TableCell className="text-right tabular-nums">{base.amount === null ? 'Unpriced' : money(base.amount)}</TableCell>}
+                                                    </TableRow>
+                                                ))}
+                                                {currentRow.percentage_base_items.length === 0 && (
+                                                    <EmptyRow columns={can.viewCosts ? 2 : 1} text="No calculation base selected." />
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </CardContent>
+                                </Card>
+                            )}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Work activities</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Activity</TableHead>
+                                                <TableHead>
+                                                    Contribution
+                                                </TableHead>
+                                                <TableHead>Unit</TableHead>
+                                                <TableHead className="text-right">
+                                                    Approved output
+                                                </TableHead>
+                                                <TableHead>Status</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {children.map((activity) => (
+                                                <TableRow key={activity.id}>
+                                                    <TableCell className="font-medium whitespace-normal">
+                                                        {activity.name}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant="outline">
+                                                            {activity.progress_method ===
+                                                            'supporting'
+                                                                ? 'Supporting'
+                                                                : 'Measured output'}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {activity.unit}
+                                                    </TableCell>
+                                                    <TableCell className="text-right tabular-nums">
+                                                        {activity.progress_method ===
+                                                        'supporting'
+                                                            ? 'Does not count'
+                                                            : number(
+                                                                  activity.approved_quantity,
+                                                              )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant="secondary">
+                                                            {activity.status}
+                                                        </Badge>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {children.length === 0 && (
+                                                <EmptyRow
+                                                    columns={5}
+                                                    text={
+                                                        measured
+                                                            ? 'No activities linked to this BOQ item yet.'
+                                                            : 'This allowance has no measured work activities.'
+                                                    }
+                                                />
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
+                            </Card>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Approved measurements</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Date</TableHead>
+                                                <TableHead>
+                                                    Activity / description
+                                                </TableHead>
+                                                <TableHead className="text-right">
+                                                    Quantity
+                                                </TableHead>
+                                                <TableHead>Evidence</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {evidence.map((entry) => (
+                                                <TableRow key={entry.id}>
+                                                    <TableCell>
+                                                        {entry.date}
+                                                    </TableCell>
+                                                    <TableCell className="min-w-56 whitespace-normal">
+                                                        <div className="font-medium">
+                                                            {children.find(
+                                                                (activity) =>
+                                                                    activity.id ===
+                                                                    entry.activity_id,
+                                                            )?.name ??
+                                                                'BOQ item measurement'}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">
+                                                            {entry.description}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right tabular-nums">
+                                                        {number(entry.quantity)}{' '}
+                                                        {entry.unit}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {entry.report_id ? (
+                                                            <Link
+                                                                className="font-medium text-primary hover:underline"
+                                                                href={showReport(
+                                                                    entry.report_id,
+                                                                )}
+                                                            >
+                                                                Open report
+                                                            </Link>
+                                                        ) : entry.legacy ? (
+                                                            <Badge variant="outline">
+                                                                Legacy balance ·
+                                                                review required
+                                                            </Badge>
+                                                        ) : (
+                                                            'Approved record'
+                                                        )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {evidence.length === 0 && (
+                                                <EmptyRow
+                                                    columns={4}
+                                                    text="No approved measurements for this BOQ item yet."
+                                                />
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
+                            </Card>
+                        </>
+                    )
+                )}
             </div>
             <Dialog
                 open={selected !== null}
@@ -298,7 +955,8 @@ export function BoqPanel({
                         <DialogTitle>Add activity to BOQ item</DialogTitle>
                     </DialogHeader>
                     <p className="text-sm text-muted-foreground">
-                        BOQ item: {selected?.name}. Its approved quantity and rate stay unchanged.
+                        BOQ item: {selected?.name}. Its approved quantity and
+                        rate stay unchanged.
                     </p>
                     <form
                         className="space-y-4"
@@ -310,22 +968,49 @@ export function BoqPanel({
                             });
                         }}
                     >
-                        {can.viewActivityLibrary && <div className="space-y-2">
-                            <Label>Work activity library</Label>
-                            <SearchableSelect
-                                value={libraryId}
-                                placeholder="Select a library activity or enter your own"
-                                searchPlaceholder="Search name, code or category..."
-                                emptyMessage="No matching library activities for this unit."
-                                options={[{value: '', label: 'Custom activity'}, ...libraryOptions.map((template) => ({value: template.id, label: `${template.code ? `${template.code} · ` : ''}${template.name}`, description: `${template.category} · ${template.unit}`}))]}
-                                onValueChange={(value) => {
-                                    setLibraryId(value);
-                                    const template = libraryOptions.find((template) => template.id === value);
-                                    if (template) form.setData({...form.data, name: template.name, unit: form.data.progress_method === 'measured' ? selected?.unit ?? template.unit : template.unit});
-                                }}
-                            />
-                            <p className="text-xs text-muted-foreground">Copies the activity name and unit. Measured activities must use the BOQ item's unit. Library prices and resource estimates are not copied.</p>
-                        </div>}
+                        {can.viewActivityLibrary && (
+                            <div className="space-y-2">
+                                <Label>Work activity library</Label>
+                                <SearchableSelect
+                                    value={libraryId}
+                                    placeholder="Select a library activity or enter your own"
+                                    searchPlaceholder="Search name, code or category..."
+                                    emptyMessage="No matching library activities for this unit."
+                                    options={[
+                                        { value: '', label: 'Custom activity' },
+                                        ...libraryOptions.map((template) => ({
+                                            value: template.id,
+                                            label: `${template.code ? `${template.code} · ` : ''}${template.name}`,
+                                            description: `${template.category} · ${template.unit}`,
+                                        })),
+                                    ]}
+                                    onValueChange={(value) => {
+                                        setLibraryId(value);
+                                        const template = libraryOptions.find(
+                                            (template) => template.id === value,
+                                        );
+                                        if (template)
+                                            form.setData({
+                                                ...form.data,
+                                                name: template.name,
+                                                unit:
+                                                    form.data
+                                                        .progress_method ===
+                                                    'measured'
+                                                        ? (selected?.unit ??
+                                                          template.unit)
+                                                        : template.unit,
+                                            });
+                                    }}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Copies the activity name and unit. Measured
+                                    activities must use the BOQ item's unit.
+                                    Library prices and resource estimates are
+                                    not copied.
+                                </p>
+                            </div>
+                        )}
                         <div className="space-y-2">
                             <Label htmlFor="activity-name">Activity name</Label>
                             <Input
@@ -458,10 +1143,24 @@ export default function BoqItem(props: BoqProps) {
     );
 }
 
-function EmptyRow({columns, text}: {columns: number; text: string}) {
-    return <TableRow><TableCell colSpan={columns} className="h-24 text-center text-muted-foreground">{text}</TableCell></TableRow>;
+function EmptyRow({ columns, text }: { columns: number; text: string }) {
+    return (
+        <TableRow>
+            <TableCell
+                colSpan={columns}
+                className="h-24 text-center text-muted-foreground"
+            >
+                {text}
+            </TableCell>
+        </TableRow>
+    );
 }
 
-function Detail({label, value}: {label: string; value: string}) {
-    return <div><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 text-sm font-medium">{value}</dd></div>;
+function Detail({ label, value }: { label: string; value: string }) {
+    return (
+        <div>
+            <dt className="text-sm text-muted-foreground">{label}</dt>
+            <dd className="mt-1 text-sm font-medium">{value}</dd>
+        </div>
+    );
 }

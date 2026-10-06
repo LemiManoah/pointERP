@@ -108,7 +108,7 @@ final class ProjectEstimateController
             'estimate' => $estimate instanceof ProjectEstimate ? $this->estimateData($estimate, true, $canViewCosts) : null,
             'source' => ! $estimate instanceof ProjectEstimate && $source instanceof ProjectEstimate ? $this->estimateData($source, false, true) : null,
             'sites' => Site::query()->where('project_id', $project->id)->whereIn('status', ['planned', 'active', 'suspended'])->orderBy('name')->get(['id', 'name'])->map(fn (Site $site): array => ['value' => $site->id, 'label' => $site->name]),
-            'units' => UnitOfMeasure::query()->where(fn (Builder $query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenantId))->where('is_active', true)->orderBy('name')->get(['id', 'name', 'symbol'])->map(fn (UnitOfMeasure $unit): array => ['value' => $unit->id, 'label' => sprintf('%s%s', $unit->name, $unit->symbol ? ' ('.$unit->symbol.')' : '')]),
+            'units' => UnitOfMeasure::query()->where(fn (Builder $query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenantId))->where('is_active', true)->orderBy('name')->get(['id', 'name', 'symbol', 'quantity_dimension'])->map(fn (UnitOfMeasure $unit): array => ['value' => $unit->id, 'label' => sprintf('%s%s', $unit->name, $unit->symbol ? ' ('.$unit->symbol.')' : ''), 'dimension' => $unit->quantity_dimension->value]),
             'items' => InventoryItem::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'stock_unit_id', 'default_unit_cost'])->map(fn (InventoryItem $item): array => ['value' => $item->id, 'label' => sprintf('%s - %s', $item->code, $item->name), 'unit_id' => $item->stock_unit_id, 'unit_cost' => $canViewCosts ? $item->default_unit_cost : null]),
             'equipmentCategories' => EquipmentCategory::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name'])->map(fn (EquipmentCategory $category): array => ['value' => $category->id, 'label' => mb_trim($category->code.' - '.$category->name)]),
             'workforceTrades' => WorkforceTrade::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name'])->map(fn (WorkforceTrade $trade): array => ['value' => $trade->id, 'label' => mb_trim($trade->code.' - '.$trade->name)]),
@@ -184,6 +184,8 @@ final class ProjectEstimateController
                 'name' => $line->name,
                 'planned_quantity' => $line->planned_quantity,
                 'selling_rate' => $canViewCosts ? $line->selling_rate : null,
+                'percentage_rate' => $canViewCosts ? $line->percentage_rate : null,
+                'percentage_base_keys' => $line->percentage_base_keys ?? [],
                 'estimated_unit_cost' => $canViewCosts ? $line->estimated_unit_cost : null,
                 'notes' => $line->notes,
                 'resources' => $line->resources->map(fn (EstimateResourceLine $resource): array => [

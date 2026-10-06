@@ -16,11 +16,13 @@ use Illuminate\Support\Facades\Gate;
 final class ProjectBoqSummary
 {
     /** @return array<string, mixed> */
-    public function forProject(Project $project, ProjectPerformanceSummary $performance): array
+    public function forProject(Project $project, ProjectPerformanceSummary $performance, ?ProjectEstimate $revision = null): array
     {
         Gate::authorize('view', $project);
         Gate::authorize('viewAny', ProjectEstimate::class);
-        $baseline = ProjectEstimate::query()->with('lines.unit')->where('project_id', $project->id)->where('is_baseline', true)->first();
+        $baseline = $revision ?? ProjectEstimate::query()->with('lines.unit')->where('project_id', $project->id)->where('is_baseline', true)->first();
+        $baseline?->loadMissing('lines.unit');
+        $historical = $baseline !== null && ! $baseline->is_baseline;
         $canViewCosts = $baseline && Gate::allows('viewCosts', $baseline);
         $activities = ProjectActivity::query()->where('project_id', $project->id)->whereNotNull('boq_item_id')
             ->orderBy('sort_order')->get();
@@ -32,7 +34,18 @@ final class ProjectBoqSummary
 
         return [
             'project' => $project->only(['id', 'name', 'reference']),
-            'performance' => $performance->forProject($project, $canViewCosts),
+            'performance' => $performance->forProject($project, $canViewCosts, $revision),
+            'historical' => $historical,
+            'archivedItems' => ProjectEstimateLine::query()->with('estimate')
+                ->whereHas('estimate', fn ($query) => $query->where('project_id', $project->id)->whereNotNull('approved_at'))
+                ->whereNotNull('boq_item_id')
+                ->whereNotIn('boq_item_id', ProjectEstimateLine::query()->select('boq_item_id')->whereNotNull('boq_item_id')
+                    ->whereHas('estimate', fn ($query) => $query->where('project_id', $project->id)->where('is_baseline', true)))
+                ->get()->sortByDesc(fn (ProjectEstimateLine $line): int => $line->estimate->version_number)
+                ->unique('boq_item_id')->map(fn (ProjectEstimateLine $line): array => [
+                    'id' => $line->boq_item_id, 'name' => $line->name, 'reference' => $line->boq_reference,
+                    'revision' => $line->estimate->version_number,
+                ])->values()->all(),
             'items' => $baseline?->lines->map(fn (ProjectEstimateLine $line): array => [
                 'id' => $line->boq_item_id, 'name' => $line->name, 'description' => $line->description,
                 'site_id' => $line->site_id, 'item_type' => $line->item_type->value,
@@ -68,7 +81,7 @@ final class ProjectBoqSummary
                     ])->all()
                 : [],
             'can' => [
-                'createActivity' => Gate::allows('create', [ProjectActivity::class, $project]),
+                'createActivity' => ! $historical && Gate::allows('create', [ProjectActivity::class, $project]),
                 'createEstimate' => Gate::allows('create', [ProjectEstimate::class, $project]),
                 'viewCosts' => $canViewCosts,
                 'viewActivityLibrary' => Gate::allows('viewAny', WorkItemTemplate::class),

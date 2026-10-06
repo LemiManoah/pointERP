@@ -9,7 +9,6 @@ use App\Http\Requests\Operations\ProjectActivities\StoreProjectActivityRequest;
 use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\ProjectEstimate;
-use App\Models\ProjectEstimateLine;
 use App\Models\User;
 use App\Services\ProjectBoqSummary;
 use App\Services\ProjectPerformanceSummary;
@@ -33,11 +32,12 @@ final class ProjectBoqController
     {
         Gate::authorize('view', $project);
         Gate::authorize('viewAny', ProjectEstimate::class);
-        abort_unless(ProjectEstimateLine::query()->where('boq_item_id', $item)
-            ->whereHas('estimate', fn ($query) => $query->where('project_id', $project->id)->where('is_baseline', true))->exists(), 404);
+        $revision = ProjectEstimate::query()->where('project_id', $project->id)->whereNotNull('approved_at')
+            ->whereHas('lines', fn ($query) => $query->where('boq_item_id', $item))
+            ->orderByDesc('version_number')->firstOrFail();
 
         return Inertia::render('operations/projects/boq', [
-            ...$summary->forProject($project, $performance),
+            ...$summary->forProject($project, $performance, $revision),
             'itemId' => $item,
         ]);
     }

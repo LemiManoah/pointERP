@@ -18,9 +18,9 @@ use Illuminate\Database\Eloquent\Builder;
 final class ProjectPerformanceSummary
 {
     /** @return array<string, mixed>|null */
-    public function forProject(Project $project, bool $canViewCosts): ?array
+    public function forProject(Project $project, bool $canViewCosts, ?ProjectEstimate $revision = null): ?array
     {
-        $baseline = ProjectEstimate::query()
+        $baseline = $revision ?? ProjectEstimate::query()
             ->with(['lines.unit', 'lines.resources.inventoryItem.stockUnit', 'lines.resources.unit'])
             ->where('project_id', $project->id)
             ->where('is_baseline', true)
@@ -29,6 +29,8 @@ final class ProjectPerformanceSummary
         if (! $baseline instanceof ProjectEstimate) {
             return null;
         }
+
+        $baseline->loadMissing(['lines.unit', 'lines.resources.inventoryItem.stockUnit', 'lines.resources.unit']);
 
         $activities = ProjectActivity::query()
             ->where('project_id', $project->id)
@@ -39,7 +41,7 @@ final class ProjectPerformanceSummary
         $progress = BoqProgressEntry::query()->where('project_id', $project->id)
             ->selectRaw('boq_item_id, SUM(quantity) as approved_quantity')->groupBy('boq_item_id')
             ->pluck('approved_quantity', 'boq_item_id');
-        $rows = $baseline->lines->map(function (ProjectEstimateLine $line) use ($activities, $progress, $canViewCosts): array {
+        $rows = $baseline->lines->map(function (ProjectEstimateLine $line) use ($activities, $progress, $canViewCosts, $baseline): array {
             $activity = $activities->get($line->work_item_key);
             $approved = $line->boq_item_id ? (float) ($progress->get($line->boq_item_id) ?? 0) : ($activity instanceof ProjectActivity ? (float) $activity->approved_quantity : 0.0);
             $planned = (float) $line->planned_quantity;
@@ -58,18 +60,22 @@ final class ProjectPerformanceSummary
                 'section' => $line->section,
                 'element' => $line->element,
                 'item_type' => $line->item_type->value,
+                'percentage_rate' => $canViewCosts ? $line->percentage_rate : null,
+                'percentage_base_keys' => $line->percentage_base_keys ?? [],
+                'percentage_base_items' => $baseline->lines->whereIn('work_item_key', $line->percentage_base_keys ?? [])->map(fn (ProjectEstimateLine $base): array => ['name' => $base->name, 'reference' => $base->boq_reference, 'amount' => $canViewCosts ? $base->boqAmount($baseline->lines) : null])->values()->all(),
                 'name' => $line->name,
                 'unit' => $line->unit->symbol ?? $line->unit->code,
                 'planned_quantity' => $line->planned_quantity,
                 'approved_progress' => number_format($approved, 4, '.', ''),
                 'remaining_quantity' => number_format($remaining, 4, '.', ''),
                 'completion_percent' => number_format($completion, 2, '.', ''),
-                'baseline_revenue' => $canViewCosts && $rate !== null ? number_format($planned * $rate, 4, '.', '') : null,
+                'baseline_revenue' => $canViewCosts ? $line->boqAmount($baseline->lines) : null,
                 'earned_output' => $canViewCosts && $rate !== null && $line->item_type === BoqItemType::Measured ? number_format($approved * $rate, 4, '.', '') : null,
                 'baseline_cost' => $canViewCosts && $unitCost !== null ? number_format($planned * $unitCost, 4, '.', '') : null,
             ];
         })->values();
 
+        $measuredRows = $rows->filter(fn (array $row): bool => $row['item_type'] === BoqItemType::Measured->value);
         $approvedReports = DailySiteReport::query()
             ->where('project_id', $project->id)
             ->where('status', DailySiteReport::STATUS_APPROVED)
@@ -143,7 +149,7 @@ final class ProjectPerformanceSummary
             'totals' => [
                 'planned_items' => $rows->count(),
                 'baseline_revenue' => $canViewCosts && $baseline->pricingSummary()['status'] === 'fully_priced' ? number_format($rows->sum(fn (array $row): float => (float) $row['baseline_revenue']), 4, '.', '') : null,
-                'earned_output' => $canViewCosts && $rows->every(fn (array $row): bool => $row['earned_output'] !== null) ? number_format($rows->sum(fn (array $row): float => (float) $row['earned_output']), 4, '.', '') : null,
+                'earned_output' => $canViewCosts && $measuredRows->isNotEmpty() && $measuredRows->every(fn (array $row): bool => $row['earned_output'] !== null) ? number_format($measuredRows->sum(fn (array $row): float => (float) $row['earned_output']), 4, '.', '') : null,
                 'baseline_cost' => $canViewCosts && $rows->every(fn (array $row): bool => $row['baseline_cost'] !== null) ? number_format($rows->sum(fn (array $row): float => (float) $row['baseline_cost']), 4, '.', '') : null,
                 'operational_expenses' => $canViewCosts ? number_format($approvedExpenseCost, 4, '.', '') : null,
                 'actual_input_cost' => $canViewCosts ? number_format($approvedReports->sum(fn (DailySiteReport $report): float => (float) $report->input_cost) + $approvedExpenseCost, 4, '.', '') : null,

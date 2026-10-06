@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/** @property UnitDimension $quantity_dimension */
 #[Fillable(['tenant_id', 'code', 'name', 'symbol', 'quantity_dimension', 'is_base_unit', 'is_active'])]
 final class UnitOfMeasure extends Model
 {

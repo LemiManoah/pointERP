@@ -88,7 +88,7 @@ final class ProjectEstimate extends Model
     {
         $this->loadMissing('lines');
         $total = $this->lines->count();
-        $priced = $this->lines->filter(fn (ProjectEstimateLine $line): bool => $line->selling_rate !== null)->count();
+        $priced = $this->lines->filter(fn (ProjectEstimateLine $line): bool => $line->boqAmount($this->lines) !== null)->count();
 
         return [
             'status' => $priced === 0 ? 'unpriced' : ($priced === $total ? 'fully_priced' : 'partially_priced'),

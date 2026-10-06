@@ -6,6 +6,8 @@ namespace App\Models;
 
 use App\Enums\BoqItemType;
 use App\Models\Concerns\BelongsToTenant;
+use Brick\Math\BigDecimal;
+use Brick\Math\RoundingMode;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -36,6 +38,8 @@ use Illuminate\Support\Collection;
  * @property-read string $name
  * @property-read string $planned_quantity
  * @property-read string|null $selling_rate
+ * @property-read string|null $percentage_rate
+ * @property-read list<string>|null $percentage_base_keys
  * @property-read string|null $estimated_unit_cost
  * @property-read int $sort_order
  * @property-read string|null $notes
@@ -44,6 +48,7 @@ use Illuminate\Support\Collection;
  * @property-read Collection<int, EstimateResourceLine> $resources
  */
 #[Fillable([
+    'percentage_rate', 'percentage_base_keys',
     'boq_item_id', 'tenant_id', 'project_estimate_id', 'site_id', 'unit_of_measure_id', 'work_item_key', 'boq_reference', 'code', 'name', 'planned_quantity', 'selling_rate', 'estimated_unit_cost', 'sort_order', 'notes', 'bill', 'section', 'element', 'item_type', 'description', 'source_document', 'source_sheet', 'source_row'])]
 final class ProjectEstimateLine extends Model
 {
@@ -64,11 +69,39 @@ final class ProjectEstimateLine extends Model
             'source_row' => 'integer',
             'planned_quantity' => 'decimal:4',
             'selling_rate' => 'decimal:4',
+            'percentage_rate' => 'decimal:4',
+            'percentage_base_keys' => 'array',
             'estimated_unit_cost' => 'decimal:4',
             'sort_order' => 'integer',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];
+    }
+
+    /** @param Collection<int, ProjectEstimateLine> $lines */
+    public function boqAmount(Collection $lines): ?string
+    {
+        if ($this->item_type !== BoqItemType::PercentageAdjustment) {
+            return $this->selling_rate === null ? null : (string) BigDecimal::of($this->planned_quantity)
+                ->multipliedBy($this->selling_rate)->toScale(4, RoundingMode::HalfUp);
+        }
+        $keys = $this->percentage_base_keys ?? [];
+        if ($this->percentage_rate === null || $keys === []) {
+            return null;
+        }
+        $bases = $lines->whereIn('work_item_key', $keys);
+        if ($bases->count() !== count($keys)) {
+            return null;
+        }
+        $total = BigDecimal::zero();
+        foreach ($bases as $base) {
+            if ($base->item_type === BoqItemType::PercentageAdjustment || $base->selling_rate === null) {
+                return null;
+            }
+            $total = $total->plus(BigDecimal::of($base->planned_quantity)->multipliedBy($base->selling_rate)->toScale(4, RoundingMode::HalfUp));
+        }
+
+        return (string) $total->multipliedBy($this->percentage_rate)->dividedBy(100, 4, RoundingMode::HalfUp);
     }
 
     /** @return BelongsTo<ProjectEstimate, $this> */

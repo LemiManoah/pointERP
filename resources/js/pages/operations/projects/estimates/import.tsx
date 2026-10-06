@@ -19,9 +19,10 @@ import {
     NativeSelectOption,
 } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 
-type Option = { value: string; label: string };
+type Option = { value: string; label: string; dimension?: string };
 type Project = {
     id: string;
     name: string;
@@ -36,6 +37,8 @@ type Sheet = {
     sample: Record<string, Record<string, { value: string }>>;
 };
 type Line = {
+    percentage_rate: string | null;
+    percentage_base_keys: string[];
     work_item_key: string;
     bill: string | null;
     section: string | null;
@@ -58,6 +61,8 @@ type Row = {
     warnings: string[];
     blocked: boolean;
     change: string;
+    classification?: string;
+    commercial_review?: boolean;
 };
 type Preview = {
     preview_id: string;
@@ -71,7 +76,7 @@ type Preview = {
         description: string;
         reason: string;
     }[];
-    retained: { name: string; boq_reference: string | null }[];
+    retained: { name: string; boq_reference: string | null; work_item_key: string; item_type: string }[];
 };
 type Props = {
     project: Project;
@@ -275,7 +280,9 @@ function Mapping({
                 Select detailed BOQ sheets. Leave summaries, measurement
                 workings and cover sheets unchecked. Enter Excel column letters.
                 Separate headings and specifications are retained as description
-                context.
+                context. Leave section / floor blank to detect explicit floor
+                headings in the workbook. Enter a section to apply it to the
+                whole selected range.
             </p>
             <Label htmlFor="target-estimate">Save destination</Label>
             <NativeSelect
@@ -323,6 +330,11 @@ function Mapping({
                                                   ? 'Bill'
                                                   : 'Element (optional)'}
                                             <Input
+                                                placeholder={
+                                                    field === 'section'
+                                                        ? 'Detect floor headings automatically'
+                                                        : undefined
+                                                }
                                                 value={
                                                     form.data.sheets[i][field]
                                                 }
@@ -469,6 +481,8 @@ function Review({
         lines: preview.rows.map((row) => ({
             ...row.line,
             selling_rate: row.line.selling_rate ?? '',
+            percentage_rate: row.line.percentage_rate ?? '',
+            percentage_base_keys: row.line.percentage_base_keys ?? [],
             bill: row.line.bill ?? '',
             section: row.line.section ?? '',
             element: row.line.element ?? '',
@@ -490,6 +504,7 @@ function Review({
             selected.includes(preview.rows[i].id) &&
             (!line.unit_of_measure_id ||
                 !line.name ||
+                (line.item_type === 'percentage_adjustment' && line.percentage_base_keys.length === 0) ||
                 !Number.isFinite(Number(line.planned_quantity)) ||
                 Number(line.planned_quantity) <= 0),
     );
@@ -538,13 +553,63 @@ function Review({
                 Currency: {form.data.currency_code}. Internal costs and resource
                 assumptions are preserved on matched items.
             </p>
+            <div className="rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Detected BOQ entry</TableHead>
+                            <TableHead className="text-right">Rows</TableHead>
+                            <TableHead>Handling</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {[...new Set(preview.rows.map((row) => row.classification ?? 'Unclassified'))].map((classification) => (
+                            <TableRow key={classification}>
+                                <TableCell>{classification}</TableCell>
+                                <TableCell className="text-right tabular-nums">
+                                    {preview.rows.filter((row) => (row.classification ?? 'Unclassified') === classification).length}
+                                </TableCell>
+                                <TableCell>
+                                    {classification === 'Measured work'
+                                        ? 'Progress from approved activity output'
+                                        : classification === 'Percentage adjustment'
+                                          ? 'Percentage × selected BOQ amounts; choose the calculation base below'
+                                        : classification === 'Time-based preliminary'
+                                          ? 'Planned duration × rate per time unit; no measured progress'
+                                          : classification === 'Fixed preliminary'
+                                            ? 'Quantity 1 × agreed amount; no measured progress'
+                                        : ['Lump sum', 'Provisional sum'].includes(classification)
+                                          ? 'Allowance; excluded from measured progress'
+                                          : 'Commercial review required before saving'}
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
             <div className="flex flex-wrap gap-4">
                 {[...new Set(preview.rows.map((row) => row.source_unit))].map(
                     (symbol) => (
                         <div key={symbol} className="min-w-56">
                             <Label>Map source unit {symbol || '(blank)'}</Label>
                             <SearchableSelect
-                                value=""
+                                value={(() => {
+                                    const mapped = new Set(
+                                        form.data.lines
+                                            .filter(
+                                                (_, i) =>
+                                                    preview.rows[i]
+                                                        .source_unit === symbol,
+                                            )
+                                            .map(
+                                                (line) =>
+                                                    line.unit_of_measure_id,
+                                            ),
+                                    );
+                                    return mapped.size === 1
+                                        ? [...mapped][0]
+                                        : '';
+                                })()}
                                 options={units}
                                 placeholder="Apply a unit to matching rows"
                                 onValueChange={(value) => {
@@ -579,6 +644,7 @@ function Review({
                             {row.line.name || '(missing description)'}
                         </span>
                         <span className="ml-2 text-sm text-muted-foreground">
+                            {row.classification ?? 'Unclassified'} ·{' '}
                             {row.line.source_sheet}, row {row.line.source_row} ·{' '}
                             {row.warnings.length} notices
                         </span>
@@ -602,7 +668,9 @@ function Review({
                             />
                             Include this item
                             {row.blocked
-                                ? ' (resolve ambiguity in mapping first)'
+                                ? row.commercial_review
+                                    ? ' (commercial valuation not yet supported)'
+                                    : ' (resolve the notices below first)'
                                 : ''}
                         </label>
                         {row.warnings.length > 0 && (
@@ -638,7 +706,8 @@ function Review({
                             <label className="grid gap-1 text-sm">
                                 Item type
                                 <NativeSelect
-                                    value={form.data.lines[i].item_type}
+                                    disabled={row.commercial_review || row.line.item_type === 'percentage_adjustment'}
+                                    value={row.commercial_review ? '' : form.data.lines[i].item_type}
                                     onChange={(event) =>
                                         change(
                                             i,
@@ -647,6 +716,9 @@ function Review({
                                         )
                                     }
                                 >
+                                    {row.commercial_review && (
+                                        <NativeSelectOption value="">{row.classification} — review required</NativeSelectOption>
+                                    )}
                                     {itemTypes.map((type) => (
                                         <NativeSelectOption
                                             key={type.value}
@@ -665,14 +737,14 @@ function Review({
                                     value={
                                         form.data.lines[i].unit_of_measure_id
                                     }
-                                    options={units}
+                                    options={form.data.lines[i].item_type === 'preliminary_time' ? units.filter((unit) => unit.dimension === 'time') : units}
                                     onValueChange={(value) =>
                                         change(i, 'unit_of_measure_id', value)
                                     }
                                 />
                             </label>
                             <label className="grid gap-1 text-sm">
-                                Quantity
+                                {form.data.lines[i].item_type === 'preliminary_time' ? 'Planned duration' : 'Quantity'}
                                 <Input
                                     type="number"
                                     step="any"
@@ -687,12 +759,13 @@ function Review({
                                 />
                             </label>
                             <label className="grid gap-1 text-sm">
-                                Selling rate (blank = unpriced)
+                                {form.data.lines[i].item_type === 'preliminary_time' ? 'Rate per time unit' : 'Selling rate'} (blank = unpriced)
                                 <Input
                                     type="number"
                                     step="any"
                                     min="0"
                                     value={form.data.lines[i].selling_rate}
+                                    readOnly={form.data.lines[i].item_type === 'percentage_adjustment'}
                                     onChange={(event) =>
                                         change(
                                             i,
@@ -703,6 +776,24 @@ function Review({
                                 />
                             </label>
                         </div>
+                        {form.data.lines[i].item_type === 'percentage_adjustment' && (
+                            <div className="space-y-2">
+                                <Label>Percentage (negative for a deduction; blank = unpriced)</Label>
+                                <Input type="number" step="0.0001" value={form.data.lines[i].percentage_rate} onChange={(event) => change(i, 'percentage_rate', event.target.value)} />
+                                <Label>Calculation base</Label>
+                                <div className="max-h-64 overflow-auto rounded-md border p-3">
+                                    {[...preview.retained, ...form.data.lines.filter((_, index) => selected.includes(preview.rows[index].id))].filter((base) => base.item_type !== 'percentage_adjustment').map((base) => (
+                                        <label key={base.work_item_key} className="flex items-center gap-2 py-1 text-sm">
+                                            <input type="checkbox" checked={form.data.lines[i].percentage_base_keys.includes(base.work_item_key)} onChange={(event) => {
+                                                form.setData('lines', form.data.lines.map((line, index) => index === i ? { ...line, percentage_base_keys: event.target.checked ? [...line.percentage_base_keys, base.work_item_key] : line.percentage_base_keys.filter((key) => key !== base.work_item_key) } : line));
+                                                setReviewed(false);
+                                            }} />
+                                            {base.boq_reference} {base.name}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <label className="grid gap-1 text-sm">
                             Full specification
                             <Textarea

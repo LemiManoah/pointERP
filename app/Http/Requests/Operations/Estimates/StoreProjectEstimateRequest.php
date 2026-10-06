@@ -6,6 +6,7 @@ namespace App\Http\Requests\Operations\Estimates;
 
 use App\Enums\BoqItemType;
 use App\Enums\EstimateResourceType;
+use App\Enums\UnitDimension;
 use App\Models\Customer;
 use App\Models\EquipmentCategory;
 use App\Models\InventoryItem;
@@ -22,7 +23,7 @@ use Illuminate\Validation\Validator;
 
 /**
  * @phpstan-type EstimateResourcePayload array{resource_type: string, inventory_item_id?: string|null, unit_of_measure_id?: string|null, equipment_category_id?: string|null, workforce_trade_id?: string|null, subcontractor_id?: string|null, name: string, quantity_per_work_unit: numeric-string, estimated_unit_cost?: numeric-string|null, notes?: string|null}
- * @phpstan-type EstimateLinePayload array{bill?: string|null, section?: string|null, element?: string|null, item_type?: string, description?: string|null, source_document?: string|null, source_sheet?: string|null, source_row?: int|null, work_item_key?: string|null, site_id?: string|null, unit_of_measure_id: string, boq_reference?: string|null, code?: string|null, name: string, planned_quantity: numeric-string, selling_rate?: numeric-string|null, estimated_unit_cost?: numeric-string|null, notes?: string|null, resources?: list<EstimateResourcePayload>}
+ * @phpstan-type EstimateLinePayload array{bill?: string|null, section?: string|null, element?: string|null, item_type?: string, percentage_rate?: numeric-string|null, percentage_base_keys?: list<string>, description?: string|null, source_document?: string|null, source_sheet?: string|null, source_row?: int|null, work_item_key?: string|null, site_id?: string|null, unit_of_measure_id: string, boq_reference?: string|null, code?: string|null, name: string, planned_quantity: numeric-string, selling_rate?: numeric-string|null, estimated_unit_cost?: numeric-string|null, notes?: string|null, resources?: list<EstimateResourcePayload>}
  * @phpstan-type ProjectEstimatePayload array{title: string, currency_code: string, notes?: string|null, lines: list<EstimateLinePayload>}
  */
 final class StoreProjectEstimateRequest extends FormRequest
@@ -47,11 +48,20 @@ final class StoreProjectEstimateRequest extends FormRequest
             'lines' => ['required', 'array', 'min:1', 'max:2000'],
             'lines.*.work_item_key' => ['nullable', 'uuid', 'distinct'],
             'lines.*.site_id' => ['nullable', 'uuid', Rule::exists((new Site)->getTable(), 'id')->where('tenant_id', $tenantId)],
-            'lines.*.unit_of_measure_id' => ['required', 'uuid', $unitRule],
+            'lines.*.unit_of_measure_id' => ['required', 'uuid', $unitRule, Rule::forEach(function (mixed $value, string $attribute): array {
+                $index = explode('.', $attribute)[1];
+
+                return $this->input('lines.'.$index.'.item_type') === BoqItemType::PreliminaryTime->value
+                    ? [Rule::exists((new UnitOfMeasure)->getTable(), 'id')->where('quantity_dimension', UnitDimension::Time->value)]
+                    : [];
+            })],
             'lines.*.bill' => ['nullable', 'string', 'max:160'],
             'lines.*.section' => ['nullable', 'string', 'max:160', 'required_with:lines.*.element'],
             'lines.*.element' => ['nullable', 'string', 'max:160'],
             'lines.*.item_type' => ['required', Rule::enum(BoqItemType::class)],
+            'lines.*.percentage_rate' => ['nullable', 'numeric', 'between:-99999999999999,99999999999999', 'decimal:0,4'],
+            'lines.*.percentage_base_keys' => ['sometimes', 'array', 'max:2000'],
+            'lines.*.percentage_base_keys.*' => ['required', 'uuid'],
             'lines.*.description' => ['nullable', 'string', 'max:10000'],
             'lines.*.source_document' => ['nullable', 'string', 'max:255'],
             'lines.*.source_sheet' => ['nullable', 'string', 'max:80', 'required_with:lines.*.source_row'],
@@ -77,6 +87,14 @@ final class StoreProjectEstimateRequest extends FormRequest
         ];
     }
 
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'lines.*.unit_of_measure_id.exists' => 'Choose an active unit available to this company. Time-based preliminaries require a time unit.',
+        ];
+    }
+
     /** @return list<Closure> */
     public function after(): array
     {
@@ -86,9 +104,9 @@ final class StoreProjectEstimateRequest extends FormRequest
                     continue;
                 }
 
-                if (in_array($line['item_type'] ?? null, [BoqItemType::LumpSum->value, BoqItemType::ProvisionalSum->value], true)
+                if (is_string($line['item_type'] ?? null) && BoqItemType::tryFrom($line['item_type'])?->requiresSingleQuantity()
                     && is_numeric($line['planned_quantity'] ?? null) && (float) $line['planned_quantity'] !== 1.0) {
-                    $validator->errors()->add(sprintf('lines.%s.planned_quantity', $index), 'Lump sums and provisional sums must have a quantity of 1.');
+                    $validator->errors()->add(sprintf('lines.%s.planned_quantity', $index), 'Lump sums, provisional sums and fixed preliminaries must have a quantity of 1.');
                 }
 
                 if (! empty($line['section']) && empty($line['bill'])) {
@@ -105,7 +123,7 @@ final class StoreProjectEstimateRequest extends FormRequest
                 return $line;
             }
 
-            foreach (['bill', 'section', 'element', 'description', 'source_document', 'source_sheet', 'source_row', 'work_item_key', 'site_id', 'boq_reference', 'code', 'selling_rate', 'estimated_unit_cost', 'notes'] as $field) {
+            foreach (['bill', 'section', 'element', 'description', 'source_document', 'source_sheet', 'source_row', 'work_item_key', 'site_id', 'boq_reference', 'code', 'selling_rate', 'percentage_rate', 'estimated_unit_cost', 'notes'] as $field) {
                 $line[$field] = ($line[$field] ?? null) === '' ? null : ($line[$field] ?? null);
             }
 
