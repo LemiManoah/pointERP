@@ -32,6 +32,7 @@ final readonly class ApproveProjectEstimate
             Project::query()->whereKey($estimate->project_id)->lockForUpdate()->firstOrFail();
             $estimate = ProjectEstimate::query()->whereKey($estimate->id)->lockForUpdate()->firstOrFail();
             $estimate->load(['lines.unit', 'lines.resources', 'project.branch']);
+
             $this->validatePercentages->handle($estimate->lines->toArray());
 
             if (! $estimate->isDraft()) {
@@ -64,10 +65,12 @@ final readonly class ApproveProjectEstimate
                 if ($line->item_type->requiresSingleQuantity() && (float) $line->planned_quantity !== 1.0) {
                     throw ValidationException::withMessages(['estimate' => 'Fixed amounts require a quantity of 1 before approval.']);
                 }
+
                 if ($line->item_type === BoqItemType::PreliminaryTime
                     && ((float) $line->planned_quantity <= 0 || $line->unit->quantity_dimension !== UnitDimension::Time)) {
                     throw ValidationException::withMessages(['estimate' => 'Time-based preliminaries require a positive duration and a time unit before approval.']);
                 }
+
                 if ($line->item_type !== BoqItemType::Measured
                     && (DailySiteReportWorkLine::query()->where('boq_item_id', $line->boq_item_id)->exists()
                         || BoqProgressEntry::query()->where('boq_item_id', $line->boq_item_id)->exists())) {

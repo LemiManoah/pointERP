@@ -499,9 +499,7 @@ export default function EstimateEditor({
               ? 'Fully priced'
               : 'Partially priced';
     const baselineRevenue = form.data.lines.reduce(
-        (sum, line) =>
-            sum +
-            (boqAmount(line, form.data.lines) ?? 0),
+        (sum, line) => sum + (boqAmount(line, form.data.lines) ?? 0),
         0,
     );
     const baselineCost = form.data.lines.reduce(
@@ -879,23 +877,37 @@ export default function EstimateEditor({
                                         {can.viewCosts && (
                                             <>
                                                 <TableCell className="text-right tabular-nums">
-                                                    {line.item_type === 'percentage_adjustment' ? (line.percentage_rate === '' ? 'Unpriced' : `${line.percentage_rate}%`) : line.selling_rate === ''
-                                                        ? 'Unpriced'
-                                                        : formatCurrencyAmount(
-                                                              form.data
-                                                                  .currency_code,
-                                                              Number(
-                                                                  line.selling_rate,
-                                                              ),
-                                                          )}
+                                                    {line.item_type ===
+                                                    'percentage_adjustment'
+                                                        ? line.percentage_rate ===
+                                                          ''
+                                                            ? 'Unpriced'
+                                                            : `${line.percentage_rate}%`
+                                                        : line.selling_rate ===
+                                                            ''
+                                                          ? 'Unpriced'
+                                                          : formatCurrencyAmount(
+                                                                form.data
+                                                                    .currency_code,
+                                                                Number(
+                                                                    line.selling_rate,
+                                                                ),
+                                                            )}
                                                 </TableCell>
                                                 <TableCell className="text-right tabular-nums">
-                                                    {boqAmount(line, form.data.lines) === null
+                                                    {boqAmount(
+                                                        line,
+                                                        form.data.lines,
+                                                    ) === null
                                                         ? 'Not available'
                                                         : formatCurrencyAmount(
                                                               form.data
                                                                   .currency_code,
-                                                              boqAmount(line, form.data.lines)!,
+                                                              boqAmount(
+                                                                  line,
+                                                                  form.data
+                                                                      .lines,
+                                                              )!,
                                                           )}
                                                 </TableCell>
                                             </>
@@ -1080,8 +1092,29 @@ export default function EstimateEditor({
                                                                         event
                                                                             .target
                                                                             .value,
-                                                                    ...(event.target.value === 'percentage_adjustment' ? { selling_rate: '', estimated_unit_cost: '', resources: [] } : {}),
-                                                                    ...(['lump_sum', 'provisional_sum', 'preliminary_fixed', 'percentage_adjustment'].includes(event.target.value)
+                                                                    ...(event
+                                                                        .target
+                                                                        .value ===
+                                                                    'percentage_adjustment'
+                                                                        ? {
+                                                                              selling_rate:
+                                                                                  '',
+                                                                              estimated_unit_cost:
+                                                                                  '',
+                                                                              resources:
+                                                                                  [],
+                                                                          }
+                                                                        : {}),
+                                                                    ...([
+                                                                        'lump_sum',
+                                                                        'provisional_sum',
+                                                                        'preliminary_fixed',
+                                                                        'percentage_adjustment',
+                                                                    ].includes(
+                                                                        event
+                                                                            .target
+                                                                            .value,
+                                                                    )
                                                                         ? {
                                                                               planned_quantity:
                                                                                   '1',
@@ -1115,33 +1148,141 @@ export default function EstimateEditor({
                                                     />
                                                 </Field>
                                             </div>
-                                            {line.item_type === 'percentage_adjustment' && (
+                                            {line.item_type ===
+                                                'percentage_adjustment' && (
                                                 <div className="space-y-3">
                                                     <Field label="Percentage (negative for a deduction)">
-                                                        <Input type="number" step="0.0001" value={line.percentage_rate} disabled={!editable} onChange={(event) => updateLine(lineIndex, { percentage_rate: event.target.value })} />
-                                                        <InputError message={errors[`lines.${lineIndex}.percentage_rate`]} />
+                                                        <Input
+                                                            type="number"
+                                                            step="0.0001"
+                                                            value={
+                                                                line.percentage_rate
+                                                            }
+                                                            disabled={!editable}
+                                                            onChange={(event) =>
+                                                                updateLine(
+                                                                    lineIndex,
+                                                                    {
+                                                                        percentage_rate:
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                    },
+                                                                )
+                                                            }
+                                                        />
+                                                        <InputError
+                                                            message={
+                                                                errors[
+                                                                    `lines.${lineIndex}.percentage_rate`
+                                                                ]
+                                                            }
+                                                        />
                                                     </Field>
-                                                    <p className="text-sm text-muted-foreground">Select the BOQ items this percentage applies to. Blank percentage or an unpriced base item leaves the amount unpriced.</p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Select the BOQ items
+                                                        this percentage applies
+                                                        to. Blank percentage or
+                                                        an unpriced base item
+                                                        leaves the amount
+                                                        unpriced.
+                                                    </p>
                                                     <div className="max-h-64 overflow-auto rounded-md border p-3">
-                                                        {form.data.lines.filter((base) => base.work_item_key && base.item_type !== 'percentage_adjustment').map((base) => (
-                                                            <label key={base.work_item_key} className="flex items-center gap-2 py-1 text-sm">
-                                                                <input type="checkbox" disabled={!editable} checked={line.percentage_base_keys.includes(base.work_item_key!)} onChange={(event) => updateLine(lineIndex, { percentage_base_keys: event.target.checked ? [...line.percentage_base_keys, base.work_item_key!] : line.percentage_base_keys.filter((key) => key !== base.work_item_key) })} />
-                                                                {base.boq_reference} {base.name || 'Unnamed BOQ item'}
-                                                            </label>
-                                                        ))}
+                                                        {form.data.lines
+                                                            .filter(
+                                                                (base) =>
+                                                                    base.work_item_key &&
+                                                                    base.item_type !==
+                                                                        'percentage_adjustment',
+                                                            )
+                                                            .map((base) => (
+                                                                <label
+                                                                    key={
+                                                                        base.work_item_key
+                                                                    }
+                                                                    className="flex items-center gap-2 py-1 text-sm"
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        disabled={
+                                                                            !editable
+                                                                        }
+                                                                        checked={line.percentage_base_keys.includes(
+                                                                            base.work_item_key!,
+                                                                        )}
+                                                                        onChange={(
+                                                                            event,
+                                                                        ) =>
+                                                                            updateLine(
+                                                                                lineIndex,
+                                                                                {
+                                                                                    percentage_base_keys:
+                                                                                        event
+                                                                                            .target
+                                                                                            .checked
+                                                                                            ? [
+                                                                                                  ...line.percentage_base_keys,
+                                                                                                  base.work_item_key!,
+                                                                                              ]
+                                                                                            : line.percentage_base_keys.filter(
+                                                                                                  (
+                                                                                                      key,
+                                                                                                  ) =>
+                                                                                                      key !==
+                                                                                                      base.work_item_key,
+                                                                                              ),
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                    />
+                                                                    {
+                                                                        base.boq_reference
+                                                                    }{' '}
+                                                                    {base.name ||
+                                                                        'Unnamed BOQ item'}
+                                                                </label>
+                                                            ))}
                                                     </div>
-                                                    <InputError message={errors[`lines.${lineIndex}.percentage_base_keys`]} />
-                                                    <p className="text-sm">Calculated amount: {boqAmount(line, form.data.lines) === null ? 'Unpriced' : formatCurrencyAmount(form.data.currency_code, boqAmount(line, form.data.lines)!)}</p>
+                                                    <InputError
+                                                        message={
+                                                            errors[
+                                                                `lines.${lineIndex}.percentage_base_keys`
+                                                            ]
+                                                        }
+                                                    />
+                                                    <p className="text-sm">
+                                                        Calculated amount:{' '}
+                                                        {boqAmount(
+                                                            line,
+                                                            form.data.lines,
+                                                        ) === null
+                                                            ? 'Unpriced'
+                                                            : formatCurrencyAmount(
+                                                                  form.data
+                                                                      .currency_code,
+                                                                  boqAmount(
+                                                                      line,
+                                                                      form.data
+                                                                          .lines,
+                                                                  )!,
+                                                              )}
+                                                    </p>
                                                 </div>
                                             )}
-                                            {line.item_type !== 'measured' && line.item_type !== 'percentage_adjustment' && (
-                                                <p className="text-sm text-muted-foreground">
-                                                    {line.item_type === 'preliminary_time'
-                                                        ? 'Enter the planned duration and the rate per selected time unit. For example, 6 months at UGX 2,000,000 per month gives a planned BOQ amount of UGX 12,000,000.'
-                                                        : 'Enter a quantity of 1 and the total agreed amount as the rate.'}{' '}
-                                                    This contributes to the planned BOQ value, not measured progress or certified payment.
-                                                </p>
-                                            )}
+                                            {line.item_type !== 'measured' &&
+                                                line.item_type !==
+                                                    'percentage_adjustment' && (
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {line.item_type ===
+                                                        'preliminary_time'
+                                                            ? 'Enter the planned duration and the rate per selected time unit. For example, 6 months at UGX 2,000,000 per month gives a planned BOQ amount of UGX 12,000,000.'
+                                                            : 'Enter a quantity of 1 and the total agreed amount as the rate.'}{' '}
+                                                        This contributes to the
+                                                        planned BOQ value, not
+                                                        measured progress or
+                                                        certified payment.
+                                                    </p>
+                                                )}
                                             <div className="grid gap-4 lg:grid-cols-2">
                                                 <Field
                                                     label="Item name"
@@ -1215,7 +1356,16 @@ export default function EstimateEditor({
                                                                 },
                                                             )
                                                         }
-                                                        options={line.item_type === 'preliminary_time' ? units.filter((unit) => unit.dimension === 'time') : units}
+                                                        options={
+                                                            line.item_type ===
+                                                            'preliminary_time'
+                                                                ? units.filter(
+                                                                      (unit) =>
+                                                                          unit.dimension ===
+                                                                          'time',
+                                                                  )
+                                                                : units
+                                                        }
                                                         placeholder="Select unit"
                                                         searchPlaceholder="Search units..."
                                                     />
@@ -1228,7 +1378,12 @@ export default function EstimateEditor({
                                                     />
                                                 </Field>
                                                 <Field
-                                                    label={line.item_type === 'preliminary_time' ? 'Planned duration' : 'BOQ quantity'}
+                                                    label={
+                                                        line.item_type ===
+                                                        'preliminary_time'
+                                                            ? 'Planned duration'
+                                                            : 'BOQ quantity'
+                                                    }
                                                     required
                                                 >
                                                     <Input
@@ -1260,13 +1415,25 @@ export default function EstimateEditor({
                                                     />
                                                 </Field>
                                                 {can.viewCosts && (
-                                                    <Field label={line.item_type === 'preliminary_time' ? 'Rate per time unit' : 'Contract selling rate'}>
+                                                    <Field
+                                                        label={
+                                                            line.item_type ===
+                                                            'preliminary_time'
+                                                                ? 'Rate per time unit'
+                                                                : 'Contract selling rate'
+                                                        }
+                                                    >
                                                         <Input
                                                             type="number"
                                                             min="0"
                                                             step="any"
-                                                            value={line.selling_rate}
-                                                            readOnly={line.item_type === 'percentage_adjustment'}
+                                                            value={
+                                                                line.selling_rate
+                                                            }
+                                                            readOnly={
+                                                                line.item_type ===
+                                                                'percentage_adjustment'
+                                                            }
                                                             disabled={!editable}
                                                             onChange={(event) =>
                                                                 updateLine(
@@ -1288,8 +1455,13 @@ export default function EstimateEditor({
                                                             type="number"
                                                             min="0"
                                                             step="any"
-                                                            value={line.estimated_unit_cost}
-                                                            readOnly={line.item_type === 'percentage_adjustment'}
+                                                            value={
+                                                                line.estimated_unit_cost
+                                                            }
+                                                            readOnly={
+                                                                line.item_type ===
+                                                                'percentage_adjustment'
+                                                            }
                                                             disabled={!editable}
                                                             onChange={(event) =>
                                                                 updateLine(
@@ -1513,7 +1685,13 @@ export default function EstimateEditor({
                                                     ))}
                                                 </div>
                                             </details>
-                                            <details hidden={line.item_type === 'percentage_adjustment'} className="group rounded-md border px-4 py-3">
+                                            <details
+                                                hidden={
+                                                    line.item_type ===
+                                                    'percentage_adjustment'
+                                                }
+                                                className="group rounded-md border px-4 py-3"
+                                            >
                                                 <summary className="cursor-pointer font-medium">
                                                     Internal costing · resources
                                                     ({line.resources.length})
@@ -2211,9 +2389,7 @@ function ItemDetails({
         <div className="space-y-5">
             {line.item_type === 'percentage_adjustment' && (
                 <div>
-                    <p className="mb-2 text-sm font-medium">
-                        Calculation base
-                    </p>
+                    <p className="mb-2 text-sm font-medium">Calculation base</p>
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -2297,11 +2473,19 @@ function ItemDetails({
                 {canViewCosts && (
                     <>
                         <Info
-                            label={line.item_type === 'percentage_adjustment' ? 'Percentage' : 'Client rate'}
+                            label={
+                                line.item_type === 'percentage_adjustment'
+                                    ? 'Percentage'
+                                    : 'Client rate'
+                            }
                             value={
-                                line.item_type === 'percentage_adjustment' ? (line.percentage_rate === '' ? 'Unpriced' : `${line.percentage_rate}%`) : line.selling_rate === ''
-                                    ? 'Unpriced'
-                                    : money(line.selling_rate)
+                                line.item_type === 'percentage_adjustment'
+                                    ? line.percentage_rate === ''
+                                        ? 'Unpriced'
+                                        : `${line.percentage_rate}%`
+                                    : line.selling_rate === ''
+                                      ? 'Unpriced'
+                                      : money(line.selling_rate)
                             }
                         />
                         <Info
@@ -2309,11 +2493,7 @@ function ItemDetails({
                             value={
                                 boqAmount(line, lines) === null
                                     ? 'Not available'
-                                    : money(
-                                          String(
-                                              boqAmount(line, lines),
-                                          ),
-                                      )
+                                    : money(String(boqAmount(line, lines)))
                             }
                         />
                         <Info

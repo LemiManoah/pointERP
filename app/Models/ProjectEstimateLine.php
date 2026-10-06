@@ -85,19 +85,23 @@ final class ProjectEstimateLine extends Model
             return $this->selling_rate === null ? null : (string) BigDecimal::of($this->planned_quantity)
                 ->multipliedBy($this->selling_rate)->toScale(4, RoundingMode::HalfUp);
         }
+
         $keys = $this->percentage_base_keys ?? [];
         if ($this->percentage_rate === null || $keys === []) {
             return null;
         }
+
         $bases = $lines->whereIn('work_item_key', $keys);
         if ($bases->count() !== count($keys)) {
             return null;
         }
+
         $total = BigDecimal::zero();
         foreach ($bases as $base) {
             if ($base->item_type === BoqItemType::PercentageAdjustment || $base->selling_rate === null) {
                 return null;
             }
+
             $total = $total->plus(BigDecimal::of($base->planned_quantity)->multipliedBy($base->selling_rate)->toScale(4, RoundingMode::HalfUp));
         }
 

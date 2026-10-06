@@ -148,7 +148,8 @@ const itemTypeLabels: Record<string, string> = {
     preliminary_time: 'Time-based preliminary',
     percentage_adjustment: 'Percentage adjustment',
 };
-const itemTypeLabel = (type: string) => itemTypeLabels[type] ?? type.replaceAll('_', ' ');
+const itemTypeLabel = (type: string) =>
+    itemTypeLabels[type] ?? type.replaceAll('_', ' ');
 
 const number = (value: string | number) =>
     Number(value).toLocaleString(undefined, { maximumFractionDigits: 4 });
@@ -359,8 +360,12 @@ export function BoqPanel({
                                                         {row.name}
                                                     </Link>
                                                     <div className="text-xs text-muted-foreground">
-                                                        {itemTypeLabel(row.item_type)}
-                                                        {row.item_type !== 'measured' && ' · excluded from measured progress'}
+                                                        {itemTypeLabel(
+                                                            row.item_type,
+                                                        )}
+                                                        {row.item_type !==
+                                                            'measured' &&
+                                                            ' · excluded from measured progress'}
                                                     </div>
                                                     <div className="text-xs text-muted-foreground">
                                                         {[
@@ -387,11 +392,15 @@ export function BoqPanel({
                                                     {row.unit}
                                                 </TableCell>
                                                 <TableCell className="text-right tabular-nums">
-                                                    {row.item_type === 'percentage_adjustment'
-                                                        ? row.percentage_rate === null
+                                                    {row.item_type ===
+                                                    'percentage_adjustment'
+                                                        ? row.percentage_rate ===
+                                                          null
                                                             ? 'Unpriced'
                                                             : `${number(row.percentage_rate)}%`
-                                                        : number(row.planned_quantity)}
+                                                        : number(
+                                                              row.planned_quantity,
+                                                          )}
                                                 </TableCell>
                                                 <TableCell className="text-right tabular-nums">
                                                     {row.item_type ===
@@ -624,7 +633,9 @@ export function BoqPanel({
                                         />
                                         <Detail
                                             label="Item type"
-                                            value={itemTypeLabel(currentRow.item_type)}
+                                            value={itemTypeLabel(
+                                                currentRow.item_type,
+                                            )}
                                         />
                                         <Detail
                                             label="Unit"
@@ -671,21 +682,32 @@ export function BoqPanel({
                             </Card>
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>{measured ? 'Quantity and progress' : 'Planned BOQ value'}</CardTitle>
-                                    {['preliminary_fixed', 'preliminary_time'].includes(currentRow.item_type) && (
+                                    <CardTitle>
+                                        {measured
+                                            ? 'Quantity and progress'
+                                            : 'Planned BOQ value'}
+                                    </CardTitle>
+                                    {[
+                                        'preliminary_fixed',
+                                        'preliminary_time',
+                                    ].includes(currentRow.item_type) && (
                                         <p className="text-sm text-muted-foreground">
-                                            {currentRow.item_type === 'preliminary_time'
+                                            {currentRow.item_type ===
+                                            'preliminary_time'
                                                 ? 'Planned duration × agreed rate per time unit.'
                                                 : 'Quantity 1 × agreed fixed amount.'}{' '}
-                                            Payment certification is a separate step.
+                                            Payment certification is a separate
+                                            step.
                                         </p>
                                     )}
-                                    {currentRow.item_type === 'percentage_adjustment' && (
+                                    {currentRow.item_type ===
+                                        'percentage_adjustment' && (
                                         <p className="text-sm text-muted-foreground">
                                             {currentRow.percentage_rate === null
                                                 ? 'Percentage not priced.'
                                                 : `${number(currentRow.percentage_rate)}% of the selected BOQ items.`}{' '}
-                                            This value does not count as measured progress.
+                                            This value does not count as
+                                            measured progress.
                                         </p>
                                     )}
                                 </CardHeader>
@@ -694,9 +716,11 @@ export function BoqPanel({
                                         <TableHeader>
                                             <TableRow>
                                                 <TableHead className="text-right">
-                                                    {currentRow.item_type === 'percentage_adjustment'
+                                                    {currentRow.item_type ===
+                                                    'percentage_adjustment'
                                                         ? 'Percentage'
-                                                        : currentRow.item_type === 'preliminary_time'
+                                                        : currentRow.item_type ===
+                                                            'preliminary_time'
                                                           ? 'Planned duration'
                                                           : 'BOQ quantity'}
                                                 </TableHead>
@@ -727,8 +751,10 @@ export function BoqPanel({
                                         <TableBody>
                                             <TableRow>
                                                 <TableCell className="text-right tabular-nums">
-                                                    {currentRow.item_type === 'percentage_adjustment'
-                                                        ? currentRow.percentage_rate === null
+                                                    {currentRow.item_type ===
+                                                    'percentage_adjustment'
+                                                        ? currentRow.percentage_rate ===
+                                                          null
                                                             ? 'Unpriced'
                                                             : `${number(currentRow.percentage_rate)}%`
                                                         : `${number(currentRow.planned_quantity)} ${currentRow.unit}`}
@@ -775,7 +801,8 @@ export function BoqPanel({
                                     </Table>
                                 </CardContent>
                             </Card>
-                            {currentRow.item_type === 'percentage_adjustment' && (
+                            {currentRow.item_type ===
+                                'percentage_adjustment' && (
                                 <Card>
                                     <CardHeader>
                                         <CardTitle>Calculation base</CardTitle>
@@ -784,19 +811,52 @@ export function BoqPanel({
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
-                                                    <TableHead>BOQ item</TableHead>
-                                                    {can.viewCosts && <TableHead className="text-right">Base amount</TableHead>}
+                                                    <TableHead>
+                                                        BOQ item
+                                                    </TableHead>
+                                                    {can.viewCosts && (
+                                                        <TableHead className="text-right">
+                                                            Base amount
+                                                        </TableHead>
+                                                    )}
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {currentRow.percentage_base_items.map((base, index) => (
-                                                    <TableRow key={`${base.reference ?? ''}:${base.name}:${index}`}>
-                                                        <TableCell>{base.reference ? `${base.reference} · ` : ''}{base.name}</TableCell>
-                                                        {can.viewCosts && <TableCell className="text-right tabular-nums">{base.amount === null ? 'Unpriced' : money(base.amount)}</TableCell>}
-                                                    </TableRow>
-                                                ))}
-                                                {currentRow.percentage_base_items.length === 0 && (
-                                                    <EmptyRow columns={can.viewCosts ? 2 : 1} text="No calculation base selected." />
+                                                {currentRow.percentage_base_items.map(
+                                                    (base, index) => (
+                                                        <TableRow
+                                                            key={`${base.reference ?? ''}:${base.name}:${index}`}
+                                                        >
+                                                            <TableCell>
+                                                                {base.reference
+                                                                    ? `${base.reference} · `
+                                                                    : ''}
+                                                                {base.name}
+                                                            </TableCell>
+                                                            {can.viewCosts && (
+                                                                <TableCell className="text-right tabular-nums">
+                                                                    {base.amount ===
+                                                                    null
+                                                                        ? 'Unpriced'
+                                                                        : money(
+                                                                              base.amount,
+                                                                          )}
+                                                                </TableCell>
+                                                            )}
+                                                        </TableRow>
+                                                    ),
+                                                )}
+                                                {currentRow
+                                                    .percentage_base_items
+                                                    .length === 0 && (
+                                                    <EmptyRow
+                                                        columns={
+                                                            can.viewCosts
+                                                                ? 2
+                                                                : 1
+                                                        }
+                                                        text="No calculation base selected."
+                                                    />
                                                 )}
                                             </TableBody>
                                         </Table>

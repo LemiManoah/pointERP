@@ -160,10 +160,12 @@ final class ProjectEstimateImportController
                     if ($candidate['line']['item_type'] === 'percentage_adjustment' && ($allowed['item_type'] ?? null) !== 'percentage_adjustment') {
                         throw ValidationException::withMessages(['lines' => 'Percentage adjustments must retain their calculation type.']);
                     }
+
                     if (in_array($candidate['line']['item_type'], ['preliminary_fixed', 'preliminary_time'], true)
                         && ! in_array($allowed['item_type'] ?? null, ['preliminary_fixed', 'preliminary_time'], true)) {
                         throw ValidationException::withMessages(['lines' => 'Keep preliminary entries as fixed or time-based preliminaries. Correct the source mapping if this classification is wrong.']);
                     }
+
                     $merged->put($line['work_item_key'], [...$candidate['line'], ...$allowed]);
                 }
 

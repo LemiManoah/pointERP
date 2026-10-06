@@ -110,7 +110,7 @@ it('rejects missing, removed or percentage calculation bases', function (array $
         ->toThrow(ValidationException::class);
 })->with([
     'no base' => [[]],
-    'removed base' => [["00000000-0000-0000-0000-000000000001"]],
+    'removed base' => [['00000000-0000-0000-0000-000000000001']],
     'itself' => [['self']],
 ]);
 

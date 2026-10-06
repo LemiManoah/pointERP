@@ -214,9 +214,11 @@ final class PreviewBoqImport
                         $warnings[] = 'Confirm the planned duration and choose a system time unit matching the source. No duration conversion is applied.';
                     }
                 }
+
                 if (preg_match('/\bprovisional sum\b/i', $description)) {
                     $warnings[] = 'Review the provisional allowance in the description; it has not been used as a price.';
                 }
+
                 if (! $dayworkSheet && (str_contains($unit, '%') || preg_match('/percent(?:age)?/i', $unit))) {
                     $type = 'percentage_adjustment';
                     $warnings[] = 'Confirm the percentage and select its calculation base. Source quantity: '.$quantity.'; source rate: '.$rate.'. Neither is automatically interpreted as the percentage.';
@@ -291,6 +293,7 @@ final class PreviewBoqImport
                         $line['percentage_rate'] = $old['percentage_rate'] ?? null;
                         $line['percentage_base_keys'] = $old['percentage_base_keys'] ?? [];
                     }
+
                     $line['work_item_key'] = $old['work_item_key'];
                     if ($type !== 'percentage_adjustment' && $rate === '' && $old['selling_rate'] !== null) {
                         $line['selling_rate'] = $old['selling_rate'];

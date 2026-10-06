@@ -88,14 +88,17 @@ final readonly class SaveProjectEstimate
                 if ($type->requiresSingleQuantity() && (float) $lineData['planned_quantity'] !== 1.0) {
                     throw ValidationException::withMessages(['lines.'.$index.'.planned_quantity' => 'This fixed amount requires a quantity of 1.']);
                 }
+
                 if ($type === BoqItemType::PreliminaryTime) {
                     if ((float) $lineData['planned_quantity'] <= 0) {
                         throw ValidationException::withMessages(['lines.'.$index.'.planned_quantity' => 'Enter a positive planned duration.']);
                     }
+
                     if (! in_array($lineData['unit_of_measure_id'], $timeUnits, true)) {
                         throw ValidationException::withMessages(['lines.'.$index.'.unit_of_measure_id' => 'Choose an active time unit for a time-based preliminary.']);
                     }
                 }
+
                 $workItemKey = $lineData['work_item_key'] ?? null;
                 $workItemKey = is_string($workItemKey) ? $workItemKey : Str::uuid()->toString();
                 $workItemKeys[] = $workItemKey;
