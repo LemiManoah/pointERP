@@ -56,7 +56,7 @@ final class ProjectBoqSummary
             ])->values()->all() ?? [],
             'activities' => $activities->map(fn (ProjectActivity $activity): array => $activity->only([
                 'id', 'boq_item_id', 'name', 'unit', 'progress_method', 'approved_quantity', 'status',
-            ]))->all(),
+            ]) + ['is_direct_boq_work' => $activity->estimate_work_item_key !== null])->all(),
             'measurements' => $entries->map(fn (BoqProgressEntry $entry): array => [
                 'id' => $entry->id, 'boq_item_id' => $entry->boq_item_id,
                 'activity_id' => $entry->project_activity_id, 'quantity' => $entry->quantity, 'unit' => $entry->unit,

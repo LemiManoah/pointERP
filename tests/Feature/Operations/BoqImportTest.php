@@ -216,7 +216,7 @@ it('distinguishes reused letters with different item descriptions', function ():
         ->and($preview['rows'][0]['line']['work_item_key'])->not->toBe($preview['rows'][1]['line']['work_item_key']);
 });
 
-it('imports percentage adjustments for explicit review and still blocks dayworks', function (): void {
+it('imports percentage adjustments and dayworks for explicit source mapping', function (): void {
     $workbook = boqImportWorkbook();
     $workbook['sheets'][0]['rows'][2]['D']['value'] = '%';
     $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, [boqImportMapping()], null);
@@ -229,7 +229,10 @@ it('imports percentage adjustments for explicit review and still blocks dayworks
     $workbook['sheets'][0]['rows'][2]['D']['value'] = 'hr';
     $workbook['sheets'][0]['name'] = 'Dayworks';
     $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, [boqImportMapping()], null);
-    expect($preview['rows'][0]['blocked'])->toBeTrue();
+    expect($preview['rows'][0]['blocked'])->toBeFalse()
+        ->and($preview['rows'][0]['line']['item_type'])->toBe('daywork')
+        ->and($preview['rows'][0]['line']['daywork_resource_type'])->toBeNull()
+        ->and($preview['rows'][0]['line']['daywork_workforce_trade_id'])->toBeNull();
 });
 
 it('classifies commercial entries without making them importable as measured work', function (string $sheet, string $unit, string $classification, bool $review): void {
@@ -251,7 +254,7 @@ it('classifies commercial entries without making them importable as measured wor
     ['Preliminaries', 'ITEM', 'Fixed preliminary', false],
     ['Preliminaries', 'CM', 'Preliminaries', true],
     ['General', 'percent (%)', 'Percentage adjustment', false],
-    ['Dayworks', 'hr', 'Dayworks', true],
+    ['Dayworks', 'hr', 'Dayworks', false],
 ]);
 
 it('rejects saving a commercial preview row even when its submitted type is changed', function (): void {

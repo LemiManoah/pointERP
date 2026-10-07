@@ -10,10 +10,13 @@ use App\Enums\BoqItemType;
 use App\Http\Requests\Operations\Estimates\PreviewBoqRequest;
 use App\Http\Requests\Operations\Estimates\StoreProjectEstimateRequest;
 use App\Http\Requests\Operations\Estimates\UploadBoqRequest;
+use App\Models\EquipmentCategory;
+use App\Models\InventoryItem;
 use App\Models\Project;
 use App\Models\ProjectEstimate;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
+use App\Models\WorkforceTrade;
 use App\Services\BoqWorkbookReader;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Database\Eloquent\Builder;
@@ -59,6 +62,9 @@ final class ProjectEstimateImportController
                 ->where(fn (Builder $query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $project->tenant_id))
                 ->orderBy('name')->get()->map(fn (UnitOfMeasure $unit): array => ['value' => $unit->id, 'label' => $unit->name.' ('.$unit->code.')', 'dimension' => $unit->quantity_dimension->value]),
             'itemTypes' => collect(BoqItemType::cases())->map(fn (BoqItemType $type): array => ['value' => $type->value, 'label' => $type->label()]),
+            'items' => InventoryItem::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name', 'stock_unit_id'])->map(fn (InventoryItem $item): array => ['value' => $item->id, 'label' => $item->code.' - '.$item->name, 'unit_id' => $item->stock_unit_id]),
+            'equipmentCategories' => EquipmentCategory::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name'])->map(fn (EquipmentCategory $item): array => ['value' => $item->id, 'label' => mb_trim($item->code.' - '.$item->name)]),
+            'workforceTrades' => WorkforceTrade::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name'])->map(fn (WorkforceTrade $item): array => ['value' => $item->id, 'label' => mb_trim($item->code.' - '.$item->name)]),
         ]);
     }
 
@@ -156,9 +162,13 @@ final class ProjectEstimateImportController
                         throw ValidationException::withMessages(['lines' => 'Only unambiguous items from this preview can be imported.']);
                     }
 
-                    $allowed = array_intersect_key($line, array_flip(['bill', 'section', 'element', 'item_type', 'name', 'description', 'unit_of_measure_id', 'planned_quantity', 'selling_rate', 'percentage_rate', 'percentage_base_keys', 'boq_reference']));
+                    $allowed = array_intersect_key($line, array_flip(['bill', 'section', 'element', 'item_type', 'name', 'description', 'unit_of_measure_id', 'planned_quantity', 'selling_rate', 'percentage_rate', 'percentage_base_keys', 'daywork_resource_type', 'daywork_inventory_item_id', 'daywork_equipment_category_id', 'daywork_workforce_trade_id', 'boq_reference']));
                     if ($candidate['line']['item_type'] === 'percentage_adjustment' && ($allowed['item_type'] ?? null) !== 'percentage_adjustment') {
                         throw ValidationException::withMessages(['lines' => 'Percentage adjustments must retain their calculation type.']);
+                    }
+
+                    if ($candidate['line']['item_type'] === 'daywork' && ($allowed['item_type'] ?? null) !== 'daywork') {
+                        throw ValidationException::withMessages(['lines' => 'Daywork entries must retain their daywork calculation type.']);
                     }
 
                     if (in_array($candidate['line']['item_type'], ['preliminary_fixed', 'preliminary_time'], true)

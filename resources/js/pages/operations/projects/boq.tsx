@@ -66,6 +66,16 @@ type Row = {
         reference: string | null;
         amount: string | null;
     }[];
+    daywork_resource_type: string | null;
+    daywork_source: string | null;
+    daywork_evidence: Array<{
+        id: string;
+        report_id: string;
+        report_reference: string;
+        date: string;
+        source: string;
+        quantity: string;
+    }>;
     name: string;
     unit: string;
     planned_quantity: string;
@@ -110,6 +120,7 @@ export type BoqProps = {
         name: string;
         unit: string;
         progress_method: string;
+        is_direct_boq_work: boolean;
         approved_quantity: string;
         status: string;
     }[];
@@ -255,7 +266,7 @@ export function BoqPanel({
                                     onClick={() => addActivity(currentItem)}
                                 >
                                     <Plus />
-                                    Add activity
+                                    Add subactivity
                                 </Button>
                             )}
                         {!itemId && can.createEstimate && (
@@ -363,8 +374,13 @@ export function BoqPanel({
                                                         {itemTypeLabel(
                                                             row.item_type,
                                                         )}
+                                                        {row.item_type ===
+                                                            'daywork' &&
+                                                            ' · valued from approved DSR usage'}
                                                         {row.item_type !==
                                                             'measured' &&
+                                                            row.item_type !==
+                                                                'daywork' &&
                                                             ' · excluded from measured progress'}
                                                     </div>
                                                     <div className="text-xs text-muted-foreground">
@@ -404,7 +420,8 @@ export function BoqPanel({
                                                 </TableCell>
                                                 <TableCell className="text-right tabular-nums">
                                                     {row.item_type ===
-                                                    'measured'
+                                                        'measured' ||
+                                                    row.item_type === 'daywork'
                                                         ? number(
                                                               row.approved_progress,
                                                           )
@@ -412,7 +429,8 @@ export function BoqPanel({
                                                 </TableCell>
                                                 <TableCell className="text-right tabular-nums">
                                                     {row.item_type ===
-                                                    'measured'
+                                                        'measured' ||
+                                                    row.item_type === 'daywork'
                                                         ? number(
                                                               row.remaining_quantity,
                                                           )
@@ -420,7 +438,8 @@ export function BoqPanel({
                                                 </TableCell>
                                                 <TableCell className="text-right tabular-nums">
                                                     {row.item_type ===
-                                                    'measured'
+                                                        'measured' ||
+                                                    row.item_type === 'daywork'
                                                         ? `${number(row.completion_percent)}%`
                                                         : '—'}
                                                 </TableCell>
@@ -685,7 +704,9 @@ export function BoqPanel({
                                     <CardTitle>
                                         {measured
                                             ? 'Quantity and progress'
-                                            : 'Planned BOQ value'}
+                                            : currentRow.item_type === 'daywork'
+                                              ? 'Daywork valuation'
+                                              : 'Planned BOQ value'}
                                     </CardTitle>
                                     {[
                                         'preliminary_fixed',
@@ -708,6 +729,17 @@ export function BoqPanel({
                                                 : `${number(currentRow.percentage_rate)}% of the selected BOQ items.`}{' '}
                                             This value does not count as
                                             measured progress.
+                                        </p>
+                                    )}
+                                    {currentRow.item_type === 'daywork' && (
+                                        <p className="text-sm text-muted-foreground">
+                                            Approved Daily Site Report{' '}
+                                            {currentRow.daywork_resource_type ??
+                                                'resource'}{' '}
+                                            usage for{' '}
+                                            {currentRow.daywork_source ??
+                                                'the mapped resource'}{' '}
+                                            is valued at this BOQ rate.
                                         </p>
                                     )}
                                 </CardHeader>
@@ -760,22 +792,30 @@ export function BoqPanel({
                                                         : `${number(currentRow.planned_quantity)} ${currentRow.unit}`}
                                                 </TableCell>
                                                 <TableCell className="text-right tabular-nums">
-                                                    {measured
+                                                    {measured ||
+                                                    currentRow.item_type ===
+                                                        'daywork'
                                                         ? `${number(currentRow.approved_progress)} ${currentRow.unit}`
                                                         : 'Not measured'}
                                                 </TableCell>
                                                 <TableCell className="text-right tabular-nums">
-                                                    {measured
+                                                    {measured ||
+                                                    currentRow.item_type ===
+                                                        'daywork'
                                                         ? `${number(currentRow.remaining_quantity)} ${currentRow.unit}`
                                                         : 'Allowance'}
                                                 </TableCell>
                                                 <TableCell className="text-right tabular-nums">
-                                                    {measured
+                                                    {measured ||
+                                                    currentRow.item_type ===
+                                                        'daywork'
                                                         ? `${number(currentRow.overrun_quantity)} ${currentRow.unit}`
                                                         : '—'}
                                                 </TableCell>
                                                 <TableCell className="text-right tabular-nums">
-                                                    {measured
+                                                    {measured ||
+                                                    currentRow.item_type ===
+                                                        'daywork'
                                                         ? `${number(currentRow.completion_percent)}%`
                                                         : '—'}
                                                 </TableCell>
@@ -863,9 +903,86 @@ export function BoqPanel({
                                     </CardContent>
                                 </Card>
                             )}
+                            {currentRow.item_type === 'daywork' && (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>
+                                            Approved usage evidence
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>
+                                                        Daily Site Report
+                                                    </TableHead>
+                                                    <TableHead>Date</TableHead>
+                                                    <TableHead>
+                                                        Recorded source
+                                                    </TableHead>
+                                                    <TableHead className="text-right">
+                                                        Usage
+                                                    </TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {currentRow.daywork_evidence.map(
+                                                    (evidence) => (
+                                                        <TableRow
+                                                            key={evidence.id}
+                                                        >
+                                                            <TableCell>
+                                                                <Link
+                                                                    className="text-primary hover:underline"
+                                                                    href={showReport(
+                                                                        evidence.report_id,
+                                                                    )}
+                                                                >
+                                                                    {
+                                                                        evidence.report_reference
+                                                                    }
+                                                                </Link>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {evidence.date}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {
+                                                                    evidence.source
+                                                                }
+                                                            </TableCell>
+                                                            <TableCell className="text-right tabular-nums">
+                                                                {number(
+                                                                    evidence.quantity,
+                                                                )}{' '}
+                                                                {
+                                                                    currentRow.unit
+                                                                }
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ),
+                                                )}
+                                                {currentRow.daywork_evidence
+                                                    .length === 0 && (
+                                                    <EmptyRow
+                                                        columns={4}
+                                                        text="No approved Daily Site Report usage has been recorded for this source."
+                                                    />
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </CardContent>
+                                </Card>
+                            )}
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>Work activities</CardTitle>
+                                    <CardTitle>Activities for this BOQ item</CardTitle>
+                                    {measured && (
+                                        <p className="text-sm text-muted-foreground">
+                                            Direct BOQ work is created when the BOQ is approved. Add subactivities to report distinct parts of the same item. Approved measured quantities add to the BOQ item total; supporting tasks do not.
+                                        </p>
+                                    )}
                                 </CardHeader>
                                 <CardContent>
                                     <Table>
@@ -887,6 +1004,9 @@ export function BoqPanel({
                                                 <TableRow key={activity.id}>
                                                     <TableCell className="font-medium whitespace-normal">
                                                         {activity.name}
+                                                            {activity.is_direct_boq_work && (
+                                                                <div className="text-xs text-muted-foreground">Direct BOQ work</div>
+                                                            )}
                                                     </TableCell>
                                                     <TableCell>
                                                         <Badge variant="outline">
@@ -1012,7 +1132,7 @@ export function BoqPanel({
             >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Add activity to BOQ item</DialogTitle>
+                        <DialogTitle>Add subactivity to BOQ item</DialogTitle>
                     </DialogHeader>
                     <p className="text-sm text-muted-foreground">
                         BOQ item: {selected?.name}. Its approved quantity and

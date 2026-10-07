@@ -21,13 +21,16 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * @phpstan-type EstimateResourcePayload array{resource_type: string, inventory_item_id?: string|null, unit_of_measure_id?: string|null, equipment_category_id?: string|null, workforce_trade_id?: string|null, subcontractor_id?: string|null, name: string, quantity_per_work_unit: numeric-string, estimated_unit_cost?: numeric-string|null, notes?: string|null}
- * @phpstan-type EstimateLinePayload array{bill?: string|null, section?: string|null, element?: string|null, item_type?: string, percentage_rate?: numeric-string|null, percentage_base_keys?: list<string>, description?: string|null, source_document?: string|null, source_sheet?: string|null, source_row?: int|null, work_item_key?: string|null, site_id?: string|null, unit_of_measure_id: string, boq_reference?: string|null, code?: string|null, name: string, planned_quantity: numeric-string, selling_rate?: numeric-string|null, estimated_unit_cost?: numeric-string|null, notes?: string|null, resources?: list<EstimateResourcePayload>}
+ * @phpstan-type EstimateLinePayload array{bill?: string|null, section?: string|null, element?: string|null, item_type?: string, percentage_rate?: numeric-string|null, percentage_base_keys?: list<string>, daywork_resource_type?: string|null, daywork_inventory_item_id?: string|null, daywork_equipment_category_id?: string|null, daywork_workforce_trade_id?: string|null, description?: string|null, source_document?: string|null, source_sheet?: string|null, source_row?: int|null, work_item_key?: string|null, site_id?: string|null, unit_of_measure_id: string, boq_reference?: string|null, code?: string|null, name: string, planned_quantity: numeric-string, selling_rate?: numeric-string|null, estimated_unit_cost?: numeric-string|null, notes?: string|null, resources?: list<EstimateResourcePayload>}
  * @phpstan-type ProjectEstimatePayload array{title: string, currency_code: string, notes?: string|null, lines: list<EstimateLinePayload>}
  */
 final readonly class SaveProjectEstimate
 {
-    public function __construct(private AuditLogger $auditLogger, private ValidatePercentageAdjustments $validatePercentages)
-    {
+    public function __construct(
+        private AuditLogger $auditLogger,
+        private ValidatePercentageAdjustments $validatePercentages,
+        private ValidateDayworkItems $validateDayworks,
+    ) {
         //
     }
 
@@ -36,6 +39,7 @@ final readonly class SaveProjectEstimate
     {
         return DB::transaction(function () use ($actor, $data, $estimate, $project): ProjectEstimate {
             $this->validatePercentages->handle($data['lines']);
+            $this->validateDayworks->handle($project, $data['lines']);
             Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
             if ($estimate instanceof ProjectEstimate) {
                 $estimate = ProjectEstimate::query()->whereKey($estimate->id)->lockForUpdate()->firstOrFail();
@@ -131,6 +135,10 @@ final readonly class SaveProjectEstimate
                     'selling_rate' => $lineData['selling_rate'] ?? null,
                     'percentage_rate' => $type === BoqItemType::PercentageAdjustment ? ($lineData['percentage_rate'] ?? null) : null,
                     'percentage_base_keys' => $type === BoqItemType::PercentageAdjustment ? ($lineData['percentage_base_keys'] ?? []) : null,
+                    'daywork_resource_type' => $type === BoqItemType::Daywork ? ($lineData['daywork_resource_type'] ?? null) : null,
+                    'daywork_inventory_item_id' => $type === BoqItemType::Daywork ? ($lineData['daywork_inventory_item_id'] ?? null) : null,
+                    'daywork_equipment_category_id' => $type === BoqItemType::Daywork ? ($lineData['daywork_equipment_category_id'] ?? null) : null,
+                    'daywork_workforce_trade_id' => $type === BoqItemType::Daywork ? ($lineData['daywork_workforce_trade_id'] ?? null) : null,
                     'estimated_unit_cost' => $lineData['estimated_unit_cost'] ?? null,
                     'sort_order' => $index,
                     'notes' => $lineData['notes'] ?? null,

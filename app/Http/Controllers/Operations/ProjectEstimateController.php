@@ -98,7 +98,7 @@ final class ProjectEstimateController
         abort_unless($user instanceof User, 403);
         $tenantId = resolve(TenantContext::class)->id();
         $record = $estimate ?? $source;
-        $record?->loadMissing(['lines.resources', 'lines.unit', 'approver', 'lines.resources.equipmentCategory', 'lines.resources.workforceTrade', 'lines.resources.subcontractor']);
+        $record?->loadMissing(['lines.resources', 'lines.unit', 'approver', 'lines.resources.equipmentCategory', 'lines.resources.workforceTrade', 'lines.resources.subcontractor', 'lines.dayworkInventoryItem', 'lines.dayworkEquipmentCategory', 'lines.dayworkWorkforceTrade']);
         $canViewCosts = $estimate instanceof ProjectEstimate
             ? Gate::forUser($user)->allows('viewCosts', $estimate)
             : true;
@@ -126,6 +126,7 @@ final class ProjectEstimateController
                     'code' => $template->code,
                     'category' => $template->category,
                     'name' => $template->name,
+                    'specifications' => $template->specifications,
                     'unit_of_measure_id' => $template->unit_of_measure_id,
                     'unit_name' => $template->unit->name,
                     'unit_symbol' => $template->unit->symbol,
@@ -186,6 +187,10 @@ final class ProjectEstimateController
                 'selling_rate' => $canViewCosts ? $line->selling_rate : null,
                 'percentage_rate' => $canViewCosts ? $line->percentage_rate : null,
                 'percentage_base_keys' => $line->percentage_base_keys ?? [],
+                'daywork_resource_type' => $line->daywork_resource_type,
+                'daywork_inventory_item_id' => $line->daywork_inventory_item_id,
+                'daywork_equipment_category_id' => $line->daywork_equipment_category_id,
+                'daywork_workforce_trade_id' => $line->daywork_workforce_trade_id,
                 'estimated_unit_cost' => $canViewCosts ? $line->estimated_unit_cost : null,
                 'notes' => $line->notes,
                 'resources' => $line->resources->map(fn (EstimateResourceLine $resource): array => [

@@ -40,15 +40,23 @@ use Illuminate\Support\Collection;
  * @property-read string|null $selling_rate
  * @property-read string|null $percentage_rate
  * @property-read list<string>|null $percentage_base_keys
+ * @property-read string|null $daywork_resource_type
+ * @property-read string|null $daywork_inventory_item_id
+ * @property-read string|null $daywork_equipment_category_id
+ * @property-read string|null $daywork_workforce_trade_id
  * @property-read string|null $estimated_unit_cost
  * @property-read int $sort_order
  * @property-read string|null $notes
  * @property-read ProjectEstimate $estimate
  * @property-read UnitOfMeasure $unit
  * @property-read Collection<int, EstimateResourceLine> $resources
+ * @property-read InventoryItem|null $dayworkInventoryItem
+ * @property-read EquipmentCategory|null $dayworkEquipmentCategory
+ * @property-read WorkforceTrade|null $dayworkWorkforceTrade
  */
 #[Fillable([
-    'percentage_rate', 'percentage_base_keys',
+    'percentage_rate', 'percentage_base_keys', 'daywork_resource_type', 'daywork_inventory_item_id',
+    'daywork_equipment_category_id', 'daywork_workforce_trade_id',
     'boq_item_id', 'tenant_id', 'project_estimate_id', 'site_id', 'unit_of_measure_id', 'work_item_key', 'boq_reference', 'code', 'name', 'planned_quantity', 'selling_rate', 'estimated_unit_cost', 'sort_order', 'notes', 'bill', 'section', 'element', 'item_type', 'description', 'source_document', 'source_sheet', 'source_row'])]
 final class ProjectEstimateLine extends Model
 {
@@ -130,5 +138,23 @@ final class ProjectEstimateLine extends Model
     public function resources(): HasMany
     {
         return $this->hasMany(EstimateResourceLine::class, 'project_estimate_line_id')->orderBy('sort_order');
+    }
+
+    /** @return BelongsTo<InventoryItem, $this> */
+    public function dayworkInventoryItem(): BelongsTo
+    {
+        return $this->belongsTo(InventoryItem::class, 'daywork_inventory_item_id');
+    }
+
+    /** @return BelongsTo<EquipmentCategory, $this> */
+    public function dayworkEquipmentCategory(): BelongsTo
+    {
+        return $this->belongsTo(EquipmentCategory::class, 'daywork_equipment_category_id');
+    }
+
+    /** @return BelongsTo<WorkforceTrade, $this> */
+    public function dayworkWorkforceTrade(): BelongsTo
+    {
+        return $this->belongsTo(WorkforceTrade::class, 'daywork_workforce_trade_id');
     }
 }

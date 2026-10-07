@@ -9,7 +9,7 @@ import {
     Search,
     Trash2,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { toast } from 'sonner';
 import { show as showBoq } from '@/actions/App/Http/Controllers/Operations/ProjectBoqController';
@@ -58,6 +58,7 @@ import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { boqAmount } from '@/lib/boq-calculations';
 import { formatCurrencyAmount } from '@/lib/utils';
+import { createUuid } from '@/lib/uuid';
 import type { BreadcrumbItem } from '@/types';
 
 type Option = { value: string; label: string; dimension?: string };
@@ -77,6 +78,10 @@ type Resource = {
 type EstimateLine = {
     percentage_rate: string;
     percentage_base_keys: string[];
+    daywork_resource_type: string;
+    daywork_inventory_item_id: string;
+    daywork_equipment_category_id: string;
+    daywork_workforce_trade_id: string;
     bill: string;
     section: string;
     element: string;
@@ -223,6 +228,10 @@ function blankLine(): EstimateLine {
     return {
         percentage_rate: '',
         percentage_base_keys: [],
+        daywork_resource_type: '',
+        daywork_inventory_item_id: '',
+        daywork_equipment_category_id: '',
+        daywork_workforce_trade_id: '',
         bill: '',
         section: '',
         element: '',
@@ -231,7 +240,7 @@ function blankLine(): EstimateLine {
         source_document: '',
         source_sheet: '',
         source_row: '',
-        work_item_key: crypto.randomUUID(),
+        work_item_key: createUuid(),
         site_id: '',
         unit_of_measure_id: '',
         boq_reference: '',
@@ -256,6 +265,10 @@ function linesFrom(record: Estimate | null): EstimateLine[] {
         item_type: line.item_type ?? 'measured',
         percentage_rate: line.percentage_rate ?? '',
         percentage_base_keys: line.percentage_base_keys ?? [],
+        daywork_resource_type: line.daywork_resource_type ?? '',
+        daywork_inventory_item_id: line.daywork_inventory_item_id ?? '',
+        daywork_equipment_category_id: line.daywork_equipment_category_id ?? '',
+        daywork_workforce_trade_id: line.daywork_workforce_trade_id ?? '',
         description: line.description ?? '',
         source_document: line.source_document ?? '',
         source_sheet: line.source_sheet ?? '',
@@ -297,6 +310,7 @@ export default function EstimateEditor({
     const [librarySearch, setLibrarySearch] = useState('');
     const [libraryCategory, setLibraryCategory] = useState('');
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
+    const [pendingEditorIndex, setPendingEditorIndex] = useState<number | null>(null);
     const [lineSnapshot, setLineSnapshot] = useState<EstimateLine | null>(null);
     const [viewingIndex, setViewingIndex] = useState<number | null>(null);
     const [editingHeader, setEditingHeader] = useState(false);
@@ -335,6 +349,16 @@ export default function EstimateEditor({
         notes: estimate?.notes ?? source?.notes ?? '',
         lines: linesFrom(seed),
     });
+    useEffect(() => {
+        if (
+            pendingEditorIndex !== null &&
+            !libraryModalOpen &&
+            form.data.lines[pendingEditorIndex]
+        ) {
+            setEditingIndex(pendingEditorIndex);
+            setPendingEditorIndex(null);
+        }
+    }, [pendingEditorIndex, libraryModalOpen, form.data.lines]);
     const errors = form.errors as Record<string, string | undefined>;
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Projects', href: projectIndex.url() },
@@ -365,6 +389,7 @@ export default function EstimateEditor({
         if (targetLineIndex !== null && form.data.lines[targetLineIndex]) {
             updateLine(targetLineIndex, {
                 name: template.name,
+                description: template.specifications ?? form.data.lines[targetLineIndex].description,
                 code: template.code ?? '',
                 unit_of_measure_id: template.unit_of_measure_id,
                 selling_rate: template.default_selling_rate
@@ -375,14 +400,16 @@ export default function EstimateEditor({
                     : form.data.lines[targetLineIndex].estimated_unit_cost,
                 resources: mappedResources,
             });
+            setPendingEditorIndex(targetLineIndex);
         } else {
             setLineSnapshot(null);
-            setEditingIndex(form.data.lines.length);
+            setPendingEditorIndex(form.data.lines.length);
             form.setData('lines', [
                 ...form.data.lines,
                 {
                     ...blankLine(),
                     name: template.name,
+                    description: template.specifications ?? '',
                     code: template.code ?? '',
                     unit_of_measure_id: template.unit_of_measure_id,
                     selling_rate: template.default_selling_rate
@@ -398,6 +425,7 @@ export default function EstimateEditor({
 
         setLibraryModalOpen(false);
         setTargetLineIndex(null);
+        toast.success('Template added to the draft. Review the BOQ item and save the BOQ.');
     }
 
     function editItem(index: number) {
@@ -409,7 +437,7 @@ export default function EstimateEditor({
         const index = form.data.lines.length;
         form.setData('lines', [...form.data.lines, blankLine()]);
         setLineSnapshot(null);
-        setEditingIndex(index);
+        setPendingEditorIndex(index);
     }
 
     function cancelItem() {
@@ -593,7 +621,7 @@ export default function EstimateEditor({
                                     confirm({
                                         title: 'Approve this baseline?',
                                         description:
-                                            'This version will become the quantity baseline. Measured items will be available in daily reports. Missing rates remain unpriced; lump sums and provisional sums do not create daily quantity activities.',
+                                            'This revision will become the approved BOQ baseline. Measured items use approved activity output. Dayworks use approved labour, equipment or material usage already recorded in Daily Site Reports. Missing rates remain unpriced.',
                                         confirmLabel: 'Approve baseline',
                                         onConfirm: () =>
                                             router.post(
@@ -785,6 +813,9 @@ export default function EstimateEditor({
                         )}
                         <div className="flex items-center justify-between gap-3 border-t pt-5">
                             <h2 className="font-semibold">BOQ items</h2>
+                            {form.isDirty && (
+                                <Badge variant="outline">Unsaved changes</Badge>
+                            )}
                             {editable && (
                                 <div className="flex items-center gap-2">
                                     <Button
@@ -797,7 +828,7 @@ export default function EstimateEditor({
                                         }}
                                     >
                                         <Layers className="size-4" />
-                                        Pick from Library
+                                        Use library template
                                     </Button>
                                     <Button
                                         type="button"
@@ -1028,6 +1059,7 @@ export default function EstimateEditor({
                                                         setTargetLineIndex(
                                                             lineIndex,
                                                         );
+                                                        setEditingIndex(null);
                                                         setLibraryModalOpen(
                                                             true,
                                                         );
@@ -1083,7 +1115,13 @@ export default function EstimateEditor({
                                                 <Field label="Item type">
                                                     <NativeSelect
                                                         value={line.item_type}
-                                                        disabled={!editable}
+                                                        disabled={
+                                                            !editable ||
+                                                            (line.item_type ===
+                                                                'daywork' &&
+                                                                line.daywork_resource_type ===
+                                                                    'material')
+                                                        }
                                                         onChange={(event) =>
                                                             updateLine(
                                                                 lineIndex,
@@ -1099,6 +1137,17 @@ export default function EstimateEditor({
                                                                         ? {
                                                                               selling_rate:
                                                                                   '',
+                                                                              estimated_unit_cost:
+                                                                                  '',
+                                                                              resources:
+                                                                                  [],
+                                                                          }
+                                                                        : {}),
+                                                                    ...(event
+                                                                        .target
+                                                                        .value ===
+                                                                    'daywork'
+                                                                        ? {
                                                                               estimated_unit_cost:
                                                                                   '',
                                                                               resources:
@@ -1269,9 +1318,140 @@ export default function EstimateEditor({
                                                     </p>
                                                 </div>
                                             )}
+                                            {line.item_type === 'daywork' && (
+                                                <div className="grid gap-4 lg:grid-cols-2">
+                                                    <Field
+                                                        label="Approved usage source"
+                                                        required
+                                                    >
+                                                        <NativeSelect
+                                                            value={
+                                                                line.daywork_resource_type
+                                                            }
+                                                            disabled={!editable}
+                                                            onChange={(event) =>
+                                                                updateLine(
+                                                                    lineIndex,
+                                                                    {
+                                                                        daywork_resource_type:
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                        daywork_inventory_item_id:
+                                                                            '',
+                                                                        daywork_equipment_category_id:
+                                                                            '',
+                                                                        daywork_workforce_trade_id:
+                                                                            '',
+                                                                    },
+                                                                )
+                                                            }
+                                                        >
+                                                            <NativeSelectOption value="">
+                                                                Select source
+                                                            </NativeSelectOption>
+                                                            <NativeSelectOption value="labour">
+                                                                Labour hours by
+                                                                trade
+                                                            </NativeSelectOption>
+                                                            <NativeSelectOption value="equipment">
+                                                                Equipment
+                                                                working hours by
+                                                                category
+                                                            </NativeSelectOption>
+                                                            <NativeSelectOption value="material">
+                                                                Material usage
+                                                                by inventory
+                                                                item
+                                                            </NativeSelectOption>
+                                                        </NativeSelect>
+                                                    </Field>
+                                                    <Field
+                                                        label="Mapped resource"
+                                                        required
+                                                    >
+                                                        <SearchableSelect
+                                                            value={
+                                                                line.daywork_resource_type ===
+                                                                'material'
+                                                                    ? line.daywork_inventory_item_id
+                                                                    : line.daywork_resource_type ===
+                                                                        'equipment'
+                                                                      ? line.daywork_equipment_category_id
+                                                                      : line.daywork_workforce_trade_id
+                                                            }
+                                                            options={
+                                                                line.daywork_resource_type ===
+                                                                'material'
+                                                                    ? items
+                                                                    : line.daywork_resource_type ===
+                                                                        'equipment'
+                                                                      ? equipmentCategories
+                                                                      : workforceTrades
+                                                            }
+                                                            disabled={
+                                                                !editable ||
+                                                                !line.daywork_resource_type
+                                                            }
+                                                            onValueChange={(
+                                                                value,
+                                                            ) => {
+                                                                const item =
+                                                                    items.find(
+                                                                        (
+                                                                            candidate,
+                                                                        ) =>
+                                                                            candidate.value ===
+                                                                            value,
+                                                                    );
+                                                                updateLine(
+                                                                    lineIndex,
+                                                                    {
+                                                                        daywork_inventory_item_id:
+                                                                            line.daywork_resource_type ===
+                                                                            'material'
+                                                                                ? value
+                                                                                : '',
+                                                                        daywork_equipment_category_id:
+                                                                            line.daywork_resource_type ===
+                                                                            'equipment'
+                                                                                ? value
+                                                                                : '',
+                                                                        daywork_workforce_trade_id:
+                                                                            line.daywork_resource_type ===
+                                                                            'labour'
+                                                                                ? value
+                                                                                : '',
+                                                                        ...(line.daywork_resource_type ===
+                                                                            'material' &&
+                                                                        item
+                                                                            ? {
+                                                                                  unit_of_measure_id:
+                                                                                      item.unit_id,
+                                                                              }
+                                                                            : {}),
+                                                                    },
+                                                                );
+                                                            }}
+                                                        />
+                                                    </Field>
+                                                    <p className="text-sm text-muted-foreground lg:col-span-2">
+                                                        Approved Daily Site
+                                                        Reports supply the
+                                                        actual quantity. Labour
+                                                        uses person-hours,
+                                                        equipment uses working
+                                                        hours, and materials use
+                                                        the inventory stock
+                                                        unit.
+                                                    </p>
+                                                </div>
+                                            )}
                                             {line.item_type !== 'measured' &&
                                                 line.item_type !==
-                                                    'percentage_adjustment' && (
+                                                    'percentage_adjustment' &&
+                                                line.item_type !==
+                                                    'daywork' && (
                                                     <p className="text-sm text-muted-foreground">
                                                         {line.item_type ===
                                                         'preliminary_time'
@@ -1358,7 +1538,15 @@ export default function EstimateEditor({
                                                         }
                                                         options={
                                                             line.item_type ===
-                                                            'preliminary_time'
+                                                                'preliminary_time' ||
+                                                            (line.item_type ===
+                                                                'daywork' &&
+                                                                [
+                                                                    'labour',
+                                                                    'equipment',
+                                                                ].includes(
+                                                                    line.daywork_resource_type,
+                                                                ))
                                                                 ? units.filter(
                                                                       (unit) =>
                                                                           unit.dimension ===
@@ -1530,7 +1718,7 @@ export default function EstimateEditor({
                                                                             <button
                                                                                 type="button"
                                                                                 className="font-medium text-primary hover:underline"
-                                                                                onClick={() =>
+                                                                                onClick={() => {
                                                                                     updateLine(
                                                                                         lineIndex,
                                                                                         {
@@ -1539,10 +1727,11 @@ export default function EstimateEditor({
                                                                                                     resCost,
                                                                                                 ),
                                                                                         },
-                                                                                    )
-                                                                                }
+                                                                                    );
+                                                                                    toast.success('Estimated unit cost copied into this draft item. Save BOQ to keep it.');
+                                                                                }}
                                                                             >
-                                                                                Apply
+                                                                                Use as estimated cost
                                                                             </button>
                                                                         )}
                                                                 </div>
@@ -2081,9 +2270,12 @@ export default function EstimateEditor({
                                     </Button>
                                     <Button
                                         type="button"
-                                        onClick={() => setEditingIndex(null)}
+                                        onClick={() => {
+                                            setEditingIndex(null);
+                                            toast.success('Item updated in this draft. Save BOQ to keep the changes.');
+                                        }}
                                     >
-                                        Apply changes
+                                        Apply to draft
                                     </Button>
                                 </div>
                             </DialogContent>
@@ -2160,7 +2352,16 @@ export default function EstimateEditor({
             </form>
 
             {/* Library Picker Modal */}
-            <Dialog open={libraryModalOpen} onOpenChange={setLibraryModalOpen}>
+            <Dialog
+                open={libraryModalOpen}
+                onOpenChange={(open) => {
+                    setLibraryModalOpen(open);
+                    if (!open && targetLineIndex !== null) {
+                        setPendingEditorIndex(targetLineIndex);
+                        setTargetLineIndex(null);
+                    }
+                }}
+            >
                 <DialogContent className="flex max-h-[92vh] w-[95vw] flex-col sm:max-w-5xl">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-lg">
@@ -2168,13 +2369,14 @@ export default function EstimateEditor({
                             <span>
                                 {targetLineIndex !== null
                                     ? `Load Template for BOQ Item ${targetLineIndex + 1}`
-                                    : 'Pick Work Activity from Library'}
+                                    : 'Choose a template for a BOQ item'}
                             </span>
                         </DialogTitle>
                         <DialogDescription>
-                            Select a standard work activity to copy its
-                            specifications, unit of measure, rates, and resource
-                            consumption norms into this BOQ.
+                            A template suggests the BOQ item name, unit, rate,
+                            cost and resource quantities. Review the item before
+                            saving the BOQ. A blank suggested rate leaves the
+                            BOQ rate for you to enter.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -2299,7 +2501,7 @@ export default function EstimateEditor({
                                         onClick={() => selectTemplate(template)}
                                     >
                                         <Check className="size-3.5" />
-                                        Select
+                                        Use template
                                     </Button>
                                 </div>
                             ))

@@ -10,11 +10,17 @@ use App\Actions\Operations\Estimates\SaveProjectEstimate;
 use App\Actions\Operations\ProjectActivities\SaveProjectActivity;
 use App\Models\BoqProgressEntry;
 use App\Models\DailySiteReport;
+use App\Models\DailySiteReportLabourLine;
+use App\Models\DailySiteReportEquipmentLine;
+use App\Models\DailySiteReportMaterialLine;
+use App\Models\Equipment;
+use App\Models\InventoryItem;
 use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\ProjectEstimate;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
+use App\Models\WorkforceTrade;
 use App\Models\WorkItemTemplate;
 use App\Services\ProjectPerformanceSummary;
 use App\Services\TenantContext;
@@ -98,6 +104,106 @@ it('calculates percentage additions and deductions from an explicit BOQ base', f
     $summary = resolve(ProjectPerformanceSummary::class)->forProject($this->project, true);
     expect(collect($summary['work_items'])->firstWhere('item_type', 'percentage_adjustment')['baseline_revenue'])->toBe('-1250000.0000')
         ->and($summary['totals']['baseline_revenue'])->toBe('23750000.0000');
+});
+
+it('values a labour daywork automatically from approved DSR usage', function (): void {
+    $timeUnit = UnitOfMeasure::query()->where('tenant_id', $this->actor->tenant_id)->where('code', 'HOUR')->firstOrFail();
+    $trade = WorkforceTrade::query()->where('tenant_id', $this->actor->tenant_id)->where('is_active', true)->firstOrFail();
+    $site = $this->project->sites()->firstOrFail();
+    $daywork = [...$this->line,
+        'work_item_key' => (string) Str::uuid(), 'boq_reference' => 'DW-01',
+        'name' => 'Additional labour', 'item_type' => 'daywork',
+        'unit_of_measure_id' => $timeUnit->id, 'planned_quantity' => '100', 'selling_rate' => '5000',
+        'daywork_resource_type' => 'labour', 'daywork_workforce_trade_id' => $trade->id,
+        'resources' => [],
+    ];
+    $revision = resolve(SaveProjectEstimate::class)->handle($this->project,
+        ['title' => 'Daywork baseline', 'currency_code' => 'UGX', 'lines' => [$this->line, $daywork]], $this->actor);
+    resolve(ApproveProjectEstimate::class)->handle($revision, $this->actor);
+
+    foreach ([DailySiteReport::STATUS_APPROVED => ['3', '8'], DailySiteReport::STATUS_DRAFT => ['2', '10']] as $status => [$headcount, $hours]) {
+        $report = DailySiteReport::query()->create([
+            'tenant_id' => $this->project->tenant_id, 'branch_id' => $this->project->branch_id,
+            'project_id' => $this->project->id, 'site_id' => $site->id,
+            'report_date' => now()->subDay()->toDateString(), 'reference' => 'DSR-DAYWORK-'.mb_strtoupper($status),
+            'status' => $status, 'approved_by' => $status === DailySiteReport::STATUS_APPROVED ? $this->actor->id : null,
+            'approved_at' => $status === DailySiteReport::STATUS_APPROVED ? now() : null,
+            'created_by' => $this->actor->id, 'updated_by' => $this->actor->id,
+        ]);
+        DailySiteReportLabourLine::query()->create([
+            'tenant_id' => $report->tenant_id, 'branch_id' => $report->branch_id,
+            'daily_site_report_id' => $report->id, 'labour_source' => 'casual',
+            'workforce_trade_id' => $trade->id, 'trade_or_role' => $trade->name,
+            'headcount' => $headcount, 'hours' => $hours, 'sort_order' => 0,
+        ]);
+    }
+
+    $summary = resolve(ProjectPerformanceSummary::class)->forProject($this->project, true);
+    $row = collect($summary['work_items'])->firstWhere('item_type', 'daywork');
+
+    expect($row['approved_progress'])->toBe('24.0000')
+        ->and($row['earned_output'])->toBe('120000.0000')
+        ->and($row['daywork_evidence'])->toHaveCount(1)
+        ->and(ProjectActivity::query()->where('estimate_work_item_key', $daywork['work_item_key'])->exists())->toBeFalse();
+});
+
+it('values equipment and material dayworks from the same approved DSR', function (): void {
+    $timeUnit = UnitOfMeasure::query()->where('tenant_id', $this->actor->tenant_id)->where('code', 'HOUR')->firstOrFail();
+    $equipment = Equipment::query()->where('asset_code', 'EQ-RLR-002')->firstOrFail();
+    $material = InventoryItem::query()->where('code', 'CEM-42')->firstOrFail();
+    $site = $this->project->sites()->firstOrFail();
+    $equipmentDaywork = [...$this->line,
+        'work_item_key' => (string) Str::uuid(), 'boq_reference' => 'DW-EQ',
+        'name' => 'Roller daywork', 'item_type' => 'daywork',
+        'unit_of_measure_id' => $timeUnit->id, 'planned_quantity' => '20', 'selling_rate' => '200000',
+        'daywork_resource_type' => 'equipment', 'daywork_equipment_category_id' => $equipment->equipment_category_id,
+        'resources' => [],
+    ];
+    $materialDaywork = [...$this->line,
+        'work_item_key' => (string) Str::uuid(), 'boq_reference' => 'DW-MAT',
+        'name' => 'Cement daywork', 'item_type' => 'daywork',
+        'unit_of_measure_id' => $material->stock_unit_id, 'planned_quantity' => '50', 'selling_rate' => '40000',
+        'daywork_resource_type' => 'material', 'daywork_inventory_item_id' => $material->id,
+        'resources' => [],
+    ];
+    $revision = resolve(SaveProjectEstimate::class)->handle($this->project,
+        ['title' => 'Resource daywork baseline', 'currency_code' => 'UGX', 'lines' => [$this->line, $equipmentDaywork, $materialDaywork]], $this->actor);
+    resolve(ApproveProjectEstimate::class)->handle($revision, $this->actor);
+
+    $report = DailySiteReport::query()->create([
+        'tenant_id' => $this->project->tenant_id, 'branch_id' => $this->project->branch_id,
+        'project_id' => $this->project->id, 'site_id' => $site->id,
+        'report_date' => now()->subDay()->toDateString(), 'reference' => 'DSR-DAYWORK-RESOURCES',
+        'status' => DailySiteReport::STATUS_APPROVED, 'approved_by' => $this->actor->id,
+        'approved_at' => now(), 'created_by' => $this->actor->id, 'updated_by' => $this->actor->id,
+    ]);
+    DailySiteReportEquipmentLine::query()->create([
+        'tenant_id' => $report->tenant_id, 'branch_id' => $report->branch_id,
+        'daily_site_report_id' => $report->id, 'equipment_id' => $equipment->id,
+        'equipment_name' => $equipment->name, 'equipment_identifier' => $equipment->asset_code,
+        'status' => 'working', 'working_hours' => '7.5000', 'idle_hours' => '0',
+        'fleet_posting_status' => 'unposted', 'sort_order' => 0,
+    ]);
+    DailySiteReportMaterialLine::query()->create([
+        'tenant_id' => $report->tenant_id, 'branch_id' => $report->branch_id,
+        'daily_site_report_id' => $report->id, 'inventory_item_id' => $material->id,
+        'unit_of_measure_id' => $material->stock_unit_id, 'conversion_multiplier' => '1',
+        'stock_unit_quantity' => '12', 'material_source' => 'site_store',
+        'material_usage_status' => 'posted', 'material_name' => $material->name,
+        'quantity' => '12', 'unit' => $material->stockUnit->symbol ?? $material->stockUnit->name,
+        'sort_order' => 0,
+    ]);
+
+    $summary = resolve(ProjectPerformanceSummary::class)->forProject($this->project, true);
+    $rows = collect($summary['work_items'])->where('item_type', 'daywork')->keyBy('daywork_resource_type');
+
+    expect($rows['equipment']['approved_progress'])->toBe('7.5000')
+        ->and($rows['equipment']['earned_output'])->toBe('1500000.0000')
+        ->and($rows['equipment']['daywork_evidence'])->toHaveCount(1)
+        ->and($rows['material']['approved_progress'])->toBe('12.0000')
+        ->and($rows['material']['earned_output'])->toBe('480000.0000')
+        ->and($rows['material']['daywork_evidence'])->toHaveCount(1)
+        ->and(ProjectActivity::query()->whereIn('estimate_work_item_key', [$equipmentDaywork['work_item_key'], $materialDaywork['work_item_key']])->exists())->toBeFalse();
 });
 
 it('rejects missing, removed or percentage calculation bases', function (array $baseKeys): void {

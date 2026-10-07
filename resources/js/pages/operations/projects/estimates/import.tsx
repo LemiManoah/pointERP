@@ -46,6 +46,10 @@ type Sheet = {
 type Line = {
     percentage_rate: string | null;
     percentage_base_keys: string[];
+    daywork_resource_type: string | null;
+    daywork_inventory_item_id: string | null;
+    daywork_equipment_category_id: string | null;
+    daywork_workforce_trade_id: string | null;
     work_item_key: string;
     bill: string | null;
     section: string | null;
@@ -99,6 +103,9 @@ type Props = {
     drafts: { id: string; title: string; version_number: number }[];
     units: Option[];
     itemTypes: Option[];
+    items: Array<Option & { unit_id: string }>;
+    equipmentCategories: Option[];
+    workforceTrades: Option[];
 };
 
 function Errors({ errors }: { errors: Record<string, string | undefined> }) {
@@ -219,6 +226,9 @@ export default function BoqImport(props: Props) {
                         preview={props.preview}
                         units={props.units}
                         itemTypes={props.itemTypes}
+                        items={props.items}
+                        equipmentCategories={props.equipmentCategories}
+                        workforceTrades={props.workforceTrades}
                     />
                 )}
             </div>
@@ -287,14 +297,14 @@ function Mapping({
     }
     return (
         <form onSubmit={submit} className="grid gap-4 rounded-lg border p-4">
-            <h2 className="text-lg font-semibold">Choose sheets and columns</h2>
+            <h2 className="text-lg font-semibold">Match the Excel columns</h2>
             <p className="text-sm text-muted-foreground">
-                Select detailed BOQ sheets. Leave summaries, measurement
-                workings and cover sheets unchecked. Enter Excel column letters.
-                Separate headings and specifications are retained as description
-                context. Leave section / floor blank to detect explicit floor
-                headings in the workbook. Enter a section to apply it to the
-                whole selected range.
+                Choose the sheets containing actual BOQ items. Matching tells
+                the importer which Excel column holds each detail. For example,
+                if descriptions are in column C, enter C for Description.
+                Check the sample rows below; the suggested letters may need
+                changing for your workbook. Leave cover sheets, summaries and
+                totals unchecked.
             </p>
             <Label htmlFor="target-estimate">Save destination</Label>
             <NativeSelect
@@ -377,7 +387,7 @@ function Mapping({
                                         key={field}
                                         className="grid gap-1 text-sm"
                                     >
-                                        {field} column
+                                        {field.charAt(0).toUpperCase() + field.slice(1)} is in Excel column
                                         <Input
                                             maxLength={3}
                                             value={form.data.sheets[i][field]}
@@ -422,7 +432,7 @@ function Mapping({
                             </div>
                             <details>
                                 <summary className="cursor-pointer text-sm">
-                                    See first rows with column letters
+                                    Check sample rows and column letters
                                 </summary>
                                 <div className="mt-2 max-h-64 overflow-auto text-xs">
                                     {Object.entries(sheet.sample).map(
@@ -474,12 +484,18 @@ function Review({
     preview,
     units,
     itemTypes,
+    items,
+    equipmentCategories,
+    workforceTrades,
 }: {
     project: Project;
     token: string;
     preview: Preview;
     units: Option[];
     itemTypes: Option[];
+    items: Array<Option & { unit_id: string }>;
+    equipmentCategories: Option[];
+    workforceTrades: Option[];
 }) {
     const [selected, setSelected] = useState(
         preview.rows.filter((row) => !row.blocked).map((row) => row.id),
@@ -495,6 +511,12 @@ function Review({
             selling_rate: row.line.selling_rate ?? '',
             percentage_rate: row.line.percentage_rate ?? '',
             percentage_base_keys: row.line.percentage_base_keys ?? [],
+            daywork_resource_type: row.line.daywork_resource_type ?? '',
+            daywork_inventory_item_id: row.line.daywork_inventory_item_id ?? '',
+            daywork_equipment_category_id:
+                row.line.daywork_equipment_category_id ?? '',
+            daywork_workforce_trade_id:
+                row.line.daywork_workforce_trade_id ?? '',
             bill: row.line.bill ?? '',
             section: row.line.section ?? '',
             element: row.line.element ?? '',
@@ -518,6 +540,13 @@ function Review({
                 !line.name ||
                 (line.item_type === 'percentage_adjustment' &&
                     line.percentage_base_keys.length === 0) ||
+                (line.item_type === 'daywork' &&
+                    (!line.daywork_resource_type ||
+                        !(
+                            line.daywork_inventory_item_id ||
+                            line.daywork_equipment_category_id ||
+                            line.daywork_workforce_trade_id
+                        ))) ||
                 !Number.isFinite(Number(line.planned_quantity)) ||
                 Number(line.planned_quantity) <= 0),
     );
@@ -599,6 +628,8 @@ function Review({
                                 <TableCell>
                                     {classification === 'Measured work'
                                         ? 'Progress from approved activity output'
+                                        : classification === 'Dayworks'
+                                          ? 'Approved DSR resource usage × agreed BOQ rate; choose the matching resource below'
                                         : classification ===
                                             'Percentage adjustment'
                                           ? 'Percentage × selected BOQ amounts; choose the calculation base below'
@@ -741,8 +772,10 @@ function Review({
                                 <NativeSelect
                                     disabled={
                                         row.commercial_review ||
-                                        row.line.item_type ===
-                                            'percentage_adjustment'
+                                        [
+                                            'percentage_adjustment',
+                                            'daywork',
+                                        ].includes(row.line.item_type)
                                     }
                                     value={
                                         row.commercial_review
@@ -783,7 +816,13 @@ function Review({
                                     }
                                     options={
                                         form.data.lines[i].item_type ===
-                                        'preliminary_time'
+                                            'preliminary_time' ||
+                                        (form.data.lines[i].item_type ===
+                                            'daywork' &&
+                                            ['labour', 'equipment'].includes(
+                                                form.data.lines[i]
+                                                    .daywork_resource_type,
+                                            ))
                                             ? units.filter(
                                                   (unit) =>
                                                       unit.dimension === 'time',
@@ -838,6 +877,127 @@ function Review({
                                 />
                             </label>
                         </div>
+                        {form.data.lines[i].item_type === 'daywork' && (
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <label className="grid gap-1 text-sm">
+                                    Approved usage source
+                                    <NativeSelect
+                                        value={
+                                            form.data.lines[i]
+                                                .daywork_resource_type
+                                        }
+                                        onChange={(event) => {
+                                            const value = event.target.value;
+                                            form.setData(
+                                                'lines',
+                                                form.data.lines.map(
+                                                    (line, index) =>
+                                                        index === i
+                                                            ? {
+                                                                  ...line,
+                                                                  daywork_resource_type:
+                                                                      value,
+                                                                  daywork_inventory_item_id:
+                                                                      '',
+                                                                  daywork_equipment_category_id:
+                                                                      '',
+                                                                  daywork_workforce_trade_id:
+                                                                      '',
+                                                              }
+                                                            : line,
+                                                ),
+                                            );
+                                            setReviewed(false);
+                                        }}
+                                    >
+                                        <NativeSelectOption value="">
+                                            Select source
+                                        </NativeSelectOption>
+                                        <NativeSelectOption value="labour">
+                                            Labour hours by trade
+                                        </NativeSelectOption>
+                                        <NativeSelectOption value="equipment">
+                                            Equipment working hours by category
+                                        </NativeSelectOption>
+                                        <NativeSelectOption value="material">
+                                            Material usage by inventory item
+                                        </NativeSelectOption>
+                                    </NativeSelect>
+                                </label>
+                                <label className="grid gap-1 text-sm">
+                                    Mapped resource
+                                    <SearchableSelect
+                                        value={
+                                            form.data.lines[i]
+                                                .daywork_resource_type ===
+                                            'material'
+                                                ? form.data.lines[i]
+                                                      .daywork_inventory_item_id
+                                                : form.data.lines[i]
+                                                        .daywork_resource_type ===
+                                                    'equipment'
+                                                  ? form.data.lines[i]
+                                                        .daywork_equipment_category_id
+                                                  : form.data.lines[i]
+                                                        .daywork_workforce_trade_id
+                                        }
+                                        options={
+                                            form.data.lines[i]
+                                                .daywork_resource_type ===
+                                            'material'
+                                                ? items
+                                                : form.data.lines[i]
+                                                        .daywork_resource_type ===
+                                                    'equipment'
+                                                  ? equipmentCategories
+                                                  : workforceTrades
+                                        }
+                                        onValueChange={(value) => {
+                                            const current = form.data.lines[i];
+                                            const item = items.find(
+                                                (candidate) =>
+                                                    candidate.value === value,
+                                            );
+                                            form.setData(
+                                                'lines',
+                                                form.data.lines.map(
+                                                    (line, index) =>
+                                                        index === i
+                                                            ? {
+                                                                  ...line,
+                                                                  daywork_inventory_item_id:
+                                                                      current.daywork_resource_type ===
+                                                                      'material'
+                                                                          ? value
+                                                                          : '',
+                                                                  daywork_equipment_category_id:
+                                                                      current.daywork_resource_type ===
+                                                                      'equipment'
+                                                                          ? value
+                                                                          : '',
+                                                                  daywork_workforce_trade_id:
+                                                                      current.daywork_resource_type ===
+                                                                      'labour'
+                                                                          ? value
+                                                                          : '',
+                                                                  ...(current.daywork_resource_type ===
+                                                                      'material' &&
+                                                                  item
+                                                                      ? {
+                                                                            unit_of_measure_id:
+                                                                                item.unit_id,
+                                                                        }
+                                                                      : {}),
+                                                              }
+                                                            : line,
+                                                ),
+                                            );
+                                            setReviewed(false);
+                                        }}
+                                    />
+                                </label>
+                            </div>
+                        )}
                         {form.data.lines[i].item_type ===
                             'percentage_adjustment' && (
                             <div className="space-y-2">

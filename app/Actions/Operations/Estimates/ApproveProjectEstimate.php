@@ -21,8 +21,11 @@ use Illuminate\Validation\ValidationException;
 
 final readonly class ApproveProjectEstimate
 {
-    public function __construct(private AuditLogger $auditLogger, private ValidatePercentageAdjustments $validatePercentages)
-    {
+    public function __construct(
+        private AuditLogger $auditLogger,
+        private ValidatePercentageAdjustments $validatePercentages,
+        private ValidateDayworkItems $validateDayworks,
+    ) {
         //
     }
 
@@ -34,6 +37,7 @@ final readonly class ApproveProjectEstimate
             $estimate->load(['lines.unit', 'lines.resources', 'project.branch']);
 
             $this->validatePercentages->handle($estimate->lines->toArray());
+            $this->validateDayworks->handle($estimate->project, $estimate->lines->toArray());
 
             if (! $estimate->isDraft()) {
                 throw ValidationException::withMessages(['estimate' => 'Only a draft BOQ can become the baseline.']);

@@ -12,6 +12,7 @@ enum BoqItemType: string
     case PreliminaryFixed = 'preliminary_fixed';
     case PreliminaryTime = 'preliminary_time';
     case PercentageAdjustment = 'percentage_adjustment';
+    case Daywork = 'daywork';
 
     public function label(): string
     {
@@ -22,6 +23,7 @@ enum BoqItemType: string
             self::PreliminaryFixed => 'Fixed preliminary',
             self::PreliminaryTime => 'Time-based preliminary',
             self::PercentageAdjustment => 'Percentage adjustment',
+            self::Daywork => 'Daywork',
         };
     }
 

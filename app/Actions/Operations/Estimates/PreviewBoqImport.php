@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Operations\Estimates;
 
+use App\Enums\BoqItemType;
 use App\Models\Project;
 use App\Models\ProjectEstimate;
 use App\Models\UnitOfMeasure;
@@ -27,7 +28,7 @@ final class PreviewBoqImport
         $estimate->load('lines.resources');
 
         return $estimate->lines->map(function ($line): array {
-            $data = $line->only(['work_item_key', 'site_id', 'unit_of_measure_id', 'boq_reference', 'code', 'name', 'planned_quantity', 'selling_rate', 'percentage_rate', 'percentage_base_keys', 'estimated_unit_cost', 'notes', 'bill', 'section', 'element', 'description', 'source_document', 'source_sheet', 'source_row']);
+            $data = $line->only(['work_item_key', 'site_id', 'unit_of_measure_id', 'boq_reference', 'code', 'name', 'planned_quantity', 'selling_rate', 'percentage_rate', 'percentage_base_keys', 'daywork_resource_type', 'daywork_inventory_item_id', 'daywork_equipment_category_id', 'daywork_workforce_trade_id', 'estimated_unit_cost', 'notes', 'bill', 'section', 'element', 'description', 'source_document', 'source_sheet', 'source_row']);
             $data['item_type'] = $line->item_type->value;
             $data['resources'] = $line->resources->map(fn ($resource): array => $resource->only(['resource_type', 'inventory_item_id', 'unit_of_measure_id', 'equipment_category_id', 'workforce_trade_id', 'subcontractor_id', 'name', 'quantity_per_work_unit', 'estimated_unit_cost', 'notes']))->all();
 
@@ -226,6 +227,11 @@ final class PreviewBoqImport
                     $rate = '';
                 }
 
+                if ($dayworkSheet) {
+                    $type = BoqItemType::Daywork->value;
+                    $warnings[] = 'Choose the approved Daily Site Report usage source for this daywork item before saving.';
+                }
+
                 $fullDescription = implode("\n", array_filter([...$context, preg_match('/^ditto\b/i', $description) ? 'Previous item: '.$previousDescription : '', $description]));
                 if (preg_match('/^ditto\b/i', $description)) {
                     $warnings[] = 'Ditto wording retained with preceding context. Verify the full specification.';
@@ -243,6 +249,8 @@ final class PreviewBoqImport
                     'unit_of_measure_id' => $unitId, 'planned_quantity' => $quantity,
                     'selling_rate' => $rate === '' ? null : $rate, 'estimated_unit_cost' => null,
                     'percentage_rate' => null, 'percentage_base_keys' => [],
+                    'daywork_resource_type' => null, 'daywork_inventory_item_id' => null,
+                    'daywork_equipment_category_id' => null, 'daywork_workforce_trade_id' => null,
                     'source_document' => $workbook['name'], 'source_sheet' => $sheet['name'], 'source_row' => $number,
                     'notes' => null, 'resources' => [],
                 ];
@@ -258,7 +266,7 @@ final class PreviewBoqImport
                     $type === 'lump_sum' => 'Lump sum',
                     default => 'Measured work',
                 };
-                $commercialReview = in_array($classification, ['Dayworks', 'Preliminaries'], true);
+                $commercialReview = $classification === 'Preliminaries';
                 $unsupportedMeasurement = $commercialReview;
                 $blocked = count($matching) > 1 || isset($seen[$identity]) || (bool) $unsupportedMeasurement;
                 if ($matching === [] && $section && collect($existing)->contains(fn (array $old): bool => ($old['bill'] ?? '') === $bill && ($old['element'] ?? '') === ($element ?? '')
@@ -270,7 +278,6 @@ final class PreviewBoqImport
 
                 if ($unsupportedMeasurement) {
                     $warnings[] = match ($classification) {
-                        'Dayworks' => 'Daywork rates require approved usage for valuation. This row is retained in the preview but cannot yet be saved or counted as physical output.',
                         default => 'Preliminaries require confirmation of fixed or time-based valuation. This row is retained in the preview but cannot yet be saved as measured work.',
                     };
                 }
@@ -292,6 +299,12 @@ final class PreviewBoqImport
                     if ($type === 'percentage_adjustment') {
                         $line['percentage_rate'] = $old['percentage_rate'] ?? null;
                         $line['percentage_base_keys'] = $old['percentage_base_keys'] ?? [];
+                    }
+
+                    if ($type === BoqItemType::Daywork->value) {
+                        foreach (['daywork_resource_type', 'daywork_inventory_item_id', 'daywork_equipment_category_id', 'daywork_workforce_trade_id'] as $field) {
+                            $line[$field] = $old[$field] ?? null;
+                        }
                     }
 
                     $line['work_item_key'] = $old['work_item_key'];
