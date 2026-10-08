@@ -17,8 +17,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-import type { Trade } from './workforce-trade-dialog';
 import { store } from '@/routes/workforce/deployments';
+import type { Trade } from './workforce-trade-dialog';
 
 type StaffOption = {
     id: string;
@@ -72,14 +72,35 @@ export function StaffDeploymentDialog({ staff, projects, trades }: Props) {
     const selectedProject = projects.find(
         (project) => project.id === form.data.project_id,
     );
-    const eligibleStaff = useMemo(() => staff.filter((person) =>
-        person.branch_id === selectedProject?.branch_id &&
-        (!positionFilter || person.staff_position_id === positionFilter) &&
-        (!tradeFilter || person.primary_trade_id === tradeFilter) &&
-        (availability === 'all' || !person.has_active_deployment)
-    ), [staff, selectedProject, positionFilter, tradeFilter, availability]);
-    const positions = [...new Map(staff.filter((person) => person.staff_position_id && person.branch_id === selectedProject?.branch_id)
-        .map((person) => [person.staff_position_id!, { value: person.staff_position_id!, label: person.position_name ?? 'Position' }])).values()];
+    const eligibleStaff = useMemo(
+        () =>
+            staff.filter(
+                (person) =>
+                    person.branch_id === selectedProject?.branch_id &&
+                    (!positionFilter ||
+                        person.staff_position_id === positionFilter) &&
+                    (!tradeFilter || person.primary_trade_id === tradeFilter) &&
+                    (availability === 'all' || !person.has_active_deployment),
+            ),
+        [staff, selectedProject, positionFilter, tradeFilter, availability],
+    );
+    const positions = [
+        ...new Map(
+            staff
+                .filter(
+                    (person) =>
+                        person.staff_position_id &&
+                        person.branch_id === selectedProject?.branch_id,
+                )
+                .map((person) => [
+                    person.staff_position_id!,
+                    {
+                        value: person.staff_position_id!,
+                        label: person.position_name ?? 'Position',
+                    },
+                ]),
+        ).values(),
+    ];
 
     function selectStaff(staffId: string) {
         const option = staff.find((entry) => entry.id === staffId);
@@ -94,8 +115,7 @@ export function StaffDeploymentDialog({ staff, projects, trades }: Props) {
             staff_id: staffId,
             project_id: projectStillAvailable ? data.project_id : '',
             site_id: projectStillAvailable ? data.site_id : '',
-            workforce_trade_id:
-                option?.primary_trade_id ?? '',
+            workforce_trade_id: option?.primary_trade_id ?? '',
         }));
     }
 
@@ -188,12 +208,55 @@ export function StaffDeploymentDialog({ staff, projects, trades }: Props) {
                         <div className="grid gap-2 md:col-span-2">
                             <Label>Filter eligible people</Label>
                             <div className="grid gap-3 md:grid-cols-3">
-                                <SearchableSelect value={positionFilter} onValueChange={(value) => { setPositionFilter(value); form.setData('staff_id', ''); }}
-                                    options={[{ value: '', label: 'All positions' }, ...positions]} placeholder="Position" disabled={!selectedProject} />
-                                <SearchableSelect value={tradeFilter} onValueChange={(value) => { setTradeFilter(value); form.setData('staff_id', ''); }}
-                                    options={[{ value: '', label: 'All trades' }, ...trades.filter((trade) => trade.is_active).map((trade) => ({ value: trade.id, label: trade.name }))]} placeholder="Trade" disabled={!selectedProject} />
-                                <SearchableSelect value={availability} onValueChange={(value) => { setAvailability(value); form.setData('staff_id', ''); }}
-                                    options={[{ value: 'available', label: 'Available people' }, { value: 'all', label: 'Include deployed people' }]} placeholder="Availability" />
+                                <SearchableSelect
+                                    value={positionFilter}
+                                    onValueChange={(value) => {
+                                        setPositionFilter(value);
+                                        form.setData('staff_id', '');
+                                    }}
+                                    options={[
+                                        { value: '', label: 'All positions' },
+                                        ...positions,
+                                    ]}
+                                    placeholder="Position"
+                                    disabled={!selectedProject}
+                                />
+                                <SearchableSelect
+                                    value={tradeFilter}
+                                    onValueChange={(value) => {
+                                        setTradeFilter(value);
+                                        form.setData('staff_id', '');
+                                    }}
+                                    options={[
+                                        { value: '', label: 'All trades' },
+                                        ...trades
+                                            .filter((trade) => trade.is_active)
+                                            .map((trade) => ({
+                                                value: trade.id,
+                                                label: trade.name,
+                                            })),
+                                    ]}
+                                    placeholder="Trade"
+                                    disabled={!selectedProject}
+                                />
+                                <SearchableSelect
+                                    value={availability}
+                                    onValueChange={(value) => {
+                                        setAvailability(value);
+                                        form.setData('staff_id', '');
+                                    }}
+                                    options={[
+                                        {
+                                            value: 'available',
+                                            label: 'Available people',
+                                        },
+                                        {
+                                            value: 'all',
+                                            label: 'Include deployed people',
+                                        },
+                                    ]}
+                                    placeholder="Availability"
+                                />
                             </div>
                         </div>
                         <div className="grid gap-2">
@@ -209,7 +272,12 @@ export function StaffDeploymentDialog({ staff, projects, trades }: Props) {
                                     description:
                                         option.staff_number +
                                         ' - ' +
-                                        (option.position_name ?? option.primary_trade_name ?? option.branch_name) + (option.has_active_deployment ? ' · Currently deployed' : ' · Available'),
+                                        (option.position_name ??
+                                            option.primary_trade_name ??
+                                            option.branch_name) +
+                                        (option.has_active_deployment
+                                            ? ' · Currently deployed'
+                                            : ' · Available'),
                                 }))}
                                 placeholder="Select eligible person"
                                 searchPlaceholder="Search people..."
@@ -220,7 +288,9 @@ export function StaffDeploymentDialog({ staff, projects, trades }: Props) {
                         </div>
 
                         <div className="grid gap-2">
-                            <Label htmlFor="deployment_trade">Trade for this assignment</Label>
+                            <Label htmlFor="deployment_trade">
+                                Trade for this assignment
+                            </Label>
                             <SearchableSelect
                                 value={form.data.workforce_trade_id}
                                 onValueChange={(value) =>

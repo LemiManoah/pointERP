@@ -41,13 +41,21 @@ export function StaffDialog({
                     size={isEditing ? 'sm' : 'default'}
                 >
                     {isEditing ? <Pencil /> : <Plus />}
-                    {isEditing ? 'Edit' : directory === 'workforce' ? 'Register worker' : 'New staff'}
+                    {isEditing
+                        ? 'Edit'
+                        : directory === 'workforce'
+                          ? 'Register worker'
+                          : 'New staff'}
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>
-                        {isEditing ? 'Edit ' + staff?.name : directory === 'workforce' ? 'Register worker' : 'New staff'}
+                        {isEditing
+                            ? 'Edit ' + staff?.name
+                            : directory === 'workforce'
+                              ? 'Register worker'
+                              : 'New staff'}
                     </DialogTitle>
                     <DialogDescription>
                         {directory === 'workforce'

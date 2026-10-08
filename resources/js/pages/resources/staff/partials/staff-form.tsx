@@ -78,9 +78,14 @@ export function StaffForm({
     const form = useForm<StaffFormData>({
         person_category: staff?.person_category ?? directory,
         branch_id: staff?.branch_id ?? branches[0]?.id ?? '',
-        staff_position_id: staff?.staff_position_id ?? (isWorkerDirectory ? '' : positions[0]?.id ?? ''),
+        staff_position_id:
+            staff?.staff_position_id ??
+            (isWorkerDirectory ? '' : (positions[0]?.id ?? '')),
         employment_type:
-            staff?.employment_type ?? (isWorkerDirectory ? 'casual' : employmentTypes[0]?.id ?? 'permanent'),
+            staff?.employment_type ??
+            (isWorkerDirectory
+                ? 'casual'
+                : (employmentTypes[0]?.id ?? 'permanent')),
         primary_trade_id: staff?.primary_trade_id ?? '',
         staff_number: staff?.staff_number ?? '',
         name: staff?.name ?? '',
@@ -109,16 +114,35 @@ export function StaffForm({
 
     return (
         <form onSubmit={submit} className="grid gap-5">
-            {staff && canReclassify && <div className="grid gap-2">
-                <Label htmlFor="person-category">Directory</Label>
-                <NativeSelect id="person-category" value={form.data.person_category}
-                    onChange={(event) => form.setData('person_category', event.target.value as 'company_staff' | 'workforce')}>
-                    <NativeSelectOption value="company_staff">Company Staff</NativeSelectOption>
-                    <NativeSelectOption value="workforce">Project Workforce</NativeSelectOption>
-                </NativeSelect>
-                <p className="text-sm text-muted-foreground">Moving a person keeps their assignments, attendance and account history.</p>
-                <InputError message={form.errors.person_category} />
-            </div>}
+            {staff && canReclassify && (
+                <div className="grid gap-2">
+                    <Label htmlFor="person-category">Directory</Label>
+                    <NativeSelect
+                        id="person-category"
+                        value={form.data.person_category}
+                        onChange={(event) =>
+                            form.setData(
+                                'person_category',
+                                event.target.value as
+                                    | 'company_staff'
+                                    | 'workforce',
+                            )
+                        }
+                    >
+                        <NativeSelectOption value="company_staff">
+                            Company Staff
+                        </NativeSelectOption>
+                        <NativeSelectOption value="workforce">
+                            Project Workforce
+                        </NativeSelectOption>
+                    </NativeSelect>
+                    <p className="text-sm text-muted-foreground">
+                        Moving a person keeps their assignments, attendance and
+                        account history.
+                    </p>
+                    <InputError message={form.errors.person_category} />
+                </div>
+            )}
             <div className="grid gap-5 md:grid-cols-2">
                 <div className="grid gap-2">
                     <Label htmlFor="branch_id" required>
@@ -178,7 +202,9 @@ export function StaffForm({
                 </div>
 
                 <div className="grid gap-2">
-                    <Label htmlFor="primary_trade_id" required={isWorker}>Primary trade</Label>
+                    <Label htmlFor="primary_trade_id" required={isWorker}>
+                        Primary trade
+                    </Label>
                     <SearchableSelect
                         value={form.data.primary_trade_id}
                         onValueChange={(value) =>
@@ -198,7 +224,9 @@ export function StaffForm({
                 </div>
 
                 <div className="grid gap-2">
-                    <Label htmlFor="staff_number">{isWorker ? 'Worker number' : 'Staff number'}</Label>
+                    <Label htmlFor="staff_number">
+                        {isWorker ? 'Worker number' : 'Staff number'}
+                    </Label>
                     <Input
                         id="staff_number"
                         value={form.data.staff_number}

@@ -310,7 +310,9 @@ export default function EstimateEditor({
     const [librarySearch, setLibrarySearch] = useState('');
     const [libraryCategory, setLibraryCategory] = useState('');
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
-    const [pendingEditorIndex, setPendingEditorIndex] = useState<number | null>(null);
+    const [pendingEditorIndex, setPendingEditorIndex] = useState<number | null>(
+        null,
+    );
     const [lineSnapshot, setLineSnapshot] = useState<EstimateLine | null>(null);
     const [viewingIndex, setViewingIndex] = useState<number | null>(null);
     const [editingHeader, setEditingHeader] = useState(false);
@@ -389,7 +391,9 @@ export default function EstimateEditor({
         if (targetLineIndex !== null && form.data.lines[targetLineIndex]) {
             updateLine(targetLineIndex, {
                 name: template.name,
-                description: template.specifications ?? form.data.lines[targetLineIndex].description,
+                description:
+                    template.specifications ??
+                    form.data.lines[targetLineIndex].description,
                 code: template.code ?? '',
                 unit_of_measure_id: template.unit_of_measure_id,
                 selling_rate: template.default_selling_rate
@@ -425,7 +429,9 @@ export default function EstimateEditor({
 
         setLibraryModalOpen(false);
         setTargetLineIndex(null);
-        toast.success('Template added to the draft. Review the BOQ item and save the BOQ.');
+        toast.success(
+            'Template added to the draft. Review the BOQ item and save the BOQ.',
+        );
     }
 
     function editItem(index: number) {
@@ -1241,7 +1247,8 @@ export default function EstimateEditor({
                                                             .filter(
                                                                 (base) =>
                                                                     base.work_item_key &&
-                                                                    base.work_item_key !== line.work_item_key,
+                                                                    base.work_item_key !==
+                                                                        line.work_item_key,
                                                             )
                                                             .map((base) => (
                                                                 <label
@@ -1727,10 +1734,15 @@ export default function EstimateEditor({
                                                                                                 ),
                                                                                         },
                                                                                     );
-                                                                                    toast.success('Estimated unit cost copied into this draft item. Save BOQ to keep it.');
+                                                                                    toast.success(
+                                                                                        'Estimated unit cost copied into this draft item. Save BOQ to keep it.',
+                                                                                    );
                                                                                 }}
                                                                             >
-                                                                                Use as estimated cost
+                                                                                Use
+                                                                                as
+                                                                                estimated
+                                                                                cost
                                                                             </button>
                                                                         )}
                                                                 </div>
@@ -2271,7 +2283,9 @@ export default function EstimateEditor({
                                         type="button"
                                         onClick={() => {
                                             setEditingIndex(null);
-                                            toast.success('Item updated in this draft. Save BOQ to keep the changes.');
+                                            toast.success(
+                                                'Item updated in this draft. Save BOQ to keep the changes.',
+                                            );
                                         }}
                                     >
                                         Apply to draft

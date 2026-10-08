@@ -23,9 +23,9 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
 import * as staffRoutes from '@/routes/resources/staff';
 import * as workerRoutes from '@/routes/workforce/workers';
+import type { BreadcrumbItem } from '@/types';
 import { StaffDialog } from './partials/staff-dialog';
 import type { Option, Staff } from './partials/staff-form';
 
@@ -91,7 +91,9 @@ export default function StaffIndex({
                         <div>
                             <h1 className="text-2xl font-semibold">{title}</h1>
                             <p className="mt-1 text-sm text-muted-foreground">
-                                {isWorker ? 'Register workers, then assign them to projects and sites through Deployments.' : 'Maintain company staff, positions and contact details.'}
+                                {isWorker
+                                    ? 'Register workers, then assign them to projects and sites through Deployments.'
+                                    : 'Maintain company staff, positions and contact details.'}
                             </p>
                         </div>
                         <div className="relative">
@@ -101,7 +103,9 @@ export default function StaffIndex({
                                 onChange={(event) =>
                                     setSearch(event.target.value)
                                 }
-                                placeholder={isWorker ? 'Search workers' : 'Search staff'}
+                                placeholder={
+                                    isWorker ? 'Search workers' : 'Search staff'
+                                }
                                 className="w-full pl-9 sm:w-72"
                             />
                         </div>
@@ -117,12 +121,26 @@ export default function StaffIndex({
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex flex-wrap gap-2">
-                        {can.companyStaff && <Button variant={isWorker ? 'outline' : 'secondary'} asChild>
-                            <Link href={staffRoutes.index()}>Company Staff</Link>
-                        </Button>}
-                        {can.workers && <Button variant={isWorker ? 'secondary' : 'outline'} asChild>
-                            <Link href={workerRoutes.index()}>Project Workforce</Link>
-                        </Button>}
+                        {can.companyStaff && (
+                            <Button
+                                variant={isWorker ? 'outline' : 'secondary'}
+                                asChild
+                            >
+                                <Link href={staffRoutes.index()}>
+                                    Company Staff
+                                </Link>
+                            </Button>
+                        )}
+                        {can.workers && (
+                            <Button
+                                variant={isWorker ? 'secondary' : 'outline'}
+                                asChild
+                            >
+                                <Link href={workerRoutes.index()}>
+                                    Project Workforce
+                                </Link>
+                            </Button>
+                        )}
                         <Button variant="outline" asChild>
                             <Link href="/staff-positions">Positions</Link>
                         </Button>
@@ -140,7 +158,9 @@ export default function StaffIndex({
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>{isWorker ? 'Worker records' : 'Staff records'}</CardTitle>
+                        <CardTitle>
+                            {isWorker ? 'Worker records' : 'Staff records'}
+                        </CardTitle>
                         <CardDescription>
                             A staff record does not automatically create an ERP
                             login account.
@@ -169,8 +189,12 @@ export default function StaffIndex({
                                             </div>
                                             <div className="text-xs text-muted-foreground">
                                                 {staffMember.staff_number}
-                                                {staffMember.email && <> · {staffMember.email}</>}
-                                                {staffMember.phone && <> · {staffMember.phone}</>}
+                                                {staffMember.email && (
+                                                    <> · {staffMember.email}</>
+                                                )}
+                                                {staffMember.phone && (
+                                                    <> · {staffMember.phone}</>
+                                                )}
                                             </div>
                                         </TableCell>
                                         <TableCell>
@@ -178,7 +202,8 @@ export default function StaffIndex({
                                         </TableCell>
                                         <TableCell>
                                             <div>
-                                                {staffMember.position_name ?? '—'}
+                                                {staffMember.position_name ??
+                                                    '—'}
                                             </div>
                                             <div className="text-xs text-muted-foreground">
                                                 {staffMember.primary_trade_name ??
@@ -200,7 +225,9 @@ export default function StaffIndex({
                                         <TableCell>
                                             <div className="flex justify-end gap-2">
                                                 <StaffDialog
-                                                    canReclassify={can.reclassify}
+                                                    canReclassify={
+                                                        can.reclassify
+                                                    }
                                                     directory={directory}
                                                     staff={staffMember}
                                                     branches={branches}
@@ -245,7 +272,9 @@ export default function StaffIndex({
                                                                     : 'default',
                                                             onConfirm: () =>
                                                                 router.delete(
-                                                                    routes.destroy.url(staffMember.id),
+                                                                    routes.destroy.url(
+                                                                        staffMember.id,
+                                                                    ),
                                                                     {
                                                                         preserveScroll: true,
                                                                     },
@@ -268,8 +297,8 @@ export default function StaffIndex({
                                             colSpan={6}
                                             className="h-24 text-center text-muted-foreground"
                                         >
-                                            No records match the current
-                                            tab and search.
+                                            No records match the current tab and
+                                            search.
                                         </TableCell>
                                     </TableRow>
                                 )}

@@ -164,10 +164,13 @@ export default function Dashboard({
     operationalCards = [],
     workQueues = [],
 }: Props) {
-    const availableSections = dashboardSections.filter((section) =>
-        [...cards, ...operationalCards].some((card) => section.cardIds.includes(card.id)) ||
-        workQueues.some((queue) => section.queueIds.includes(queue.id)) ||
-        (section.id === 'finance' && cashFlow !== undefined)
+    const availableSections = dashboardSections.filter(
+        (section) =>
+            [...cards, ...operationalCards].some((card) =>
+                section.cardIds.includes(card.id),
+            ) ||
+            workQueues.some((queue) => section.queueIds.includes(queue.id)) ||
+            (section.id === 'finance' && cashFlow !== undefined),
     );
     const view = availableSections.some((section) => section.id === defaultView)
         ? defaultView
@@ -219,13 +222,14 @@ export default function Dashboard({
                     <h1 className="text-2xl font-semibold tracking-tight">
                         Dashboard
                     </h1>
-                    {(view === 'overview' || view === 'finance') && cards.length > 0 && (
-                        <DashboardFilters
-                            key={JSON.stringify(filters)}
-                            filters={filters}
-                            currencies={currencies}
-                        />
-                    )}
+                    {(view === 'overview' || view === 'finance') &&
+                        cards.length > 0 && (
+                            <DashboardFilters
+                                key={JSON.stringify(filters)}
+                                filters={filters}
+                                currencies={currencies}
+                            />
+                        )}
                 </div>
                 {cards.length === 0 &&
                 operationalCards.length === 0 &&
@@ -256,18 +260,19 @@ export default function Dashboard({
                                 ) : null,
                             )}
                         </TooltipProvider>
-                        {cashFlow && (view === 'overview' || view === 'finance') && (
-                            <div className="grid min-w-0 gap-6 xl:grid-cols-5">
-                                <MoneyMovement
-                                    flow={cashFlow}
-                                    currency={filters.currency}
-                                />
-                                <PaymentMethods
-                                    flow={cashFlow}
-                                    currency={filters.currency}
-                                />
-                            </div>
-                        )}
+                        {cashFlow &&
+                            (view === 'overview' || view === 'finance') && (
+                                <div className="grid min-w-0 gap-6 xl:grid-cols-5">
+                                    <MoneyMovement
+                                        flow={cashFlow}
+                                        currency={filters.currency}
+                                    />
+                                    <PaymentMethods
+                                        flow={cashFlow}
+                                        currency={filters.currency}
+                                    />
+                                </div>
+                            )}
                     </>
                 )}
             </div>

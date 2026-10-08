@@ -988,7 +988,9 @@ export function BoqPanel({
                                 <CardHeader>
                                     <CardTitle>Attached resources</CardTitle>
                                     <p className="text-sm text-muted-foreground">
-                                        Planned resources saved with this BOQ revision. Actual usage is recorded in Daily Site Reports.
+                                        Planned resources saved with this BOQ
+                                        revision. Actual usage is recorded in
+                                        Daily Site Reports.
                                     </p>
                                 </CardHeader>
                                 <CardContent className="p-0">
@@ -998,36 +1000,96 @@ export function BoqPanel({
                                                 <TableHead>Type</TableHead>
                                                 <TableHead>Resource</TableHead>
                                                 <TableHead>Unit</TableHead>
-                                                <TableHead className="text-right">Qty per {currentItem.unit}</TableHead>
-                                                <TableHead className="text-right">Planned quantity</TableHead>
-                                                {can.viewCosts && <TableHead className="text-right">Estimated unit cost</TableHead>}
+                                                <TableHead className="text-right">
+                                                    Qty per {currentItem.unit}
+                                                </TableHead>
+                                                <TableHead className="text-right">
+                                                    Planned quantity
+                                                </TableHead>
+                                                {can.viewCosts && (
+                                                    <TableHead className="text-right">
+                                                        Estimated unit cost
+                                                    </TableHead>
+                                                )}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {currentItem.resources.map((resource) => (
-                                                <TableRow key={resource.id}>
-                                                    <TableCell>{resource.type}</TableCell>
-                                                    <TableCell>
-                                                        <div>{resource.name}</div>
-                                                        {resource.notes && <p className="text-sm whitespace-pre-wrap text-muted-foreground">{resource.notes}</p>}
-                                                    </TableCell>
-                                                    <TableCell>{resource.unit ?? '—'}</TableCell>
-                                                    <TableCell className="text-right tabular-nums">{number(resource.quantity_per_work_unit)}</TableCell>
-                                                    <TableCell className="text-right tabular-nums">{number(Number(resource.quantity_per_work_unit) * Number(currentRow.planned_quantity))}</TableCell>
-                                                    {can.viewCosts && <TableCell className="text-right tabular-nums">{resource.estimated_unit_cost === null ? 'Not set' : money(resource.estimated_unit_cost)}</TableCell>}
-                                                </TableRow>
-                                            ))}
-                                            {currentItem.resources.length === 0 && <EmptyRow columns={can.viewCosts ? 6 : 5} text="No resources are attached to this BOQ revision. Add them when editing a revision." />}
+                                            {currentItem.resources.map(
+                                                (resource) => (
+                                                    <TableRow key={resource.id}>
+                                                        <TableCell>
+                                                            {resource.type}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div>
+                                                                {resource.name}
+                                                            </div>
+                                                            {resource.notes && (
+                                                                <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+                                                                    {
+                                                                        resource.notes
+                                                                    }
+                                                                </p>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {resource.unit ??
+                                                                '—'}
+                                                        </TableCell>
+                                                        <TableCell className="text-right tabular-nums">
+                                                            {number(
+                                                                resource.quantity_per_work_unit,
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-right tabular-nums">
+                                                            {number(
+                                                                Number(
+                                                                    resource.quantity_per_work_unit,
+                                                                ) *
+                                                                    Number(
+                                                                        currentRow.planned_quantity,
+                                                                    ),
+                                                            )}
+                                                        </TableCell>
+                                                        {can.viewCosts && (
+                                                            <TableCell className="text-right tabular-nums">
+                                                                {resource.estimated_unit_cost ===
+                                                                null
+                                                                    ? 'Not set'
+                                                                    : money(
+                                                                          resource.estimated_unit_cost,
+                                                                      )}
+                                                            </TableCell>
+                                                        )}
+                                                    </TableRow>
+                                                ),
+                                            )}
+                                            {currentItem.resources.length ===
+                                                0 && (
+                                                <EmptyRow
+                                                    columns={
+                                                        can.viewCosts ? 6 : 5
+                                                    }
+                                                    text="No resources are attached to this BOQ revision. Add them when editing a revision."
+                                                />
+                                            )}
                                         </TableBody>
                                     </Table>
                                 </CardContent>
                             </Card>
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>Activities for this BOQ item</CardTitle>
+                                    <CardTitle>
+                                        Activities for this BOQ item
+                                    </CardTitle>
                                     {measured && (
                                         <p className="text-sm text-muted-foreground">
-                                            Direct BOQ work is created when the BOQ is approved. Add subactivities to report distinct parts of the same item. Approved measured quantities add to the BOQ item total; supporting tasks do not.
+                                            Direct BOQ work is created when the
+                                            BOQ is approved. Add subactivities
+                                            to report distinct parts of the same
+                                            item. Approved measured quantities
+                                            add to the BOQ item total;
+                                            supporting tasks do not.
                                         </p>
                                     )}
                                 </CardHeader>
@@ -1051,9 +1113,11 @@ export function BoqPanel({
                                                 <TableRow key={activity.id}>
                                                     <TableCell className="font-medium whitespace-normal">
                                                         {activity.name}
-                                                            {activity.is_direct_boq_work && (
-                                                                <div className="text-xs text-muted-foreground">Direct BOQ work</div>
-                                                            )}
+                                                        {activity.is_direct_boq_work && (
+                                                            <div className="text-xs text-muted-foreground">
+                                                                Direct BOQ work
+                                                            </div>
+                                                        )}
                                                     </TableCell>
                                                     <TableCell>
                                                         <Badge variant="outline">

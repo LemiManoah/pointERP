@@ -1,10 +1,10 @@
+import { Moon, Sun } from 'lucide-react';
 import { BranchSelector } from '@/components/branch-selector';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { NotificationBell } from '@/components/notification-bell';
 import { Button } from '@/components/ui/button';
-import { useAppearance } from '@/hooks/use-appearance';
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import { Moon, Sun } from 'lucide-react';
+import { useAppearance } from '@/hooks/use-appearance';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@/types';
 
 export function AppSidebarHeader({

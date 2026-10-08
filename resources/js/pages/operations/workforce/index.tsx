@@ -24,8 +24,8 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
-import type { BreadcrumbItem } from '@/types';
 import { index as workers } from '@/routes/workforce/workers';
+import type { BreadcrumbItem } from '@/types';
 import { StaffDeploymentDialog } from './partials/staff-deployment-dialog';
 import {
     WorkforceTradeDialog,
@@ -162,13 +162,17 @@ export default function WorkforceIndex({
                         </p>
                     </div>
                     <div className="flex gap-2">
-                    {can.manageWorkers && <Button asChild variant="outline"><Link href={workers()}>Worker directory</Link></Button>}
-                    <Button asChild variant="outline">
-                        <Link href="/workforce/attendance">
-                            <ClipboardCheck />
-                            Site attendance
-                        </Link>
-                    </Button>
+                        {can.manageWorkers && (
+                            <Button asChild variant="outline">
+                                <Link href={workers()}>Worker directory</Link>
+                            </Button>
+                        )}
+                        <Button asChild variant="outline">
+                            <Link href="/workforce/attendance">
+                                <ClipboardCheck />
+                                Site attendance
+                            </Link>
+                        </Button>
                     </div>
                 </div>
 

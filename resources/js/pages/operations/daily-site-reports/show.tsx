@@ -1,5 +1,4 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { store as requestCorrection } from '@/actions/App/Http/Controllers/Operations/DailySiteReportCorrectionController';
 import {
     CheckCircle2,
     LockKeyhole,
@@ -12,6 +11,7 @@ import {
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { store as requestCorrection } from '@/actions/App/Http/Controllers/Operations/DailySiteReportCorrectionController';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import InputError from '@/components/input-error';
 import { SearchableSelect } from '@/components/searchable-select';
@@ -317,8 +317,17 @@ type EquipmentAdjustmentForm = {
 
 type CorrectionChanges = Record<CorrectionField, string> & {
     equipment_adjustments: EquipmentAdjustmentForm[];
-    usage_treatments: Array<{ group: string; line_id: string; description: string; work_type: string }>;
-    work_adjustments: Array<{ line_id: string; description: string; quantity_delta: string }>;
+    usage_treatments: Array<{
+        group: string;
+        line_id: string;
+        description: string;
+        work_type: string;
+    }>;
+    work_adjustments: Array<{
+        line_id: string;
+        description: string;
+        quantity_delta: string;
+    }>;
 };
 
 type CorrectionFormData = {
@@ -929,13 +938,69 @@ function WorkflowTrailCard({
                                                 {Object.entries(
                                                     correction.new_values,
                                                 ).map(([field, value]) =>
-                                                    field === 'usage_treatments' && Array.isArray(value) ? (
-                                                        <div key={field}>{value.map((entry: { line_id: string; group: string; previous_type: string; work_type: string }) => <p key={entry.line_id}>{entry.group}: {entry.previous_type} to {entry.work_type}</p>)}</div>
-                                                    ) : field === 'work_adjustments' && Array.isArray(value) ? (
-                                                        <div key={field}>{value.map((entry: { line_id: string; description?: string; quantity_delta: string; unit?: string }) => <p key={entry.line_id}>{entry.description ?? entry.line_id}: {entry.quantity_delta} {entry.unit}</p>)}</div>
-                                                    ) : field ===
-                                                        'equipment_adjustments' &&
+                                                    field ===
+                                                        'usage_treatments' &&
                                                     Array.isArray(value) ? (
+                                                        <div key={field}>
+                                                            {value.map(
+                                                                (entry: {
+                                                                    line_id: string;
+                                                                    group: string;
+                                                                    previous_type: string;
+                                                                    work_type: string;
+                                                                }) => (
+                                                                    <p
+                                                                        key={
+                                                                            entry.line_id
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            entry.group
+                                                                        }
+                                                                        :{' '}
+                                                                        {
+                                                                            entry.previous_type
+                                                                        }{' '}
+                                                                        to{' '}
+                                                                        {
+                                                                            entry.work_type
+                                                                        }
+                                                                    </p>
+                                                                ),
+                                                            )}
+                                                        </div>
+                                                    ) : field ===
+                                                          'work_adjustments' &&
+                                                      Array.isArray(value) ? (
+                                                        <div key={field}>
+                                                            {value.map(
+                                                                (entry: {
+                                                                    line_id: string;
+                                                                    description?: string;
+                                                                    quantity_delta: string;
+                                                                    unit?: string;
+                                                                }) => (
+                                                                    <p
+                                                                        key={
+                                                                            entry.line_id
+                                                                        }
+                                                                    >
+                                                                        {entry.description ??
+                                                                            entry.line_id}
+                                                                        :{' '}
+                                                                        {
+                                                                            entry.quantity_delta
+                                                                        }{' '}
+                                                                        {
+                                                                            entry.unit
+                                                                        }
+                                                                    </p>
+                                                                ),
+                                                            )}
+                                                        </div>
+                                                    ) : field ===
+                                                          'equipment_adjustments' &&
+                                                      Array.isArray(value) ? (
                                                         <CorrectionAdjustmentSummary
                                                             key={field}
                                                             adjustments={value}
@@ -1516,11 +1581,32 @@ function CorrectionDialog({ report }: { report: Report }) {
             social_notes: report.social_notes ?? '',
             completion_percent: report.completion_percent ?? '',
             usage_treatments: [
-                ...report.labour_lines.map((line) => ({ group: 'labour', line_id: line.id ?? '', description: line.trade_or_role ?? 'Labour', work_type: line.work_type ?? 'ordinary' })),
-                ...report.equipment_lines.map((line) => ({ group: 'equipment', line_id: line.id ?? '', description: line.equipment_name ?? 'Equipment', work_type: line.work_type ?? 'ordinary' })),
-                ...report.material_lines.map((line) => ({ group: 'material', line_id: line.id ?? '', description: line.material_name ?? 'Material', work_type: line.work_type ?? 'ordinary' })),
+                ...report.labour_lines.map((line) => ({
+                    group: 'labour',
+                    line_id: line.id ?? '',
+                    description: line.trade_or_role ?? 'Labour',
+                    work_type: line.work_type ?? 'ordinary',
+                })),
+                ...report.equipment_lines.map((line) => ({
+                    group: 'equipment',
+                    line_id: line.id ?? '',
+                    description: line.equipment_name ?? 'Equipment',
+                    work_type: line.work_type ?? 'ordinary',
+                })),
+                ...report.material_lines.map((line) => ({
+                    group: 'material',
+                    line_id: line.id ?? '',
+                    description: line.material_name ?? 'Material',
+                    work_type: line.work_type ?? 'ordinary',
+                })),
             ],
-            work_adjustments: report.work_lines.filter((line) => line.boq_item_id && line.counts_towards_boq).map((line) => ({ line_id: line.id ?? '', description: line.description ?? '', quantity_delta: '' })),
+            work_adjustments: report.work_lines
+                .filter((line) => line.boq_item_id && line.counts_towards_boq)
+                .map((line) => ({
+                    line_id: line.id ?? '',
+                    description: line.description ?? '',
+                    quantity_delta: '',
+                })),
             equipment_adjustments: report.equipment_lines
                 .filter(
                     (line) =>
@@ -1577,42 +1663,146 @@ function CorrectionDialog({ report }: { report: Report }) {
                     {form.data.changes.usage_treatments.length > 0 && (
                         <details className="rounded-md border p-3">
                             <summary>Correct daywork eligibility</summary>
-                            <p className="my-2 text-sm text-muted-foreground">Only authorised extra usage should be chargeable daywork. Changes take effect after approval.</p>
+                            <p className="my-2 text-sm text-muted-foreground">
+                                Only authorised extra usage should be chargeable
+                                daywork. Changes take effect after approval.
+                            </p>
                             <Table>
-                                <TableHeader><TableRow><TableHead>Resource</TableHead><TableHead>Treatment</TableHead></TableRow></TableHeader>
-                                <TableBody>{form.data.changes.usage_treatments.map((item, index) => (
-                                    <TableRow key={item.line_id}>
-                                        <TableCell>{item.description}</TableCell>
-                                        <TableCell><SearchableSelect value={item.work_type}
-                                            options={[{ value: 'ordinary', label: 'Ordinary work' }, { value: 'daywork', label: 'Chargeable daywork' }]}
-                                            onValueChange={(value) => form.setData('changes', { ...form.data.changes,
-                                                usage_treatments: form.data.changes.usage_treatments.map((row, i) => i === index ? { ...row, work_type: value } : row),
-                                            })} />
-                                        </TableCell>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Resource</TableHead>
+                                        <TableHead>Treatment</TableHead>
                                     </TableRow>
-                                ))}</TableBody>
+                                </TableHeader>
+                                <TableBody>
+                                    {form.data.changes.usage_treatments.map(
+                                        (item, index) => (
+                                            <TableRow key={item.line_id}>
+                                                <TableCell>
+                                                    {item.description}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <SearchableSelect
+                                                        value={item.work_type}
+                                                        options={[
+                                                            {
+                                                                value: 'ordinary',
+                                                                label: 'Ordinary work',
+                                                            },
+                                                            {
+                                                                value: 'daywork',
+                                                                label: 'Chargeable daywork',
+                                                            },
+                                                        ]}
+                                                        onValueChange={(
+                                                            value,
+                                                        ) =>
+                                                            form.setData(
+                                                                'changes',
+                                                                {
+                                                                    ...form.data
+                                                                        .changes,
+                                                                    usage_treatments:
+                                                                        form.data.changes.usage_treatments.map(
+                                                                            (
+                                                                                row,
+                                                                                i,
+                                                                            ) =>
+                                                                                i ===
+                                                                                index
+                                                                                    ? {
+                                                                                          ...row,
+                                                                                          work_type:
+                                                                                              value,
+                                                                                      }
+                                                                                    : row,
+                                                                        ),
+                                                                },
+                                                            )
+                                                        }
+                                                    />
+                                                </TableCell>
+                                            </TableRow>
+                                        ),
+                                    )}
+                                </TableBody>
                             </Table>
-                            <InputError message={form.errors['changes.usage_treatments']} />
+                            <InputError
+                                message={
+                                    form.errors['changes.usage_treatments']
+                                }
+                            />
                         </details>
                     )}
                     {form.data.changes.work_adjustments.length > 0 && (
                         <div className="grid gap-2">
                             <Label>BOQ quantity corrections</Label>
-                            <p className="text-sm text-muted-foreground">Enter the difference: -2 removes two units, 2 adds two. Approval preserves the original measurement and records an adjustment.</p>
+                            <p className="text-sm text-muted-foreground">
+                                Enter the difference: -2 removes two units, 2
+                                adds two. Approval preserves the original
+                                measurement and records an adjustment.
+                            </p>
                             <Table>
-                                <TableHeader><TableRow><TableHead>Reported work</TableHead><TableHead>Quantity adjustment</TableHead></TableRow></TableHeader>
-                                <TableBody>{form.data.changes.work_adjustments.map((item, index) => (
-                                    <TableRow key={item.line_id}>
-                                        <TableCell>{item.description}</TableCell>
-                                        <TableCell><Input type="number" step="0.0001" value={item.quantity_delta}
-                                            onChange={(event) => form.setData('changes', { ...form.data.changes,
-                                                work_adjustments: form.data.changes.work_adjustments.map((row, i) => i === index ? { ...row, quantity_delta: event.target.value } : row),
-                                            })} />
-                                        </TableCell>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Reported work</TableHead>
+                                        <TableHead>
+                                            Quantity adjustment
+                                        </TableHead>
                                     </TableRow>
-                                ))}</TableBody>
+                                </TableHeader>
+                                <TableBody>
+                                    {form.data.changes.work_adjustments.map(
+                                        (item, index) => (
+                                            <TableRow key={item.line_id}>
+                                                <TableCell>
+                                                    {item.description}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.0001"
+                                                        value={
+                                                            item.quantity_delta
+                                                        }
+                                                        onChange={(event) =>
+                                                            form.setData(
+                                                                'changes',
+                                                                {
+                                                                    ...form.data
+                                                                        .changes,
+                                                                    work_adjustments:
+                                                                        form.data.changes.work_adjustments.map(
+                                                                            (
+                                                                                row,
+                                                                                i,
+                                                                            ) =>
+                                                                                i ===
+                                                                                index
+                                                                                    ? {
+                                                                                          ...row,
+                                                                                          quantity_delta:
+                                                                                              event
+                                                                                                  .target
+                                                                                                  .value,
+                                                                                      }
+                                                                                    : row,
+                                                                        ),
+                                                                },
+                                                            )
+                                                        }
+                                                    />
+                                                </TableCell>
+                                            </TableRow>
+                                        ),
+                                    )}
+                                </TableBody>
                             </Table>
-                            <InputError message={form.errors['changes.work_adjustments']} />
+                            <InputError
+                                message={
+                                    form.errors['changes.work_adjustments']
+                                }
+                            />
                         </div>
                     )}
                     <div className="grid gap-4 md:grid-cols-2">
@@ -3069,7 +3259,15 @@ function LineCard({
                                         <TableCell>
                                             <div className="font-medium">
                                                 {summary.primary}
-                                                {line.work_type === 'daywork' && <Badge variant="secondary" className="ml-2">Chargeable daywork</Badge>}
+                                                {line.work_type ===
+                                                    'daywork' && (
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className="ml-2"
+                                                    >
+                                                        Chargeable daywork
+                                                    </Badge>
+                                                )}
                                             </div>
                                             {summary.secondary && (
                                                 <div className="text-xs text-muted-foreground">
@@ -3564,7 +3762,10 @@ function lineTableSummary(
             secondary: line.boq_item_number
                 ? `Item ${line.boq_item_number}`
                 : null,
-            quantity: quantity(line.accepted_quantity ?? line.quantity, line.unit),
+            quantity: quantity(
+                line.accepted_quantity ?? line.quantity,
+                line.unit,
+            ),
             details:
                 [
                     line.chainage_from && `From ${line.chainage_from}`,
@@ -3642,7 +3843,15 @@ function lineFieldOptions(field: string, line: Line, units: string[]) {
     const options =
         current && !values.includes(current) ? [current, ...values] : values;
 
-    return options.map((value) => ({ value, label: field === 'work_type' ? (value === 'daywork' ? 'Chargeable daywork' : 'Ordinary work') : value }));
+    return options.map((value) => ({
+        value,
+        label:
+            field === 'work_type'
+                ? value === 'daywork'
+                    ? 'Chargeable daywork'
+                    : 'Ordinary work'
+                : value,
+    }));
 }
 
 function lineFieldVisible(
@@ -3723,7 +3932,9 @@ function lineFieldLabel(field: string, section: string): string {
         return 'Rate per person-hour';
     }
 
-    return field === 'work_type' ? 'Usage treatment' : field.replaceAll('_', ' ');
+    return field === 'work_type'
+        ? 'Usage treatment'
+        : field.replaceAll('_', ' ');
 }
 
 function lineFieldRequired(

@@ -41,8 +41,8 @@ import {
     SidebarRail,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
-import type { Auth, CurrentTenant } from '@/types';
 import { index as workers } from '@/routes/workforce/workers';
+import type { Auth, CurrentTenant } from '@/types';
 
 type SidebarLink = {
     title: string;
