@@ -16,6 +16,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { StaffSectionNav } from '@/components/staff-section-nav';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -123,15 +124,8 @@ export default function WorkforceExceptionsIndex(props: Props) {
                             Attendance and DSR labour records that need review.
                         </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                        <Button asChild variant="outline">
-                            <Link href="/workforce/attendance">Attendance</Link>
-                        </Button>
-                        <Button asChild variant="outline">
-                            <Link href="/workforce">Setup</Link>
-                        </Button>
-                    </div>
                 </div>
+                <StaffSectionNav active="attendance" />
 
                 <Card>
                     <CardContent className="grid gap-4 pt-6 sm:grid-cols-2 xl:grid-cols-4">

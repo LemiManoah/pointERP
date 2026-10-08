@@ -28,16 +28,18 @@ final class UpdateStaffRequest extends FormRequest
         $staff = $this->route('staff');
         abort_unless($staff instanceof Staff, 404);
         $tenantId = resolve(TenantContext::class)->id();
+        $isWorker = $this->input('person_category', $staff->person_category) === 'workforce';
         $accessibleBranchIds = resolve(BranchContext::class)->accessibleBranchIds();
 
         return [
+            'person_category' => ['sometimes', 'required', Rule::in(['company_staff', 'workforce'])],
             'branch_id' => ['required', 'uuid', Rule::exists((new Branch)->getTable(), 'id')->where('tenant_id', $tenantId)->where('status', 'active'), Rule::in($accessibleBranchIds)],
-            'staff_position_id' => ['required', 'uuid', Rule::exists((new StaffPosition)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
+            'staff_position_id' => [$isWorker ? 'nullable' : 'required', 'uuid', Rule::exists((new StaffPosition)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
             'employment_type' => ['required', Rule::enum(StaffEmploymentType::class)],
-            'primary_trade_id' => ['nullable', 'uuid', Rule::exists((new WorkforceTrade)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
+            'primary_trade_id' => [$isWorker ? 'required' : 'nullable', 'uuid', Rule::exists((new WorkforceTrade)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
             'staff_number' => ['required', 'string', 'max:60', Rule::unique((new Staff)->getTable(), 'staff_number')->where('tenant_id', $tenantId)->ignore($staff->id)],
             'name' => ['required', 'string', 'max:120'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', new ValidEmail, Rule::unique((new Staff)->getTable(), 'email')->ignore($staff->id)],
+            'email' => [$isWorker ? 'nullable' : 'required', 'string', 'lowercase', 'email', 'max:255', new ValidEmail, Rule::unique((new Staff)->getTable(), 'email')->ignore($staff->id)],
             'phone' => ['nullable', 'string', 'max:40'],
             'status' => ['required', 'string', Rule::in(['active', 'inactive'])],
         ];

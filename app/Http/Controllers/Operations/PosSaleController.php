@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -49,7 +50,45 @@ final class PosSaleController
                 'payments' => $actor->can('pos.view-payments') ? $sale->payments->map(fn (PosPayment $payment): array => ['method' => $payment->method->label(), 'amount' => $payment->amount])->values() : [],
             ]);
 
-        return Inertia::render('operations/pos/index', ['sales' => $sales, ...$options->for($request, $actor)]);
+        return Inertia::render('operations/pos/index', ['sales' => $sales, ...$this->cartOptions($request, $options, $actor)]);
+    }
+
+    public function prepareCheckout(CompletePosSaleRequest $request, PosFormOptions $options): RedirectResponse
+    {
+        $actor = $request->user();
+        abort_unless($actor instanceof User, 403);
+        Gate::authorize('create', PosSale::class);
+        $data = $request->validated();
+        $existing = PosSale::query()->where('tenant_id', $actor->tenant_id)->where('checkout_key', $data['checkout_key'])->first();
+        if ($existing instanceof PosSale) {
+            Gate::authorize('view', $existing);
+
+            return to_route('pos.show', $existing);
+        }
+
+        $request->merge(['store_id' => $data['inventory_store_id'], 'price_list_id' => $data['inventory_price_tier_id']]);
+        $selected = $options->for($request, $actor)['selected'];
+        if ($selected['branch_id'] !== $data['branch_id'] || $selected['store_id'] !== $data['inventory_store_id'] || $selected['price_list_id'] !== $data['inventory_price_tier_id']) {
+            throw ValidationException::withMessages(['lines' => 'The sale location or price list is no longer available. Select it again.']);
+        }
+
+        $draft = collect($data)->only(['checkout_key', 'branch_id', 'inventory_store_id', 'inventory_price_tier_id', 'lines'])->all();
+        $request->session()->put('pos_carts.'.$actor->tenant_id.'.'.$actor->id.'.'.$data['checkout_key'], $draft);
+
+        return to_route('pos.checkout', ['cart' => $data['checkout_key']]);
+    }
+
+    public function checkout(Request $request, PosFormOptions $options): Response|RedirectResponse
+    {
+        $actor = $request->user();
+        abort_unless($actor instanceof User, 403);
+        Gate::authorize('create', PosSale::class);
+        $props = $this->cartOptions($request, $options, $actor);
+        if ($props['draft'] === null) {
+            return to_route('pos.index');
+        }
+
+        return Inertia::render('operations/pos/checkout', $props);
     }
 
     public function store(CompletePosSaleRequest $request, CompletePosSale $action): RedirectResponse
@@ -58,6 +97,7 @@ final class PosSaleController
         abort_unless($actor instanceof User, 403);
         Gate::authorize('create', PosSale::class);
         $sale = $action->handle($request->validated(), $actor);
+        $request->session()->forget('pos_carts.'.$actor->tenant_id.'.'.$actor->id.'.'.$request->validated('checkout_key'));
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Sale completed under receipt '.$sale->sale_number.'.']);
 
         return to_route('pos.show', $sale);
@@ -85,5 +125,24 @@ final class PosSaleController
             'can' => ['recordPayment' => Gate::forUser($actor)->allows('recordPayment', $posSale)],
             'paymentMethods' => collect(PosPaymentMethod::cases())->map(fn (PosPaymentMethod $method): array => ['value' => $method->value, 'label' => $method->label()])->values(),
         ]);
+    }
+
+    /** @return array<string, mixed> */
+    private function cartOptions(Request $request, PosFormOptions $options, User $actor): array
+    {
+        $key = $request->string('cart')->toString();
+        $draft = preg_match('/^[0-9a-f-]{36}$/i', $key) === 1
+            ? $request->session()->get('pos_carts.'.$actor->tenant_id.'.'.$actor->id.'.'.$key)
+            : null;
+        if (is_array($draft)) {
+            $request->merge(['branch_id' => $draft['branch_id'], 'store_id' => $draft['inventory_store_id'], 'price_list_id' => $draft['inventory_price_tier_id']]);
+        }
+
+        $props = $options->for($request, $actor);
+        if (is_array($draft) && ($props['selected']['branch_id'] !== $draft['branch_id'] || $props['selected']['store_id'] !== $draft['inventory_store_id'] || $props['selected']['price_list_id'] !== $draft['inventory_price_tier_id'])) {
+            $draft = null;
+        }
+
+        return [...$props, 'draft' => $draft, 'checkoutKey' => $draft['checkout_key'] ?? $props['checkoutKey']];
     }
 }

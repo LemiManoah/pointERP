@@ -21,16 +21,20 @@ final class StoreInventoryPriceTierRequest extends FormRequest
             : null;
 
         return [
-            'code' => ['required', 'string', 'max:40', Rule::unique('inventory_price_tiers', 'code')->where('tenant_id', $tenantId)->ignore($priceTierId)],
+            'code' => $priceTierId === null
+                ? ['prohibited']
+                : ['required', 'string', 'max:40', Rule::unique('inventory_price_tiers', 'code')->where('tenant_id', $tenantId)->ignore($priceTierId)],
             'name' => ['required', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:2000'],
-            'priority' => ['required', 'integer', 'min:0', 'max:65535'],
+            'priority' => $priceTierId === null ? ['prohibited'] : ['required', 'integer', 'min:0', 'max:65535'],
             'is_active' => ['required', 'boolean'],
         ];
     }
 
     public function prepareForValidation(): void
     {
-        $this->merge(['code' => mb_strtoupper(mb_trim((string) $this->input('code')))]);
+        if ($this->exists('code')) {
+            $this->merge(['code' => mb_strtoupper(mb_trim((string) $this->input('code')))]);
+        }
     }
 }

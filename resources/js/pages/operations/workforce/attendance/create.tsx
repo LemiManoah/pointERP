@@ -1,4 +1,5 @@
 import { Head } from '@inertiajs/react';
+import { StaffSectionNav } from '@/components/staff-section-nav';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { AttendanceForm, type AttendanceOptions } from './attendance-form';
@@ -23,6 +24,7 @@ export default function CreateAttendance(props: AttendanceOptions) {
                         checking the shift record.
                     </p>
                 </div>
+                <StaffSectionNav active="attendance" />
                 <AttendanceForm {...props} />
             </div>
         </AppLayout>

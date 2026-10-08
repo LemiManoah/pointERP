@@ -111,9 +111,11 @@ use App\Http\Controllers\Operations\OperationsDashboardController;
 use App\Http\Controllers\Operations\PosPaymentController;
 use App\Http\Controllers\Operations\PosSaleController;
 use App\Http\Controllers\Operations\ProjectActivityController;
+use App\Http\Controllers\Operations\ProjectBoqController;
 use App\Http\Controllers\Operations\ProjectController;
 use App\Http\Controllers\Operations\ProjectEstimateApprovalController;
 use App\Http\Controllers\Operations\ProjectEstimateController;
+use App\Http\Controllers\Operations\ProjectEstimateImportController;
 use App\Http\Controllers\Operations\ProjectUserController;
 use App\Http\Controllers\Operations\PurchaseOrderCloseController;
 use App\Http\Controllers\Operations\PurchaseOrderController;
@@ -197,6 +199,16 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('work-item-templates/import', WorkItemTemplateImportController::class)->name('work-item-templates.import');
     Route::resource('work-item-templates', WorkItemTemplateController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::resource('work-item-categories', WorkItemCategoryController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::get('projects/{project}/boq', [ProjectBoqController::class, 'show'])->name('projects.boq.show');
+    Route::get('projects/{project}/boq/items/{item}', [ProjectBoqController::class, 'item'])->name('projects.boq.item');
+    Route::post('projects/{project}/boq/activities', [ProjectBoqController::class, 'storeActivity'])->name('projects.boq.activities.store');
+    Route::get('projects/{project}/estimates/imports/{boqImport}/source', [ProjectEstimateImportController::class, 'source'])->name('project-estimates.import.source');
+    Route::get('projects/{project}/estimates/import/template', [ProjectEstimateImportController::class, 'template'])->name('project-estimates.import.template');
+    Route::get('projects/{project}/estimates/import', [ProjectEstimateImportController::class, 'index'])->name('project-estimates.import');
+    Route::get('projects/{project}/estimates/import/{import}/review', [ProjectEstimateImportController::class, 'review'])->whereUuid('import')->name('project-estimates.import.review');
+    Route::post('projects/{project}/estimates/import', [ProjectEstimateImportController::class, 'upload'])->middleware('throttle:10,1')->name('project-estimates.import.upload');
+    Route::post('projects/{project}/estimates/import/{import}/preview', [ProjectEstimateImportController::class, 'preview'])->whereUuid('import')->name('project-estimates.import.preview');
+    Route::post('projects/{project}/estimates/import/{import}', [ProjectEstimateImportController::class, 'store'])->whereUuid('import')->name('project-estimates.import.store');
     Route::get('projects/{project}/estimates/create', [ProjectEstimateController::class, 'create'])->name('project-estimates.create');
     Route::post('projects/{project}/estimates', [ProjectEstimateController::class, 'store'])->name('project-estimates.store');
     Route::get('estimates/{projectEstimate}', [ProjectEstimateController::class, 'show'])->name('project-estimates.show');
@@ -227,6 +239,8 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('inventory-dashboard', InventoryOperationsDashboardController::class)->name('inventory.dashboard');
     Route::get('pos', [PosSaleController::class, 'index'])->name('pos.index');
     Route::post('pos', [PosSaleController::class, 'store'])->name('pos.store');
+    Route::post('pos/checkout', [PosSaleController::class, 'prepareCheckout'])->name('pos.checkout.prepare');
+    Route::get('pos/checkout', [PosSaleController::class, 'checkout'])->name('pos.checkout');
     Route::get('pos/{posSale}', [PosSaleController::class, 'show'])->name('pos.show');
     Route::post('pos/{posSale}/payments', PosPaymentController::class)->name('pos.payments.store');
     Route::get('inventory/reports/{report}', InventoryReportExportController::class)->name('inventory.reports.export');
@@ -321,6 +335,10 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::resource('roles', AccessRoleController::class)->only(['index', 'create', 'store', 'update', 'destroy'])->names('access-control.roles');
 
     Route::resource('staff', StaffController::class)->only(['index', 'store', 'update', 'destroy'])->names('resources.staff');
+    Route::get('workforce/workers', [StaffController::class, 'index'])->name('workforce.workers.index');
+    Route::post('workforce/workers', [StaffController::class, 'store'])->name('workforce.workers.store');
+    Route::put('workforce/workers/{staff}', [StaffController::class, 'update'])->name('workforce.workers.update');
+    Route::delete('workforce/workers/{staff}', [StaffController::class, 'destroy'])->name('workforce.workers.destroy');
     Route::resource('staff-positions', StaffPositionController::class)->only(['index', 'store', 'update', 'destroy'])->names('resources.staff-positions');
 
     Route::get('workforce/exceptions', WorkforceExceptionController::class)->name('workforce.exceptions.index');

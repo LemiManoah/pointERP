@@ -39,13 +39,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read InventoryBatch|null $batch
  * @property-read InventoryStockMovement|null $stockMovement
  */
-#[Fillable(['tenant_id', 'branch_id', 'daily_site_report_id', 'inventory_item_id', 'inventory_store_id', 'inventory_batch_id', 'unit_of_measure_id', 'conversion_multiplier', 'stock_unit_quantity', 'material_source', 'material_usage_status', 'inventory_stock_movement_id', 'external_material_reason', 'posted_by', 'posted_at', 'material_name', 'material_type', 'quantity', 'unit', 'rate_amount', 'amount', 'currency_code', 'delivery_reference', 'notes', 'sort_order'])]
+#[Fillable(['work_type', 'tenant_id', 'branch_id', 'daily_site_report_id', 'inventory_item_id', 'inventory_store_id', 'inventory_batch_id', 'unit_of_measure_id', 'conversion_multiplier', 'stock_unit_quantity', 'material_source', 'material_usage_status', 'inventory_stock_movement_id', 'external_material_reason', 'posted_by', 'posted_at', 'material_name', 'material_type', 'quantity', 'unit', 'rate_amount', 'amount', 'currency_code', 'delivery_reference', 'notes', 'sort_order'])]
 final class DailySiteReportMaterialLine extends Model
 {
     /** @use HasFactory<Factory<DailySiteReportMaterialLine>> */
     use HasFactory;
 
     use HasUuids;
+
+    protected $attributes = ['work_type' => 'ordinary'];
 
     /** @return array<string, string> */
     public function casts(): array

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\Projects\SaveProject;
+use App\Actions\Workforce\EndProjectDeployments;
 use App\Http\Requests\Operations\Projects\StoreProjectRequest;
 use App\Http\Requests\Operations\Projects\UpdateProjectRequest;
 use App\Models\Branch;
@@ -22,11 +23,13 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\BranchContext;
 use App\Services\EquipmentScopeSummary;
+use App\Services\ProjectBoqSummary;
 use App\Services\ProjectPerformanceSummary;
 use App\Services\TenantContext;
 use App\Support\Operations\PresentsLinkedDocuments;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -54,7 +57,7 @@ final class ProjectController
         ]);
     }
 
-    public function show(Project $project, EquipmentScopeSummary $equipmentSummary, ProjectPerformanceSummary $performanceSummary): Response
+    public function show(Project $project, EquipmentScopeSummary $equipmentSummary, ProjectPerformanceSummary $performanceSummary, ProjectBoqSummary $boqSummary): Response
     {
         Gate::authorize('view', $project);
 
@@ -106,6 +109,8 @@ final class ProjectController
                     'approved_by' => $estimate->approver?->name,
                     'approved_at' => $estimate->approved_at?->toDateTimeString(),
                 ]) : [],
+            'boq' => fn (): ?array => $canViewEstimates ? $boqSummary->forProject($project, $performanceSummary) : null,
+            'activeTab' => request()->query('tab', 'sites'),
             'performance' => $canViewEstimates ? $performanceSummary->forProject($project, $canViewEstimateCosts) : null,
             'assignedUsers' => $project->users
                 ->map(fn (User $assignedUser): array => [
@@ -162,20 +167,29 @@ final class ProjectController
         return to_route('projects.show', $project);
     }
 
-    public function destroy(Project $project, AuditLogger $auditLogger): RedirectResponse
+    public function destroy(Project $project, AuditLogger $auditLogger, EndProjectDeployments $endDeployments): RedirectResponse
     {
         Gate::authorize('delete', $project);
+        $actor = auth()->user();
+        abort_unless($actor instanceof User, 403);
+        DB::transaction(function () use ($project, $auditLogger, $endDeployments, $actor): void {
+            $project = Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
 
-        $oldStatus = $project->status;
-        $newStatus = $oldStatus === 'archived' ? 'active' : 'archived';
+            $oldStatus = $project->status;
+            $newStatus = $oldStatus === 'archived' ? 'active' : 'archived';
 
-        $project->update(['status' => $newStatus]);
-        $auditLogger->record(
-            event: 'operations.project.status_changed',
-            subject: $project,
-            oldValues: ['status' => $oldStatus],
-            newValues: ['status' => $newStatus],
-        );
+            $project->update(['status' => $newStatus]);
+            if ($newStatus === 'archived') {
+                $endDeployments->handle($project, $actor);
+            }
+
+            $auditLogger->record(
+                event: 'operations.project.status_changed',
+                subject: $project,
+                oldValues: ['status' => $oldStatus],
+                newValues: ['status' => $newStatus],
+            );
+        });
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Project archive status changed.']);
 

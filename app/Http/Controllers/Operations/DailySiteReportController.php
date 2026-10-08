@@ -8,6 +8,7 @@ use App\Actions\Operations\DailySiteReports\SaveDailySiteReport;
 use App\Enums\DsrLabourSource;
 use App\Http\Requests\Operations\DailySiteReports\StoreDailySiteReportRequest;
 use App\Http\Requests\Operations\DailySiteReports\UpdateDailySiteReportRequest;
+use App\Models\BoqProgressEntry;
 use App\Models\Customer;
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportCorrection;
@@ -319,7 +320,7 @@ final class DailySiteReportController
                     'id' => $activity->id,
                     'project_id' => $activity->project_id,
                     'site_id' => $activity->site_id,
-                    'label' => $activity->name,
+                    'label' => $activity->name.($activity->boq_item_id ? ($activity->progress_method === 'supporting' ? ' · Supporting (no BoQ output)' : ' · Measured output') : ''),
                     'boq_item_number' => $activity->boq_item_number,
                     'unit' => $activity->unit,
                     'rate_amount' => $this->canViewRates($user) ? $activity->rate_amount : null,
@@ -421,12 +422,18 @@ final class DailySiteReportController
      */
     private function workLineRows(DailySiteReport $report, bool $canViewCosts): array
     {
+        $previousProgress = BoqProgressEntry::query()->where('project_id', $report->project_id)
+            ->whereDate('measurement_date', '<', $report->report_date)
+            ->selectRaw('project_activity_id, SUM(quantity) as total')->groupBy('project_activity_id')->pluck('total', 'project_activity_id');
+        $acceptedProgress = BoqProgressEntry::query()->whereIn('daily_site_report_work_line_id', $report->workLines->pluck('id'))
+            ->selectRaw('daily_site_report_work_line_id, SUM(quantity) as total')->groupBy('daily_site_report_work_line_id')->pluck('total', 'daily_site_report_work_line_id');
+
         return collect($this->lineRows($report->workLines->values()->all(), $canViewCosts))
-            ->map(function (array $line) use ($report): array {
+            ->map(function (array $line) use ($report, $previousProgress, $acceptedProgress): array {
                 $activityId = $line['project_activity_id'] ?? null;
                 $previous = 0.0;
 
-                if (is_string($activityId) && $activityId !== '') {
+                if (is_string($activityId) && $activityId !== '' && empty($line['counts_towards_boq'])) {
                     $previous = (float) DailySiteReportWorkLine::query()
                         ->where('tenant_id', $report->tenant_id)
                         ->where('project_activity_id', $activityId)
@@ -437,9 +444,18 @@ final class DailySiteReportController
                 }
 
                 $today = is_numeric($line['quantity'] ?? null) ? (float) $line['quantity'] : 0.0;
+                $accepted = null;
+                if (! empty($line['boq_item_id']) && ! empty($line['counts_towards_boq']) && is_string($activityId)) {
+                    $previous = (float) $previousProgress->get($activityId, 0);
+                    if (in_array($report->status, [DailySiteReport::STATUS_APPROVED, DailySiteReport::STATUS_ARCHIVED], true)) {
+                        $accepted = (string) $acceptedProgress->get($line['id'], 0);
+                        $today = (float) $accepted;
+                    }
+                }
 
                 return [
                     ...$line,
+                    'accepted_quantity' => $accepted,
                     'previous_approved_quantity' => (string) $previous,
                     'cumulative_to_date' => (string) ($previous + $today),
                 ];

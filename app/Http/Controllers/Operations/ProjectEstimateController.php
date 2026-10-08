@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\Estimates\SaveProjectEstimate;
+use App\Enums\BoqItemType;
 use App\Enums\EstimateResourceType;
 use App\Http\Requests\Operations\Estimates\StoreProjectEstimateRequest;
 use App\Models\Customer;
@@ -53,7 +54,7 @@ final class ProjectEstimateController
         $data = $request->validated();
         $estimate = $action->handle($project, $data, $actor);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Estimate draft saved.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'BOQ draft saved.']);
 
         return to_route('project-estimates.show', $estimate);
     }
@@ -75,7 +76,7 @@ final class ProjectEstimateController
         $data = $request->validated();
         $action->handle($projectEstimate->project, $data, $actor, $projectEstimate);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Estimate draft updated.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'BOQ draft updated.']);
 
         return to_route('project-estimates.show', $projectEstimate);
     }
@@ -86,9 +87,9 @@ final class ProjectEstimateController
         $project = $projectEstimate->project;
         $projectEstimate->delete();
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Draft estimate deleted.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Draft BOQ deleted.']);
 
-        return to_route('projects.show', $project);
+        return to_route('projects.boq.show', $project);
     }
 
     private function editor(Project $project, ?ProjectEstimate $estimate, ?ProjectEstimate $source = null): Response
@@ -97,7 +98,7 @@ final class ProjectEstimateController
         abort_unless($user instanceof User, 403);
         $tenantId = resolve(TenantContext::class)->id();
         $record = $estimate ?? $source;
-        $record?->loadMissing(['lines.resources', 'lines.unit', 'approver', 'lines.resources.equipmentCategory', 'lines.resources.workforceTrade', 'lines.resources.subcontractor']);
+        $record?->loadMissing(['lines.resources', 'lines.unit', 'approver', 'lines.resources.equipmentCategory', 'lines.resources.workforceTrade', 'lines.resources.subcontractor', 'lines.dayworkInventoryItem', 'lines.dayworkEquipmentCategory', 'lines.dayworkWorkforceTrade']);
         $canViewCosts = $estimate instanceof ProjectEstimate
             ? Gate::forUser($user)->allows('viewCosts', $estimate)
             : true;
@@ -107,13 +108,14 @@ final class ProjectEstimateController
             'estimate' => $estimate instanceof ProjectEstimate ? $this->estimateData($estimate, true, $canViewCosts) : null,
             'source' => ! $estimate instanceof ProjectEstimate && $source instanceof ProjectEstimate ? $this->estimateData($source, false, true) : null,
             'sites' => Site::query()->where('project_id', $project->id)->whereIn('status', ['planned', 'active', 'suspended'])->orderBy('name')->get(['id', 'name'])->map(fn (Site $site): array => ['value' => $site->id, 'label' => $site->name]),
-            'units' => UnitOfMeasure::query()->where(fn (Builder $query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenantId))->where('is_active', true)->orderBy('name')->get(['id', 'name', 'symbol'])->map(fn (UnitOfMeasure $unit): array => ['value' => $unit->id, 'label' => sprintf('%s%s', $unit->name, $unit->symbol ? ' ('.$unit->symbol.')' : '')]),
-            'items' => InventoryItem::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'stock_unit_id', 'default_unit_cost'])->map(fn (InventoryItem $item): array => ['value' => $item->id, 'label' => sprintf('%s - %s', $item->code, $item->name), 'unit_id' => $item->stock_unit_id, 'unit_cost' => $item->default_unit_cost]),
+            'units' => UnitOfMeasure::query()->where(fn (Builder $query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenantId))->where('is_active', true)->orderBy('name')->get(['id', 'name', 'symbol', 'quantity_dimension'])->map(fn (UnitOfMeasure $unit): array => ['value' => $unit->id, 'label' => sprintf('%s%s', $unit->name, $unit->symbol ? ' ('.$unit->symbol.')' : ''), 'dimension' => $unit->quantity_dimension->value]),
+            'items' => InventoryItem::query()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'code', 'stock_unit_id', 'default_unit_cost'])->map(fn (InventoryItem $item): array => ['value' => $item->id, 'label' => sprintf('%s - %s', $item->code, $item->name), 'unit_id' => $item->stock_unit_id, 'unit_cost' => $canViewCosts ? $item->default_unit_cost : null]),
             'equipmentCategories' => EquipmentCategory::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name'])->map(fn (EquipmentCategory $category): array => ['value' => $category->id, 'label' => mb_trim($category->code.' - '.$category->name)]),
             'workforceTrades' => WorkforceTrade::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name'])->map(fn (WorkforceTrade $trade): array => ['value' => $trade->id, 'label' => mb_trim($trade->code.' - '.$trade->name)]),
             'subcontractors' => Customer::query()->where('type', Customer::TYPE_SUBCONTRACTOR)->where('status', 'active')->orderBy('name')->get(['id', 'code', 'name'])->map(fn (Customer $customer): array => ['value' => $customer->id, 'label' => mb_trim($customer->code.' - '.$customer->name)]),
+            'itemTypes' => collect(BoqItemType::cases())->map(fn (BoqItemType $type): array => ['value' => $type->value, 'label' => $type->label()]),
             'resourceTypes' => collect(EstimateResourceType::cases())->map(fn (EstimateResourceType $type): array => ['value' => $type->value, 'label' => $type->label()]),
-            'templates' => WorkItemTemplate::query()
+            'templates' => $canViewCosts ? WorkItemTemplate::query()
                 ->with(['unit', 'resources.unit', 'resources.inventoryItem', 'resources.equipmentCategory', 'resources.workforceTrade', 'resources.subcontractor'])
                 ->where('is_active', true)
                 ->orderBy('category')
@@ -124,6 +126,7 @@ final class ProjectEstimateController
                     'code' => $template->code,
                     'category' => $template->category,
                     'name' => $template->name,
+                    'specifications' => $template->specifications,
                     'unit_of_measure_id' => $template->unit_of_measure_id,
                     'unit_name' => $template->unit->name,
                     'unit_symbol' => $template->unit->symbol,
@@ -141,7 +144,7 @@ final class ProjectEstimateController
                         'estimated_unit_cost' => (string) $res->effectiveUnitCost(),
                         'notes' => $res->notes,
                     ])->all(),
-                ]),
+                ]) : [],
             'can' => [
                 'update' => $estimate instanceof ProjectEstimate && Gate::forUser($user)->allows('update', $estimate),
                 'approve' => $estimate instanceof ProjectEstimate && Gate::forUser($user)->allows('approve', $estimate),
@@ -164,8 +167,17 @@ final class ProjectEstimateController
             'is_baseline' => $includeStatus && $estimate->is_baseline,
             'approved_by' => $estimate->approver?->name,
             'approved_at' => $estimate->approved_at?->toDateTimeString(),
+            'pricing' => $canViewCosts ? $estimate->pricingSummary() : null,
             'lines' => $estimate->lines->map(fn (ProjectEstimateLine $line): array => [
                 'work_item_key' => $line->work_item_key,
+                'item_type' => $line->item_type->value,
+                'bill' => $line->bill,
+                'section' => $line->section,
+                'element' => $line->element,
+                'description' => $line->description,
+                'source_document' => $line->source_document,
+                'source_sheet' => $line->source_sheet,
+                'source_row' => $line->source_row,
                 'site_id' => $line->site_id,
                 'unit_of_measure_id' => $line->unit_of_measure_id,
                 'boq_reference' => $line->boq_reference,
@@ -173,10 +185,19 @@ final class ProjectEstimateController
                 'name' => $line->name,
                 'planned_quantity' => $line->planned_quantity,
                 'selling_rate' => $canViewCosts ? $line->selling_rate : null,
+                'percentage_rate' => $canViewCosts ? $line->percentage_rate : null,
+                'percentage_base_keys' => $line->percentage_base_keys ?? [],
+                'daywork_resource_type' => $line->daywork_resource_type,
+                'daywork_inventory_item_id' => $line->daywork_inventory_item_id,
+                'daywork_equipment_category_id' => $line->daywork_equipment_category_id,
+                'daywork_workforce_trade_id' => $line->daywork_workforce_trade_id,
                 'estimated_unit_cost' => $canViewCosts ? $line->estimated_unit_cost : null,
                 'notes' => $line->notes,
                 'resources' => $line->resources->map(fn (EstimateResourceLine $resource): array => [
                     'resource_type' => $resource->resource_type->value,
+                    'equipment_category_id' => $resource->equipment_category_id,
+                    'workforce_trade_id' => $resource->workforce_trade_id,
+                    'subcontractor_id' => $resource->subcontractor_id,
                     'inventory_item_id' => $resource->inventory_item_id,
                     'unit_of_measure_id' => $resource->unit_of_measure_id,
                     'name' => $resource->name,

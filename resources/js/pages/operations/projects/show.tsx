@@ -1,5 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { show as showProject } from '@/actions/App/Http/Controllers/Operations/ProjectController';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,11 +13,7 @@ import {
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
-import {
-    formatCurrencyAmount,
-    formatDateTime,
-    formatNumber,
-} from '@/lib/utils';
+import { formatCurrencyAmount, formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import {
     DocumentDialog,
@@ -31,6 +28,7 @@ import {
     EquipmentScopePanel,
     type EquipmentScopeData,
 } from '../equipment/partials/equipment-scope-panel';
+import { BoqPanel, type BoqProps } from './boq';
 import {
     ProjectAccessDialog,
     type AssignedProjectUser,
@@ -47,6 +45,8 @@ import {
 import { SiteDialog, type Site } from './partials/site-dialog';
 
 type Props = {
+    boq: BoqProps | null;
+    activeTab: string;
     project: Project;
     sites: SiteRow[];
     activities: ProjectActivity[];
@@ -93,6 +93,11 @@ type EstimateSummary = {
 };
 
 type ProjectPerformance = {
+    pricing: {
+        status: string;
+        priced_items: number;
+        total_items: number;
+    } | null;
     baseline: {
         id: string;
         title: string;
@@ -111,6 +116,10 @@ type ProjectPerformance = {
     work_items: Array<{
         id: string;
         work_item_id: string | null;
+        bill: string | null;
+        section: string | null;
+        element: string | null;
+        item_type: string;
         boq_reference: string | null;
         name: string;
         unit: string;
@@ -134,10 +143,11 @@ type ProjectPerformance = {
 };
 
 export default function ProjectShow({
+    boq,
+    activeTab,
     project,
     sites,
     activities,
-    estimates,
     performance,
     assignedUsers,
     documents,
@@ -154,14 +164,26 @@ export default function ProjectShow({
     activityUnits,
     canViewRates,
     canViewEstimates,
-    canCreateEstimate,
     fleet,
     canViewFleet,
     canUpdateProject,
     canCreateSite,
 }: Props) {
     const confirm = useConfirmDialog();
-    const [tab, setTab] = useState('sites');
+    const [tab, setTab] = useState(
+        activeTab === 'boq' && canViewEstimates ? 'boq' : 'sites',
+    );
+    useEffect(() => {
+        const availableTabs = [
+            'sites',
+            'activities',
+            'access',
+            'documents',
+            ...(canViewEstimates ? ['boq', 'performance'] : []),
+            ...(canViewFleet ? ['equipment'] : []),
+        ];
+        setTab(availableTabs.includes(activeTab) ? activeTab : 'sites');
+    }, [activeTab, canViewEstimates, canViewFleet]);
     const activeSites = sites.filter((site) =>
         ['planned', 'active', 'suspended'].includes(site.status),
     );
@@ -252,13 +274,29 @@ export default function ProjectShow({
                     </CardContent>
                 </Card>
 
-                <Tabs value={tab} onValueChange={setTab}>
+                <Tabs
+                    value={tab}
+                    onValueChange={(value) => {
+                        setTab(value);
+                        router.get(
+                            showProject.url(project.id),
+                            { tab: value },
+                            {
+                                preserveState: true,
+                                preserveScroll: true,
+                                replace: true,
+                                only:
+                                    value === 'boq'
+                                        ? ['boq', 'activeTab']
+                                        : ['activeTab'],
+                            },
+                        );
+                    }}
+                >
                     <TabsList className="h-auto flex-wrap justify-start">
                         <TabsTrigger value="sites">Sites</TabsTrigger>
                         {canViewEstimates && (
-                            <TabsTrigger value="estimates">
-                                Estimates
-                            </TabsTrigger>
+                            <TabsTrigger value="boq">BOQ</TabsTrigger>
                         )}
                         <TabsTrigger value="activities">
                             Work Activities
@@ -276,6 +314,12 @@ export default function ProjectShow({
                         <TabsTrigger value="access">Access</TabsTrigger>
                         <TabsTrigger value="documents">Documents</TabsTrigger>
                     </TabsList>
+
+                    {canViewEstimates && boq && (
+                        <TabsContent value="boq" className="mt-6">
+                            <BoqPanel {...boq} />
+                        </TabsContent>
+                    )}
 
                     <TabsContent value="sites" className="mt-6 grid gap-6">
                         <div className="flex justify-end">
@@ -315,16 +359,6 @@ export default function ProjectShow({
                             />
                         )}
                     </TabsContent>
-
-                    {canViewEstimates && (
-                        <TabsContent value="estimates" className="mt-6">
-                            <EstimateTable
-                                projectId={project.id}
-                                estimates={estimates}
-                                canCreate={canCreateEstimate}
-                            />
-                        </TabsContent>
-                    )}
 
                     <TabsContent value="activities" className="mt-6 grid gap-6">
                         {!performance && (
@@ -592,114 +626,6 @@ function SiteTable({
     );
 }
 
-function EstimateTable({
-    projectId,
-    estimates,
-    canCreate,
-}: {
-    projectId: string;
-    estimates: EstimateSummary[];
-    canCreate: boolean;
-}) {
-    return (
-        <Card>
-            <CardHeader className="flex-row items-center justify-between gap-4">
-                <div>
-                    <CardTitle>Estimate revisions</CardTitle>
-                    <CardDescription>
-                        Draft and approved project baselines.
-                    </CardDescription>
-                </div>
-                {canCreate && (
-                    <Button asChild>
-                        <Link href={`/projects/${projectId}/estimates/create`}>
-                            {estimates.length > 0
-                                ? 'New revision'
-                                : 'New estimate'}
-                        </Link>
-                    </Button>
-                )}
-            </CardHeader>
-            <CardContent>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b text-left text-muted-foreground">
-                                <th className="py-3 pr-4 font-medium">
-                                    Version
-                                </th>
-                                <th className="py-3 pr-4 font-medium">Title</th>
-                                <th className="py-3 pr-4 font-medium">Items</th>
-                                <th className="py-3 pr-4 font-medium">
-                                    Status
-                                </th>
-                                <th className="py-3 font-medium">Approved</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {estimates.map((estimate) => (
-                                <tr
-                                    key={estimate.id}
-                                    className="border-b last:border-0"
-                                >
-                                    <td className="py-3 pr-4">
-                                        v{estimate.version_number}
-                                    </td>
-                                    <td className="py-3 pr-4">
-                                        <Link
-                                            href={`/estimates/${estimate.id}`}
-                                            className="font-medium hover:underline"
-                                        >
-                                            {estimate.title}
-                                        </Link>
-                                        <div className="text-muted-foreground">
-                                            {estimate.currency_code}
-                                        </div>
-                                    </td>
-                                    <td className="py-3 pr-4">
-                                        {formatNumber(estimate.lines_count)}
-                                    </td>
-                                    <td className="py-3 pr-4">
-                                        <Badge
-                                            variant={
-                                                estimate.is_baseline
-                                                    ? 'default'
-                                                    : 'secondary'
-                                            }
-                                        >
-                                            {estimate.status_label}
-                                        </Badge>
-                                    </td>
-                                    <td className="py-3">
-                                        {estimate.approved_by ?? 'Not approved'}
-                                        {estimate.approved_at && (
-                                            <div className="text-muted-foreground">
-                                                {formatDateTime(
-                                                    estimate.approved_at,
-                                                )}
-                                            </div>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                            {estimates.length === 0 && (
-                                <tr>
-                                    <td
-                                        colSpan={5}
-                                        className="py-8 text-center text-muted-foreground"
-                                    >
-                                        No estimate revisions recorded.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
 function PerformanceTable({
     performance,
     canViewCosts,
@@ -717,37 +643,57 @@ function PerformanceTable({
                     <CardDescription>
                         Version {performance.baseline.version_number} ·{' '}
                         {performance.baseline.title}
+                        {performance.pricing && (
+                            <span className="block">
+                                {performance.pricing.priced_items} of{' '}
+                                {performance.pricing.total_items} BOQ items
+                                priced
+                            </span>
+                        )}
                     </CardDescription>
                 </CardHeader>
                 <CardContent
                     className={`grid gap-4 sm:grid-cols-2 ${canViewCosts ? 'lg:grid-cols-6' : ''}`}
                 >
                     <SummaryMetric
-                        label="Work activities"
+                        label="BOQ items"
                         value={performance.totals.planned_items}
                     />
                     {canViewCosts && (
                         <>
                             <SummaryMetric
-                                label="Baseline revenue"
-                                value={formatCurrencyAmount(
-                                    currency,
-                                    performance.totals.baseline_revenue,
-                                )}
+                                label="BOQ value"
+                                value={
+                                    performance.totals.baseline_revenue === null
+                                        ? 'Unpriced / incomplete'
+                                        : formatCurrencyAmount(
+                                              currency,
+                                              performance.totals
+                                                  .baseline_revenue,
+                                          )
+                                }
                             />
                             <SummaryMetric
                                 label="Earned output"
-                                value={formatCurrencyAmount(
-                                    currency,
-                                    performance.totals.earned_output,
-                                )}
+                                value={
+                                    performance.totals.earned_output === null
+                                        ? 'Not available'
+                                        : formatCurrencyAmount(
+                                              currency,
+                                              performance.totals.earned_output,
+                                          )
+                                }
                             />
                             <SummaryMetric
                                 label="Baseline cost"
-                                value={formatCurrencyAmount(
-                                    currency,
-                                    performance.totals.baseline_cost,
-                                )}
+                                value={
+                                    performance.totals.baseline_cost === null
+                                        ? 'Costing incomplete'
+                                        : formatCurrencyAmount(
+                                              currency,
+                                              performance.totals.baseline_cost,
+                                          )
+                                }
                             />
                             <SummaryMetric
                                 label="Actual input cost"
@@ -809,6 +755,15 @@ function PerformanceTable({
                                             <div className="font-medium">
                                                 {item.name}
                                             </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {[
+                                                    item.bill,
+                                                    item.section,
+                                                    item.element,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' / ')}
+                                            </div>
                                             {item.boq_reference && (
                                                 <div className="text-muted-foreground">
                                                     {item.boq_reference}
@@ -822,41 +777,47 @@ function PerformanceTable({
                                             {item.unit}
                                         </td>
                                         <td className="py-3 pr-4">
-                                            {formatNumber(
-                                                item.approved_progress,
-                                            )}{' '}
-                                            {item.unit}
+                                            {item.item_type === 'measured'
+                                                ? `${formatNumber(item.approved_progress)} ${item.unit}`
+                                                : '—'}
                                         </td>
                                         <td className="py-3 pr-4">
-                                            {formatNumber(
-                                                item.remaining_quantity,
-                                            )}{' '}
-                                            {item.unit}
+                                            {item.item_type === 'measured'
+                                                ? `${formatNumber(item.remaining_quantity)} ${item.unit}`
+                                                : '—'}
                                         </td>
                                         <td className="min-w-40 py-3 pr-4">
-                                            <div className="mb-1 flex justify-between gap-3">
-                                                <span>
-                                                    {formatNumber(
-                                                        item.completion_percent,
-                                                    )}
-                                                    %
-                                                </span>
-                                            </div>
-                                            <div className="h-2 overflow-hidden rounded-full bg-muted">
-                                                <div
-                                                    className="h-full bg-primary"
-                                                    style={{
-                                                        width: `${Math.min(Number(item.completion_percent), 100)}%`,
-                                                    }}
-                                                />
-                                            </div>
+                                            {item.item_type === 'measured' ? (
+                                                <>
+                                                    <div className="mb-1 flex justify-between gap-3">
+                                                        <span>
+                                                            {formatNumber(
+                                                                item.completion_percent,
+                                                            )}
+                                                            %
+                                                        </span>
+                                                    </div>
+                                                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                                                        <div
+                                                            className="h-full bg-primary"
+                                                            style={{
+                                                                width: `${Math.min(Number(item.completion_percent), 100)}%`,
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                'Not measured'
+                                            )}
                                         </td>
                                         {canViewCosts && (
                                             <td className="py-3">
-                                                {formatCurrencyAmount(
-                                                    currency,
-                                                    item.earned_output,
-                                                )}
+                                                {item.earned_output === null
+                                                    ? 'Not available'
+                                                    : formatCurrencyAmount(
+                                                          currency,
+                                                          item.earned_output,
+                                                      )}
                                             </td>
                                         )}
                                     </tr>

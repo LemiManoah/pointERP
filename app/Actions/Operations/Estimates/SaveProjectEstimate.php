@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Actions\Operations\Estimates;
 
+use App\Enums\BoqItemType;
 use App\Enums\ProjectEstimateStatus;
+use App\Enums\UnitDimension;
 use App\Models\Project;
+use App\Models\ProjectBoqItem;
 use App\Models\ProjectEstimate;
 use App\Models\ProjectEstimateLine;
 use App\Models\Site;
+use App\Models\UnitOfMeasure;
 use App\Models\User;
 use App\Services\AuditLogger;
 use Illuminate\Support\Facades\DB;
@@ -17,13 +21,16 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * @phpstan-type EstimateResourcePayload array{resource_type: string, inventory_item_id?: string|null, unit_of_measure_id?: string|null, equipment_category_id?: string|null, workforce_trade_id?: string|null, subcontractor_id?: string|null, name: string, quantity_per_work_unit: numeric-string, estimated_unit_cost?: numeric-string|null, notes?: string|null}
- * @phpstan-type EstimateLinePayload array{work_item_key?: string|null, site_id?: string|null, unit_of_measure_id: string, boq_reference?: string|null, code?: string|null, name: string, planned_quantity: numeric-string, selling_rate?: numeric-string|null, estimated_unit_cost?: numeric-string|null, notes?: string|null, resources?: list<EstimateResourcePayload>}
+ * @phpstan-type EstimateLinePayload array{bill?: string|null, section?: string|null, element?: string|null, item_type?: string, percentage_rate?: numeric-string|null, percentage_base_keys?: list<string>, daywork_resource_type?: string|null, daywork_inventory_item_id?: string|null, daywork_equipment_category_id?: string|null, daywork_workforce_trade_id?: string|null, description?: string|null, source_document?: string|null, source_sheet?: string|null, source_row?: int|null, work_item_key?: string|null, site_id?: string|null, unit_of_measure_id: string, boq_reference?: string|null, code?: string|null, name: string, planned_quantity: numeric-string, selling_rate?: numeric-string|null, estimated_unit_cost?: numeric-string|null, notes?: string|null, resources?: list<EstimateResourcePayload>}
  * @phpstan-type ProjectEstimatePayload array{title: string, currency_code: string, notes?: string|null, lines: list<EstimateLinePayload>}
  */
 final readonly class SaveProjectEstimate
 {
-    public function __construct(private AuditLogger $auditLogger)
-    {
+    public function __construct(
+        private AuditLogger $auditLogger,
+        private ValidatePercentageAdjustments $validatePercentages,
+        private ValidateDayworkItems $validateDayworks,
+    ) {
         //
     }
 
@@ -31,8 +38,15 @@ final readonly class SaveProjectEstimate
     public function handle(Project $project, array $data, User $actor, ?ProjectEstimate $estimate = null): ProjectEstimate
     {
         return DB::transaction(function () use ($actor, $data, $estimate, $project): ProjectEstimate {
+            $this->validatePercentages->handle($data['lines']);
+            $this->validateDayworks->handle($project, $data['lines']);
+            Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
+            if ($estimate instanceof ProjectEstimate) {
+                $estimate = ProjectEstimate::query()->whereKey($estimate->id)->lockForUpdate()->firstOrFail();
+            }
+
             if ($estimate instanceof ProjectEstimate && ! $estimate->isDraft()) {
-                throw ValidationException::withMessages(['estimate' => 'Only a draft estimate can be changed.']);
+                throw ValidationException::withMessages(['estimate' => 'Only a draft BOQ can be changed.']);
             }
 
             $oldValues = $estimate instanceof ProjectEstimate
@@ -69,24 +83,62 @@ final readonly class SaveProjectEstimate
             }
 
             $workItemKeys = [];
+            $timeUnits = UnitOfMeasure::query()->where('quantity_dimension', UnitDimension::Time->value)
+                ->where('is_active', true)
+                ->where(fn ($query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $project->tenant_id))
+                ->whereIn('id', array_column($data['lines'], 'unit_of_measure_id'))->pluck('id')->all();
             foreach ($data['lines'] as $index => $lineData) {
+                $type = BoqItemType::from($lineData['item_type'] ?? 'measured');
+                if ($type->requiresSingleQuantity() && (float) $lineData['planned_quantity'] !== 1.0) {
+                    throw ValidationException::withMessages(['lines.'.$index.'.planned_quantity' => 'This fixed amount requires a quantity of 1.']);
+                }
+
+                if ($type === BoqItemType::PreliminaryTime) {
+                    if ((float) $lineData['planned_quantity'] <= 0) {
+                        throw ValidationException::withMessages(['lines.'.$index.'.planned_quantity' => 'Enter a positive planned duration.']);
+                    }
+
+                    if (! in_array($lineData['unit_of_measure_id'], $timeUnits, true)) {
+                        throw ValidationException::withMessages(['lines.'.$index.'.unit_of_measure_id' => 'Choose an active time unit for a time-based preliminary.']);
+                    }
+                }
+
                 $workItemKey = $lineData['work_item_key'] ?? null;
                 $workItemKey = is_string($workItemKey) ? $workItemKey : Str::uuid()->toString();
                 $workItemKeys[] = $workItemKey;
 
                 $this->assertSiteBelongsToProject($lineData['site_id'] ?? null, $project, $index);
 
+                $boqItem = ProjectBoqItem::query()->firstOrCreate(
+                    ['project_id' => $project->id, 'work_item_key' => $workItemKey],
+                    ['tenant_id' => $project->tenant_id],
+                );
                 $line = $estimate->lines()->where('work_item_key', $workItemKey)->first();
                 $attributes = [
                     'tenant_id' => $project->tenant_id,
+                    'boq_item_id' => $boqItem->id,
                     'site_id' => $lineData['site_id'] ?? null,
                     'unit_of_measure_id' => $lineData['unit_of_measure_id'],
                     'work_item_key' => $workItemKey,
                     'boq_reference' => $lineData['boq_reference'] ?? null,
+                    'bill' => $lineData['bill'] ?? null,
+                    'section' => $lineData['section'] ?? null,
+                    'element' => $lineData['element'] ?? null,
+                    'item_type' => $lineData['item_type'] ?? 'measured',
+                    'description' => $lineData['description'] ?? null,
+                    'source_document' => $lineData['source_document'] ?? null,
+                    'source_sheet' => $lineData['source_sheet'] ?? null,
+                    'source_row' => $lineData['source_row'] ?? null,
                     'code' => $lineData['code'] ?? null,
                     'name' => $lineData['name'],
                     'planned_quantity' => $lineData['planned_quantity'],
                     'selling_rate' => $lineData['selling_rate'] ?? null,
+                    'percentage_rate' => $type === BoqItemType::PercentageAdjustment ? ($lineData['percentage_rate'] ?? null) : null,
+                    'percentage_base_keys' => $type === BoqItemType::PercentageAdjustment ? ($lineData['percentage_base_keys'] ?? []) : null,
+                    'daywork_resource_type' => $type === BoqItemType::Daywork ? ($lineData['daywork_resource_type'] ?? null) : null,
+                    'daywork_inventory_item_id' => $type === BoqItemType::Daywork ? ($lineData['daywork_inventory_item_id'] ?? null) : null,
+                    'daywork_equipment_category_id' => $type === BoqItemType::Daywork ? ($lineData['daywork_equipment_category_id'] ?? null) : null,
+                    'daywork_workforce_trade_id' => $type === BoqItemType::Daywork ? ($lineData['daywork_workforce_trade_id'] ?? null) : null,
                     'estimated_unit_cost' => $lineData['estimated_unit_cost'] ?? null,
                     'sort_order' => $index,
                     'notes' => $lineData['notes'] ?? null,

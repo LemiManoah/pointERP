@@ -2,7 +2,6 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Minus, Plus, Search, ShoppingCart, Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
-import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import InputError from '@/components/input-error';
 import { SearchableSelect } from '@/components/searchable-select';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +32,8 @@ import {
     formatDateTime,
     formatNumber,
 } from '@/lib/utils';
+import { index as posIndex } from '@/routes/pos';
+import { prepare } from '@/routes/pos/checkout';
 import type { BreadcrumbItem } from '@/types';
 
 type Option = { value: string; label: string; description?: string };
@@ -71,7 +72,7 @@ type Sale = {
     completed_at: string | null;
     payments: { method: string; amount: string }[];
 };
-type CartLine = {
+export type CartLine = {
     inventory_item_id: string;
     unit_of_measure_id: string;
     quantity: string;
@@ -84,13 +85,14 @@ type CartDetail = {
     gross: number;
     total: number;
 };
-type Props = {
+export type Props = {
     branches: (Option & { currency_code: string })[];
     stores: Option[];
     priceLists: Option[];
     customers: Option[];
     paymentMethods: Option[];
     checkoutKey: string;
+    draft?: { lines: CartLine[] } | null;
     items: Item[];
     sales: Sale[];
     selected: {
@@ -100,6 +102,7 @@ type Props = {
         currency_code: string;
     };
     can: {
+        sell: boolean;
         changeBranch: boolean;
         changeStore: boolean;
         changePriceList: boolean;
@@ -108,18 +111,21 @@ type Props = {
     };
 };
 
-const breadcrumbs: BreadcrumbItem[] = [{ title: 'POS', href: '/pos' }];
+const breadcrumbs: BreadcrumbItem[] = [{ title: 'POS', href: posIndex.url() }];
 
 export default function PosIndex(props: Props) {
-    const confirm = useConfirmDialog();
     const [tab, setTab] = useState('sale');
     const [search, setSearch] = useState('');
     const [category, setCategory] = useState('all');
-    const [customerId, setCustomerId] = useState('');
-    const [method, setMethod] = useState('cash');
-    const [reference, setReference] = useState('');
-    const [paymentAmount, setPaymentAmount] = useState<string | null>(null);
-    const [cart, setCart] = useState<CartLine[]>([]);
+    const restoredCart = props.draft?.lines ?? [];
+    const validCart = restoredCart.filter((line) =>
+        props.items.some(
+            (item) =>
+                item.id === line.inventory_item_id &&
+                item.units.some((unit) => unit.id === line.unit_of_measure_id),
+        ),
+    );
+    const [cart, setCart] = useState<CartLine[]>(validCart);
     const form = useForm({
         checkout_key: props.checkoutKey,
         branch_id: props.selected.branch_id,
@@ -172,12 +178,6 @@ export default function PosIndex(props: Props) {
         0,
     );
     const total = Math.max(subtotal - discount, 0);
-    const enteredPaymentAmount =
-        paymentAmount === null ? total : Number(paymentAmount || 0);
-    const paidAmount = Number.isFinite(enteredPaymentAmount)
-        ? enteredPaymentAmount
-        : 0;
-    const balanceDue = Math.max(total - paidAmount, 0);
     const itemCount = details.reduce(
         (sum, row) => sum + Number(row.line.quantity || 0),
         0,
@@ -188,7 +188,7 @@ export default function PosIndex(props: Props) {
         value: string,
     ) {
         router.get(
-            '/pos',
+            posIndex.url(),
             {
                 branch_id:
                     key === 'branch_id' ? value : props.selected.branch_id,
@@ -241,29 +241,8 @@ export default function PosIndex(props: Props) {
     }
     function checkout() {
         if (cart.length === 0 || total <= 0) return;
-        confirm({
-            title: 'Complete this sale?',
-            description: `${cart.length} item line${cart.length === 1 ? '' : 's'} will reduce stock. ${formatCurrencyAmount(props.selected.currency_code, paidAmount)} will be collected now${balanceDue > 0 ? ` and ${formatCurrencyAmount(props.selected.currency_code, balanceDue)} will remain due` : ''}.`,
-            confirmLabel: 'Complete sale',
-            onConfirm: () => {
-                form.transform((data) => ({
-                    ...data,
-                    customer_id: customerId,
-                    lines: cart,
-                    payments:
-                        paidAmount > 0
-                            ? [
-                                  {
-                                      method,
-                                      amount: paidAmount.toFixed(4),
-                                      reference,
-                                  },
-                              ]
-                            : [],
-                }));
-                form.post('/pos', { preserveScroll: true });
-            },
-        });
+        form.transform((data) => ({ ...data, lines: cart }));
+        form.post(prepare.url());
     }
 
     return (
@@ -327,40 +306,20 @@ export default function PosIndex(props: Props) {
                                 discount={discount}
                                 total={total}
                                 canDiscount={props.can.discount}
-                                canSellOnCredit={props.can.sellOnCredit}
-                                customers={props.customers}
-                                paymentMethods={props.paymentMethods}
-                                customerId={customerId}
-                                method={method}
-                                reference={reference}
-                                paymentAmount={paymentAmount}
-                                paidAmount={paidAmount}
-                                balanceDue={balanceDue}
                                 processing={form.processing}
                                 error={
-                                    form.errors.lines ??
-                                    form.errors.payments ??
-                                    form.errors.customer_id ??
-                                    form.errors.inventory_store_id
+                                    Object.values(form.errors)[0] ??
+                                    (restoredCart.length !== validCart.length
+                                        ? 'Unavailable items were removed from the cart. Review it before checkout.'
+                                        : undefined)
                                 }
                                 checkoutDisabled={
                                     cart.length === 0 ||
                                     total <= 0 ||
                                     !props.selected.store_id ||
                                     !props.selected.price_list_id ||
-                                    (paidAmount > 0 &&
-                                        method !== 'cash' &&
-                                        reference.trim() === '') ||
-                                    paidAmount < 0 ||
-                                    paidAmount > total ||
-                                    (balanceDue > 0 &&
-                                        (!props.can.sellOnCredit ||
-                                            customerId === ''))
+                                    !props.can.sell
                                 }
-                                onCustomerChange={setCustomerId}
-                                onMethodChange={setMethod}
-                                onReferenceChange={setReference}
-                                onPaymentAmountChange={setPaymentAmount}
                                 onUpdate={update}
                                 onRemove={(index) =>
                                     setCart(
@@ -553,22 +512,9 @@ function PosCartDrawer({
     discount,
     total,
     canDiscount,
-    canSellOnCredit,
-    customers,
-    paymentMethods,
-    customerId,
-    method,
-    reference,
-    paymentAmount,
-    paidAmount,
-    balanceDue,
     processing,
     error,
     checkoutDisabled,
-    onCustomerChange,
-    onMethodChange,
-    onReferenceChange,
-    onPaymentAmountChange,
     onUpdate,
     onRemove,
     onCheckout,
@@ -580,22 +526,9 @@ function PosCartDrawer({
     discount: number;
     total: number;
     canDiscount: boolean;
-    canSellOnCredit: boolean;
-    customers: Option[];
-    paymentMethods: Option[];
-    customerId: string;
-    method: string;
-    reference: string;
-    paymentAmount: string | null;
-    paidAmount: number;
-    balanceDue: number;
     processing: boolean;
     error?: string;
     checkoutDisabled: boolean;
-    onCustomerChange: (value: string) => void;
-    onMethodChange: (value: string) => void;
-    onReferenceChange: (value: string) => void;
-    onPaymentAmountChange: (value: string | null) => void;
     onUpdate: (index: number, values: Partial<CartLine>) => void;
     onRemove: (index: number) => void;
     onCheckout: () => void;
@@ -626,7 +559,7 @@ function PosCartDrawer({
                         </Badge>
                     </DrawerTitle>
                     <DrawerDescription>
-                        Review quantities and collect payment.
+                        Review items, quantities, and discounts before checkout.
                     </DrawerDescription>
                 </DrawerHeader>
 
@@ -827,90 +760,6 @@ function PosCartDrawer({
                                 strong
                             />
                         </div>
-                        <Field label="Customer">
-                            <SearchableSelect
-                                value={customerId}
-                                onValueChange={onCustomerChange}
-                                options={[
-                                    {
-                                        value: '',
-                                        label: 'Walk-in customer',
-                                    },
-                                    ...customers,
-                                ]}
-                                placeholder="Walk-in customer"
-                            />
-                        </Field>
-                        <Field label="Amount paid" required>
-                            <Input
-                                type="number"
-                                min="0"
-                                max={total}
-                                step="0.01"
-                                value={
-                                    paymentAmount ??
-                                    (total > 0 ? total.toFixed(2) : '')
-                                }
-                                onChange={(event) =>
-                                    onPaymentAmountChange(event.target.value)
-                                }
-                            />
-                            {balanceDue > 0 && (
-                                <p
-                                    className={`text-xs ${canSellOnCredit ? 'text-muted-foreground' : 'text-destructive'}`}
-                                >
-                                    {canSellOnCredit
-                                        ? `The remaining ${formatCurrencyAmount(currencyCode, balanceDue)} will be recorded as customer credit.`
-                                        : 'You do not have permission to leave a customer balance.'}
-                                </p>
-                            )}
-                        </Field>
-                        {paidAmount > 0 && (
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <Field label="Payment method">
-                                    <SearchableSelect
-                                        value={method}
-                                        onValueChange={onMethodChange}
-                                        options={paymentMethods}
-                                    />
-                                </Field>
-                                <Field
-                                    label="Payment reference"
-                                    required={method !== 'cash'}
-                                >
-                                    <Input
-                                        value={reference}
-                                        onChange={(event) =>
-                                            onReferenceChange(
-                                                event.target.value,
-                                            )
-                                        }
-                                        placeholder={
-                                            method === 'cash'
-                                                ? 'Optional'
-                                                : 'Required'
-                                        }
-                                    />
-                                </Field>
-                            </div>
-                        )}
-                        <div className="space-y-1 border-t pt-3 text-sm">
-                            <Total
-                                label="Paid now"
-                                value={formatCurrencyAmount(
-                                    currencyCode,
-                                    paidAmount,
-                                )}
-                            />
-                            <Total
-                                label="Balance due"
-                                value={formatCurrencyAmount(
-                                    currencyCode,
-                                    balanceDue,
-                                )}
-                                strong={balanceDue > 0}
-                            />
-                        </div>
                         <InputError message={error} />
                         <Button
                             type="button"
@@ -918,7 +767,7 @@ function PosCartDrawer({
                             disabled={processing || checkoutDisabled}
                             onClick={onCheckout}
                         >
-                            Complete sale ·{' '}
+                            Continue to checkout ·{' '}
                             {formatCurrencyAmount(currencyCode, total)}
                         </Button>
                     </div>

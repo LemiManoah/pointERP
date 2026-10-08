@@ -21,16 +21,17 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string $id
  * @property-read string $tenant_id
  * @property-read string $branch_id
- * @property-read string $staff_position_id
+ * @property-read string|null $staff_position_id
+ * @property-read string $person_category
  * @property-read StaffEmploymentType $employment_type
  * @property-read string|null $primary_trade_id
  * @property-read string $staff_number
  * @property-read string $name
- * @property-read string $email
+ * @property-read string|null $email
  * @property-read string|null $phone
  * @property-read string $status
  * @property-read Branch $branch
- * @property-read StaffPosition $position
+ * @property-read StaffPosition|null $position
  * @property-read WorkforceTrade|null $primaryTrade
  * @property-read User|null $user
  * @property-read CarbonInterface $created_at
@@ -38,6 +39,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 #[Fillable([
     'tenant_id',
+    'person_category',
     'branch_id',
     'staff_position_id',
     'employment_type',
@@ -56,6 +58,8 @@ final class Staff extends Model
 
     use HasUuids;
     use SoftDeletes;
+
+    protected $attributes = ['person_category' => 'company_staff'];
 
     /** @return array<string, string> */
     public function casts(): array

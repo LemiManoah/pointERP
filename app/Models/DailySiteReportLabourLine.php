@@ -26,13 +26,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read string|null $hours
  * @property-read WorkforceTrade|null $trade
  */
-#[Fillable(['tenant_id', 'branch_id', 'daily_site_report_id', 'labour_source', 'subcontractor_id', 'workforce_trade_id', 'trade_or_role', 'subcontractor_name', 'headcount', 'hours', 'rate_amount', 'amount', 'currency_code', 'notes', 'sort_order'])]
+#[Fillable(['work_type', 'tenant_id', 'branch_id', 'daily_site_report_id', 'labour_source', 'subcontractor_id', 'workforce_trade_id', 'trade_or_role', 'subcontractor_name', 'headcount', 'hours', 'rate_amount', 'amount', 'currency_code', 'notes', 'sort_order'])]
 final class DailySiteReportLabourLine extends Model
 {
     /** @use HasFactory<Factory<DailySiteReportLabourLine>> */
     use HasFactory;
 
     use HasUuids;
+
+    protected $attributes = ['work_type' => 'ordinary'];
 
     /**
      * @return array<string, string>

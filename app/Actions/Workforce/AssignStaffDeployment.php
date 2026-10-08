@@ -51,7 +51,11 @@ final readonly class AssignStaffDeployment
         }
 
         return DB::transaction(function () use ($actor, $data, $project, $site, $staff, $startsOn, $tenantId, $trade): StaffDeployment {
-            Staff::query()->whereKey($staff->id)->lockForUpdate()->firstOrFail();
+            $project = Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
+            $staff = Staff::query()->whereKey($staff->id)->lockForUpdate()->firstOrFail();
+            if ($project->status !== 'active' || $staff->status !== 'active') {
+                throw ValidationException::withMessages(['staff_id' => 'The project and person must both be active before assignment.']);
+            }
 
             $current = StaffDeployment::query()
                 ->where('tenant_id', $tenantId)

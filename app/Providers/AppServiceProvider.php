@@ -87,6 +87,7 @@ use App\Services\BranchContext;
 use App\Services\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Support\ServiceProvider;
 
 final class AppServiceProvider extends ServiceProvider
@@ -100,6 +101,8 @@ final class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Password::defaults(fn (): Password => Password::min(6));
+
         if ($this->app->environment('production')) {
             DB::prohibitDestructiveCommands();
         }

@@ -1,8 +1,31 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ArrowLeft, Check, Layers, Plus, Search, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import {
+    ArrowLeft,
+    Check,
+    Eye,
+    Pencil,
+    Layers,
+    Plus,
+    Search,
+    Trash2,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { toast } from 'sonner';
+import { show as showBoq } from '@/actions/App/Http/Controllers/Operations/ProjectBoqController';
+import {
+    index as projectIndex,
+    show as projectShow,
+} from '@/actions/App/Http/Controllers/Operations/ProjectController';
+import approveEstimate from '@/actions/App/Http/Controllers/Operations/ProjectEstimateApprovalController';
+import {
+    create,
+    store,
+    show,
+    update,
+    destroy,
+} from '@/actions/App/Http/Controllers/Operations/ProjectEstimateController';
+import { index as importBoq } from '@/actions/App/Http/Controllers/Operations/ProjectEstimateImportController';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import InputError from '@/components/input-error';
 import { SearchableSelect } from '@/components/searchable-select';
@@ -23,12 +46,22 @@ import {
     NativeSelectOption,
 } from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
+import { boqAmount } from '@/lib/boq-calculations';
 import { formatCurrencyAmount } from '@/lib/utils';
+import { createUuid } from '@/lib/uuid';
 import type { BreadcrumbItem } from '@/types';
 
-type Option = { value: string; label: string };
+type Option = { value: string; label: string; dimension?: string };
 type ItemOption = Option & { unit_id: string; unit_cost: string | null };
 type Resource = {
     resource_type: string;
@@ -43,6 +76,20 @@ type Resource = {
     notes: string;
 };
 type EstimateLine = {
+    percentage_rate: string;
+    percentage_base_keys: string[];
+    daywork_resource_type: string;
+    daywork_inventory_item_id: string;
+    daywork_equipment_category_id: string;
+    daywork_workforce_trade_id: string;
+    bill: string;
+    section: string;
+    element: string;
+    item_type: string;
+    description: string;
+    source_document: string;
+    source_sheet: string;
+    source_row: string;
     work_item_key: string | null;
     site_id: string;
     unit_of_measure_id: string;
@@ -67,7 +114,32 @@ type Estimate = {
     approved_by: string | null;
     approved_at: string | null;
     lines: Array<
-        Omit<EstimateLine, 'site_id' | 'boq_reference' | 'code' | 'notes'> & {
+        Omit<
+            EstimateLine,
+            | 'site_id'
+            | 'boq_reference'
+            | 'code'
+            | 'notes'
+            | 'bill'
+            | 'section'
+            | 'element'
+            | 'description'
+            | 'source_document'
+            | 'source_sheet'
+            | 'source_row'
+            | 'selling_rate'
+            | 'estimated_unit_cost'
+            | 'resources'
+        > & {
+            bill: string | null;
+            section: string | null;
+            element: string | null;
+            description: string | null;
+            source_document: string | null;
+            source_sheet: string | null;
+            source_row: number | null;
+            selling_rate: string | null;
+            estimated_unit_cost: string | null;
             site_id: string | null;
             boq_reference: string | null;
             code: string | null;
@@ -132,6 +204,7 @@ type Props = {
     workforceTrades: Option[];
     subcontractors: Option[];
     resourceTypes: Option[];
+    itemTypes: Option[];
     templates?: WorkItemTemplate[];
     can: { update: boolean; approve: boolean; viewCosts: boolean };
 };
@@ -153,7 +226,21 @@ function blankResource(): Resource {
 
 function blankLine(): EstimateLine {
     return {
-        work_item_key: null,
+        percentage_rate: '',
+        percentage_base_keys: [],
+        daywork_resource_type: '',
+        daywork_inventory_item_id: '',
+        daywork_equipment_category_id: '',
+        daywork_workforce_trade_id: '',
+        bill: '',
+        section: '',
+        element: '',
+        item_type: 'measured',
+        description: '',
+        source_document: '',
+        source_sheet: '',
+        source_row: '',
+        work_item_key: createUuid(),
         site_id: '',
         unit_of_measure_id: '',
         boq_reference: '',
@@ -168,10 +255,24 @@ function blankLine(): EstimateLine {
 }
 
 function linesFrom(record: Estimate | null): EstimateLine[] {
-    if (!record || record.lines.length === 0) return [blankLine()];
+    if (!record || record.lines.length === 0) return [];
 
     return record.lines.map((line) => ({
         ...line,
+        bill: line.bill ?? '',
+        section: line.section ?? '',
+        element: line.element ?? '',
+        item_type: line.item_type ?? 'measured',
+        percentage_rate: line.percentage_rate ?? '',
+        percentage_base_keys: line.percentage_base_keys ?? [],
+        daywork_resource_type: line.daywork_resource_type ?? '',
+        daywork_inventory_item_id: line.daywork_inventory_item_id ?? '',
+        daywork_equipment_category_id: line.daywork_equipment_category_id ?? '',
+        daywork_workforce_trade_id: line.daywork_workforce_trade_id ?? '',
+        description: line.description ?? '',
+        source_document: line.source_document ?? '',
+        source_sheet: line.source_sheet ?? '',
+        source_row: line.source_row == null ? '' : String(line.source_row),
         site_id: line.site_id ?? '',
         boq_reference: line.boq_reference ?? '',
         code: line.code ?? '',
@@ -199,6 +300,7 @@ export default function EstimateEditor({
     workforceTrades,
     subcontractors,
     resourceTypes,
+    itemTypes,
     templates = [],
     can,
 }: Props) {
@@ -207,6 +309,17 @@ export default function EstimateEditor({
     const [targetLineIndex, setTargetLineIndex] = useState<number | null>(null);
     const [librarySearch, setLibrarySearch] = useState('');
     const [libraryCategory, setLibraryCategory] = useState('');
+    const [editingIndex, setEditingIndex] = useState<number | null>(null);
+    const [pendingEditorIndex, setPendingEditorIndex] = useState<number | null>(
+        null,
+    );
+    const [lineSnapshot, setLineSnapshot] = useState<EstimateLine | null>(null);
+    const [viewingIndex, setViewingIndex] = useState<number | null>(null);
+    const [editingHeader, setEditingHeader] = useState(false);
+    const [headerSnapshot, setHeaderSnapshot] = useState({
+        title: '',
+        notes: '',
+    });
 
     const templateCategories = useMemo(() => {
         return Array.from(new Set(templates.map((t) => t.category))).sort();
@@ -230,7 +343,7 @@ export default function EstimateEditor({
     const seed = estimate ?? source;
     const editable = estimate === null || can.update;
     const form = useForm({
-        title: estimate?.title ?? source?.title ?? `${project.name} estimate`,
+        title: estimate?.title ?? source?.title ?? `${project.name} BOQ`,
         currency_code:
             estimate?.currency_code ??
             source?.currency_code ??
@@ -238,17 +351,24 @@ export default function EstimateEditor({
         notes: estimate?.notes ?? source?.notes ?? '',
         lines: linesFrom(seed),
     });
+    useEffect(() => {
+        if (
+            pendingEditorIndex !== null &&
+            !libraryModalOpen &&
+            form.data.lines[pendingEditorIndex]
+        ) {
+            setEditingIndex(pendingEditorIndex);
+            setPendingEditorIndex(null);
+        }
+    }, [pendingEditorIndex, libraryModalOpen, form.data.lines]);
     const errors = form.errors as Record<string, string | undefined>;
     const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Projects', href: '/projects' },
-        { title: project.reference, href: `/projects/${project.id}` },
+        { title: 'Projects', href: projectIndex.url() },
+        { title: project.reference, href: projectShow.url(project.id) },
+        { title: 'BOQ', href: showBoq.url(project.id) },
         {
-            title: estimate
-                ? `Estimate v${estimate.version_number}`
-                : 'New estimate',
-            href: estimate
-                ? `/estimates/${estimate.id}`
-                : `/projects/${project.id}/estimates/create`,
+            title: estimate ? `BOQ v${estimate.version_number}` : 'New BOQ',
+            href: estimate ? show.url(estimate.id) : create.url(project.id),
         },
     ];
 
@@ -271,6 +391,9 @@ export default function EstimateEditor({
         if (targetLineIndex !== null && form.data.lines[targetLineIndex]) {
             updateLine(targetLineIndex, {
                 name: template.name,
+                description:
+                    template.specifications ??
+                    form.data.lines[targetLineIndex].description,
                 code: template.code ?? '',
                 unit_of_measure_id: template.unit_of_measure_id,
                 selling_rate: template.default_selling_rate
@@ -281,12 +404,16 @@ export default function EstimateEditor({
                     : form.data.lines[targetLineIndex].estimated_unit_cost,
                 resources: mappedResources,
             });
+            setPendingEditorIndex(targetLineIndex);
         } else {
+            setLineSnapshot(null);
+            setPendingEditorIndex(form.data.lines.length);
             form.setData('lines', [
                 ...form.data.lines,
                 {
                     ...blankLine(),
                     name: template.name,
+                    description: template.specifications ?? '',
                     code: template.code ?? '',
                     unit_of_measure_id: template.unit_of_measure_id,
                     selling_rate: template.default_selling_rate
@@ -302,6 +429,37 @@ export default function EstimateEditor({
 
         setLibraryModalOpen(false);
         setTargetLineIndex(null);
+        toast.success(
+            'Template added to the draft. Review the BOQ item and save the BOQ.',
+        );
+    }
+
+    function editItem(index: number) {
+        setLineSnapshot(structuredClone(form.data.lines[index]));
+        setEditingIndex(index);
+    }
+
+    function addItem() {
+        const index = form.data.lines.length;
+        form.setData('lines', [...form.data.lines, blankLine()]);
+        setLineSnapshot(null);
+        setPendingEditorIndex(index);
+    }
+
+    function cancelItem() {
+        if (editingIndex !== null) {
+            form.setData(
+                'lines',
+                lineSnapshot
+                    ? form.data.lines.map((line, index) =>
+                          index === editingIndex ? lineSnapshot : line,
+                      )
+                    : form.data.lines.filter(
+                          (_, index) => index !== editingIndex,
+                      ),
+            );
+        }
+        setEditingIndex(null);
     }
 
     function updateLine(index: number, values: Partial<EstimateLine>) {
@@ -331,27 +489,51 @@ export default function EstimateEditor({
 
         const options = {
             preserveScroll: true,
+            onSuccess: () => form.setDefaults(),
             onError: (submissionErrors: Record<string, string>) => {
+                const lineError = Object.keys(submissionErrors).find((key) =>
+                    /^lines\.\d+\./.test(key),
+                );
+                if (lineError) editItem(Number(lineError.split('.')[1]));
+                else if (submissionErrors.title || submissionErrors.notes) {
+                    setHeaderSnapshot({
+                        title: form.data.title,
+                        notes: form.data.notes,
+                    });
+                    setEditingHeader(true);
+                }
                 toast.error(
                     String(
                         Object.values(submissionErrors)[0] ??
-                            'The estimate could not be saved. Check the highlighted fields.',
+                            'The BOQ could not be saved. Check the highlighted fields.',
                     ),
                 );
             },
         };
 
         if (estimate) {
-            form.put(`/estimates/${estimate.id}`, options);
+            form.put(update.url(estimate.id), options);
         } else {
-            form.post(`/projects/${project.id}/estimates`, options);
+            form.post(store.url(project.id), options);
         }
     }
 
+    const pricedCount = form.data.lines.filter(
+        (line) => boqAmount(line, form.data.lines) !== null,
+    ).length;
+    const fullyPriced =
+        form.data.lines.length > 0 && pricedCount === form.data.lines.length;
+    const fullyCosted =
+        form.data.lines.length > 0 &&
+        form.data.lines.every((line) => line.estimated_unit_cost.trim() !== '');
+    const pricingLabel =
+        pricedCount === 0
+            ? 'Unpriced'
+            : fullyPriced
+              ? 'Fully priced'
+              : 'Partially priced';
     const baselineRevenue = form.data.lines.reduce(
-        (sum, line) =>
-            sum +
-            Number(line.planned_quantity || 0) * Number(line.selling_rate || 0),
+        (sum, line) => sum + (boqAmount(line, form.data.lines) ?? 0),
         0,
     );
     const baselineCost = form.data.lines.reduce(
@@ -364,8 +546,9 @@ export default function EstimateEditor({
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title={estimate ? estimate.title : 'New estimate'} />
+            <Head title={estimate ? estimate.title : 'New BOQ'} />
             <form
+                id="boq-revision-form"
                 onSubmit={submit}
                 className="flex flex-1 flex-col gap-6 p-4 md:p-6"
             >
@@ -374,10 +557,10 @@ export default function EstimateEditor({
                         <div className="flex flex-wrap items-center gap-2">
                             <h1 className="text-2xl font-semibold">
                                 {estimate
-                                    ? `Estimate version ${estimate.version_number}`
+                                    ? `BOQ revision ${estimate.version_number}`
                                     : source
-                                      ? 'New estimate revision'
-                                      : 'New project estimate'}
+                                      ? 'New BOQ revision'
+                                      : 'New BOQ'}
                             </h1>
                             {estimate?.status_label && (
                                 <Badge
@@ -397,11 +580,18 @@ export default function EstimateEditor({
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
                         <Button asChild type="button" variant="outline">
-                            <Link href={`/projects/${project.id}`}>
+                            <Link href={showBoq.url(project.id)}>
                                 <ArrowLeft />
-                                Project
+                                Back to BOQ
                             </Link>
                         </Button>
+                        {editable && (
+                            <Button asChild type="button" variant="outline">
+                                <Link href={importBoq.url(project.id)}>
+                                    Import Excel BOQ
+                                </Link>
+                            </Button>
+                        )}
                         {estimate?.status === 'draft' && editable && (
                             <Button
                                 type="button"
@@ -410,12 +600,12 @@ export default function EstimateEditor({
                                     confirm({
                                         title: 'Delete this draft?',
                                         description:
-                                            'The draft estimate and its work assumptions will be permanently removed.',
+                                            'The draft BOQ and its work assumptions will be permanently removed.',
                                         confirmLabel: 'Delete draft',
                                         variant: 'destructive',
                                         onConfirm: () =>
                                             router.delete(
-                                                `/estimates/${estimate.id}`,
+                                                destroy.url(estimate.id),
                                             ),
                                     })
                                 }
@@ -427,21 +617,31 @@ export default function EstimateEditor({
                         {can.approve && estimate?.status === 'draft' && (
                             <Button
                                 type="button"
+                                disabled={form.isDirty || form.processing}
+                                title={
+                                    form.isDirty
+                                        ? 'Save the revision before approving it'
+                                        : undefined
+                                }
                                 onClick={() =>
                                     confirm({
                                         title: 'Approve this baseline?',
                                         description:
-                                            'This version will become the project baseline and its estimate lines will become the work activities used by daily reports.',
+                                            'This revision will become the approved BOQ baseline. Measured items use approved activity output. Dayworks use approved labour, equipment or material usage already recorded in Daily Site Reports. Missing rates remain unpriced.',
                                         confirmLabel: 'Approve baseline',
                                         onConfirm: () =>
                                             router.post(
-                                                `/estimates/${estimate.id}/approve`,
+                                                approveEstimate.url(
+                                                    estimate.id,
+                                                ),
                                             ),
                                     })
                                 }
                             >
                                 <Check />
-                                Approve baseline
+                                {form.isDirty
+                                    ? 'Save before approval'
+                                    : 'Approve baseline'}
                             </Button>
                         )}
                     </div>
@@ -449,74 +649,179 @@ export default function EstimateEditor({
 
                 <Card>
                     <CardContent className="grid gap-6 pt-6">
-                        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_12rem]">
-                            <div className="grid gap-2">
-                                <Label htmlFor="title" required>
-                                    Estimate title
-                                </Label>
-                                <Input
-                                    id="title"
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                            <dl className="grid flex-1 gap-4 sm:grid-cols-3">
+                                <Info
+                                    label="BOQ title"
                                     value={form.data.title}
-                                    disabled={!editable}
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'title',
-                                            event.target.value,
-                                        )
+                                />
+                                <Info
+                                    label="Currency"
+                                    value={form.data.currency_code}
+                                />
+                                <Info
+                                    label="Approval"
+                                    value={
+                                        estimate?.approved_by
+                                            ? `${estimate.approved_by} · ${estimate.approved_at ?? ''}`
+                                            : 'Not approved'
                                     }
                                 />
-                                <InputError message={form.errors.title} />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label>Currency</Label>
-                                <Input
-                                    value={form.data.currency_code}
-                                    disabled
-                                />
-                            </div>
+                                <div className="sm:col-span-3">
+                                    <Info
+                                        label="Notes"
+                                        value={form.data.notes}
+                                    />
+                                </div>
+                            </dl>
+                            {editable && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => {
+                                        setHeaderSnapshot({
+                                            title: form.data.title,
+                                            notes: form.data.notes,
+                                        });
+                                        setEditingHeader(true);
+                                    }}
+                                >
+                                    <Pencil />
+                                    Edit revision details
+                                </Button>
+                            )}
                         </div>
+                        <Dialog
+                            open={editingHeader}
+                            onOpenChange={(open) => {
+                                if (!open) {
+                                    form.setData({
+                                        ...form.data,
+                                        ...headerSnapshot,
+                                    });
+                                    setEditingHeader(false);
+                                }
+                            }}
+                        >
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>
+                                        Edit revision details
+                                    </DialogTitle>
+                                    <DialogDescription>
+                                        Apply changes, then save the BOQ
+                                        revision.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_12rem]">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="title" required>
+                                            BOQ title
+                                        </Label>
+                                        <Input
+                                            id="title"
+                                            value={form.data.title}
+                                            disabled={!editable}
+                                            onChange={(event) =>
+                                                form.setData(
+                                                    'title',
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                        <InputError
+                                            message={form.errors.title}
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>Currency</Label>
+                                        <Input
+                                            value={form.data.currency_code}
+                                            disabled
+                                        />
+                                    </div>
+                                </div>
 
+                                <div className="grid gap-2">
+                                    <Label htmlFor="notes">Notes</Label>
+                                    <Textarea
+                                        id="notes"
+                                        value={form.data.notes}
+                                        disabled={!editable}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'notes',
+                                                event.target.value,
+                                            )
+                                        }
+                                    />
+                                    <InputError message={form.errors.notes} />
+                                </div>
+
+                                <Button
+                                    type="button"
+                                    onClick={() => setEditingHeader(false)}
+                                >
+                                    Apply changes
+                                </Button>
+                            </DialogContent>
+                        </Dialog>
                         {can.viewCosts && (
                             <div className="grid gap-4 sm:grid-cols-3">
                                 <Metric
-                                    label="Estimated revenue"
-                                    value={formatCurrencyAmount(
-                                        form.data.currency_code,
-                                        baselineRevenue,
-                                    )}
+                                    label="BOQ value"
+                                    value={
+                                        fullyPriced
+                                            ? formatCurrencyAmount(
+                                                  form.data.currency_code,
+                                                  baselineRevenue,
+                                              )
+                                            : pricingLabel
+                                    }
                                 />
                                 <Metric
-                                    label="Estimated cost"
-                                    value={formatCurrencyAmount(
-                                        form.data.currency_code,
-                                        baselineCost,
-                                    )}
+                                    label="Internal cost"
+                                    value={
+                                        fullyCosted
+                                            ? formatCurrencyAmount(
+                                                  form.data.currency_code,
+                                                  baselineCost,
+                                              )
+                                            : 'Costing incomplete'
+                                    }
                                 />
                                 <Metric
-                                    label="Estimated margin"
-                                    value={formatCurrencyAmount(
-                                        form.data.currency_code,
-                                        baselineRevenue - baselineCost,
-                                    )}
+                                    label="Expected margin"
+                                    value={
+                                        fullyPriced && fullyCosted
+                                            ? formatCurrencyAmount(
+                                                  form.data.currency_code,
+                                                  baselineRevenue -
+                                                      baselineCost,
+                                              )
+                                            : 'Not available'
+                                    }
                                 />
                             </div>
                         )}
 
-                        <div className="grid gap-2">
-                            <Label htmlFor="notes">Notes</Label>
-                            <Textarea
-                                id="notes"
-                                value={form.data.notes}
-                                disabled={!editable}
-                                onChange={(event) =>
-                                    form.setData('notes', event.target.value)
-                                }
-                            />
-                            <InputError message={form.errors.notes} />
-                        </div>
-
+                        {can.viewCosts && (
+                            <p className="text-sm text-muted-foreground">
+                                <Badge variant="secondary">
+                                    {pricingLabel}
+                                </Badge>{' '}
+                                {pricedCount} of {form.data.lines.length} items
+                                priced. Blank rates remain unpriced; enter 0
+                                only for a confirmed zero rate. Quantity
+                                baselines can be approved before pricing is
+                                complete.
+                            </p>
+                        )}
                         <div className="flex items-center justify-between gap-3 border-t pt-5">
-                            <h2 className="font-semibold">Estimate lines</h2>
+                            <h2 className="font-semibold">BOQ items</h2>
+                            {form.isDirty && (
+                                <Badge variant="outline">Unsaved changes</Badge>
+                            )}
                             {editable && (
                                 <div className="flex items-center gap-2">
                                     <Button
@@ -529,17 +834,12 @@ export default function EstimateEditor({
                                         }}
                                     >
                                         <Layers className="size-4" />
-                                        Pick from Library
+                                        Use library template
                                     </Button>
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        onClick={() =>
-                                            form.setData('lines', [
-                                                ...form.data.lines,
-                                                blankLine(),
-                                            ])
-                                        }
+                                        onClick={addItem}
                                     >
                                         <Plus />
                                         Add custom item
@@ -548,536 +848,792 @@ export default function EstimateEditor({
                             )}
                         </div>
 
-                        <div className="grid gap-6">
-                            {form.data.lines.map((line, lineIndex) => (
-                                <section
-                                    key={`${line.work_item_key ?? 'new'}-${lineIndex}`}
-                                    className="grid gap-4 border-b pb-6 last:border-0 last:pb-0"
-                                >
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div className="flex items-center gap-3">
-                                            <h3 className="font-medium">
-                                                Estimate line {lineIndex + 1}
-                                            </h3>
-                                            {editable && (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>BOQ item</TableHead>
+                                    <TableHead>Unit</TableHead>
+                                    <TableHead className="text-right">
+                                        Quantity
+                                    </TableHead>
+                                    {can.viewCosts && (
+                                        <>
+                                            <TableHead className="text-right">
+                                                Rate
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                Amount
+                                            </TableHead>
+                                        </>
+                                    )}
+                                    <TableHead>Item type</TableHead>
+                                    <TableHead className="text-right">
+                                        Actions
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {form.data.lines.map((line, index) => (
+                                    <TableRow key={line.work_item_key ?? index}>
+                                        <TableCell className="min-w-56 whitespace-normal">
+                                            <div className="font-medium">
+                                                {line.boq_reference
+                                                    ? `${line.boq_reference} · `
+                                                    : ''}
+                                                {line.name || 'New BOQ item'}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {[
+                                                    line.bill,
+                                                    line.section,
+                                                    line.element,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' / ')}
+                                            </div>
+                                            {Object.keys(errors).some((key) =>
+                                                key.startsWith(
+                                                    `lines.${index}.`,
+                                                ),
+                                            ) && (
+                                                <div className="text-xs text-destructive">
+                                                    Needs correction — open Edit
+                                                </div>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            {units.find(
+                                                (unit) =>
+                                                    unit.value ===
+                                                    line.unit_of_measure_id,
+                                            )?.label ?? '—'}
+                                        </TableCell>
+                                        <TableCell className="text-right tabular-nums">
+                                            {line.planned_quantity || '—'}
+                                        </TableCell>
+                                        {can.viewCosts && (
+                                            <>
+                                                <TableCell className="text-right tabular-nums">
+                                                    {line.item_type ===
+                                                    'percentage_adjustment'
+                                                        ? line.percentage_rate ===
+                                                          ''
+                                                            ? 'Unpriced'
+                                                            : `${line.percentage_rate}%`
+                                                        : line.selling_rate ===
+                                                            ''
+                                                          ? 'Unpriced'
+                                                          : formatCurrencyAmount(
+                                                                form.data
+                                                                    .currency_code,
+                                                                Number(
+                                                                    line.selling_rate,
+                                                                ),
+                                                            )}
+                                                </TableCell>
+                                                <TableCell className="text-right tabular-nums">
+                                                    {boqAmount(
+                                                        line,
+                                                        form.data.lines,
+                                                    ) === null
+                                                        ? 'Not available'
+                                                        : formatCurrencyAmount(
+                                                              form.data
+                                                                  .currency_code,
+                                                              boqAmount(
+                                                                  line,
+                                                                  form.data
+                                                                      .lines,
+                                                              )!,
+                                                          )}
+                                                </TableCell>
+                                            </>
+                                        )}
+                                        <TableCell>
+                                            <Badge variant="secondary">
+                                                {itemTypes.find(
+                                                    (type) =>
+                                                        type.value ===
+                                                        line.item_type,
+                                                )?.label ?? line.item_type}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex justify-end gap-2">
                                                 <Button
                                                     type="button"
-                                                    variant="ghost"
+                                                    variant="outline"
                                                     size="sm"
-                                                    className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                                    onClick={() =>
+                                                        setViewingIndex(index)
+                                                    }
+                                                >
+                                                    <Eye />
+                                                    View details
+                                                </Button>
+                                                {editable && (
+                                                    <>
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                editItem(index)
+                                                            }
+                                                        >
+                                                            <Pencil />
+                                                            Edit
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            aria-label={`Remove BOQ item ${line.name}`}
+                                                            onClick={() =>
+                                                                confirm({
+                                                                    title: 'Remove BOQ item?',
+                                                                    description:
+                                                                        'This removes the item from this draft. Save the revision to keep the change.',
+                                                                    confirmLabel:
+                                                                        'Remove',
+                                                                    onConfirm:
+                                                                        () =>
+                                                                            form.setData(
+                                                                                'lines',
+                                                                                form.data.lines.filter(
+                                                                                    (
+                                                                                        _,
+                                                                                        rowIndex,
+                                                                                    ) =>
+                                                                                        rowIndex !==
+                                                                                        index,
+                                                                                ),
+                                                                            ),
+                                                                })
+                                                            }
+                                                        >
+                                                            <Trash2 />
+                                                        </Button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {form.data.lines.length === 0 && (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={can.viewCosts ? 7 : 5}
+                                            className="h-24 text-center text-muted-foreground"
+                                        >
+                                            No BOQ items yet. Add an item or
+                                            pick from the library.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                        <Dialog
+                            open={editingIndex !== null}
+                            onOpenChange={(open) => {
+                                if (!open) cancelItem();
+                            }}
+                        >
+                            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
+                                <DialogHeader>
+                                    <DialogTitle>
+                                        {lineSnapshot
+                                            ? 'Edit BOQ item'
+                                            : 'Add BOQ item'}
+                                    </DialogTitle>
+                                    <DialogDescription>
+                                        Apply changes to the table, then save
+                                        the BOQ revision.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                {form.data.lines.map((line, lineIndex) =>
+                                    lineIndex === editingIndex ? (
+                                        <div
+                                            key={lineIndex}
+                                            className="grid gap-4"
+                                        >
+                                            <div className="flex justify-end">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
                                                     onClick={() => {
                                                         setTargetLineIndex(
                                                             lineIndex,
                                                         );
+                                                        setEditingIndex(null);
                                                         setLibraryModalOpen(
                                                             true,
                                                         );
                                                     }}
                                                 >
-                                                    <Layers className="size-3.5" />
+                                                    <Layers />
                                                     Load template
                                                 </Button>
-                                            )}
-                                        </div>
-                                        {editable &&
-                                            form.data.lines.length > 1 && (
-                                                <Button
-                                                    type="button"
-                                                    size="icon"
-                                                    variant="ghost"
-                                                    title="Remove estimate line"
-                                                    onClick={() =>
-                                                        form.setData(
-                                                            'lines',
-                                                            form.data.lines.filter(
-                                                                (_, index) =>
-                                                                    index !==
-                                                                    lineIndex,
-                                                            ),
-                                                        )
-                                                    }
-                                                >
-                                                    <Trash2 />
-                                                </Button>
-                                            )}
-                                    </div>
-
-                                    <div className="grid gap-4 lg:grid-cols-2">
-                                        <Field label="Activity name" required>
-                                            <Input
-                                                value={line.name}
-                                                disabled={!editable}
-                                                onChange={(event) =>
-                                                    updateLine(lineIndex, {
-                                                        name: event.target
-                                                            .value,
-                                                    })
-                                                }
-                                            />
-                                            <InputError
-                                                message={
-                                                    errors[
-                                                        `lines.${lineIndex}.name`
-                                                    ]
-                                                }
-                                            />
-                                        </Field>
-                                        <Field label="Site">
-                                            <SearchableSelect
-                                                value={line.site_id}
-                                                disabled={!editable}
-                                                onValueChange={(value) =>
-                                                    updateLine(lineIndex, {
-                                                        site_id: value,
-                                                    })
-                                                }
-                                                options={[
-                                                    {
-                                                        value: '',
-                                                        label: 'Project-wide',
-                                                    },
-                                                    ...sites,
-                                                ]}
-                                                placeholder="Project-wide"
-                                                searchPlaceholder="Search sites..."
-                                            />
-                                        </Field>
-                                    </div>
-
-                                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                                        <Field label="Unit" required>
-                                            <SearchableSelect
-                                                value={line.unit_of_measure_id}
-                                                disabled={!editable}
-                                                onValueChange={(value) =>
-                                                    updateLine(lineIndex, {
-                                                        unit_of_measure_id:
-                                                            value,
-                                                    })
-                                                }
-                                                options={units}
-                                                placeholder="Select unit"
-                                                searchPlaceholder="Search units..."
-                                            />
-                                            <InputError
-                                                message={
-                                                    errors[
-                                                        `lines.${lineIndex}.unit_of_measure_id`
-                                                    ]
-                                                }
-                                            />
-                                        </Field>
-                                        <Field
-                                            label="Estimated quantity"
-                                            required
-                                        >
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                step="any"
-                                                value={line.planned_quantity}
-                                                disabled={!editable}
-                                                onChange={(event) =>
-                                                    updateLine(lineIndex, {
-                                                        planned_quantity:
-                                                            event.target.value,
-                                                    })
-                                                }
-                                            />
-                                            <InputError
-                                                message={
-                                                    errors[
-                                                        `lines.${lineIndex}.planned_quantity`
-                                                    ]
-                                                }
-                                            />
-                                        </Field>
-                                        {can.viewCosts && (
-                                            <Field label="Selling rate">
-                                                <Input
-                                                    type="number"
-                                                    min="0"
-                                                    step="any"
-                                                    value={line.selling_rate}
-                                                    disabled={!editable}
-                                                    onChange={(event) =>
-                                                        updateLine(lineIndex, {
-                                                            selling_rate:
-                                                                event.target
-                                                                    .value,
-                                                        })
-                                                    }
-                                                />
-                                            </Field>
-                                        )}
-                                        {can.viewCosts && (
-                                            <Field label="Estimated unit cost">
-                                                <Input
-                                                    type="number"
-                                                    min="0"
-                                                    step="any"
-                                                    value={
-                                                        line.estimated_unit_cost
-                                                    }
-                                                    disabled={!editable}
-                                                    onChange={(event) =>
-                                                        updateLine(lineIndex, {
-                                                            estimated_unit_cost:
-                                                                event.target
-                                                                    .value,
-                                                        })
-                                                    }
-                                                />
-                                                {(() => {
-                                                    const resCost =
-                                                        line.resources.reduce(
-                                                            (sum, r) =>
-                                                                sum +
-                                                                (Number(
-                                                                    r.quantity_per_work_unit,
-                                                                ) || 0) *
-                                                                    (Number(
-                                                                        r.estimated_unit_cost,
-                                                                    ) || 0),
-                                                            0,
-                                                        );
-                                                    if (resCost <= 0)
-                                                        return null;
-                                                    return (
-                                                        <div className="mt-0.5 flex items-center justify-between text-[11px] text-muted-foreground">
-                                                            <span>
-                                                                Norms:{' '}
-                                                                {formatCurrencyAmount(
-                                                                    form.data
-                                                                        .currency_code,
-                                                                    resCost,
-                                                                )}
-                                                            </span>
-                                                            {editable &&
-                                                                line.estimated_unit_cost !==
-                                                                    String(
-                                                                        resCost,
-                                                                    ) && (
-                                                                    <button
-                                                                        type="button"
-                                                                        className="font-medium text-primary hover:underline"
-                                                                        onClick={() =>
-                                                                            updateLine(
-                                                                                lineIndex,
-                                                                                {
-                                                                                    estimated_unit_cost:
-                                                                                        String(
-                                                                                            resCost,
-                                                                                        ),
-                                                                                },
-                                                                            )
-                                                                        }
-                                                                    >
-                                                                        Apply
-                                                                    </button>
-                                                                )}
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </Field>
-                                        )}
-                                    </div>
-
-                                    <div className="grid gap-4 sm:grid-cols-2">
-                                        <Field label="BOQ reference">
-                                            <Input
-                                                value={line.boq_reference}
-                                                disabled={!editable}
-                                                placeholder="e.g. 31.01(b)(i)"
-                                                onChange={(event) =>
-                                                    updateLine(lineIndex, {
-                                                        boq_reference:
-                                                            event.target.value,
-                                                    })
-                                                }
-                                            />
-                                        </Field>
-                                        <Field label="Internal code">
-                                            <Input
-                                                value={line.code}
-                                                disabled={!editable}
-                                                onChange={(event) =>
-                                                    updateLine(lineIndex, {
-                                                        code: event.target
-                                                            .value,
-                                                    })
-                                                }
-                                            />
-                                        </Field>
-                                    </div>
-
-                                    <details className="group rounded-md border px-4 py-3">
-                                        <summary className="cursor-pointer font-medium">
-                                            Resource assumptions (
-                                            {line.resources.length})
-                                        </summary>
-                                        <div className="mt-4 grid gap-4">
-                                            {line.resources.map(
-                                                (resource, resourceIndex) => (
-                                                    <div
-                                                        key={resourceIndex}
-                                                        className={`grid gap-3 border-b pb-4 last:border-0 last:pb-0 ${can.viewCosts ? 'lg:grid-cols-[10rem_minmax(12rem,1fr)_minmax(10rem,1fr)_9rem_9rem_auto]' : 'lg:grid-cols-[10rem_minmax(12rem,1fr)_minmax(10rem,1fr)_9rem_auto]'}`}
+                                            </div>
+                                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                                {(
+                                                    [
+                                                        'bill',
+                                                        'section',
+                                                        'element',
+                                                    ] as const
+                                                ).map((field) => (
+                                                    <Field
+                                                        key={field}
+                                                        label={
+                                                            field === 'section'
+                                                                ? 'Section / floor (e.g. Ground floor)'
+                                                                : field ===
+                                                                    'bill'
+                                                                  ? 'Bill (e.g. Main building)'
+                                                                  : 'Element (e.g. Substructure)'
+                                                        }
                                                     >
-                                                        <NativeSelect
-                                                            value={
-                                                                resource.resource_type
-                                                            }
+                                                        <Input
+                                                            value={line[field]}
                                                             disabled={!editable}
                                                             onChange={(event) =>
-                                                                updateResource(
+                                                                updateLine(
                                                                     lineIndex,
-                                                                    resourceIndex,
                                                                     {
-                                                                        resource_type:
+                                                                        [field]:
                                                                             event
                                                                                 .target
                                                                                 .value,
                                                                     },
                                                                 )
                                                             }
-                                                        >
-                                                            {resourceTypes.map(
-                                                                (type) => (
-                                                                    <NativeSelectOption
-                                                                        key={
-                                                                            type.value
-                                                                        }
-                                                                        value={
-                                                                            type.value
-                                                                        }
-                                                                    >
-                                                                        {
-                                                                            type.label
-                                                                        }
-                                                                    </NativeSelectOption>
-                                                                ),
-                                                            )}
-                                                        </NativeSelect>
-                                                        {resource.resource_type ===
-                                                        'material' ? (
-                                                            <SearchableSelect
-                                                                value={
-                                                                    resource.inventory_item_id ??
-                                                                    ''
-                                                                }
-                                                                disabled={
-                                                                    !editable
-                                                                }
-                                                                onValueChange={(
-                                                                    value,
-                                                                ) => {
-                                                                    const item =
-                                                                        items.find(
-                                                                            (
-                                                                                option,
-                                                                            ) =>
-                                                                                option.value ===
-                                                                                value,
-                                                                        );
-                                                                    updateResource(
-                                                                        lineIndex,
-                                                                        resourceIndex,
-                                                                        {
-                                                                            inventory_item_id:
-                                                                                value,
-                                                                            name:
-                                                                                item?.label ??
-                                                                                resource.name,
-                                                                            unit_of_measure_id:
-                                                                                item?.unit_id ??
-                                                                                resource.unit_of_measure_id,
-                                                                            estimated_unit_cost:
-                                                                                item?.unit_cost ??
-                                                                                resource.estimated_unit_cost,
-                                                                        },
-                                                                    );
-                                                                }}
-                                                                options={items}
-                                                                placeholder="Select material"
-                                                                searchPlaceholder="Search materials..."
-                                                            />
-                                                        ) : resource.resource_type ===
-                                                          'equipment' ? (
-                                                            <SearchableSelect
-                                                                value={
-                                                                    resource.equipment_category_id ??
-                                                                    ''
-                                                                }
-                                                                disabled={
-                                                                    !editable
-                                                                }
-                                                                onValueChange={(
-                                                                    value,
-                                                                ) =>
-                                                                    updateResource(
-                                                                        lineIndex,
-                                                                        resourceIndex,
-                                                                        {
-                                                                            equipment_category_id:
-                                                                                value ||
-                                                                                null,
-                                                                            name:
-                                                                                equipmentCategories.find(
-                                                                                    (
-                                                                                        option,
-                                                                                    ) =>
-                                                                                        option.value ===
-                                                                                        value,
-                                                                                )
-                                                                                    ?.label ??
-                                                                                resource.name,
-                                                                        },
+                                                        />
+                                                        <InputError
+                                                            message={
+                                                                errors[
+                                                                    `lines.${lineIndex}.${field}`
+                                                                ]
+                                                            }
+                                                        />
+                                                    </Field>
+                                                ))}
+                                                <Field label="Item type">
+                                                    <NativeSelect
+                                                        value={line.item_type}
+                                                        disabled={
+                                                            !editable ||
+                                                            (line.item_type ===
+                                                                'daywork' &&
+                                                                line.daywork_resource_type ===
+                                                                    'material')
+                                                        }
+                                                        onChange={(event) =>
+                                                            updateLine(
+                                                                lineIndex,
+                                                                {
+                                                                    item_type:
+                                                                        event
+                                                                            .target
+                                                                            .value,
+                                                                    ...(event
+                                                                        .target
+                                                                        .value ===
+                                                                    'percentage_adjustment'
+                                                                        ? {
+                                                                              selling_rate:
+                                                                                  '',
+                                                                              estimated_unit_cost:
+                                                                                  '',
+                                                                              resources:
+                                                                                  [],
+                                                                          }
+                                                                        : {}),
+                                                                    ...(event
+                                                                        .target
+                                                                        .value ===
+                                                                    'daywork'
+                                                                        ? {
+                                                                              estimated_unit_cost:
+                                                                                  '',
+                                                                              resources:
+                                                                                  [],
+                                                                          }
+                                                                        : {}),
+                                                                    ...([
+                                                                        'lump_sum',
+                                                                        'provisional_sum',
+                                                                        'preliminary_fixed',
+                                                                        'percentage_adjustment',
+                                                                    ].includes(
+                                                                        event
+                                                                            .target
+                                                                            .value,
                                                                     )
-                                                                }
-                                                                options={
-                                                                    equipmentCategories
-                                                                }
-                                                                placeholder="Select equipment category"
-                                                                searchPlaceholder="Search equipment categories..."
-                                                            />
-                                                        ) : resource.resource_type ===
-                                                          'labour' ? (
-                                                            <SearchableSelect
-                                                                value={
-                                                                    resource.workforce_trade_id ??
-                                                                    ''
-                                                                }
-                                                                disabled={
-                                                                    !editable
-                                                                }
-                                                                onValueChange={(
-                                                                    value,
-                                                                ) =>
-                                                                    updateResource(
-                                                                        lineIndex,
-                                                                        resourceIndex,
-                                                                        {
-                                                                            workforce_trade_id:
-                                                                                value ||
-                                                                                null,
-                                                                            name:
-                                                                                workforceTrades.find(
-                                                                                    (
-                                                                                        option,
-                                                                                    ) =>
-                                                                                        option.value ===
-                                                                                        value,
-                                                                                )
-                                                                                    ?.label ??
-                                                                                resource.name,
-                                                                        },
-                                                                    )
-                                                                }
-                                                                options={
-                                                                    workforceTrades
-                                                                }
-                                                                placeholder="Select workforce trade"
-                                                                searchPlaceholder="Search workforce trades..."
-                                                            />
-                                                        ) : resource.resource_type ===
-                                                          'subcontractor' ? (
-                                                            <SearchableSelect
-                                                                value={
-                                                                    resource.subcontractor_id ??
-                                                                    ''
-                                                                }
-                                                                disabled={
-                                                                    !editable
-                                                                }
-                                                                onValueChange={(
-                                                                    value,
-                                                                ) =>
-                                                                    updateResource(
-                                                                        lineIndex,
-                                                                        resourceIndex,
-                                                                        {
-                                                                            subcontractor_id:
-                                                                                value ||
-                                                                                null,
-                                                                            name:
-                                                                                subcontractors.find(
-                                                                                    (
-                                                                                        option,
-                                                                                    ) =>
-                                                                                        option.value ===
-                                                                                        value,
-                                                                                )
-                                                                                    ?.label ??
-                                                                                resource.name,
-                                                                        },
-                                                                    )
-                                                                }
-                                                                options={
-                                                                    subcontractors
-                                                                }
-                                                                placeholder="Select subcontractor"
-                                                                searchPlaceholder="Search subcontractors..."
-                                                            />
-                                                        ) : (
-                                                            <Input
-                                                                value={
-                                                                    resource.name
-                                                                }
-                                                                disabled={
-                                                                    !editable
-                                                                }
-                                                                placeholder="Describe the resource"
-                                                                onChange={(
-                                                                    event,
-                                                                ) =>
-                                                                    updateResource(
-                                                                        lineIndex,
-                                                                        resourceIndex,
-                                                                        {
-                                                                            name: event
-                                                                                .target
-                                                                                .value,
-                                                                        },
-                                                                    )
-                                                                }
-                                                            />
+                                                                        ? {
+                                                                              planned_quantity:
+                                                                                  '1',
+                                                                          }
+                                                                        : {}),
+                                                                },
+                                                            )
+                                                        }
+                                                    >
+                                                        {itemTypes.map(
+                                                            (type) => (
+                                                                <NativeSelectOption
+                                                                    key={
+                                                                        type.value
+                                                                    }
+                                                                    value={
+                                                                        type.value
+                                                                    }
+                                                                >
+                                                                    {type.label}
+                                                                </NativeSelectOption>
+                                                            ),
                                                         )}
-                                                        <SearchableSelect
+                                                    </NativeSelect>
+                                                    <InputError
+                                                        message={
+                                                            errors[
+                                                                `lines.${lineIndex}.item_type`
+                                                            ]
+                                                        }
+                                                    />
+                                                </Field>
+                                            </div>
+                                            {line.item_type ===
+                                                'percentage_adjustment' && (
+                                                <div className="space-y-3">
+                                                    <Field label="Percentage (negative for a deduction)">
+                                                        <Input
+                                                            type="number"
+                                                            step="0.0001"
                                                             value={
-                                                                resource.unit_of_measure_id
+                                                                line.percentage_rate
                                                             }
                                                             disabled={!editable}
-                                                            onValueChange={(
-                                                                value,
-                                                            ) =>
-                                                                updateResource(
+                                                            onChange={(event) =>
+                                                                updateLine(
                                                                     lineIndex,
-                                                                    resourceIndex,
                                                                     {
-                                                                        unit_of_measure_id:
-                                                                            value,
+                                                                        percentage_rate:
+                                                                            event
+                                                                                .target
+                                                                                .value,
                                                                     },
                                                                 )
                                                             }
-                                                            options={units}
-                                                            placeholder="Unit"
-                                                            searchPlaceholder="Search units..."
                                                         />
+                                                        <InputError
+                                                            message={
+                                                                errors[
+                                                                    `lines.${lineIndex}.percentage_rate`
+                                                                ]
+                                                            }
+                                                        />
+                                                    </Field>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Select the BOQ items
+                                                        this percentage applies
+                                                        to. Blank percentage or
+                                                        an unpriced base item
+                                                        leaves the amount
+                                                        unpriced.
+                                                    </p>
+                                                    <div className="max-h-64 overflow-auto rounded-md border p-3">
+                                                        {form.data.lines
+                                                            .filter(
+                                                                (base) =>
+                                                                    base.work_item_key &&
+                                                                    base.work_item_key !==
+                                                                        line.work_item_key,
+                                                            )
+                                                            .map((base) => (
+                                                                <label
+                                                                    key={
+                                                                        base.work_item_key
+                                                                    }
+                                                                    className="flex items-center gap-2 py-1 text-sm"
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        disabled={
+                                                                            !editable
+                                                                        }
+                                                                        checked={line.percentage_base_keys.includes(
+                                                                            base.work_item_key!,
+                                                                        )}
+                                                                        onChange={(
+                                                                            event,
+                                                                        ) =>
+                                                                            updateLine(
+                                                                                lineIndex,
+                                                                                {
+                                                                                    percentage_base_keys:
+                                                                                        event
+                                                                                            .target
+                                                                                            .checked
+                                                                                            ? [
+                                                                                                  ...line.percentage_base_keys,
+                                                                                                  base.work_item_key!,
+                                                                                              ]
+                                                                                            : line.percentage_base_keys.filter(
+                                                                                                  (
+                                                                                                      key,
+                                                                                                  ) =>
+                                                                                                      key !==
+                                                                                                      base.work_item_key,
+                                                                                              ),
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                    />
+                                                                    {
+                                                                        base.boq_reference
+                                                                    }{' '}
+                                                                    {base.name ||
+                                                                        'Unnamed BOQ item'}
+                                                                </label>
+                                                            ))}
+                                                    </div>
+                                                    <InputError
+                                                        message={
+                                                            errors[
+                                                                `lines.${lineIndex}.percentage_base_keys`
+                                                            ]
+                                                        }
+                                                    />
+                                                    <p className="text-sm">
+                                                        Calculated amount:{' '}
+                                                        {boqAmount(
+                                                            line,
+                                                            form.data.lines,
+                                                        ) === null
+                                                            ? 'Unpriced'
+                                                            : formatCurrencyAmount(
+                                                                  form.data
+                                                                      .currency_code,
+                                                                  boqAmount(
+                                                                      line,
+                                                                      form.data
+                                                                          .lines,
+                                                                  )!,
+                                                              )}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            {line.item_type === 'daywork' && (
+                                                <div className="grid gap-4 lg:grid-cols-2">
+                                                    <Field
+                                                        label="Approved usage source"
+                                                        required
+                                                    >
+                                                        <NativeSelect
+                                                            value={
+                                                                line.daywork_resource_type
+                                                            }
+                                                            disabled={!editable}
+                                                            onChange={(event) =>
+                                                                updateLine(
+                                                                    lineIndex,
+                                                                    {
+                                                                        daywork_resource_type:
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                        daywork_inventory_item_id:
+                                                                            '',
+                                                                        daywork_equipment_category_id:
+                                                                            '',
+                                                                        daywork_workforce_trade_id:
+                                                                            '',
+                                                                    },
+                                                                )
+                                                            }
+                                                        >
+                                                            <NativeSelectOption value="">
+                                                                Select source
+                                                            </NativeSelectOption>
+                                                            <NativeSelectOption value="labour">
+                                                                Labour hours by
+                                                                trade
+                                                            </NativeSelectOption>
+                                                            <NativeSelectOption value="equipment">
+                                                                Equipment
+                                                                working hours by
+                                                                category
+                                                            </NativeSelectOption>
+                                                            <NativeSelectOption value="material">
+                                                                Material usage
+                                                                by inventory
+                                                                item
+                                                            </NativeSelectOption>
+                                                        </NativeSelect>
+                                                    </Field>
+                                                    <Field
+                                                        label="Mapped resource"
+                                                        required
+                                                    >
+                                                        <SearchableSelect
+                                                            value={
+                                                                line.daywork_resource_type ===
+                                                                'material'
+                                                                    ? line.daywork_inventory_item_id
+                                                                    : line.daywork_resource_type ===
+                                                                        'equipment'
+                                                                      ? line.daywork_equipment_category_id
+                                                                      : line.daywork_workforce_trade_id
+                                                            }
+                                                            options={
+                                                                line.daywork_resource_type ===
+                                                                'material'
+                                                                    ? items
+                                                                    : line.daywork_resource_type ===
+                                                                        'equipment'
+                                                                      ? equipmentCategories
+                                                                      : workforceTrades
+                                                            }
+                                                            disabled={
+                                                                !editable ||
+                                                                !line.daywork_resource_type
+                                                            }
+                                                            onValueChange={(
+                                                                value,
+                                                            ) => {
+                                                                const item =
+                                                                    items.find(
+                                                                        (
+                                                                            candidate,
+                                                                        ) =>
+                                                                            candidate.value ===
+                                                                            value,
+                                                                    );
+                                                                updateLine(
+                                                                    lineIndex,
+                                                                    {
+                                                                        daywork_inventory_item_id:
+                                                                            line.daywork_resource_type ===
+                                                                            'material'
+                                                                                ? value
+                                                                                : '',
+                                                                        daywork_equipment_category_id:
+                                                                            line.daywork_resource_type ===
+                                                                            'equipment'
+                                                                                ? value
+                                                                                : '',
+                                                                        daywork_workforce_trade_id:
+                                                                            line.daywork_resource_type ===
+                                                                            'labour'
+                                                                                ? value
+                                                                                : '',
+                                                                        ...(line.daywork_resource_type ===
+                                                                            'material' &&
+                                                                        item
+                                                                            ? {
+                                                                                  unit_of_measure_id:
+                                                                                      item.unit_id,
+                                                                              }
+                                                                            : {}),
+                                                                    },
+                                                                );
+                                                            }}
+                                                        />
+                                                    </Field>
+                                                    <p className="text-sm text-muted-foreground lg:col-span-2">
+                                                        Approved Daily Site
+                                                        Reports supply the
+                                                        actual quantity. Labour
+                                                        uses person-hours,
+                                                        equipment uses working
+                                                        hours, and materials use
+                                                        the inventory stock
+                                                        unit.
+                                                    </p>
+                                                </div>
+                                            )}
+                                            {line.item_type !== 'measured' &&
+                                                line.item_type !==
+                                                    'percentage_adjustment' &&
+                                                line.item_type !==
+                                                    'daywork' && (
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {line.item_type ===
+                                                        'preliminary_time'
+                                                            ? 'Enter the planned duration and the rate per selected time unit. For example, 6 months at UGX 2,000,000 per month gives a planned BOQ amount of UGX 12,000,000.'
+                                                            : 'Enter a quantity of 1 and the total agreed amount as the rate.'}{' '}
+                                                        This contributes to the
+                                                        planned BOQ value, not
+                                                        measured progress or
+                                                        certified payment.
+                                                    </p>
+                                                )}
+                                            <div className="grid gap-4 lg:grid-cols-2">
+                                                <Field
+                                                    label="Item name"
+                                                    required
+                                                >
+                                                    <Input
+                                                        value={line.name}
+                                                        disabled={!editable}
+                                                        onChange={(event) =>
+                                                            updateLine(
+                                                                lineIndex,
+                                                                {
+                                                                    name: event
+                                                                        .target
+                                                                        .value,
+                                                                },
+                                                            )
+                                                        }
+                                                    />
+                                                    <InputError
+                                                        message={
+                                                            errors[
+                                                                `lines.${lineIndex}.name`
+                                                            ]
+                                                        }
+                                                    />
+                                                </Field>
+                                                <Field label="Site">
+                                                    <SearchableSelect
+                                                        value={line.site_id}
+                                                        disabled={!editable}
+                                                        onValueChange={(
+                                                            value,
+                                                        ) =>
+                                                            updateLine(
+                                                                lineIndex,
+                                                                {
+                                                                    site_id:
+                                                                        value,
+                                                                },
+                                                            )
+                                                        }
+                                                        options={[
+                                                            {
+                                                                value: '',
+                                                                label: 'Project-wide',
+                                                            },
+                                                            ...sites,
+                                                        ]}
+                                                        placeholder="Project-wide"
+                                                        searchPlaceholder="Search sites..."
+                                                    />
+                                                </Field>
+                                            </div>
+
+                                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                                <Field label="Unit" required>
+                                                    <SearchableSelect
+                                                        value={
+                                                            line.unit_of_measure_id
+                                                        }
+                                                        disabled={!editable}
+                                                        onValueChange={(
+                                                            value,
+                                                        ) =>
+                                                            updateLine(
+                                                                lineIndex,
+                                                                {
+                                                                    unit_of_measure_id:
+                                                                        value,
+                                                                },
+                                                            )
+                                                        }
+                                                        options={
+                                                            line.item_type ===
+                                                                'preliminary_time' ||
+                                                            (line.item_type ===
+                                                                'daywork' &&
+                                                                [
+                                                                    'labour',
+                                                                    'equipment',
+                                                                ].includes(
+                                                                    line.daywork_resource_type,
+                                                                ))
+                                                                ? units.filter(
+                                                                      (unit) =>
+                                                                          unit.dimension ===
+                                                                          'time',
+                                                                  )
+                                                                : units
+                                                        }
+                                                        placeholder="Select unit"
+                                                        searchPlaceholder="Search units..."
+                                                    />
+                                                    <InputError
+                                                        message={
+                                                            errors[
+                                                                `lines.${lineIndex}.unit_of_measure_id`
+                                                            ]
+                                                        }
+                                                    />
+                                                </Field>
+                                                <Field
+                                                    label={
+                                                        line.item_type ===
+                                                        'preliminary_time'
+                                                            ? 'Planned duration'
+                                                            : 'BOQ quantity'
+                                                    }
+                                                    required
+                                                >
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        step="any"
+                                                        value={
+                                                            line.planned_quantity
+                                                        }
+                                                        disabled={!editable}
+                                                        onChange={(event) =>
+                                                            updateLine(
+                                                                lineIndex,
+                                                                {
+                                                                    planned_quantity:
+                                                                        event
+                                                                            .target
+                                                                            .value,
+                                                                },
+                                                            )
+                                                        }
+                                                    />
+                                                    <InputError
+                                                        message={
+                                                            errors[
+                                                                `lines.${lineIndex}.planned_quantity`
+                                                            ]
+                                                        }
+                                                    />
+                                                </Field>
+                                                {can.viewCosts && (
+                                                    <Field
+                                                        label={
+                                                            line.item_type ===
+                                                            'preliminary_time'
+                                                                ? 'Rate per time unit'
+                                                                : 'Contract selling rate'
+                                                        }
+                                                    >
                                                         <Input
                                                             type="number"
                                                             min="0"
                                                             step="any"
                                                             value={
-                                                                resource.quantity_per_work_unit
+                                                                line.selling_rate
+                                                            }
+                                                            readOnly={
+                                                                line.item_type ===
+                                                                'percentage_adjustment'
                                                             }
                                                             disabled={!editable}
-                                                            placeholder="Qty per unit"
                                                             onChange={(event) =>
-                                                                updateResource(
+                                                                updateLine(
                                                                     lineIndex,
-                                                                    resourceIndex,
                                                                     {
-                                                                        quantity_per_work_unit:
+                                                                        selling_rate:
                                                                             event
                                                                                 .target
                                                                                 .value,
@@ -1085,26 +1641,232 @@ export default function EstimateEditor({
                                                                 )
                                                             }
                                                         />
-                                                        {can.viewCosts && (
+                                                    </Field>
+                                                )}
+                                                {can.viewCosts && (
+                                                    <Field label="Internal unit cost (optional)">
+                                                        <Input
+                                                            type="number"
+                                                            min="0"
+                                                            step="any"
+                                                            value={
+                                                                line.estimated_unit_cost
+                                                            }
+                                                            readOnly={
+                                                                line.item_type ===
+                                                                'percentage_adjustment'
+                                                            }
+                                                            disabled={!editable}
+                                                            onChange={(event) =>
+                                                                updateLine(
+                                                                    lineIndex,
+                                                                    {
+                                                                        estimated_unit_cost:
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                    },
+                                                                )
+                                                            }
+                                                        />
+                                                        {(() => {
+                                                            if (
+                                                                line.resources.some(
+                                                                    (
+                                                                        resource,
+                                                                    ) =>
+                                                                        resource.estimated_unit_cost.trim() ===
+                                                                            '' ||
+                                                                        resource.quantity_per_work_unit.trim() ===
+                                                                            '',
+                                                                )
+                                                            ) {
+                                                                return (
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        Resource
+                                                                        costing
+                                                                        incomplete
+                                                                    </p>
+                                                                );
+                                                            }
+                                                            const resCost =
+                                                                line.resources.reduce(
+                                                                    (sum, r) =>
+                                                                        sum +
+                                                                        (Number(
+                                                                            r.quantity_per_work_unit,
+                                                                        ) ||
+                                                                            0) *
+                                                                            (Number(
+                                                                                r.estimated_unit_cost,
+                                                                            ) ||
+                                                                                0),
+                                                                    0,
+                                                                );
+                                                            if (resCost <= 0)
+                                                                return null;
+                                                            return (
+                                                                <div className="mt-0.5 flex items-center justify-between text-[11px] text-muted-foreground">
+                                                                    <span>
+                                                                        Norms:{' '}
+                                                                        {formatCurrencyAmount(
+                                                                            form
+                                                                                .data
+                                                                                .currency_code,
+                                                                            resCost,
+                                                                        )}
+                                                                    </span>
+                                                                    {editable &&
+                                                                        line.estimated_unit_cost !==
+                                                                            String(
+                                                                                resCost,
+                                                                            ) && (
+                                                                            <button
+                                                                                type="button"
+                                                                                className="font-medium text-primary hover:underline"
+                                                                                onClick={() => {
+                                                                                    updateLine(
+                                                                                        lineIndex,
+                                                                                        {
+                                                                                            estimated_unit_cost:
+                                                                                                String(
+                                                                                                    resCost,
+                                                                                                ),
+                                                                                        },
+                                                                                    );
+                                                                                    toast.success(
+                                                                                        'Estimated unit cost copied into this draft item. Save BOQ to keep it.',
+                                                                                    );
+                                                                                }}
+                                                                            >
+                                                                                Use
+                                                                                as
+                                                                                estimated
+                                                                                cost
+                                                                            </button>
+                                                                        )}
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                    </Field>
+                                                )}
+                                            </div>
+
+                                            <div className="grid gap-4 sm:grid-cols-2">
+                                                <Field label="BOQ reference">
+                                                    <Input
+                                                        value={
+                                                            line.boq_reference
+                                                        }
+                                                        disabled={!editable}
+                                                        placeholder="e.g. 31.01(b)(i)"
+                                                        onChange={(event) =>
+                                                            updateLine(
+                                                                lineIndex,
+                                                                {
+                                                                    boq_reference:
+                                                                        event
+                                                                            .target
+                                                                            .value,
+                                                                },
+                                                            )
+                                                        }
+                                                    />
+                                                </Field>
+                                                <Field label="Internal code">
+                                                    <Input
+                                                        value={line.code}
+                                                        disabled={!editable}
+                                                        onChange={(event) =>
+                                                            updateLine(
+                                                                lineIndex,
+                                                                {
+                                                                    code: event
+                                                                        .target
+                                                                        .value,
+                                                                },
+                                                            )
+                                                        }
+                                                    />
+                                                </Field>
+                                            </div>
+
+                                            <Field label="Full description / specification">
+                                                <Textarea
+                                                    value={line.description}
+                                                    disabled={!editable}
+                                                    onChange={(event) =>
+                                                        updateLine(lineIndex, {
+                                                            description:
+                                                                event.target
+                                                                    .value,
+                                                        })
+                                                    }
+                                                />
+                                                <InputError
+                                                    message={
+                                                        errors[
+                                                            `lines.${lineIndex}.description`
+                                                        ]
+                                                    }
+                                                />
+                                            </Field>
+                                            <details className="rounded-md border px-4 py-3">
+                                                <summary className="cursor-pointer font-medium">
+                                                    Source reference
+                                                </summary>
+                                                <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                                                    {(
+                                                        [
+                                                            'source_document',
+                                                            'source_sheet',
+                                                            'source_row',
+                                                        ] as const
+                                                    ).map((field) => (
+                                                        <Field
+                                                            key={field}
+                                                            label={
+                                                                field ===
+                                                                'source_document'
+                                                                    ? 'Document name'
+                                                                    : field ===
+                                                                        'source_sheet'
+                                                                      ? 'Sheet name'
+                                                                      : 'Excel row'
+                                                            }
+                                                        >
                                                             <Input
-                                                                type="number"
-                                                                min="0"
-                                                                step="any"
+                                                                type={
+                                                                    field ===
+                                                                    'source_row'
+                                                                        ? 'number'
+                                                                        : 'text'
+                                                                }
+                                                                min={
+                                                                    field ===
+                                                                    'source_row'
+                                                                        ? 1
+                                                                        : undefined
+                                                                }
+                                                                step={
+                                                                    field ===
+                                                                    'source_row'
+                                                                        ? 1
+                                                                        : undefined
+                                                                }
                                                                 value={
-                                                                    resource.estimated_unit_cost
+                                                                    line[field]
                                                                 }
                                                                 disabled={
                                                                     !editable
                                                                 }
-                                                                placeholder="Unit cost"
                                                                 onChange={(
                                                                     event,
                                                                 ) =>
-                                                                    updateResource(
+                                                                    updateLine(
                                                                         lineIndex,
-                                                                        resourceIndex,
                                                                         {
-                                                                            estimated_unit_cost:
+                                                                            [field]:
                                                                                 event
                                                                                     .target
                                                                                     .value,
@@ -1112,63 +1874,475 @@ export default function EstimateEditor({
                                                                     )
                                                                 }
                                                             />
-                                                        )}
-                                                        {editable && (
+                                                            <InputError
+                                                                message={
+                                                                    errors[
+                                                                        `lines.${lineIndex}.${field}`
+                                                                    ]
+                                                                }
+                                                            />
+                                                        </Field>
+                                                    ))}
+                                                </div>
+                                            </details>
+                                            <details
+                                                hidden={
+                                                    line.item_type ===
+                                                    'percentage_adjustment'
+                                                }
+                                                className="group rounded-md border px-4 py-3"
+                                            >
+                                                <summary className="cursor-pointer font-medium">
+                                                    Internal costing · resources
+                                                    ({line.resources.length})
+                                                </summary>
+                                                <div className="mt-4 grid gap-4">
+                                                    {line.resources.map(
+                                                        (
+                                                            resource,
+                                                            resourceIndex,
+                                                        ) => (
+                                                            <div
+                                                                key={
+                                                                    resourceIndex
+                                                                }
+                                                                className={`grid gap-3 border-b pb-4 last:border-0 last:pb-0 ${can.viewCosts ? 'lg:grid-cols-[10rem_minmax(12rem,1fr)_minmax(10rem,1fr)_9rem_9rem_auto]' : 'lg:grid-cols-[10rem_minmax(12rem,1fr)_minmax(10rem,1fr)_9rem_auto]'}`}
+                                                            >
+                                                                <NativeSelect
+                                                                    value={
+                                                                        resource.resource_type
+                                                                    }
+                                                                    disabled={
+                                                                        !editable
+                                                                    }
+                                                                    onChange={(
+                                                                        event,
+                                                                    ) =>
+                                                                        updateResource(
+                                                                            lineIndex,
+                                                                            resourceIndex,
+                                                                            {
+                                                                                resource_type:
+                                                                                    event
+                                                                                        .target
+                                                                                        .value,
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    {resourceTypes.map(
+                                                                        (
+                                                                            type,
+                                                                        ) => (
+                                                                            <NativeSelectOption
+                                                                                key={
+                                                                                    type.value
+                                                                                }
+                                                                                value={
+                                                                                    type.value
+                                                                                }
+                                                                            >
+                                                                                {
+                                                                                    type.label
+                                                                                }
+                                                                            </NativeSelectOption>
+                                                                        ),
+                                                                    )}
+                                                                </NativeSelect>
+                                                                {resource.resource_type ===
+                                                                'material' ? (
+                                                                    <SearchableSelect
+                                                                        value={
+                                                                            resource.inventory_item_id ??
+                                                                            ''
+                                                                        }
+                                                                        disabled={
+                                                                            !editable
+                                                                        }
+                                                                        onValueChange={(
+                                                                            value,
+                                                                        ) => {
+                                                                            const item =
+                                                                                items.find(
+                                                                                    (
+                                                                                        option,
+                                                                                    ) =>
+                                                                                        option.value ===
+                                                                                        value,
+                                                                                );
+                                                                            updateResource(
+                                                                                lineIndex,
+                                                                                resourceIndex,
+                                                                                {
+                                                                                    inventory_item_id:
+                                                                                        value,
+                                                                                    name:
+                                                                                        item?.label ??
+                                                                                        resource.name,
+                                                                                    unit_of_measure_id:
+                                                                                        item?.unit_id ??
+                                                                                        resource.unit_of_measure_id,
+                                                                                    estimated_unit_cost:
+                                                                                        item?.unit_cost ??
+                                                                                        resource.estimated_unit_cost,
+                                                                                },
+                                                                            );
+                                                                        }}
+                                                                        options={
+                                                                            items
+                                                                        }
+                                                                        placeholder="Select material"
+                                                                        searchPlaceholder="Search materials..."
+                                                                    />
+                                                                ) : resource.resource_type ===
+                                                                  'equipment' ? (
+                                                                    <SearchableSelect
+                                                                        value={
+                                                                            resource.equipment_category_id ??
+                                                                            ''
+                                                                        }
+                                                                        disabled={
+                                                                            !editable
+                                                                        }
+                                                                        onValueChange={(
+                                                                            value,
+                                                                        ) =>
+                                                                            updateResource(
+                                                                                lineIndex,
+                                                                                resourceIndex,
+                                                                                {
+                                                                                    equipment_category_id:
+                                                                                        value ||
+                                                                                        null,
+                                                                                    name:
+                                                                                        equipmentCategories.find(
+                                                                                            (
+                                                                                                option,
+                                                                                            ) =>
+                                                                                                option.value ===
+                                                                                                value,
+                                                                                        )
+                                                                                            ?.label ??
+                                                                                        resource.name,
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                        options={
+                                                                            equipmentCategories
+                                                                        }
+                                                                        placeholder="Select equipment category"
+                                                                        searchPlaceholder="Search equipment categories..."
+                                                                    />
+                                                                ) : resource.resource_type ===
+                                                                  'labour' ? (
+                                                                    <SearchableSelect
+                                                                        value={
+                                                                            resource.workforce_trade_id ??
+                                                                            ''
+                                                                        }
+                                                                        disabled={
+                                                                            !editable
+                                                                        }
+                                                                        onValueChange={(
+                                                                            value,
+                                                                        ) =>
+                                                                            updateResource(
+                                                                                lineIndex,
+                                                                                resourceIndex,
+                                                                                {
+                                                                                    workforce_trade_id:
+                                                                                        value ||
+                                                                                        null,
+                                                                                    name:
+                                                                                        workforceTrades.find(
+                                                                                            (
+                                                                                                option,
+                                                                                            ) =>
+                                                                                                option.value ===
+                                                                                                value,
+                                                                                        )
+                                                                                            ?.label ??
+                                                                                        resource.name,
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                        options={
+                                                                            workforceTrades
+                                                                        }
+                                                                        placeholder="Select workforce trade"
+                                                                        searchPlaceholder="Search workforce trades..."
+                                                                    />
+                                                                ) : resource.resource_type ===
+                                                                  'subcontractor' ? (
+                                                                    <SearchableSelect
+                                                                        value={
+                                                                            resource.subcontractor_id ??
+                                                                            ''
+                                                                        }
+                                                                        disabled={
+                                                                            !editable
+                                                                        }
+                                                                        onValueChange={(
+                                                                            value,
+                                                                        ) =>
+                                                                            updateResource(
+                                                                                lineIndex,
+                                                                                resourceIndex,
+                                                                                {
+                                                                                    subcontractor_id:
+                                                                                        value ||
+                                                                                        null,
+                                                                                    name:
+                                                                                        subcontractors.find(
+                                                                                            (
+                                                                                                option,
+                                                                                            ) =>
+                                                                                                option.value ===
+                                                                                                value,
+                                                                                        )
+                                                                                            ?.label ??
+                                                                                        resource.name,
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                        options={
+                                                                            subcontractors
+                                                                        }
+                                                                        placeholder="Select subcontractor"
+                                                                        searchPlaceholder="Search subcontractors..."
+                                                                    />
+                                                                ) : (
+                                                                    <Input
+                                                                        value={
+                                                                            resource.name
+                                                                        }
+                                                                        disabled={
+                                                                            !editable
+                                                                        }
+                                                                        placeholder="Describe the resource"
+                                                                        onChange={(
+                                                                            event,
+                                                                        ) =>
+                                                                            updateResource(
+                                                                                lineIndex,
+                                                                                resourceIndex,
+                                                                                {
+                                                                                    name: event
+                                                                                        .target
+                                                                                        .value,
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                    />
+                                                                )}
+                                                                <SearchableSelect
+                                                                    value={
+                                                                        resource.unit_of_measure_id
+                                                                    }
+                                                                    disabled={
+                                                                        !editable
+                                                                    }
+                                                                    onValueChange={(
+                                                                        value,
+                                                                    ) =>
+                                                                        updateResource(
+                                                                            lineIndex,
+                                                                            resourceIndex,
+                                                                            {
+                                                                                unit_of_measure_id:
+                                                                                    value,
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                    options={
+                                                                        units
+                                                                    }
+                                                                    placeholder="Unit"
+                                                                    searchPlaceholder="Search units..."
+                                                                />
+                                                                <Input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="any"
+                                                                    value={
+                                                                        resource.quantity_per_work_unit
+                                                                    }
+                                                                    disabled={
+                                                                        !editable
+                                                                    }
+                                                                    placeholder="Qty per unit"
+                                                                    onChange={(
+                                                                        event,
+                                                                    ) =>
+                                                                        updateResource(
+                                                                            lineIndex,
+                                                                            resourceIndex,
+                                                                            {
+                                                                                quantity_per_work_unit:
+                                                                                    event
+                                                                                        .target
+                                                                                        .value,
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                />
+                                                                {can.viewCosts && (
+                                                                    <Input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        step="any"
+                                                                        value={
+                                                                            resource.estimated_unit_cost
+                                                                        }
+                                                                        disabled={
+                                                                            !editable
+                                                                        }
+                                                                        placeholder="Unit cost"
+                                                                        onChange={(
+                                                                            event,
+                                                                        ) =>
+                                                                            updateResource(
+                                                                                lineIndex,
+                                                                                resourceIndex,
+                                                                                {
+                                                                                    estimated_unit_cost:
+                                                                                        event
+                                                                                            .target
+                                                                                            .value,
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                    />
+                                                                )}
+                                                                {editable && (
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="icon"
+                                                                        variant="ghost"
+                                                                        title="Remove resource"
+                                                                        onClick={() =>
+                                                                            updateLine(
+                                                                                lineIndex,
+                                                                                {
+                                                                                    resources:
+                                                                                        line.resources.filter(
+                                                                                            (
+                                                                                                _,
+                                                                                                index,
+                                                                                            ) =>
+                                                                                                index !==
+                                                                                                resourceIndex,
+                                                                                        ),
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        <Trash2 />
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        ),
+                                                    )}
+                                                    {editable && (
+                                                        <div>
                                                             <Button
                                                                 type="button"
-                                                                size="icon"
-                                                                variant="ghost"
-                                                                title="Remove resource"
+                                                                variant="outline"
                                                                 onClick={() =>
                                                                     updateLine(
                                                                         lineIndex,
                                                                         {
                                                                             resources:
-                                                                                line.resources.filter(
-                                                                                    (
-                                                                                        _,
-                                                                                        index,
-                                                                                    ) =>
-                                                                                        index !==
-                                                                                        resourceIndex,
-                                                                                ),
+                                                                                [
+                                                                                    ...line.resources,
+                                                                                    blankResource(),
+                                                                                ],
                                                                         },
                                                                     )
                                                                 }
                                                             >
-                                                                <Trash2 />
+                                                                <Plus />
+                                                                Add resource
                                                             </Button>
-                                                        )}
-                                                    </div>
-                                                ),
-                                            )}
-                                            {editable && (
-                                                <div>
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        onClick={() =>
-                                                            updateLine(
-                                                                lineIndex,
-                                                                {
-                                                                    resources: [
-                                                                        ...line.resources,
-                                                                        blankResource(),
-                                                                    ],
-                                                                },
-                                                            )
-                                                        }
-                                                    >
-                                                        <Plus />
-                                                        Add resource
-                                                    </Button>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
+                                            </details>
                                         </div>
-                                    </details>
-                                </section>
-                            ))}
-                        </div>
+                                    ) : null,
+                                )}
+                                <div className="flex justify-end gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={cancelItem}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        onClick={() => {
+                                            setEditingIndex(null);
+                                            toast.success(
+                                                'Item updated in this draft. Save BOQ to keep the changes.',
+                                            );
+                                        }}
+                                    >
+                                        Apply to draft
+                                    </Button>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                        <Dialog
+                            open={viewingIndex !== null}
+                            onOpenChange={(open) => {
+                                if (!open) setViewingIndex(null);
+                            }}
+                        >
+                            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+                                <DialogHeader>
+                                    <DialogTitle>BOQ item details</DialogTitle>
+                                    <DialogDescription>
+                                        {viewingIndex === null
+                                            ? ''
+                                            : form.data.lines[viewingIndex]
+                                                  ?.name}
+                                    </DialogDescription>
+                                </DialogHeader>
+                                {viewingIndex !== null &&
+                                    form.data.lines[viewingIndex] && (
+                                        <ItemDetails
+                                            lines={form.data.lines}
+                                            line={form.data.lines[viewingIndex]}
+                                            units={units}
+                                            sites={sites}
+                                            itemTypes={itemTypes}
+                                            resourceTypes={resourceTypes}
+                                            canViewCosts={can.viewCosts}
+                                            currency={form.data.currency_code}
+                                            equipmentCategories={
+                                                equipmentCategories
+                                            }
+                                            workforceTrades={workforceTrades}
+                                            subcontractors={subcontractors}
+                                        />
+                                    )}
+                                {editable && viewingIndex !== null && (
+                                    <div className="flex justify-end">
+                                        <Button
+                                            type="button"
+                                            onClick={() => {
+                                                editItem(viewingIndex);
+                                                setViewingIndex(null);
+                                            }}
+                                        >
+                                            <Pencil />
+                                            Edit BOQ item
+                                        </Button>
+                                    </div>
+                                )}
+                            </DialogContent>
+                        </Dialog>
 
                         {editable && (
                             <>
@@ -1181,7 +2355,7 @@ export default function EstimateEditor({
                                         disabled={form.processing}
                                     >
                                         {form.processing && <Spinner />}
-                                        Save estimate
+                                        Save BOQ
                                     </Button>
                                 </div>
                             </>
@@ -1191,21 +2365,31 @@ export default function EstimateEditor({
             </form>
 
             {/* Library Picker Modal */}
-            <Dialog open={libraryModalOpen} onOpenChange={setLibraryModalOpen}>
+            <Dialog
+                open={libraryModalOpen}
+                onOpenChange={(open) => {
+                    setLibraryModalOpen(open);
+                    if (!open && targetLineIndex !== null) {
+                        setPendingEditorIndex(targetLineIndex);
+                        setTargetLineIndex(null);
+                    }
+                }}
+            >
                 <DialogContent className="flex max-h-[92vh] w-[95vw] flex-col sm:max-w-5xl">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-lg">
                             <Layers className="size-5 text-primary" />
                             <span>
                                 {targetLineIndex !== null
-                                    ? `Load Template for Estimate Line ${targetLineIndex + 1}`
-                                    : 'Pick Work Activity from Library'}
+                                    ? `Load Template for BOQ Item ${targetLineIndex + 1}`
+                                    : 'Choose a template for a BOQ item'}
                             </span>
                         </DialogTitle>
                         <DialogDescription>
-                            Select a standard work activity to copy its
-                            specifications, unit of measure, rates, and resource
-                            consumption norms into this estimate.
+                            A template suggests the BOQ item name, unit, rate,
+                            cost and resource quantities. Review the item before
+                            saving the BOQ. A blank suggested rate leaves the
+                            BOQ rate for you to enter.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1299,7 +2483,8 @@ export default function EstimateEditor({
                                                     </span>
                                                 </span>
                                             )}
-                                            {template.default_selling_rate && (
+                                            {template.default_selling_rate !==
+                                                null && (
                                                 <span>
                                                     Suggested Rate:{' '}
                                                     <span className="font-mono font-semibold text-primary">
@@ -1329,7 +2514,7 @@ export default function EstimateEditor({
                                         onClick={() => selectTemplate(template)}
                                     >
                                         <Check className="size-3.5" />
-                                        Select
+                                        Use template
                                     </Button>
                                 </div>
                             ))
@@ -1363,6 +2548,257 @@ function Metric({ label, value }: { label: string; value: string }) {
         <div className="rounded-md border px-4 py-3">
             <div className="text-sm text-muted-foreground">{label}</div>
             <div className="mt-1 font-semibold">{value}</div>
+        </div>
+    );
+}
+
+function Info({
+    label,
+    value,
+}: {
+    label: string;
+    value: string | null | undefined;
+}) {
+    return (
+        <div>
+            <dt className="text-sm text-muted-foreground">{label}</dt>
+            <dd className="mt-1 text-sm font-medium whitespace-pre-line">
+                {value || '—'}
+            </dd>
+        </div>
+    );
+}
+
+function ItemDetails({
+    line,
+    lines,
+    units,
+    sites,
+    itemTypes,
+    resourceTypes,
+    canViewCosts,
+    currency,
+    equipmentCategories,
+    workforceTrades,
+    subcontractors,
+}: {
+    line: EstimateLine;
+    lines: EstimateLine[];
+    units: Option[];
+    sites: Option[];
+    itemTypes: Option[];
+    resourceTypes: Option[];
+    canViewCosts: boolean;
+    currency: string;
+    equipmentCategories: Option[];
+    workforceTrades: Option[];
+    subcontractors: Option[];
+}) {
+    const label = (options: Option[], value: string | null) =>
+        options.find((option) => option.value === value)?.label ?? value ?? '';
+    const money = (value: string) =>
+        value === ''
+            ? 'Not provided'
+            : formatCurrencyAmount(currency, Number(value));
+    return (
+        <div className="space-y-5">
+            {line.item_type === 'percentage_adjustment' && (
+                <div>
+                    <p className="mb-2 text-sm font-medium">Calculation base</p>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>BOQ item</TableHead>
+                                {canViewCosts && (
+                                    <TableHead className="text-right">
+                                        Base amount
+                                    </TableHead>
+                                )}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {line.percentage_base_keys.map((key) => {
+                                const base = lines.find(
+                                    (candidate) =>
+                                        candidate.work_item_key === key,
+                                );
+                                const amount = base
+                                    ? boqAmount(base, lines)
+                                    : null;
+
+                                return (
+                                    <TableRow key={key}>
+                                        <TableCell>
+                                            {base
+                                                ? `${base.boq_reference || ''} ${base.name}`.trim()
+                                                : 'Removed item — edit the calculation base'}
+                                        </TableCell>
+                                        {canViewCosts && (
+                                            <TableCell className="text-right">
+                                                {amount === null
+                                                    ? 'Unpriced'
+                                                    : money(String(amount))}
+                                            </TableCell>
+                                        )}
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </div>
+            )}
+            <dl className="grid gap-4 sm:grid-cols-3">
+                <Info label="Reference" value={line.boq_reference} />
+                <Info label="Bill" value={line.bill} />
+                <Info label="Section / floor" value={line.section} />
+                <Info label="Element" value={line.element} />
+                <Info
+                    label="Item type"
+                    value={label(itemTypes, line.item_type)}
+                />
+                <Info
+                    label="Site"
+                    value={
+                        line.site_id
+                            ? label(sites, line.site_id)
+                            : 'Project-wide'
+                    }
+                />
+                <Info
+                    label="Unit"
+                    value={label(units, line.unit_of_measure_id)}
+                />
+                <Info
+                    label={
+                        line.item_type === 'percentage_adjustment'
+                            ? 'Percentage'
+                            : line.item_type === 'preliminary_time'
+                              ? 'Planned duration'
+                              : 'Quantity'
+                    }
+                    value={
+                        line.item_type === 'percentage_adjustment'
+                            ? line.percentage_rate === ''
+                                ? 'Unpriced'
+                                : `${line.percentage_rate}%`
+                            : line.planned_quantity
+                    }
+                />
+                <Info label="Internal code" value={line.code} />
+                {canViewCosts && (
+                    <>
+                        <Info
+                            label={
+                                line.item_type === 'percentage_adjustment'
+                                    ? 'Percentage'
+                                    : 'Client rate'
+                            }
+                            value={
+                                line.item_type === 'percentage_adjustment'
+                                    ? line.percentage_rate === ''
+                                        ? 'Unpriced'
+                                        : `${line.percentage_rate}%`
+                                    : line.selling_rate === ''
+                                      ? 'Unpriced'
+                                      : money(line.selling_rate)
+                            }
+                        />
+                        <Info
+                            label="Amount"
+                            value={
+                                boqAmount(line, lines) === null
+                                    ? 'Not available'
+                                    : money(String(boqAmount(line, lines)))
+                            }
+                        />
+                        <Info
+                            label="Internal unit cost"
+                            value={money(line.estimated_unit_cost)}
+                        />
+                    </>
+                )}
+                <div className="sm:col-span-3">
+                    <Info label="Description" value={line.description} />
+                </div>
+                <div className="sm:col-span-3">
+                    <Info label="Notes" value={line.notes} />
+                </div>
+                <Info label="Source document" value={line.source_document} />
+                <Info label="Source sheet" value={line.source_sheet} />
+                <Info label="Source row" value={line.source_row} />
+            </dl>
+            <h3 className="font-semibold">Resource assumptions</h3>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Resource</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Unit</TableHead>
+                        <TableHead className="text-right">
+                            Quantity per work unit
+                        </TableHead>
+                        {canViewCosts && (
+                            <TableHead className="text-right">
+                                Unit cost
+                            </TableHead>
+                        )}
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {line.resources.map((resource, index) => (
+                        <TableRow key={index}>
+                            <TableCell className="whitespace-normal">
+                                <div className="font-medium">
+                                    {resource.name}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                    {[
+                                        label(
+                                            equipmentCategories,
+                                            resource.equipment_category_id,
+                                        ),
+                                        label(
+                                            workforceTrades,
+                                            resource.workforce_trade_id,
+                                        ),
+                                        label(
+                                            subcontractors,
+                                            resource.subcontractor_id,
+                                        ),
+                                        resource.notes,
+                                    ]
+                                        .filter(Boolean)
+                                        .join(' · ')}
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                {label(resourceTypes, resource.resource_type)}
+                            </TableCell>
+                            <TableCell>
+                                {label(units, resource.unit_of_measure_id)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">
+                                {resource.quantity_per_work_unit || '—'}
+                            </TableCell>
+                            {canViewCosts && (
+                                <TableCell className="text-right tabular-nums">
+                                    {money(resource.estimated_unit_cost)}
+                                </TableCell>
+                            )}
+                        </TableRow>
+                    ))}
+                    {line.resources.length === 0 && (
+                        <TableRow>
+                            <TableCell
+                                colSpan={canViewCosts ? 5 : 4}
+                                className="h-20 text-center text-muted-foreground"
+                            >
+                                No resource assumptions recorded.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
         </div>
     );
 }

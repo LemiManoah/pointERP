@@ -61,7 +61,8 @@ final class StaffDeploymentController
                     'is_active' => $trade->is_active,
                 ]),
             'staff' => Staff::query()
-                ->with(['branch', 'primaryTrade'])
+                ->with(['branch', 'primaryTrade', 'position'])
+                ->withExists(['deployments as has_active_deployment' => fn ($query) => $query->where('status', 'active')])
                 ->where('tenant_id', $tenantId)
                 ->where('status', 'active')
                 ->unless($canViewAllBranches, fn (Builder $query) => $query->whereIn('branch_id', $branchIds))
@@ -75,6 +76,9 @@ final class StaffDeploymentController
                     'branch_name' => $staff->branch->name,
                     'primary_trade_id' => $staff->primary_trade_id,
                     'primary_trade_name' => $staff->primaryTrade?->name,
+                    'staff_position_id' => $staff->staff_position_id,
+                    'position_name' => $staff->position?->name,
+                    'has_active_deployment' => (bool) $staff->getAttribute('has_active_deployment'),
                 ]),
             'projects' => $projects->map(fn (Project $project): array => [
                 'id' => $project->id,
@@ -118,6 +122,7 @@ final class StaffDeploymentController
             ]),
 
             'can' => [
+                'manageWorkers' => Gate::allows('viewWorkforce', Staff::class),
                 'manageTrades' => Gate::allows('create', WorkforceTrade::class),
                 'manageDeployments' => Gate::allows('create', StaffDeployment::class),
             ],

@@ -27,7 +27,7 @@ final readonly class EndStaffDeployment
             $oldValues = $locked->only(['status', 'ends_on', 'ended_by']);
             $locked->update([
                 'status' => StaffDeploymentStatus::Ended,
-                'ends_on' => now()->toDateString(),
+                'ends_on' => max(now()->toDateString(), $locked->starts_on->toDateString()),
                 'ended_by' => $actor->id,
             ]);
             $this->auditLogger->record('workforce.deployment.ended', $locked, $actor, $oldValues, $locked->fresh()?->toArray() ?? [], branch: $locked->branch);

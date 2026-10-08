@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\BoqItemType;
+use App\Models\BoqProgressEntry;
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportMaterialLine;
 use App\Models\ExpenseLine;
@@ -12,13 +14,16 @@ use App\Models\ProjectActivity;
 use App\Models\ProjectEstimate;
 use App\Models\ProjectEstimateLine;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
-final class ProjectPerformanceSummary
+final readonly class ProjectPerformanceSummary
 {
+    public function __construct(private DayworkValuation $dayworks) {}
+
     /** @return array<string, mixed>|null */
-    public function forProject(Project $project, bool $canViewCosts): ?array
+    public function forProject(Project $project, bool $canViewCosts, ?ProjectEstimate $revision = null): ?array
     {
-        $baseline = ProjectEstimate::query()
+        $baseline = $revision ?? ProjectEstimate::query()
             ->with(['lines.unit', 'lines.resources.inventoryItem.stockUnit', 'lines.resources.unit'])
             ->where('project_id', $project->id)
             ->where('is_baseline', true)
@@ -28,37 +33,58 @@ final class ProjectPerformanceSummary
             return null;
         }
 
+        $baseline->loadMissing(['lines.unit', 'lines.resources.inventoryItem.stockUnit', 'lines.resources.unit', 'lines.dayworkInventoryItem', 'lines.dayworkEquipmentCategory', 'lines.dayworkWorkforceTrade']);
+        $dayworks = $this->dayworks->forProject($project, $baseline->lines);
+
         $activities = ProjectActivity::query()
             ->where('project_id', $project->id)
             ->whereIn('estimate_work_item_key', $baseline->lines->pluck('work_item_key'))
             ->get()
             ->keyBy('estimate_work_item_key');
 
-        $rows = $baseline->lines->map(function (ProjectEstimateLine $line) use ($activities, $canViewCosts): array {
+        $progress = BoqProgressEntry::query()->where('project_id', $project->id)
+            ->selectRaw('boq_item_id, SUM(quantity) as approved_quantity')->groupBy('boq_item_id')
+            ->pluck('approved_quantity', 'boq_item_id');
+        $rows = $baseline->lines->map(function (ProjectEstimateLine $line) use ($activities, $progress, $canViewCosts, $baseline, $dayworks): array {
             $activity = $activities->get($line->work_item_key);
-            $approved = $activity instanceof ProjectActivity ? (float) $activity->approved_quantity : 0.0;
+            $approved = $line->boq_item_id ? (float) ($progress->get($line->boq_item_id) ?? 0) : ($activity instanceof ProjectActivity ? (float) $activity->approved_quantity : 0.0);
             $planned = (float) $line->planned_quantity;
-            $remaining = max($planned - $approved, 0.0);
-            $completion = $planned > 0 ? min(($approved / $planned) * 100, 100) : 0.0;
-            $rate = (float) ($line->selling_rate ?? 0);
-            $unitCost = (float) ($line->estimated_unit_cost ?? 0);
+            $rate = $line->selling_rate === null ? null : (float) $line->selling_rate;
+            $unitCost = $line->estimated_unit_cost === null ? null : (float) $line->estimated_unit_cost;
+            $daywork = $dayworks[$line->work_item_key] ?? null;
+            $output = $line->item_type === BoqItemType::Daywork ? (float) ($daywork['quantity'] ?? 0) : $approved;
+            $remaining = max($planned - $output, 0.0);
+            $completion = $planned > 0 ? (($output / $planned) * 100) : 0.0;
 
             return [
                 'id' => $line->id,
+                'boq_item_id' => $line->boq_item_id,
+                'overrun_quantity' => number_format(max($output - $planned, 0), 4, '.', ''),
                 'work_item_id' => $activity?->id,
                 'boq_reference' => $line->boq_reference,
+                'bill' => $line->bill,
+                'section' => $line->section,
+                'element' => $line->element,
+                'item_type' => $line->item_type->value,
+                'percentage_rate' => $canViewCosts ? $line->percentage_rate : null,
+                'percentage_base_keys' => $line->percentage_base_keys ?? [],
+                'percentage_base_items' => $baseline->lines->whereIn('work_item_key', $line->percentage_base_keys ?? [])->map(fn (ProjectEstimateLine $base): array => ['name' => $base->name, 'reference' => $base->boq_reference, 'amount' => $canViewCosts ? $base->boqAmount($baseline->lines) : null])->values()->all(),
+                'daywork_resource_type' => $line->daywork_resource_type,
+                'daywork_source' => $this->dayworkSource($line),
+                'daywork_evidence' => $daywork['evidence'] ?? [],
                 'name' => $line->name,
                 'unit' => $line->unit->symbol ?? $line->unit->code,
                 'planned_quantity' => $line->planned_quantity,
-                'approved_progress' => number_format($approved, 4, '.', ''),
+                'approved_progress' => number_format($output, 4, '.', ''),
                 'remaining_quantity' => number_format($remaining, 4, '.', ''),
                 'completion_percent' => number_format($completion, 2, '.', ''),
-                'baseline_revenue' => $canViewCosts ? number_format($planned * $rate, 4, '.', '') : null,
-                'earned_output' => $canViewCosts ? number_format($approved * $rate, 4, '.', '') : null,
-                'baseline_cost' => $canViewCosts ? number_format($planned * $unitCost, 4, '.', '') : null,
+                'baseline_revenue' => $canViewCosts ? $line->boqAmount($baseline->lines) : null,
+                'earned_output' => $canViewCosts && $rate !== null && in_array($line->item_type, [BoqItemType::Measured, BoqItemType::Daywork], true) ? number_format($output * $rate, 4, '.', '') : null,
+                'baseline_cost' => $canViewCosts && $unitCost !== null ? number_format($planned * $unitCost, 4, '.', '') : null,
             ];
         })->values();
 
+        $valuedRows = $rows->filter(fn (array $row): bool => in_array($row['item_type'], [BoqItemType::Measured->value, BoqItemType::Daywork->value], true));
         $approvedReports = DailySiteReport::query()
             ->where('project_id', $project->id)
             ->where('status', DailySiteReport::STATUS_APPROVED)
@@ -80,7 +106,7 @@ final class ProjectPerformanceSummary
 
         foreach ($baseline->lines as $line) {
             $activity = $activities->get($line->work_item_key);
-            $approved = $activity instanceof ProjectActivity ? (float) $activity->approved_quantity : 0.0;
+            $approved = $line->boq_item_id ? (float) ($progress->get($line->boq_item_id) ?? 0) : ($activity instanceof ProjectActivity ? (float) $activity->approved_quantity : 0.0);
 
             foreach ($line->resources as $resource) {
                 if ($resource->resource_type->value !== 'material') {
@@ -128,16 +154,31 @@ final class ProjectPerformanceSummary
                 'currency_code' => $baseline->currency_code,
                 'approved_at' => $baseline->approved_at?->toDateTimeString(),
             ],
+            'pricing' => $canViewCosts ? $baseline->pricingSummary() : null,
             'totals' => [
                 'planned_items' => $rows->count(),
-                'baseline_revenue' => $canViewCosts ? number_format($rows->sum(fn (array $row): float => (float) $row['baseline_revenue']), 4, '.', '') : null,
-                'earned_output' => $canViewCosts ? number_format($rows->sum(fn (array $row): float => (float) $row['earned_output']), 4, '.', '') : null,
-                'baseline_cost' => $canViewCosts ? number_format($rows->sum(fn (array $row): float => (float) $row['baseline_cost']), 4, '.', '') : null,
+                'baseline_revenue' => $canViewCosts && $baseline->pricingSummary()['status'] === 'fully_priced' ? number_format($rows->sum(fn (array $row): float => (float) $row['baseline_revenue']), 4, '.', '') : null,
+                'earned_output' => $canViewCosts && $valuedRows->isNotEmpty() && $valuedRows->every(fn (array $row): bool => $row['earned_output'] !== null) ? number_format($valuedRows->sum(fn (array $row): float => (float) $row['earned_output']), 4, '.', '') : null,
+                'baseline_cost' => $canViewCosts && $rows->every(fn (array $row): bool => $row['baseline_cost'] !== null) ? number_format($rows->sum(fn (array $row): float => (float) $row['baseline_cost']), 4, '.', '') : null,
                 'operational_expenses' => $canViewCosts ? number_format($approvedExpenseCost, 4, '.', '') : null,
                 'actual_input_cost' => $canViewCosts ? number_format($approvedReports->sum(fn (DailySiteReport $report): float => (float) $report->input_cost) + $approvedExpenseCost, 4, '.', '') : null,
             ],
             'work_items' => $rows->all(),
             'resources' => $resources,
         ];
+    }
+
+    private function dayworkSource(ProjectEstimateLine $line): ?string
+    {
+        $resource = match ($line->daywork_resource_type) {
+            'material' => $line->getRelation('dayworkInventoryItem'),
+            'equipment' => $line->getRelation('dayworkEquipmentCategory'),
+            'labour' => $line->getRelation('dayworkWorkforceTrade'),
+            default => null,
+        };
+
+        return $resource instanceof Model
+            ? (string) $resource->getAttribute('name')
+            : null;
     }
 }

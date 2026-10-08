@@ -17,11 +17,21 @@ final class StaffPolicy
         return $user->can('resources.staff.manage');
     }
 
+    public function viewWorkforce(User $user): bool
+    {
+        return $user->can('workforce.deployments.manage');
+    }
+
+    public function createWorker(User $user): bool
+    {
+        return $this->viewWorkforce($user);
+    }
+
     public function view(User $user, Staff $staff): bool
     {
         return $this->belongsToSameTenant($user, $staff->tenant_id)
             && $this->canAccessBranch($user, $staff->branch_id)
-            && $user->can('resources.staff.manage');
+            && ($staff->person_category === 'workforce' ? $this->viewWorkforce($user) : $user->can('resources.staff.manage'));
     }
 
     public function create(User $user): bool

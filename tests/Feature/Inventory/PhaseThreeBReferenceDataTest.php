@@ -163,11 +163,14 @@ it('creates reusable price lists before attaching an item price', function (): v
     $item = InventoryItem::query()->where('code', 'AGG-20')->firstOrFail();
     $unit = UnitOfMeasure::query()->where('code', 'TONNE')->firstOrFail();
     $branch = $director->branches()->where('code', 'KLA-HQ')->firstOrFail();
+    $lastPriority = InventoryPriceTier::withTrashed()->where('tenant_id', $director->tenant_id)->max('priority');
 
     $this->actingAs($director)->post(route('inventory.price-lists.store'), [
-        'code' => 'CONTRACTOR', 'name' => 'Contractor', 'description' => 'Approved contractor selling prices.', 'priority' => 75, 'is_active' => true,
+        'name' => 'Contractor', 'description' => 'Approved contractor selling prices.', 'is_active' => true,
     ])->assertRedirect(route('inventory.index', ['tab' => 'price-lists']));
-    $priceList = InventoryPriceTier::query()->where('code', 'CONTRACTOR')->firstOrFail();
+    $priceList = InventoryPriceTier::query()->where('name', 'Contractor')->firstOrFail();
+    expect($priceList->code)->toMatch('/^PL-[A-Z0-9]{8}$/')
+        ->and($priceList->priority)->toBe(($lastPriority === null ? 99 : (int) $lastPriority) + 1);
 
     $this->actingAs($director)->post(route('inventory.items.prices.store', $item), [
         'inventory_price_tier_id' => $priceList->id, 'branch_id' => $branch->id,

@@ -11,7 +11,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property-read string|null $boq_item_id
+ * @property-read bool $counts_towards_boq
+ * @property-read numeric-string|null $quantity
+ */
 #[Fillable([
+    'boq_item_id',
+    'counts_towards_boq',
     'tenant_id',
     'branch_id',
     'daily_site_report_id',
@@ -44,6 +51,7 @@ final class DailySiteReportWorkLine extends Model
     {
         return [
             'quantity' => 'decimal:4',
+            'counts_towards_boq' => 'boolean',
             'rate_amount' => 'decimal:4',
             'amount' => 'decimal:4',
             'created_at' => 'datetime',

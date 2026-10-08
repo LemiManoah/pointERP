@@ -197,15 +197,22 @@ export default function UsersIndex({
                                                     {user.is_director && (
                                                         <Badge>Director</Badge>
                                                     )}
-                                                    {user.permissions.map(
-                                                        (permission) => (
-                                                            <Badge
-                                                                key={permission}
-                                                                variant="outline"
-                                                            >
-                                                                {permission}
-                                                            </Badge>
-                                                        ),
+                                                    {user.permissions.length >
+                                                        0 && (
+                                                        <Badge
+                                                            variant="outline"
+                                                            className="whitespace-nowrap"
+                                                        >
+                                                            {
+                                                                user.permissions
+                                                                    .length
+                                                            }{' '}
+                                                            direct{' '}
+                                                            {user.permissions
+                                                                .length === 1
+                                                                ? 'permission'
+                                                                : 'permissions'}
+                                                        </Badge>
                                                     )}
                                                 </div>
                                             </td>

@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Actions\Operations\Projects;
 
+use App\Actions\Workforce\EndProjectDeployments;
 use App\Models\Contract;
 use App\Models\Customer;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\TenantContext;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -18,6 +20,7 @@ final readonly class SaveProject
     public function __construct(
         private AuditLogger $auditLogger,
         private TenantContext $tenantContext,
+        private EndProjectDeployments $endDeployments,
     ) {
         //
     }
@@ -27,45 +30,54 @@ final readonly class SaveProject
      */
     public function handle(array $data, User $actor, ?Project $project = null): Project
     {
-        $this->validateOptionalRelations($data);
+        return DB::transaction(function () use ($data, $actor, $project): Project {
+            if ($project instanceof Project) {
+                $project = Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
+            }
 
-        $attributes = [
-            'tenant_id' => $this->tenantContext->id(),
-            'branch_id' => $data['branch_id'],
-            'customer_id' => $data['customer_id'] ?? null,
-            'contract_id' => $data['contract_id'] ?? null,
-            'reference' => Str::upper($data['reference']),
-            'name' => $data['name'],
-            'description' => $data['description'] ?? null,
-            'manager_id' => $data['manager_id'] ?? null,
-            'base_currency_code' => Str::upper($data['base_currency_code']),
-            'budget_amount' => $data['budget_amount'] ?? null,
-            'starts_on' => $data['starts_on'] ?? null,
-            'ends_on' => $data['ends_on'] ?? null,
-            'reporting_deadline' => $data['reporting_deadline'] ?? null,
-            'status' => $data['status'],
-            'updated_by' => $actor->id,
-        ];
+            $this->validateOptionalRelations($data);
 
-        $oldValues = $project instanceof Project ? $project->only(array_keys($attributes)) : [];
+            $attributes = [
+                'tenant_id' => $this->tenantContext->id(),
+                'branch_id' => $data['branch_id'],
+                'customer_id' => $data['customer_id'] ?? null,
+                'contract_id' => $data['contract_id'] ?? null,
+                'reference' => Str::upper($data['reference']),
+                'name' => $data['name'],
+                'description' => $data['description'] ?? null,
+                'manager_id' => $data['manager_id'] ?? null,
+                'base_currency_code' => Str::upper($data['base_currency_code']),
+                'budget_amount' => $data['budget_amount'] ?? null,
+                'starts_on' => $data['starts_on'] ?? null,
+                'ends_on' => $data['ends_on'] ?? null,
+                'reporting_deadline' => $data['reporting_deadline'] ?? null,
+                'status' => $data['status'],
+                'updated_by' => $actor->id,
+            ];
 
-        if ($project instanceof Project) {
-            $project->update($attributes);
-            $event = 'operations.project.updated';
-        } else {
-            $project = Project::query()->create([...$attributes, 'created_by' => $actor->id]);
-            $event = 'operations.project.created';
-        }
+            $oldValues = $project instanceof Project ? $project->only(array_keys($attributes)) : [];
 
-        if (($data['manager_id'] ?? null) !== null) {
-            $project->users()->syncWithoutDetaching([
-                (string) $data['manager_id'] => ['role' => 'Project Manager', 'can_manage' => true],
-            ]);
-        }
+            if ($project instanceof Project) {
+                $project->update($attributes);
+                $event = 'operations.project.updated';
+            } else {
+                $project = Project::query()->create([...$attributes, 'created_by' => $actor->id]);
+                $event = 'operations.project.created';
+            }
 
-        $this->auditLogger->record($event, $project, $actor, $oldValues, $project->fresh()?->toArray() ?? []);
+            if (($data['manager_id'] ?? null) !== null) {
+                $project->users()->syncWithoutDetaching([
+                    (string) $data['manager_id'] => ['role' => 'Project Manager', 'can_manage' => true],
+                ]);
+            }
 
-        return $project;
+            $this->auditLogger->record($event, $project, $actor, $oldValues, $project->fresh()?->toArray() ?? []);
+            if (in_array($project->status, ['completed', 'closed', 'archived'], true)) {
+                $this->endDeployments->handle($project, $actor);
+            }
+
+            return $project;
+        });
     }
 
     /**

@@ -26,6 +26,8 @@ final class UpdateProjectActivityRequest extends FormRequest
         $tenantId = resolve(TenantContext::class)->id();
 
         return [
+            'boq_item_id' => ['nullable', 'uuid', Rule::exists('project_boq_items', 'id')->where('tenant_id', $tenantId)],
+            'progress_method' => ['sometimes', 'required', Rule::in(['measured', 'supporting'])],
             'project_id' => ['required', 'uuid', Rule::exists((new Project)->getTable(), 'id')->where('tenant_id', $tenantId)],
             'site_id' => ['nullable', 'uuid', Rule::exists((new Site)->getTable(), 'id')->where('tenant_id', $tenantId)],
             'code' => ['nullable', 'string', 'max:80'],

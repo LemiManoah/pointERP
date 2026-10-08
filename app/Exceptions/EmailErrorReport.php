@@ -17,7 +17,7 @@ final class EmailErrorReport
 
         if (config('services.error_notification.enabled') !== true
             || ! is_string($recipient)
-            || trim($recipient) === ''
+            || mb_trim($recipient) === ''
             || ($exception instanceof HttpExceptionInterface && $exception->getStatusCode() < 500)) {
             return;
         }
@@ -35,9 +35,9 @@ final class EmailErrorReport
                 $message->to($recipient)
                     ->subject(sprintf('[%s] Application error: %s', config('app.name'), $exception::class));
             });
-        } catch (Throwable $mailException) {
+        } catch (Throwable $throwable) {
             Log::error('Unable to send application error email.', [
-                'mail_error' => $mailException->getMessage(),
+                'mail_error' => $throwable->getMessage(),
                 'original_error' => $exception::class,
             ]);
         }

@@ -48,7 +48,7 @@ final readonly class PosFormOptions
             'paymentMethods' => collect(PosPaymentMethod::cases())->map(fn (PosPaymentMethod $method): array => ['value' => $method->value, 'label' => $method->label()]),
             'checkoutKey' => Str::uuid()->toString(),
             'selected' => ['branch_id' => $branch->id, 'store_id' => $store?->id, 'price_list_id' => $tier?->id, 'currency_code' => $branch->default_currency_code],
-            'can' => ['changeBranch' => $user->can('pos.change-branch') && $branches->count() > 1, 'changeStore' => $user->can('pos.change-store') && $stores->count() > 1, 'changePriceList' => $user->can('pos.change-price-list') && $tiers->count() > 1, 'discount' => $user->can('pos.apply-discount'), 'sellOnCredit' => $user->can('pos.sell-on-credit')],
+            'can' => ['sell' => $user->can('pos.sell'), 'changeBranch' => $user->can('pos.change-branch') && $branches->count() > 1, 'changeStore' => $user->can('pos.change-store') && $stores->count() > 1, 'changePriceList' => $user->can('pos.change-price-list') && $tiers->count() > 1, 'discount' => $user->can('pos.apply-discount'), 'sellOnCredit' => $user->can('pos.sell-on-credit')],
             'items' => $store instanceof InventoryStore && $tier instanceof InventoryPriceTier ? $this->items($store, $tier, $branch) : [],
         ];
     }
@@ -105,14 +105,15 @@ final readonly class PosFormOptions
     /** @return array<string, mixed>|null */
     private function item(InventoryItem $item, InventoryStore $store, InventoryPriceTier $tier, Branch $branch): ?array
     {
+        $posAvailable = $this->balances->availableForPos($store, $item);
         $units = collect([['id' => $item->stockUnit->id, 'label' => $item->stockUnit->name, 'symbol' => $item->stockUnit->symbol ?? $item->stockUnit->name]])
             ->merge($item->conversions->where('is_active', true)->map(fn (InventoryUnitConversion $conversion): array => ['id' => $conversion->fromUnit->id, 'label' => $conversion->fromUnit->name, 'symbol' => $conversion->fromUnit->symbol ?? $conversion->fromUnit->name]))
             ->unique('id')
-            ->map(function (array $unit) use ($branch, $item, $store, $tier): ?array {
+            ->map(function (array $unit) use ($branch, $item, $tier, $posAvailable): ?array {
                 try {
                     $price = $this->prices->resolve($item, $tier, $branch, $unit['id']);
                     $multiplier = $this->converter->multiplier($item, $unit['id']);
-                    $available = BigDecimal::of($this->balances->for($store, $item)['available'])->dividedBy($multiplier, 4, RoundingMode::Down);
+                    $available = BigDecimal::of($posAvailable)->dividedBy($multiplier, 4, RoundingMode::Down);
 
                     return [...$unit, 'price_id' => $price['id'], 'price' => $price['amount'], 'multiplier' => (string) $multiplier->toScale(10), 'available' => (string) $available->toScale(4)];
                 } catch (ValidationException) {

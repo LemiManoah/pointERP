@@ -38,7 +38,7 @@ final class UpdateUserRequest extends FormRequest
                 'uuid',
                 Rule::exists((new Staff)->getTable(), 'id')
                     ->where('tenant_id', $tenantId)
-                    ->where('status', 'active'),
+                    ->where('status', 'active')->whereNotNull('email'),
                 Rule::exists((new Staff)->getTable(), 'id')
                     ->where('tenant_id', $tenantId)
                     ->whereIn('branch_id', $accessibleBranchIds),
