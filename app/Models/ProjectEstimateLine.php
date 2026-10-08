@@ -90,49 +90,8 @@ final class ProjectEstimateLine extends Model
     public function boqAmount(Collection $lines): ?string
     {
         $amounts = [];
+
         return $this->calculateBoqAmount($lines, $amounts, []);
-    }
-
-    /**
-     * @param Collection<int, ProjectEstimateLine> $lines
-     * @param array<string, string|null> $amounts
-     * @param array<string, bool> $visited
-     */
-    private function calculateBoqAmount(Collection $lines, array &$amounts, array $visited): ?string
-    {
-        if (array_key_exists($this->work_item_key, $amounts)) {
-            return $amounts[$this->work_item_key];
-        }
-        if (isset($visited[$this->work_item_key]) || count($visited) >= 100) {
-            return $amounts[$this->work_item_key] = null;
-        }
-        $visited[$this->work_item_key] = true;
-        if ($this->item_type !== BoqItemType::PercentageAdjustment) {
-            return $amounts[$this->work_item_key] = $this->selling_rate === null ? null : (string) BigDecimal::of($this->planned_quantity)
-                ->multipliedBy($this->selling_rate)->toScale(4, RoundingMode::HalfUp);
-        }
-
-        $keys = $this->percentage_base_keys ?? [];
-        if ($this->percentage_rate === null || $keys === []) {
-            return $amounts[$this->work_item_key] = null;
-        }
-
-        $bases = $lines->whereIn('work_item_key', $keys);
-        if ($bases->count() !== count($keys)) {
-            return $amounts[$this->work_item_key] = null;
-        }
-
-        $total = BigDecimal::zero();
-        foreach ($bases as $base) {
-            $amount = $base->calculateBoqAmount($lines, $amounts, $visited);
-            if ($amount === null) {
-                return $amounts[$this->work_item_key] = null;
-            }
-
-            $total = $total->plus($amount);
-        }
-
-        return $amounts[$this->work_item_key] = (string) $total->multipliedBy($this->percentage_rate)->dividedBy(100, 4, RoundingMode::HalfUp);
     }
 
     /** @return BelongsTo<ProjectEstimate, $this> */
@@ -175,5 +134,49 @@ final class ProjectEstimateLine extends Model
     public function dayworkWorkforceTrade(): BelongsTo
     {
         return $this->belongsTo(WorkforceTrade::class, 'daywork_workforce_trade_id');
+    }
+
+    /**
+     * @param  Collection<int, ProjectEstimateLine>  $lines
+     * @param  array<string, string|null>  $amounts
+     * @param  array<string, bool>  $visited
+     */
+    private function calculateBoqAmount(Collection $lines, array &$amounts, array $visited): ?string
+    {
+        if (array_key_exists($this->work_item_key, $amounts)) {
+            return $amounts[$this->work_item_key];
+        }
+
+        if (isset($visited[$this->work_item_key]) || count($visited) >= 100) {
+            return $amounts[$this->work_item_key] = null;
+        }
+
+        $visited[$this->work_item_key] = true;
+        if ($this->item_type !== BoqItemType::PercentageAdjustment) {
+            return $amounts[$this->work_item_key] = $this->selling_rate === null ? null : (string) BigDecimal::of($this->planned_quantity)
+                ->multipliedBy($this->selling_rate)->toScale(4, RoundingMode::HalfUp);
+        }
+
+        $keys = $this->percentage_base_keys ?? [];
+        if ($this->percentage_rate === null || $keys === []) {
+            return $amounts[$this->work_item_key] = null;
+        }
+
+        $bases = $lines->whereIn('work_item_key', $keys);
+        if ($bases->count() !== count($keys)) {
+            return $amounts[$this->work_item_key] = null;
+        }
+
+        $total = BigDecimal::zero();
+        foreach ($bases as $base) {
+            $amount = $base->calculateBoqAmount($lines, $amounts, $visited);
+            if ($amount === null) {
+                return $amounts[$this->work_item_key] = null;
+            }
+
+            $total = $total->plus($amount);
+        }
+
+        return $amounts[$this->work_item_key] = (string) $total->multipliedBy($this->percentage_rate)->dividedBy(100, 4, RoundingMode::HalfUp);
     }
 }

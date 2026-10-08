@@ -8,9 +8,9 @@ use App\Actions\Operations\DailySiteReports\SaveDailySiteReport;
 use App\Enums\DsrLabourSource;
 use App\Http\Requests\Operations\DailySiteReports\StoreDailySiteReportRequest;
 use App\Http\Requests\Operations\DailySiteReports\UpdateDailySiteReportRequest;
+use App\Models\BoqProgressEntry;
 use App\Models\Customer;
 use App\Models\DailySiteReport;
-use App\Models\BoqProgressEntry;
 use App\Models\DailySiteReportCorrection;
 use App\Models\DailySiteReportMaterialLine;
 use App\Models\DailySiteReportReview;
@@ -427,6 +427,7 @@ final class DailySiteReportController
             ->selectRaw('project_activity_id, SUM(quantity) as total')->groupBy('project_activity_id')->pluck('total', 'project_activity_id');
         $acceptedProgress = BoqProgressEntry::query()->whereIn('daily_site_report_work_line_id', $report->workLines->pluck('id'))
             ->selectRaw('daily_site_report_work_line_id, SUM(quantity) as total')->groupBy('daily_site_report_work_line_id')->pluck('total', 'daily_site_report_work_line_id');
+
         return collect($this->lineRows($report->workLines->values()->all(), $canViewCosts))
             ->map(function (array $line) use ($report, $previousProgress, $acceptedProgress): array {
                 $activityId = $line['project_activity_id'] ?? null;
@@ -451,7 +452,6 @@ final class DailySiteReportController
                         $today = (float) $accepted;
                     }
                 }
-
 
                 return [
                     ...$line,

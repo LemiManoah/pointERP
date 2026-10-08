@@ -11,11 +11,10 @@ use App\Actions\Operations\Estimates\SaveProjectEstimate;
 use App\Actions\Operations\ProjectActivities\SaveProjectActivity;
 use App\Enums\UnitDimension;
 use App\Enums\WorkforceTradeCategory;
-use Carbon\CarbonImmutable;
 use App\Models\BoqProgressEntry;
 use App\Models\DailySiteReport;
-use App\Models\DailySiteReportLabourLine;
 use App\Models\DailySiteReportEquipmentLine;
+use App\Models\DailySiteReportLabourLine;
 use App\Models\DailySiteReportMaterialLine;
 use App\Models\Equipment;
 use App\Models\InventoryItem;
@@ -28,6 +27,7 @@ use App\Models\WorkforceTrade;
 use App\Models\WorkItemTemplate;
 use App\Services\ProjectPerformanceSummary;
 use App\Services\TenantContext;
+use Carbon\CarbonImmutable;
 use Database\Seeders\PointInvestmentSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Support\Facades\Notification;
@@ -209,7 +209,7 @@ it('values equipment and material dayworks from the same approved DSR', function
         'approved_at' => now(), 'created_by' => $this->actor->id, 'updated_by' => $this->actor->id,
     ]);
     DailySiteReportEquipmentLine::query()->create([
-            'work_type' => 'daywork',
+        'work_type' => 'daywork',
         'tenant_id' => $report->tenant_id, 'branch_id' => $report->branch_id,
         'daily_site_report_id' => $report->id, 'equipment_id' => $equipment->id,
         'equipment_name' => $equipment->name, 'equipment_identifier' => $equipment->asset_code,
@@ -217,7 +217,7 @@ it('values equipment and material dayworks from the same approved DSR', function
         'fleet_posting_status' => 'unposted', 'sort_order' => 0,
     ]);
     DailySiteReportMaterialLine::query()->create([
-            'work_type' => 'daywork',
+        'work_type' => 'daywork',
         'tenant_id' => $report->tenant_id, 'branch_id' => $report->branch_id,
         'daily_site_report_id' => $report->id, 'inventory_item_id' => $material->id,
         'unit_of_measure_id' => $material->stock_unit_id, 'conversion_multiplier' => '1',
@@ -388,6 +388,7 @@ it('aggregates distinct measured activities once and excludes supporting and dra
 
     $source = $report->workLines->firstWhere('project_activity_id', $second->id);
     $source->update(['quantity' => '160']);
+
     $finding = collect(resolve(ReconcileProjectProgress::class)->handle($this->project))
         ->firstWhere('record', $source->id);
     expect($finding['type'])->toBe('Source quantity mismatch')

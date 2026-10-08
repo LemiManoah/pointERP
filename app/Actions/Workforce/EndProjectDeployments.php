@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace App\Actions\Workforce;
 
-use Illuminate\Support\Facades\DB;
 use App\Models\Project;
 use App\Models\StaffDeployment;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 final readonly class EndProjectDeployments
 {
     public function __construct(private EndStaffDeployment $endDeployment) {}
+
     /**
      * Execute the action.
      */

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Actions\Operations\DailySiteReports;
 
 use App\Actions\Operations\Boq\ValidateDayworkUsage;
-
 use App\Enums\DsrLabourSource;
 use App\Enums\DsrMaterialSource;
 use App\Enums\DsrMaterialUsageStatus;
@@ -284,7 +283,7 @@ final readonly class SaveDailySiteReport
                 'conversion_multiplier' => (string) $multiplier->toScale(10),
                 'stock_unit_quantity' => (string) $quantity->multipliedBy($multiplier)->toScale(4),
                 'work_type' => $line['work_type'] ?? 'ordinary',
-                    'material_source' => $source->value,
+                'material_source' => $source->value,
                 'material_usage_status' => DsrMaterialUsageStatus::Pending->value,
                 'material_name' => $item->name,
                 'unit' => $unit->symbol ?? $unit->name,

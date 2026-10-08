@@ -81,279 +81,280 @@ final class PreviewBoqImport
         $dayworkSection = false;
         $expectElement = false;
         foreach ($sheet['rows'] as $number => $cells) {
-                if ($number < 2) {
-                    continue;
+            if ($number < 2) {
+                continue;
+            }
+
+            $value = fn (string $column): string => $cells[$column]['value'] ?? '';
+            $description = $value('B');
+            $reference = $value('A');
+            if (is_numeric($reference) && str_contains($reference, '.') && mb_strlen($reference) > 12) {
+                $reference = mb_rtrim(mb_rtrim(number_format((float) $reference, 8, '.', ''), '0'), '.');
+            }
+
+            $unit = $value('C');
+            $quantity = $value('D');
+            $rate = $value('E');
+            if ($description === '' && $reference === '' && $quantity === '') {
+                continue;
+            }
+
+            if ($description === '' && $unit === '' && $quantity === '' && $reference !== '') {
+                $description = $reference;
+            }
+
+            $isTotal = preg_match('/^(?:sub[ -]?total|grand total|total(?:[ :]|$)|carried (?:to|forward)|brought forward|collection|amount carried)/i', $description);
+            $isHeader = preg_match('/^(?:description|unit|qty|quantity)$/i', $description);
+            if ($isTotal || $isHeader || ($unit === '' && $quantity === '')) {
+                if (! $isTotal && ! $isHeader && preg_match('/^(?:SERIES\s+\d+\s*:\s*)?DAY[ -]?WORKS?\b/i', $description)) {
+                    $dayworkSection = true;
+                } elseif (! $isTotal && ! $isHeader && preg_match('/^BILL(?:\s+NO\.?)?\s*\d+/i', $description)) {
+                    $bill = mb_substr($description, 0, 160);
+                    $section = null;
+                    $element = null;
+                    $hasElement = false;
+                    $dayworkSection = false;
+                    $context = [];
+                    $previousDescription = '';
+                    $parentReference = '';
                 }
 
-                $value = fn (string $column): string => $cells[$column]['value'] ?? '';
-                $description = $value('B');
-                $reference = $value('A');
-                if (is_numeric($reference) && str_contains($reference, '.') && mb_strlen($reference) > 12) {
-                    $reference = mb_rtrim(mb_rtrim(number_format((float) $reference, 8, '.', ''), '0'), '.');
-                }
-
-                $unit = $value('C');
-                $quantity = $value('D');
-                $rate = $value('E');
-                if ($description === '' && $reference === '' && $quantity === '') {
-                    continue;
-                }
-
-                if ($description === '' && $unit === '' && $quantity === '' && $reference !== '') {
-                    $description = $reference;
-                }
-
-                $isTotal = preg_match('/^(?:sub[ -]?total|grand total|total(?:[ :]|$)|carried (?:to|forward)|brought forward|collection|amount carried)/i', $description);
-                $isHeader = preg_match('/^(?:description|unit|qty|quantity)$/i', $description);
-                if ($isTotal || $isHeader || ($unit === '' && $quantity === '')) {
-                    if (! $isTotal && ! $isHeader && preg_match('/^(?:SERIES\s+\d+\s*:\s*)?DAY[ -]?WORKS?\b/i', $description)) {
-                        $dayworkSection = true;
-                    } elseif (! $isTotal && ! $isHeader && preg_match('/^BILL(?:\s+NO\.?)?\s*\d+/i', $description)) {
-                        $bill = mb_substr($description, 0, 160);
-                        $section = null;
-                        $element = null;
-                        $hasElement = false;
-                        $dayworkSection = false;
-                        $context = [];
-                        $previousDescription = '';
-                        $parentReference = '';
-                    }
-                    if (! $isTotal && ! $isHeader && $expectElement && $description !== '') {
-                        $element = $description;
-                        $expectElement = false;
-                    } elseif (preg_match('/^ELEMENT\s+(?:NO[ .]*)?\d+/i', $description)) {
-                        $element = $description;
-                        $expectElement = true;
-                        $hasElement = true;
-                        $section = $sheetSection;
-                        $context = [];
-                        $previousDescription = '';
-                        $parentReference = '';
-                    } elseif (! $isTotal && ! $isHeader && preg_match('/^SECTION\s+\d+\s*:/i', $description)) {
-                        $section = mb_substr($description, 0, 160);
-                        $context = [];
-                        $previousDescription = '';
-                        $parentReference = '';
-                    } elseif (! $isTotal && ! $isHeader && $this->isFloorHeading($description)) {
-                        $section = $description;
-                        if (! $hasElement) {
-                            $sheetSection = $description;
-                        }
-
-                        $context = array_values(array_filter($context, fn (string $heading): bool => ! $this->isFloorHeading($heading)));
-                        $previousDescription = '';
+                if (! $isTotal && ! $isHeader && $expectElement && $description !== '') {
+                    $element = $description;
+                    $expectElement = false;
+                } elseif (preg_match('/^ELEMENT\s+(?:NO[ .]*)?\d+/i', $description)) {
+                    $element = $description;
+                    $expectElement = true;
+                    $hasElement = true;
+                    $section = $sheetSection;
+                    $context = [];
+                    $previousDescription = '';
+                    $parentReference = '';
+                } elseif (! $isTotal && ! $isHeader && preg_match('/^SECTION\s+\d+\s*:/i', $description)) {
+                    $section = mb_substr($description, 0, 160);
+                    $context = [];
+                    $previousDescription = '';
+                    $parentReference = '';
+                } elseif (! $isTotal && ! $isHeader && $this->isFloorHeading($description)) {
+                    $section = $description;
+                    if (! $hasElement) {
+                        $sheetSection = $description;
                     }
 
-                    if ($description !== '' && ! $isTotal && ! $isHeader) {
-                        if (preg_match('/^\d+\.\d+$/', $reference)) {
-                            $parentReference = $reference;
-                        }
+                    $context = array_values(array_filter($context, fn (string $heading): bool => ! $this->isFloorHeading($heading)));
+                    $previousDescription = '';
+                }
 
-                        $context[] = $reference !== '' && $reference !== $description ? $reference.' '.$description : $description;
-                        $context = array_slice($context, -8);
+                if ($description !== '' && ! $isTotal && ! $isHeader) {
+                    if (preg_match('/^\d+\.\d+$/', $reference)) {
+                        $parentReference = $reference;
                     }
 
-                    $skipped[] = ['sheet' => $sheet['name'], 'row' => $number, 'description' => $description, 'reason' => $isTotal ? 'Subtotal / carry-forward' : 'Heading / specification'];
-
-                    continue;
+                    $context[] = $reference !== '' && $reference !== $description ? $reference.' '.$description : $description;
+                    $context = array_slice($context, -8);
                 }
 
-                if (count($rows) >= 2000) {
-                    throw ValidationException::withMessages(['file' => 'Import at most 2,000 BOQ items at a time.']);
-                }
+                $skipped[] = ['sheet' => $sheet['name'], 'row' => $number, 'description' => $description, 'reason' => $isTotal ? 'Subtotal / carry-forward' : 'Heading / specification'];
 
-                $warnings = [];
-                if ($parentReference !== '' && preg_match('/^\([a-z0-9]+\)(?:\([a-z0-9]+\))*$/i', $reference)) {
-                    $reference = $parentReference.$reference;
-                }
+                continue;
+            }
 
-                foreach (['quantity' => 'D', 'rate' => 'E', 'amount' => 'F'] as $field => $column) {
-                    $cell = $cells[$column] ?? null;
-                    if ($cell !== null && ($cell['error'] || ($cell['formula'] && $cell['value'] === ''))) {
-                        $warnings[] = ucfirst($field).' has an Excel error or no saved formula result. Enter the value before saving.';
-                    } elseif ($cell !== null && $cell['formula']) {
-                        $warnings[] = ucfirst($field).' uses a saved Excel formula result; verify it is current.';
-                    }
-                }
+            if (count($rows) >= 2000) {
+                throw ValidationException::withMessages(['file' => 'Import at most 2,000 BOQ items at a time.']);
+            }
 
-                if ($description === '') {
-                    $warnings[] = 'Missing item description.';
-                }
+            $warnings = [];
+            if ($parentReference !== '' && preg_match('/^\([a-z0-9]+\)(?:\([a-z0-9]+\))*$/i', $reference)) {
+                $reference = $parentReference.$reference;
+            }
 
-                if (! is_numeric($quantity) || (float) $quantity <= 0) {
-                    $warnings[] = 'Quantity must be a positive number.';
+            foreach (['quantity' => 'D', 'rate' => 'E', 'amount' => 'F'] as $field => $column) {
+                $cell = $cells[$column] ?? null;
+                if ($cell !== null && ($cell['error'] || ($cell['formula'] && $cell['value'] === ''))) {
+                    $warnings[] = ucfirst($field).' has an Excel error or no saved formula result. Enter the value before saving.';
+                } elseif ($cell !== null && $cell['formula']) {
+                    $warnings[] = ucfirst($field).' uses a saved Excel formula result; verify it is current.';
                 }
+            }
 
-                if ($rate === '') {
-                    $warnings[] = 'Unpriced: rate is blank.';
-                } elseif (! is_numeric($rate) || (float) $rate < 0) {
-                    $warnings[] = 'Rate must be blank or a non-negative number.';
+            if ($description === '') {
+                $warnings[] = 'Missing item description.';
+            }
+
+            if (! is_numeric($quantity) || (float) $quantity <= 0) {
+                $warnings[] = 'Quantity must be a positive number.';
+            }
+
+            if ($rate === '') {
+                $warnings[] = 'Unpriced: rate is blank.';
+            } elseif (! is_numeric($rate) || (float) $rate < 0) {
+                $warnings[] = 'Rate must be blank or a non-negative number.';
+            }
+
+            $amount = $value('F');
+            if (is_numeric($quantity) && is_numeric($rate) && is_numeric($amount)
+                && abs((float) $quantity * (float) $rate - (float) $amount) > 0.01) {
+                $warnings[] = 'Excel amount differs from quantity x rate. The draft will use quantity x rate.';
+            }
+
+            $matches = $units->filter(fn (UnitOfMeasure $candidate): bool => in_array(mb_strtolower($unit), array_map(fn ($text): string => mb_strtolower((string) $text), [$candidate->code, $candidate->symbol, $candidate->name]), true) && $unit !== '');
+            $unitId = $matches->count() === 1 ? $matches->first()->id : '';
+            if (in_array(mb_strtoupper($unit), ['CM', 'SM', 'LM', 'NO', 'ITEM', 'PS'], true)) {
+                $unitId = '';
+            }
+
+            if ($unitId === '') {
+                $warnings[] = 'Select a system unit for "'.$unit.'". No conversion is applied.';
+            }
+
+            $type = match (mb_strtoupper($unit)) {
+                'PS', 'P.S.', 'PROVISIONAL SUM' => 'provisional_sum',
+                'ITEM', 'SUM', 'LS', 'L.S.', 'LUMP SUM', 'LUMPSUM' => 'lump_sum',
+                default => 'measured',
+            };
+            $preliminary = (bool) preg_match('/\bpreliminar(?:y|ies)\b/i', $bill.' '.$section.' '.implode(' ', $context).' '.$description)
+                || (bool) preg_match('/\b(?:fixed|time)[ -]related\s+(?:obligations|charges)\b/i', $description);
+            if ($preliminary && ! $dayworkSection) {
+                if ($type === 'lump_sum') {
+                    $type = 'preliminary_fixed';
+                } elseif (preg_match('/^(?:hours?|hrs?|days?|weeks?|wks?|months?|mths?|years?|yrs?)(?:\s*\([a-z]+\))?$/i', mb_trim($unit))) {
+                    $type = 'preliminary_time';
+                    $warnings[] = 'Confirm the planned duration and choose a system time unit matching the source. No duration conversion is applied.';
                 }
+            }
 
-                $amount = $value('F');
-                if (is_numeric($quantity) && is_numeric($rate) && is_numeric($amount)
-                    && abs((float) $quantity * (float) $rate - (float) $amount) > 0.01) {
-                    $warnings[] = 'Excel amount differs from quantity x rate. The draft will use quantity x rate.';
-                }
+            if (preg_match('/\bprovisional sum\b/i', $description)) {
+                $warnings[] = 'Review the provisional allowance in the description; it has not been used as a price.';
+            }
 
-                $matches = $units->filter(fn (UnitOfMeasure $candidate): bool => in_array(mb_strtolower($unit), array_map(fn ($text): string => mb_strtolower((string) $text), [$candidate->code, $candidate->symbol, $candidate->name]), true) && $unit !== '');
-                $unitId = $matches->count() === 1 ? $matches->first()->id : '';
-                if (in_array(mb_strtoupper($unit), ['CM', 'SM', 'LM', 'NO', 'ITEM', 'PS'], true)) {
-                    $unitId = '';
-                }
+            if (! $dayworkSection && (str_contains($unit, '%') || preg_match('/percent(?:age)?/i', $unit))) {
+                $type = 'percentage_adjustment';
+                $warnings[] = 'Confirm the percentage and select its calculation base. Source quantity: '.$quantity.'; source rate: '.$rate.'. Neither is automatically interpreted as the percentage.';
+                $quantity = '1';
+                $rate = '';
+            }
 
-                if ($unitId === '') {
-                    $warnings[] = 'Select a system unit for "'.$unit.'". No conversion is applied.';
-                }
+            if ($dayworkSection) {
+                $type = BoqItemType::Daywork->value;
+                $warnings[] = 'Map this daywork item to approved usage from a Daily Site Report before saving.';
+            }
 
-                $type = match (mb_strtoupper($unit)) {
-                    'PS', 'P.S.', 'PROVISIONAL SUM' => 'provisional_sum',
-                    'ITEM', 'SUM', 'LS', 'L.S.', 'LUMP SUM', 'LUMPSUM' => 'lump_sum',
-                    default => 'measured',
+            $fullDescription = implode("\n", array_filter([...$context, preg_match('/^ditto\b/i', $description) ? 'Previous item: '.$previousDescription : '', $description]));
+            if (preg_match('/^ditto\b/i', $description)) {
+                $warnings[] = 'Ditto wording retained with preceding context. Verify the full specification.';
+            }
+
+            if (mb_strlen($fullDescription) > 10000) {
+                $warnings[] = 'Specification context exceeds 10,000 characters and was shortened. Review the full source before saving.';
+            }
+
+            $line = [
+                'work_item_key' => Str::uuid()->toString(), 'bill' => $bill, 'section' => $section,
+                'element' => $element, 'item_type' => $type, 'site_id' => null,
+                'boq_reference' => $reference ?: null, 'code' => null,
+                'name' => mb_substr($description, 0, 220), 'description' => mb_substr($fullDescription, 0, 10000),
+                'unit_of_measure_id' => $unitId, 'planned_quantity' => $quantity,
+                'selling_rate' => $rate === '' ? null : $rate, 'estimated_unit_cost' => null,
+                'percentage_rate' => null, 'percentage_base_keys' => [],
+                'daywork_resource_type' => null, 'daywork_inventory_item_id' => null,
+                'daywork_equipment_category_id' => null, 'daywork_workforce_trade_id' => null,
+                'source_document' => $workbook['name'], 'source_sheet' => $sheet['name'], 'source_row' => $number,
+                'notes' => null, 'resources' => [],
+            ];
+            $identity = $this->identity($line);
+            $matching = array_values(array_filter($existing, fn (array $old): bool => $this->identity($old) === $identity));
+            $classification = match (true) {
+                $dayworkSection => 'Dayworks',
+                str_contains($unit, '%') || (bool) preg_match('/percent(?:age)?/i', $unit) => 'Percentage adjustment',
+                $type === 'preliminary_fixed' => 'Fixed preliminary',
+                $type === 'preliminary_time' => 'Time-based preliminary',
+                $type === 'provisional_sum' => 'Provisional sum',
+                $preliminary => 'Preliminaries',
+                $type === 'lump_sum' => 'Lump sum',
+                default => 'Measured work',
+            };
+            $commercialReview = $classification === 'Preliminaries';
+            $unsupportedMeasurement = $classification === 'Preliminaries';
+            $blocked = count($matching) > 1 || isset($seen[$identity]) || (bool) $unsupportedMeasurement;
+            if ($matching === [] && $section && collect($existing)->contains(fn (array $old): bool => ($old['bill'] ?? '') === $bill && ($old['element'] ?? '') === ($element ?? '')
+                && empty($old['section']) && ($old['boq_reference'] ?? '') === ($reference ?: '')
+                && ($old['name'] ?? '') === $line['name'])) {
+                $blocked = true;
+                $warnings[] = 'An existing item has this reference and description but no section. Set its section in the draft and preview again to avoid duplicating it.';
+            }
+
+            if ($unsupportedMeasurement) {
+                $warnings[] = match ($classification) {
+                    default => 'Preliminaries require confirmation of fixed or time-based valuation. This row is retained in the preview but cannot yet be saved as measured work.',
                 };
-                $preliminary = (bool) preg_match('/\bpreliminar(?:y|ies)\b/i', $bill.' '.$section.' '.implode(' ', $context).' '.$description)
-                    || (bool) preg_match('/\b(?:fixed|time)[ -]related\s+(?:obligations|charges)\b/i', $description);
-                if ($preliminary && ! $dayworkSection) {
-                    if ($type === 'lump_sum') {
-                        $type = 'preliminary_fixed';
-                    } elseif (preg_match('/^(?:hours?|hrs?|days?|weeks?|wks?|months?|mths?|years?|yrs?)(?:\s*\([a-z]+\))?$/i', mb_trim($unit))) {
-                        $type = 'preliminary_time';
-                        $warnings[] = 'Confirm the planned duration and choose a system time unit matching the source. No duration conversion is applied.';
+            }
+
+            if ($matching === [] && collect($existing)->contains(fn (array $old): bool => ($old['bill'] ?? '') === $bill && ($old['section'] ?? '') === $section
+                && ($old['element'] ?? '') === $element && ($old['boq_reference'] ?? '') === ($reference ?: null))) {
+                $blocked = true;
+                $warnings[] = 'This reference already exists with different wording. Reconcile it in the draft before importing; no existing identity was guessed.';
+            }
+
+            if (count($matching) > 1 || isset($seen[$identity])) {
+                $warnings[] = 'This reference appears more than once. Correct the duplicate before saving.';
+            }
+
+            $seen[$identity] = true;
+            $change = 'New';
+            if (count($matching) === 1) {
+                $old = $matching[0];
+                if ($type === 'percentage_adjustment') {
+                    $line['percentage_rate'] = $old['percentage_rate'] ?? null;
+                    $line['percentage_base_keys'] = $old['percentage_base_keys'] ?? [];
+                }
+
+                if ($type === BoqItemType::Daywork->value) {
+                    foreach (['daywork_resource_type', 'daywork_inventory_item_id', 'daywork_equipment_category_id', 'daywork_workforce_trade_id'] as $field) {
+                        $line[$field] = $old[$field] ?? null;
                     }
                 }
 
-                if (preg_match('/\bprovisional sum\b/i', $description)) {
-                    $warnings[] = 'Review the provisional allowance in the description; it has not been used as a price.';
+                $line['work_item_key'] = $old['work_item_key'];
+                if ($type !== 'percentage_adjustment' && $rate === '' && $old['selling_rate'] !== null) {
+                    $line['selling_rate'] = $old['selling_rate'];
+                    $warnings[] = 'Blank imported rate: retained the existing price. Clear it explicitly in the draft if required.';
                 }
 
-                if (! $dayworkSection && (str_contains($unit, '%') || preg_match('/percent(?:age)?/i', $unit))) {
-                    $type = 'percentage_adjustment';
-                    $warnings[] = 'Confirm the percentage and select its calculation base. Source quantity: '.$quantity.'; source rate: '.$rate.'. Neither is automatically interpreted as the percentage.';
-                    $quantity = '1';
-                    $rate = '';
+                foreach (['site_id', 'code', 'estimated_unit_cost', 'resources', 'notes'] as $field) {
+                    $line[$field] = $old[$field];
                 }
 
-                if ($dayworkSection) {
-                    $type = BoqItemType::Daywork->value;
-                    $warnings[] = 'Map this daywork item to approved usage from a Daily Site Report before saving.';
+                $change = 'Matched';
+                foreach (['name', 'description', 'planned_quantity', 'selling_rate', 'unit_of_measure_id', 'item_type'] as $field) {
+                    if ($field === 'unit_of_measure_id' && $unitId === '') {
+                        continue;
+                    }
+
+                    $same = is_numeric($old[$field]) && is_numeric($line[$field])
+                        ? abs((float) $old[$field] - (float) $line[$field]) < 0.00005
+                        : $old[$field] === $line[$field];
+                    if (! $same) {
+                        $warnings[] = str_replace('_', ' ', $field).': '.($old[$field] ?? 'unpriced').' -> '.($line[$field] ?? 'unpriced');
+                        $change = 'Changed';
+                    }
                 }
 
-                $fullDescription = implode("\n", array_filter([...$context, preg_match('/^ditto\b/i', $description) ? 'Previous item: '.$previousDescription : '', $description]));
-                if (preg_match('/^ditto\b/i', $description)) {
-                    $warnings[] = 'Ditto wording retained with preceding context. Verify the full specification.';
-                }
+            }
 
-                if (mb_strlen($fullDescription) > 10000) {
-                    $warnings[] = 'Specification context exceeds 10,000 characters and was shortened. Review the full source before saving.';
-                }
-
-                $line = [
-                    'work_item_key' => Str::uuid()->toString(), 'bill' => $bill, 'section' => $section,
-                    'element' => $element, 'item_type' => $type, 'site_id' => null,
-                    'boq_reference' => $reference ?: null, 'code' => null,
-                    'name' => mb_substr($description, 0, 220), 'description' => mb_substr($fullDescription, 0, 10000),
-                    'unit_of_measure_id' => $unitId, 'planned_quantity' => $quantity,
-                    'selling_rate' => $rate === '' ? null : $rate, 'estimated_unit_cost' => null,
-                    'percentage_rate' => null, 'percentage_base_keys' => [],
-                    'daywork_resource_type' => null, 'daywork_inventory_item_id' => null,
-                    'daywork_equipment_category_id' => null, 'daywork_workforce_trade_id' => null,
-                    'source_document' => $workbook['name'], 'source_sheet' => $sheet['name'], 'source_row' => $number,
-                    'notes' => null, 'resources' => [],
-                ];
-                $identity = $this->identity($line);
-                $matching = array_values(array_filter($existing, fn (array $old): bool => $this->identity($old) === $identity));
-                $classification = match (true) {
-                    $dayworkSection => 'Dayworks',
-                    str_contains($unit, '%') || (bool) preg_match('/percent(?:age)?/i', $unit) => 'Percentage adjustment',
-                    $type === 'preliminary_fixed' => 'Fixed preliminary',
-                    $type === 'preliminary_time' => 'Time-based preliminary',
-                    $type === 'provisional_sum' => 'Provisional sum',
-                    $preliminary => 'Preliminaries',
-                    $type === 'lump_sum' => 'Lump sum',
-                    default => 'Measured work',
+            $dayworkMappingRequired = false;
+            if ($classification === 'Dayworks') {
+                $resourceId = match ($line['daywork_resource_type']) {
+                    'labour' => $line['daywork_workforce_trade_id'],
+                    'equipment' => $line['daywork_equipment_category_id'],
+                    'material' => $line['daywork_inventory_item_id'],
+                    default => null,
                 };
-                $commercialReview = $classification === 'Preliminaries';
-                $unsupportedMeasurement = $classification === 'Preliminaries';
-                $blocked = count($matching) > 1 || isset($seen[$identity]) || (bool) $unsupportedMeasurement;
-                if ($matching === [] && $section && collect($existing)->contains(fn (array $old): bool => ($old['bill'] ?? '') === $bill && ($old['element'] ?? '') === ($element ?? '')
-                    && empty($old['section']) && ($old['boq_reference'] ?? '') === ($reference ?: '')
-                    && ($old['name'] ?? '') === $line['name'])) {
-                    $blocked = true;
-                    $warnings[] = 'An existing item has this reference and description but no section. Set its section in the draft and preview again to avoid duplicating it.';
-                }
+                $dayworkMappingRequired = ! $resourceId && ! $blocked;
+                $blocked = $blocked || ! $resourceId;
+            }
 
-                if ($unsupportedMeasurement) {
-                    $warnings[] = match ($classification) {
-                        default => 'Preliminaries require confirmation of fixed or time-based valuation. This row is retained in the preview but cannot yet be saved as measured work.',
-                    };
-                }
-
-                if ($matching === [] && collect($existing)->contains(fn (array $old): bool => ($old['bill'] ?? '') === $bill && ($old['section'] ?? '') === $section
-                    && ($old['element'] ?? '') === $element && ($old['boq_reference'] ?? '') === ($reference ?: null))) {
-                    $blocked = true;
-                    $warnings[] = 'This reference already exists with different wording. Reconcile it in the draft before importing; no existing identity was guessed.';
-                }
-
-                if (count($matching) > 1 || isset($seen[$identity])) {
-                    $warnings[] = 'This reference appears more than once. Correct the duplicate before saving.';
-                }
-
-                $seen[$identity] = true;
-                $change = 'New';
-                if (count($matching) === 1) {
-                    $old = $matching[0];
-                    if ($type === 'percentage_adjustment') {
-                        $line['percentage_rate'] = $old['percentage_rate'] ?? null;
-                        $line['percentage_base_keys'] = $old['percentage_base_keys'] ?? [];
-                    }
-
-                    if ($type === BoqItemType::Daywork->value) {
-                        foreach (['daywork_resource_type', 'daywork_inventory_item_id', 'daywork_equipment_category_id', 'daywork_workforce_trade_id'] as $field) {
-                            $line[$field] = $old[$field] ?? null;
-                        }
-                    }
-
-                    $line['work_item_key'] = $old['work_item_key'];
-                    if ($type !== 'percentage_adjustment' && $rate === '' && $old['selling_rate'] !== null) {
-                        $line['selling_rate'] = $old['selling_rate'];
-                        $warnings[] = 'Blank imported rate: retained the existing price. Clear it explicitly in the draft if required.';
-                    }
-
-                    foreach (['site_id', 'code', 'estimated_unit_cost', 'resources', 'notes'] as $field) {
-                        $line[$field] = $old[$field];
-                    }
-
-                    $change = 'Matched';
-                    foreach (['name', 'description', 'planned_quantity', 'selling_rate', 'unit_of_measure_id', 'item_type'] as $field) {
-                        if ($field === 'unit_of_measure_id' && $unitId === '') {
-                            continue;
-                        }
-
-                        $same = is_numeric($old[$field]) && is_numeric($line[$field])
-                            ? abs((float) $old[$field] - (float) $line[$field]) < 0.00005
-                            : $old[$field] === $line[$field];
-                        if (! $same) {
-                            $warnings[] = str_replace('_', ' ', $field).': '.($old[$field] ?? 'unpriced').' -> '.($line[$field] ?? 'unpriced');
-                            $change = 'Changed';
-                        }
-                    }
-
-                }
-
-                $dayworkMappingRequired = false;
-                if ($classification === 'Dayworks') {
-                    $resourceId = match ($line['daywork_resource_type']) {
-                        'labour' => $line['daywork_workforce_trade_id'],
-                        'equipment' => $line['daywork_equipment_category_id'],
-                        'material' => $line['daywork_inventory_item_id'],
-                        default => null,
-                    };
-                    $dayworkMappingRequired = ! $resourceId && ! $blocked;
-                    $blocked = $blocked || ! $resourceId;
-                }
-
-                $rows[] = ['id' => $sheet['id'].':'.$number, 'line' => $line, 'classification' => $classification, 'commercial_review' => $commercialReview, 'daywork_resource_required' => $dayworkMappingRequired, 'source_unit' => $unit, 'source_amount' => $amount, 'warnings' => $warnings, 'blocked' => $blocked, 'change' => $change];
-                $previousDescription = $description;
+            $rows[] = ['id' => $sheet['id'].':'.$number, 'line' => $line, 'classification' => $classification, 'commercial_review' => $commercialReview, 'daywork_resource_required' => $dayworkMappingRequired, 'source_unit' => $unit, 'source_amount' => $amount, 'warnings' => $warnings, 'blocked' => $blocked, 'change' => $change];
+            $previousDescription = $description;
         }
 
         $counts = array_count_values(array_map(fn (array $row): string => $this->identity($row['line']), $rows));

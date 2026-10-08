@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Actions\Operations\Boq\ReconcileProjectProgress;
 use App\Models\Project;
 use App\Models\ProjectEstimate;
+use App\Models\Tenant;
 use App\Models\User;
 use App\Services\TenantContext;
 use Illuminate\Console\Attributes\Description;
@@ -25,6 +26,7 @@ final class ReconcileBoqProgress extends Command
 
             return self::FAILURE;
         }
+
         $actor = User::query()->where('email', $this->option('user'))->where('is_active', true)->firstOrFail();
         $previous = $context->has() ? $context->current() : null;
         try {
@@ -39,12 +41,13 @@ final class ReconcileBoqProgress extends Command
 
                 return self::SUCCESS;
             }
+
             $this->table(['Issue', 'Record ID', 'Detail'], $findings);
             $this->warn(count($findings).' finding(s) require review. No records were changed.');
 
             return self::FAILURE;
         } finally {
-            if ($previous) {
+            if ($previous instanceof Tenant) {
                 $context->set($previous);
             } else {
                 $context->forget();

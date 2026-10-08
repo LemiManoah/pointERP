@@ -43,6 +43,7 @@ final class HandleInertiaRequests extends Middleware
         if (! $brandingTenant && $request->routeIs('login') && is_string($tenantCode)) {
             $brandingTenant = Tenant::query()->active()->where('code', mb_strtoupper($tenantCode))->first();
         }
+
         $branchContext = $user instanceof User ? resolve(BranchContext::class) : null;
         $currentBranch = $branchContext?->current($user instanceof User ? $user : null);
         $canViewNotifications = $user instanceof User && $user->can('notifications.view');

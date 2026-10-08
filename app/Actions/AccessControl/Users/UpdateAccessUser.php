@@ -33,6 +33,7 @@ final readonly class UpdateAccessUser
             if (empty($staff->email)) {
                 throw ValidationException::withMessages(['staff_id' => 'Add an email address to this person before creating or linking an ERP account.']);
             }
+
             $attributes = [
                 'staff_id' => $staff->id,
                 'name' => $staff->name,

@@ -27,6 +27,7 @@ it('repairs missing legacy resource columns and tolerates a partially applied fo
     } else {
         $foreignKeys->down();
     }
+
     foreach (['estimate_resource_lines', 'work_item_resource_templates'] as $tableName) {
         Schema::table($tableName, function (Blueprint $table): void {
             $table->dropColumn('workforce_trade_id');

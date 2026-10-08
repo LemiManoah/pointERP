@@ -244,6 +244,7 @@ it('classifies commercial entries from headings and units in the fixed BOQ sheet
         $workbook['sheets'][0]['rows'][3] = $item;
         $row = 3;
     }
+
     $workbook['sheets'][0]['rows'][$row]['C']['value'] = $unit;
     $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, null);
 
@@ -410,7 +411,6 @@ it('rejects workbooks that do not use the standard BOQ template', function (): v
     expect(fn () => resolve(PreviewBoqImport::class)->handle($this->project, $workbook, null))
         ->toThrow(ValidationException::class);
 });
-
 
 it('updates only matching prices and preserves scope resources and blank existing prices', function (): void {
     $this->actingAs($this->manager);

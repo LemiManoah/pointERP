@@ -37,10 +37,12 @@ final readonly class ReconcileProjectProgress
                 if ($delta->isZero()) {
                     continue;
                 }
+
                 $correctionDeltas[$lineId] = ($correctionDeltas[$lineId] ?? BigDecimal::zero())->plus($delta);
                 $correctionSources['correction:'.$correction->id.':'.$lineId] = (string) $delta;
             }
         }
+
         foreach ($correctionSources as $key => $delta) {
             $entry = $entries->firstWhere('source_key', $key);
             if (! $entry || ! BigDecimal::of($entry->quantity)->isEqualTo($delta)) {
@@ -52,6 +54,7 @@ final readonly class ReconcileProjectProgress
             if (str_starts_with($entry->source_key, 'correction:') && ! isset($correctionSources[$entry->source_key])) {
                 $findings[] = ['type' => 'Unapproved correction', 'record' => $entry->id, 'detail' => 'No approved correction supports this entry.'];
             }
+
             if (str_starts_with($entry->source_key, 'legacy:')) {
                 $findings[] = ['type' => 'Legacy balance', 'record' => $entry->id,
                     'detail' => $entry->quantity.' '.$entry->unit.' requires review against original site records.'];
@@ -74,10 +77,12 @@ final readonly class ReconcileProjectProgress
             if (! $line->counts_towards_boq && $activity?->progress_method === 'supporting' && $posted->isEmpty()) {
                 continue;
             }
+
             if (! $activity || ! $line->boq_item_id || $line->boq_item_id !== $activity->boq_item_id
                 || $line->getAttribute('unit') !== $activity->unit || ! $line->counts_towards_boq) {
                 $findings[] = ['type' => 'Unlinked or incompatible output', 'record' => $line->id,
                     'detail' => 'Review the approved DSR activity, BOQ link, unit and output classification.'];
+
                 continue;
             }
 
@@ -90,6 +95,7 @@ final readonly class ReconcileProjectProgress
                         'detail' => 'Progress entry differs from its approved DSR activity, BOQ item or unit.'];
                 }
             }
+
             $expected = BigDecimal::of($line->quantity ?? '0')->plus($correctionDeltas[$line->id] ?? '0');
             if ($posted->isEmpty() || ! $quantity->isEqualTo($expected)) {
                 $findings[] = ['type' => 'Source quantity mismatch', 'record' => $line->id,
@@ -101,10 +107,12 @@ final readonly class ReconcileProjectProgress
             if (! $activity->boq_item_id) {
                 continue;
             }
+
             $quantity = BigDecimal::zero();
             foreach ($byActivity->get($activity->id, collect()) as $entry) {
                 $quantity = $quantity->plus($entry->quantity);
             }
+
             if (! $quantity->isEqualTo($activity->approved_quantity ?? '0')) {
                 $findings[] = ['type' => 'Activity quantity mismatch', 'record' => $activity->id,
                     'detail' => $activity->name.': saved '.($activity->approved_quantity ?? '0').'; progress entries '.$quantity.'.'];

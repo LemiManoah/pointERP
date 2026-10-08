@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Operations;
 
-use App\Actions\Workforce\EndProjectDeployments;
-use Illuminate\Support\Facades\DB;
-
 use App\Actions\Operations\Projects\SaveProject;
+use App\Actions\Workforce\EndProjectDeployments;
 use App\Http\Requests\Operations\Projects\StoreProjectRequest;
 use App\Http\Requests\Operations\Projects\UpdateProjectRequest;
 use App\Models\Branch;
@@ -31,6 +29,7 @@ use App\Services\TenantContext;
 use App\Support\Operations\PresentsLinkedDocuments;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -183,6 +182,7 @@ final class ProjectController
             if ($newStatus === 'archived') {
                 $endDeployments->handle($project, $actor);
             }
+
             $auditLogger->record(
                 event: 'operations.project.status_changed',
                 subject: $project,

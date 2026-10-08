@@ -69,12 +69,15 @@ final class DailySiteReportCorrectionController
             if ((float) ($item['quantity_delta'] ?? 0) === 0.0) {
                 continue;
             }
+
             $line = $dailySiteReport->workLines()->where('counts_towards_boq', true)->find($item['line_id']);
             if (! $line) {
                 throw ValidationException::withMessages(['changes.work_adjustments' => 'Select measured work from this report.']);
             }
+
             $workAdjustments[] = [...$item, 'description' => $line->description, 'unit' => $line->unit];
         }
+
         $usageTreatments = [];
         foreach (($changes['usage_treatments'] ?? []) as $item) {
             $relation = $item['group'].'Lines';
@@ -82,10 +85,12 @@ final class DailySiteReportCorrectionController
             if (! $line) {
                 throw ValidationException::withMessages(['changes.usage_treatments' => 'Select resource usage from this report.']);
             }
+
             if ($line->getAttribute('work_type') !== $item['work_type']) {
                 $usageTreatments[] = [...$item, 'previous_type' => $line->getAttribute('work_type')];
             }
         }
+
         unset($changes['equipment_adjustments'], $changes['work_adjustments'], $changes['usage_treatments']);
 
         /** @var array<string, mixed> $newValues */
@@ -100,9 +105,11 @@ final class DailySiteReportCorrectionController
         if ($equipmentAdjustments !== []) {
             $newValues['equipment_adjustments'] = $equipmentAdjustments;
         }
+
         if ($workAdjustments !== []) {
             $newValues['work_adjustments'] = $workAdjustments;
         }
+
         if ($usageTreatments !== []) {
             $newValues['usage_treatments'] = $usageTreatments;
         }

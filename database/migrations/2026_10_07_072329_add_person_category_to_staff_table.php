@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -26,9 +26,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        if (DB::table('staff')->whereNull('email')->orWhereNull('staff_position_id')->exists()) {
-            throw new RuntimeException('Staff email and position must be populated before reversing this migration.');
-        }
+        throw_if(DB::table('staff')->whereNull('email')->orWhereNull('staff_position_id')->exists(), RuntimeException::class, 'Staff email and position must be populated before reversing this migration.');
+
         Schema::table('staff', function (Blueprint $table): void {
             $table->string('email')->nullable(false)->change();
             $table->uuid('staff_position_id')->nullable(false)->change();

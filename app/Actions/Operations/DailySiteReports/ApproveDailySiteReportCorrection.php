@@ -6,9 +6,9 @@ namespace App\Actions\Operations\DailySiteReports;
 
 use App\Actions\Operations\Boq\ApplyProgressCorrection;
 use App\Actions\Operations\Boq\ValidateDayworkUsage;
-use App\Models\Project;
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportCorrection;
+use App\Models\Project;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\DailySiteReportNotificationService;
@@ -64,13 +64,16 @@ final readonly class ApproveDailySiteReportCorrection
                     || ! in_array($treatment['work_type'] ?? null, ['ordinary', 'daywork'], true)) {
                     throw ValidationException::withMessages(['changes.usage_treatments' => 'Invalid resource usage treatment.']);
                 }
+
                 $relation = $treatment['group'].'Lines';
                 $line = $report->{$relation}()->whereKey($treatment['line_id'])->lockForUpdate()->first();
                 if (! $line || $line->getAttribute('work_type') !== ($treatment['previous_type'] ?? null)) {
                     throw ValidationException::withMessages(['changes.usage_treatments' => 'Usage changed after this correction was requested. Review it again.']);
                 }
+
                 $line->update(['work_type' => $treatment['work_type']]);
             }
+
             if ($treatments !== []) {
                 $this->validateDayworkUsage->handle($report);
             }

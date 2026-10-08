@@ -23,6 +23,7 @@ final readonly class ApplyProgressCorrection
             if ($delta->isZero()) {
                 continue;
             }
+
             $lineId = $adjustment['line_id'];
             $line = $report->workLines()->whereKey($lineId)->lockForUpdate()->first();
             $source = BoqProgressEntry::query()->where('project_id', $report->project_id)
@@ -30,15 +31,18 @@ final readonly class ApplyProgressCorrection
             if (isset($seen[$lineId]) || ! $line || ! $source || ! $line->counts_towards_boq) {
                 throw ValidationException::withMessages(['changes.work_adjustments' => 'Select each measured work line from this approved report once.']);
             }
+
             $seen[$lineId] = true;
             $sourceKey = 'correction:'.$correction->id.':'.$lineId;
             if (BoqProgressEntry::query()->where('source_key', $sourceKey)->exists()) {
                 continue;
             }
+
             $total = BoqProgressEntry::query()->where('daily_site_report_work_line_id', $lineId)->sum('quantity');
             if (BigDecimal::of($total)->plus($delta)->isNegative()) {
                 throw ValidationException::withMessages(['changes.work_adjustments' => 'A correction cannot reduce a report line below zero.']);
             }
+
             $activity = ProjectActivity::withTrashed()->where('project_id', $report->project_id)
                 ->whereKey($source->project_activity_id)->lockForUpdate()->firstOrFail();
             BoqProgressEntry::query()->create([

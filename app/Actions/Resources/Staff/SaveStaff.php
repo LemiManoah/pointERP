@@ -38,6 +38,7 @@ final readonly class SaveStaff
         if ($staff?->user && empty($data['email'])) {
             throw ValidationException::withMessages(['email' => 'A person with an ERP account must retain an email address.']);
         }
+
         if ($staff instanceof Staff && $staff->deployments()->where('status', StaffDeploymentStatus::Active->value)->exists()) {
             if ($staff->branch_id !== $data['branch_id']) {
                 throw ValidationException::withMessages([

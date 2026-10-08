@@ -11,6 +11,7 @@ use App\Actions\Operations\DailySiteReports\RejectDailySiteReportCorrection;
 use App\Actions\Operations\DailySiteReports\SaveDailySiteReport;
 use App\Actions\Operations\Estimates\ApproveProjectEstimate;
 use App\Actions\Operations\Estimates\SaveProjectEstimate;
+use App\Enums\WorkforceTradeCategory;
 use App\Models\BoqImport;
 use App\Models\BoqProgressEntry;
 use App\Models\DailySiteReport;
@@ -20,7 +21,8 @@ use App\Models\ProjectEstimate;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
 use App\Models\WorkforceTrade;
-use App\Enums\WorkforceTradeCategory;
+use App\Services\ProjectPerformanceSummary;
+use App\Services\RefreshDailySiteReportCosts;
 use App\Services\TenantContext;
 use Database\Seeders\PointInvestmentSeeder;
 use Database\Seeders\RolePermissionSeeder;
@@ -65,6 +67,7 @@ function completionReport(object $test): DailySiteReport
         'work_lines' => [['project_activity_id' => $test->activity->id, 'quantity' => '10', 'description' => 'Concrete output']],
     ], $test->actor);
     $report->update(['status' => DailySiteReport::STATUS_SUBMITTED]);
+
     return resolve(ApproveDailySiteReport::class)->handle($report, $test->actor);
 }
 
@@ -77,7 +80,7 @@ it('posts approved corrections once while preserving the original measurement an
     expect($this->activity->fresh()->approved_quantity)->toBe('10.0000');
     resolve(ApproveDailySiteReportCorrection::class)->handle($correction, $this->actor);
     resolve(PostReportProgress::class)->handle($report->fresh(), $this->actor);
-    resolve(\App\Services\RefreshDailySiteReportCosts::class)->handle($report->fresh());
+    resolve(RefreshDailySiteReportCosts::class)->handle($report->fresh());
     expect($report->fresh()->output_value)->toBe('3200000.0000')
         ->and($line->fresh()->quantity)->toBe('10.0000')
         ->and($this->activity->fresh()->approved_quantity)->toBe('8.0000')
@@ -159,7 +162,7 @@ it('retains the original workbook and review after cache expiry with protected s
     $zip->close();
     try {
         $file = new UploadedFile($path, 'Client.xlsx',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
         $response = $this->post(route('project-estimates.import.upload', $this->project), ['file' => $file])->assertSessionHasNoErrors();
         $import = BoqImport::query()->where('project_id', $this->project->id)->sole();
         $response->assertRedirect(route('project-estimates.import.review', ['project' => $this->project, 'import' => $import->id]));
@@ -177,9 +180,8 @@ it('retains the original workbook and review after cache expiry with protected s
     }
 });
 
-
 it('rejects chargeable usage without an approved daywork item and keeps ordinary usage available', function (): void {
-    $trade = \App\Models\WorkforceTrade::query()->where('tenant_id', $this->actor->tenant_id)->where('is_active', true)->firstOrFail();
+    $trade = WorkforceTrade::query()->where('tenant_id', $this->actor->tenant_id)->where('is_active', true)->firstOrFail();
     $data = ['site_id' => $this->project->sites()->firstOrFail()->id, 'report_date' => '2026-09-12',
         'labour_lines' => [['labour_source' => 'casual', 'workforce_trade_id' => $trade->id, 'trade_or_role' => $trade->name, 'headcount' => 2, 'hours' => '8', 'work_type' => 'daywork']]];
     expect(fn () => resolve(SaveDailySiteReport::class)->handle($data, $this->actor))->toThrow(ValidationException::class);
@@ -189,7 +191,7 @@ it('rejects chargeable usage without an approved daywork item and keeps ordinary
 });
 
 it('corrects daywork eligibility through approval and rejects a stale treatment request', function (): void {
-    $trade = \App\Models\WorkforceTrade::query()->where('tenant_id', $this->actor->tenant_id)->where('is_active', true)->firstOrFail();
+    $trade = WorkforceTrade::query()->where('tenant_id', $this->actor->tenant_id)->where('is_active', true)->firstOrFail();
     $hour = UnitOfMeasure::query()->where('code', 'HOUR')->where('tenant_id', $this->actor->tenant_id)->firstOrFail();
     $daywork = [...$this->line, 'work_item_key' => (string) Str::uuid(), 'name' => 'Extra labour', 'unit_of_measure_id' => $hour->id,
         'item_type' => 'daywork', 'daywork_resource_type' => 'labour', 'daywork_workforce_trade_id' => $trade->id, 'selling_rate' => '5000'];
@@ -207,7 +209,7 @@ it('corrects daywork eligibility through approval and rejects a stale treatment 
     $stale = resolve(CreateDailySiteReportCorrection::class)->handle($report, $this->actor, 'Concurrent request', $correction->new_values);
     resolve(ApproveDailySiteReportCorrection::class)->handle($correction, $this->actor);
     expect($usage->fresh()->getAttribute('work_type'))->toBe('daywork');
-    $summary = resolve(\App\Services\ProjectPerformanceSummary::class)->forProject($this->project, true);
+    $summary = resolve(ProjectPerformanceSummary::class)->forProject($this->project, true);
     expect(collect($summary['work_items'])->firstWhere('item_type', 'daywork')['approved_progress'])->toBe('16.0000');
     expect(fn () => resolve(ApproveDailySiteReportCorrection::class)->handle($stale, $this->actor))->toThrow(ValidationException::class);
 });

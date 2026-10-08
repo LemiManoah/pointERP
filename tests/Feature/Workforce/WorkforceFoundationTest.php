@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Enums\StaffDeploymentStatus;
-use App\Actions\Operations\Projects\SaveProject;
 use App\Actions\AccessControl\Users\CreateAccessUser;
-use Illuminate\Validation\ValidationException;
+use App\Actions\Operations\Projects\SaveProject;
+use App\Enums\StaffDeploymentStatus;
 use App\Models\AuditActivity;
 use App\Models\Project;
 use App\Models\Site;
@@ -17,6 +16,7 @@ use App\Services\TenantContext;
 use Database\Seeders\QuarryDemoSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\WorkforceDemoSeeder;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function (): void {
@@ -50,7 +50,7 @@ it('registers a worker without email or position and keeps company staff separat
     $this->get(route('resources.staff.index'))->assertOk()
         ->assertInertia(fn (Assert $page): Assert => $page
             ->where('directory', 'company_staff')
-            ->where('staff', fn ($rows): bool => ! collect($rows)->contains('id', $worker->id)));
+            ->where('staff', fn ($rows): bool => collect($rows)->doesntContain('id', $worker->id)));
 
     $this->post(route('workforce.deployments.store'), [
         'staff_id' => $worker->id, 'project_id' => $project->id, 'starts_on' => now()->toDateString(),

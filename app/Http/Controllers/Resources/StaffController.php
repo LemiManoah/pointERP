@@ -114,6 +114,7 @@ final class StaffController
         if ($request->validated('person_category', $staff->person_category) !== $staff->person_category) {
             Gate::authorize($request->validated('person_category') === 'workforce' ? 'createWorker' : 'create', Staff::class);
         }
+
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
 

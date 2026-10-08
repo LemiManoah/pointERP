@@ -12,6 +12,7 @@ it('accounts for the complete client workbook scope and partial pricing without 
     if (! $unpricedPath || ! $pricedPath) {
         $this->markTestSkipped('Set BOQ_CLIENT_UNPRICED_PATH and BOQ_CLIENT_PRICED_PATH to run the private workbook acceptance check.');
     }
+
     expect(is_file($unpricedPath))->toBeTrue()->and(is_file($pricedPath))->toBeTrue();
     $read = resolve(BoqWorkbookReader::class);
     $unpriced = $read->read($unpricedPath);
@@ -21,22 +22,34 @@ it('accounts for the complete client workbook scope and partial pricing without 
     $candidates = function (array $sheets): array {
         $result = [];
         foreach ($sheets as $sheet) {
-            if ($sheet['hidden'] || ! preg_match('/^(?:Bill No\.\s*(?:2\.|[34568]\b)|Series\s)/i', $sheet['name'])) {
+            if ($sheet['hidden']) {
                 continue;
             }
+            if (! preg_match('/^(?:Bill No\.\s*(?:2\.|[34568]\b)|Series\s)/i', $sheet['name'])) {
+                continue;
+            }
+
             foreach ($sheet['rows'] as $number => $row) {
                 $description = $row['C']['value'] ?? '';
                 $unit = $row['D']['value'] ?? '';
                 $quantity = $row['E']['value'] ?? '';
-                if ($description === '' || $unit === '' || ! is_numeric($quantity)) {
+                if ($description === '') {
                     continue;
                 }
+                if ($unit === '') {
+                    continue;
+                }
+                if (! is_numeric($quantity)) {
+                    continue;
+                }
+
                 $result[$sheet['name'].':'.$number] = [
                     'scope' => [$row['B']['value'] ?? '', $description, $unit, $quantity],
                     'quantity' => $quantity, 'rate' => $row['F']['value'] ?? '', 'amount' => $row['G']['value'] ?? '',
                 ];
             }
         }
+
         return $result;
     };
     $scope = $candidates($unpriced);
@@ -50,10 +63,12 @@ it('accounts for the complete client workbook scope and partial pricing without 
         if ($price['rate'] === '') {
             continue;
         }
+
         $pricedCount++;
         $amount = BigDecimal::of($price['quantity'])->multipliedBy($price['rate']);
         expect($amount->minus($price['amount'])->abs()->isLessThanOrEqualTo('0.01'))->toBeTrue();
         $total = $total->plus($amount);
     }
+
     expect($pricedCount)->toBe(223)->and((string) $total->toScale(2, RoundingMode::HalfUp))->toBe('4666437400.00');
 });

@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Actions\Operations\Projects;
 
-use App\Models\Contract;
 use App\Actions\Workforce\EndProjectDeployments;
+use App\Models\Contract;
 use App\Models\Customer;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\TenantContext;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 final readonly class SaveProject
@@ -31,9 +31,10 @@ final readonly class SaveProject
     public function handle(array $data, User $actor, ?Project $project = null): Project
     {
         return DB::transaction(function () use ($data, $actor, $project): Project {
-            if ($project) {
+            if ($project instanceof Project) {
                 $project = Project::query()->whereKey($project->id)->lockForUpdate()->firstOrFail();
             }
+
             $this->validateOptionalRelations($data);
 
             $attributes = [

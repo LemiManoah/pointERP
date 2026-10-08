@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\DailySiteReport;
 use App\Models\BoqProgressEntry;
+use App\Models\DailySiteReport;
 
 final class RefreshDailySiteReportCosts
 {
@@ -21,6 +21,7 @@ final class RefreshDailySiteReportCosts
                 $output += (float) $adjustment->quantity * (float) ($line?->rate_amount ?? 0);
             }
         }
+
         $input = (float) $report->labourLines()->sum('amount')
             + (float) $report->equipmentLines()->sum('amount')
             + (float) $report->materialLines()->sum('amount');
