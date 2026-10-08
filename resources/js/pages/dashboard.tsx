@@ -169,8 +169,48 @@ export default function Dashboard({
         workQueues.some((queue) => section.queueIds.includes(queue.id)) ||
         (section.id === 'finance' && cashFlow !== undefined)
     );
-    const [selectedView, setSelectedView] = useState(defaultView);
-    const view = availableSections.some((section) => section.id === selectedView) ? selectedView : 'overview';
+    const view = availableSections.some((section) => section.id === defaultView)
+        ? defaultView
+        : 'overview';
+    const visibleSections = availableSections.filter(
+        (section) => view === 'overview' || section.id === view,
+    );
+    const displaySections =
+        view === 'overview'
+            ? [
+                  {
+                      id: 'overview',
+                      title: '',
+                      description: '',
+                      cards: visibleSections.flatMap((section) => [
+                          ...cards.filter((card) =>
+                              section.cardIds.includes(card.id),
+                          ),
+                          ...operationalCards.filter((card) =>
+                              section.cardIds.includes(card.id),
+                          ),
+                      ]),
+                      queues: visibleSections.flatMap((section) =>
+                          workQueues.filter((queue) =>
+                              section.queueIds.includes(queue.id),
+                          ),
+                      ),
+                  },
+              ]
+            : visibleSections.map((section) => ({
+                  ...section,
+                  cards: [
+                      ...cards.filter((card) =>
+                          section.cardIds.includes(card.id),
+                      ),
+                      ...operationalCards.filter((card) =>
+                          section.cardIds.includes(card.id),
+                      ),
+                  ],
+                  queues: workQueues.filter((queue) =>
+                      section.queueIds.includes(queue.id),
+                  ),
+              }));
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
@@ -179,18 +219,6 @@ export default function Dashboard({
                     <h1 className="text-2xl font-semibold tracking-tight">
                         Dashboard
                     </h1>
-                    {availableSections.length > 1 && (
-                        <div className="flex items-center gap-2">
-                            <Label htmlFor="dashboard-view">View</Label>
-                            <Select value={view} onValueChange={setSelectedView}>
-                                <SelectTrigger id="dashboard-view" className="w-60"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="overview">Overview</SelectItem>
-                                    {availableSections.map((section) => <SelectItem key={section.id} value={section.id}>{section.title}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
                     {(view === 'overview' || view === 'finance') && cards.length > 0 && (
                         <DashboardFilters
                             key={JSON.stringify(filters)}
@@ -214,37 +242,19 @@ export default function Dashboard({
                 ) : (
                     <>
                         <TooltipProvider delayDuration={200}>
-                            {availableSections.filter((section) => view === 'overview' || section.id === view).map((section) => {
-                                const sectionCards = [
-                                    ...cards.filter((card) =>
-                                        section.cardIds.includes(card.id),
-                                    ),
-                                    ...operationalCards.filter((card) =>
-                                        section.cardIds.includes(card.id),
-                                    ),
-                                ];
-                                const sectionQueues = workQueues.filter(
-                                    (queue) =>
-                                        section.queueIds.includes(queue.id),
-                                );
-
-                                if (
-                                    sectionCards.length === 0 &&
-                                    sectionQueues.length === 0
-                                ) {
-                                    return null;
-                                }
-
-                                return (
+                            {displaySections.map((section) =>
+                                section.cards.length > 0 ||
+                                section.queues.length > 0 ? (
                                     <DashboardSection
                                         key={section.id}
                                         section={section}
-                                        cards={sectionCards}
-                                        queues={sectionQueues}
+                                        cards={section.cards}
+                                        queues={section.queues}
                                         currency={filters.currency}
+                                        showHeading={view !== 'overview'}
                                     />
-                                );
-                            })}
+                                ) : null,
+                            )}
                         </TooltipProvider>
                         {cashFlow && (view === 'overview' || view === 'finance') && (
                             <div className="grid min-w-0 gap-6 xl:grid-cols-5">
@@ -270,20 +280,24 @@ function DashboardSection({
     cards,
     queues,
     currency,
+    showHeading = true,
 }: {
-    section: DashboardSection;
+    section: Pick<DashboardSection, 'id' | 'title' | 'description'>;
     cards: (Metric | NonNullable<Props['operationalCards']>[number])[];
     queues: NonNullable<Props['workQueues']>;
     currency: string;
+    showHeading?: boolean;
 }) {
     return (
         <section className="grid gap-3">
-            <div>
-                <h2 className="text-base font-semibold">{section.title}</h2>
-                <p className="text-sm text-muted-foreground">
-                    {section.description}
-                </p>
-            </div>
+            {showHeading && (
+                <div>
+                    <h2 className="text-base font-semibold">{section.title}</h2>
+                    <p className="text-sm text-muted-foreground">
+                        {section.description}
+                    </p>
+                </div>
+            )}
             {cards.length > 0 && (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     {cards.map((card) =>

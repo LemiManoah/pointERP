@@ -32,28 +32,23 @@ function boqImportWorkbook(): array
     $cell = fn (string $value): array => ['value' => $value, 'formula' => false, 'error' => false];
 
     return ['name' => 'Unpriced.xlsx', 'sheets' => [[
-        'id' => '1', 'name' => 'Ground floor', 'hidden' => false,
+        'id' => '1', 'name' => 'BOQ', 'hidden' => false,
         'rows' => [
-            1 => ['C' => $cell('Substructures')],
-            2 => ['B' => $cell('B'), 'C' => $cell('Excavation'), 'D' => $cell('CM'), 'E' => $cell('1648'), 'G' => $cell('0')],
-            3 => ['C' => $cell('TOTAL TO SUMMARY'), 'G' => $cell('0')],
+            1 => ['A' => $cell('Reference'), 'B' => $cell('Description'), 'C' => $cell('Unit'), 'D' => $cell('Quantity'), 'E' => $cell('Client rate'), 'F' => $cell('Amount')],
+            2 => ['A' => $cell('A'), 'B' => $cell('Excavation'), 'C' => $cell('CM'), 'D' => $cell('1648'), 'F' => $cell('0')],
+            3 => ['B' => $cell('TOTAL TO SUMMARY'), 'F' => $cell('0')],
         ],
     ]]];
 }
 
-function boqImportMapping(): array
-{
-    return ['sheet' => '1', 'start_row' => 1, 'end_row' => 20, 'bill' => 'Bill 2', 'section' => 'Ground floor', 'element' => 'Substructures', 'reference' => 'B', 'description' => 'C', 'unit' => 'D', 'quantity' => 'E', 'rate' => 'F', 'amount' => 'G'];
-}
-
 it('previews unpriced work without importing headings or totals and requires explicit ambiguous units', function (): void {
-    $preview = resolve(PreviewBoqImport::class)->handle($this->project, boqImportWorkbook(), [boqImportMapping()], null);
+    $preview = resolve(PreviewBoqImport::class)->handle($this->project, boqImportWorkbook(), null);
     expect($preview['rows'])->toHaveCount(1)
-        ->and($preview['skipped'])->toHaveCount(2)
+        ->and($preview['skipped'])->toHaveCount(1)
         ->and($preview['rows'][0]['line']['selling_rate'])->toBeNull()
         ->and($preview['rows'][0]['line']['unit_of_measure_id'])->toBe('')
         ->and($preview['rows'][0]['line']['source_row'])->toBe(2)
-        ->and($preview['rows'][0]['line']['description'])->toContain('Substructures');
+        ->and($preview['rows'][0]['line']['description'])->toContain('Excavation');
 });
 
 it('saves only a draft, retains existing items and handles repeated submission without duplicate revisions', function (): void {
@@ -63,7 +58,7 @@ it('saves only a draft, retains existing items and handles repeated submission w
     Cache::store('file')->put($key, boqImportWorkbook(), now()->addHours(2));
     $baseline = ProjectEstimate::query()->where('project_id', $this->project->id)->where('is_baseline', true)->firstOrFail();
     $oldCount = $baseline->lines()->count();
-    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]), ['sheets' => [boqImportMapping()]])->assertSessionHasNoErrors()->assertRedirect();
+    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]), [])->assertSessionHasNoErrors()->assertRedirect();
     $state = Cache::store('file')->get($key);
     $line = $state['preview']['rows'][0]['line'];
     $line['unit_of_measure_id'] = UnitOfMeasure::query()->where('code', 'M3')->firstOrFail()->id;
@@ -78,7 +73,7 @@ it('saves only a draft, retains existing items and handles repeated submission w
     $newToken = Str::uuid()->toString();
     $newKey = 'boq-import:'.$this->project->tenant_id.':'.$this->manager->id.':'.$this->project->id.':'.$newToken;
     Cache::store('file')->put($newKey, boqImportWorkbook(), now()->addHours(2));
-    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $newToken]), ['target_id' => $draft->id, 'sheets' => [boqImportMapping()]])->assertSessionHasNoErrors();
+    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $newToken]), ['target_id' => $draft->id])->assertSessionHasNoErrors();
     $state = Cache::store('file')->get($newKey);
     expect($state['preview']['rows'][0]['line']['work_item_key'])->toBe($line['work_item_key']);
     $payload['preview_id'] = $state['preview_id'];
@@ -91,7 +86,7 @@ it('rejects a stale preview and tokens belonging to another actor', function ():
     $token = Str::uuid()->toString();
     $key = 'boq-import:'.$this->project->tenant_id.':'.$this->manager->id.':'.$this->project->id.':'.$token;
     Cache::store('file')->put($key, boqImportWorkbook(), now()->addHours(2));
-    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]), ['sheets' => [boqImportMapping()]])->assertSessionHasNoErrors();
+    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]), [])->assertSessionHasNoErrors();
     $state = Cache::store('file')->get($key);
     $line = $state['preview']['rows'][0]['line'];
     $line['unit_of_measure_id'] = UnitOfMeasure::query()->where('code', 'M3')->firstOrFail()->id;
@@ -104,9 +99,9 @@ it('rejects a stale preview and tokens belonging to another actor', function ():
 
 it('blocks duplicate scoped references and flags amount mismatches', function (): void {
     $workbook = boqImportWorkbook();
-    $workbook['sheets'][0]['rows'][2]['F'] = ['value' => '25', 'formula' => false, 'error' => false];
+    $workbook['sheets'][0]['rows'][2]['E'] = ['value' => '25', 'formula' => false, 'error' => false];
     $workbook['sheets'][0]['rows'][4] = $workbook['sheets'][0]['rows'][2];
-    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, [boqImportMapping()], null);
+    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, null);
     expect($preview['rows'])->toHaveCount(2)
         ->and($preview['rows'][0]['blocked'])->toBeTrue()
         ->and($preview['rows'][1]['blocked'])->toBeTrue()
@@ -142,10 +137,10 @@ it('rejects expired import tokens and invalid units before saving', function ():
     $this->actingAs($this->manager);
     $token = Str::uuid()->toString();
     $url = route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]);
-    $this->post($url, ['sheets' => [boqImportMapping()]])->assertSessionHasErrors('file');
+    $this->post($url, [])->assertSessionHasErrors('file');
     $key = 'boq-import:'.$this->project->tenant_id.':'.$this->manager->id.':'.$this->project->id.':'.$token;
     Cache::store('file')->put($key, boqImportWorkbook(), now()->addHours(2));
-    $this->post($url, ['sheets' => [boqImportMapping()]])->assertSessionHasNoErrors();
+    $this->post($url, [])->assertSessionHasNoErrors();
     $state = Cache::store('file')->get($key);
     $line = $state['preview']['rows'][0]['line'];
     $this->post(route('project-estimates.import.store', ['project' => $this->project, 'import' => $token]), [
@@ -170,14 +165,16 @@ it('rejects workbook XML with external entity declarations', function (): void {
 it('detects specification-only changes during revision matching', function (): void {
     $previewer = resolve(PreviewBoqImport::class);
     $workbook = boqImportWorkbook();
-    $initial = $previewer->handle($this->project, $workbook, [boqImportMapping()], null);
+    $initial = $previewer->handle($this->project, $workbook, null);
     $line = $initial['rows'][0]['line'];
     $line['unit_of_measure_id'] = UnitOfMeasure::query()->where('code', 'M3')->firstOrFail()->id;
     $draft = resolve(SaveProjectEstimate::class)->handle($this->project, [
         'title' => 'Specification revision', 'currency_code' => 'UGX', 'lines' => [$line],
     ], $this->manager);
-    $workbook['sheets'][0]['rows'][1]['C']['value'] = 'Substructures with revised ground conditions';
-    $revised = $previewer->handle($this->project, $workbook, [boqImportMapping()], $draft);
+    $workbook['sheets'][0]['rows'][3] = $workbook['sheets'][0]['rows'][2];
+    $workbook['sheets'][0]['rows'][2] = ['B' => ['value' => 'Substructures', 'formula' => false, 'error' => false]];
+    $workbook['sheets'][0]['rows'][2]['B']['value'] = 'Substructures with revised ground conditions';
+    $revised = $previewer->handle($this->project, $workbook, $draft);
     expect($revised['rows'][0]['change'])->toBe('Changed')
         ->and($revised['rows'][0]['line']['work_item_key'])->toBe($line['work_item_key'])
         ->and(implode(' ', $revised['rows'][0]['warnings']))->toContain('description:');
@@ -193,7 +190,7 @@ it('preserves draft metadata in the preview and rejects subsequent metadata chan
     $token = Str::uuid()->toString();
     $key = 'boq-import:'.$this->project->tenant_id.':'.$this->manager->id.':'.$this->project->id.':'.$token;
     Cache::store('file')->put($key, boqImportWorkbook(), now()->addHours(2));
-    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]), ['target_id' => $draft->id, 'sheets' => [boqImportMapping()]])->assertSessionHasNoErrors();
+    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]), ['target_id' => $draft->id])->assertSessionHasNoErrors();
     $state = Cache::store('file')->get($key);
     expect($state['preview']['title'])->toBe('Keep this title')->and($state['preview']['notes'])->toBe('Keep these notes');
     $draft->update(['notes' => 'Changed in another session']);
@@ -208,64 +205,74 @@ it('preserves draft metadata in the preview and rejects subsequent metadata chan
 it('distinguishes reused letters with different item descriptions', function (): void {
     $workbook = boqImportWorkbook();
     $workbook['sheets'][0]['rows'][4] = $workbook['sheets'][0]['rows'][2];
-    $workbook['sheets'][0]['rows'][4]['C']['value'] = 'Concrete column bases';
-    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, [boqImportMapping()], null);
+    $workbook['sheets'][0]['rows'][4]['B']['value'] = 'Concrete column bases';
+    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, null);
     expect($preview['rows'])->toHaveCount(2)
         ->and($preview['rows'][0]['blocked'])->toBeFalse()
         ->and($preview['rows'][1]['blocked'])->toBeFalse()
         ->and($preview['rows'][0]['line']['work_item_key'])->not->toBe($preview['rows'][1]['line']['work_item_key']);
 });
 
-it('imports percentage adjustments and dayworks for explicit source mapping', function (): void {
+it('recognizes percentage and daywork rows in the fixed BOQ sheet', function (): void {
     $workbook = boqImportWorkbook();
-    $workbook['sheets'][0]['rows'][2]['D']['value'] = '%';
-    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, [boqImportMapping()], null);
+    $workbook['sheets'][0]['rows'][2]['C']['value'] = '%';
+    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, null);
     expect($preview['rows'][0]['blocked'])->toBeFalse()
         ->and($preview['rows'][0]['line']['item_type'])->toBe('percentage_adjustment')
         ->and($preview['rows'][0]['line']['planned_quantity'])->toBe('1')
-        ->and($preview['rows'][0]['line']['selling_rate'])->toBeNull()
-        ->and($preview['rows'][0]['line']['percentage_rate'])->toBeNull()
-        ->and($preview['rows'][0]['line']['percentage_base_keys'])->toBe([]);
-    $workbook['sheets'][0]['rows'][2]['D']['value'] = 'hr';
-    $workbook['sheets'][0]['name'] = 'Dayworks';
-    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, [boqImportMapping()], null);
+        ->and($preview['rows'][0]['line']['selling_rate'])->toBeNull();
+
+    $workbook = boqImportWorkbook();
+    $item = $workbook['sheets'][0]['rows'][2];
+    $item['B']['value'] = 'Unskilled labour';
+    $item['C']['value'] = 'hr';
+    $workbook['sheets'][0]['rows'][2] = ['B' => ['value' => 'DAYWORKS', 'formula' => false, 'error' => false]];
+    $workbook['sheets'][0]['rows'][3] = $item;
+    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, null);
     expect($preview['rows'][0]['blocked'])->toBeTrue()
-        ->and($preview['rows'][0]['daywork_mapping_required'])->toBeTrue()
+        ->and($preview['rows'][0]['daywork_resource_required'])->toBeTrue()
         ->and($preview['rows'][0]['line']['item_type'])->toBe('daywork')
-        ->and($preview['rows'][0]['line']['daywork_resource_type'])->toBeNull()
-        ->and($preview['rows'][0]['line']['daywork_workforce_trade_id'])->toBeNull();
+        ->and($preview['rows'][0]['line']['daywork_resource_type'])->toBeNull();
 });
 
-it('classifies commercial entries without making them importable as measured work', function (string $sheet, string $unit, string $classification, bool $review): void {
+it('classifies commercial entries from headings and units in the fixed BOQ sheet', function (string $heading, string $unit, string $classification, bool $review): void {
     $workbook = boqImportWorkbook();
-    $workbook['sheets'][0]['name'] = $sheet;
-    $workbook['sheets'][0]['rows'][2]['D']['value'] = $unit;
-    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, [boqImportMapping()], null);
+    $row = 2;
+    if ($heading !== '') {
+        $item = $workbook['sheets'][0]['rows'][2];
+        $workbook['sheets'][0]['rows'][2] = ['B' => ['value' => $heading, 'formula' => false, 'error' => false]];
+        $workbook['sheets'][0]['rows'][3] = $item;
+        $row = 3;
+    }
+    $workbook['sheets'][0]['rows'][$row]['C']['value'] = $unit;
+    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, null);
 
     expect($preview['rows'][0]['classification'])->toBe($classification)
         ->and($preview['rows'][0]['commercial_review'])->toBe($review)
-        ->and($preview['rows'][0]['blocked'])->toBe($review)
+        ->and($preview['rows'][0]['blocked'])->toBe($review || $classification === 'Dayworks')
         ->and($preview['rows'][0]['line']['planned_quantity'])->toBe($classification === 'Percentage adjustment' ? '1' : '1648')
         ->and($preview['rows'][0]['line']['selling_rate'])->toBeNull();
 })->with([
-    ['Ground floor', 'CM', 'Measured work', false],
-    ['Ground floor', 'ITEM', 'Lump sum', false],
-    ['Ground floor', 'PS', 'Provisional sum', false],
-    ['Preliminaries', 'month', 'Time-based preliminary', false],
-    ['Preliminaries', 'ITEM', 'Fixed preliminary', false],
-    ['Preliminaries', 'CM', 'Preliminaries', true],
-    ['General', 'percent (%)', 'Percentage adjustment', false],
-    ['Dayworks', 'hr', 'Dayworks', false],
+    ['', 'CM', 'Measured work', false],
+    ['', 'ITEM', 'Lump sum', false],
+    ['', 'PS', 'Provisional sum', false],
+    ['PRELIMINARIES', 'month', 'Time-based preliminary', false],
+    ['PRELIMINARIES', 'ITEM', 'Fixed preliminary', false],
+    ['PRELIMINARIES', 'CM', 'Preliminaries', true],
+    ['', 'percent (%)', 'Percentage adjustment', false],
+    ['DAYWORKS', 'hr', 'Dayworks', false],
 ]);
 
 it('rejects saving a commercial preview row even when its submitted type is changed', function (): void {
     $this->actingAs($this->manager);
     $workbook = boqImportWorkbook();
-    $workbook['sheets'][0]['name'] = 'Preliminaries';
+    $item = $workbook['sheets'][0]['rows'][2];
+    $workbook['sheets'][0]['rows'][2] = ['B' => ['value' => 'PRELIMINARIES', 'formula' => false, 'error' => false]];
+    $workbook['sheets'][0]['rows'][3] = $item;
     $token = Str::uuid()->toString();
     $key = 'boq-import:'.$this->project->tenant_id.':'.$this->manager->id.':'.$this->project->id.':'.$token;
     Cache::store('file')->put($key, $workbook, now()->addHours(2));
-    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]), ['sheets' => [boqImportMapping()]])->assertSessionHasNoErrors();
+    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]), [])->assertSessionHasNoErrors();
     $state = Cache::store('file')->get($key);
     $line = $state['preview']['rows'][0]['line'];
     $line['unit_of_measure_id'] = UnitOfMeasure::query()->where('code', 'M3')->firstOrFail()->id;
@@ -283,13 +290,15 @@ it('rejects saving a commercial preview row even when its submitted type is chan
 it('imports a time-based preliminary as a draft and prevents changing it to measured work', function (): void {
     $this->actingAs($this->manager);
     $workbook = boqImportWorkbook();
-    $workbook['sheets'][0]['name'] = 'Preliminaries';
-    $workbook['sheets'][0]['rows'][2]['D']['value'] = 'hour';
-    $workbook['sheets'][0]['rows'][2]['E']['value'] = '6';
+    $item = $workbook['sheets'][0]['rows'][2];
+    $item['C']['value'] = 'hour';
+    $item['D']['value'] = '6';
+    $workbook['sheets'][0]['rows'][2] = ['B' => ['value' => 'PRELIMINARIES', 'formula' => false, 'error' => false]];
+    $workbook['sheets'][0]['rows'][3] = $item;
     $token = Str::uuid()->toString();
     $key = 'boq-import:'.$this->project->tenant_id.':'.$this->manager->id.':'.$this->project->id.':'.$token;
     Cache::store('file')->put($key, $workbook, now()->addHours(2));
-    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]), ['sheets' => [boqImportMapping()]])->assertSessionHasNoErrors();
+    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]), [])->assertSessionHasNoErrors();
     $state = Cache::store('file')->get($key);
     $line = $state['preview']['rows'][0]['line'];
     $line['unit_of_measure_id'] = UnitOfMeasure::query()->where('tenant_id', $this->manager->tenant_id)->where('code', 'HOUR')->firstOrFail()->id;
@@ -308,98 +317,104 @@ it('imports a time-based preliminary as a draft and prevents changing it to meas
 });
 
 it('retains a confirmed rate when a matching reimport is unpriced', function (): void {
-    $line = resolve(PreviewBoqImport::class)->handle($this->project, boqImportWorkbook(), [boqImportMapping()], null)['rows'][0]['line'];
+    $line = resolve(PreviewBoqImport::class)->handle($this->project, boqImportWorkbook(), null)['rows'][0]['line'];
     $line['unit_of_measure_id'] = UnitOfMeasure::query()->where('code', 'M3')->firstOrFail()->id;
     $line['selling_rate'] = '25000';
     $draft = resolve(SaveProjectEstimate::class)->handle($this->project,
         ['title' => 'Confirmed price', 'currency_code' => 'UGX', 'lines' => [$line]], $this->manager);
-    $preview = resolve(PreviewBoqImport::class)->handle($this->project, boqImportWorkbook(), [boqImportMapping()], $draft);
+    $preview = resolve(PreviewBoqImport::class)->handle($this->project, boqImportWorkbook(), $draft);
     expect($preview['rows'][0]['line']['selling_rate'])->toBe('25000.0000')
         ->and($preview['rows'][0]['line']['work_item_key'])->toBe($line['work_item_key']);
 });
 
-it('separates repeated BOQ references under explicit floor headings', function (): void {
-    $cell = fn (string $value): array => ['value' => $value, 'formula' => false, 'error' => false];
+it('separates repeated BOQ references under floor headings in the standard sheet', function (): void {
     $workbook = boqImportWorkbook();
     $item = $workbook['sheets'][0]['rows'][2];
     $workbook['sheets'][0]['rows'] = [
-        1 => ['C' => $cell('ELEMENT NO. 2')],
-        2 => ['C' => $cell('Electrical first fix')],
-        3 => ['C' => $cell('GROUND FLOOR')],
-        4 => $item,
-        5 => ['C' => $cell('FIRST FLOOR')],
-        6 => $item,
-        7 => ['C' => $cell('ELEMENT NO. 3')],
-        8 => ['C' => $cell('External lighting')],
-        9 => $item,
+        1 => $workbook['sheets'][0]['rows'][1],
+        2 => ['B' => ['value' => 'GROUND FLOOR', 'formula' => false, 'error' => false]],
+        3 => $item,
+        4 => ['B' => ['value' => 'FIRST FLOOR', 'formula' => false, 'error' => false]],
+        5 => $item,
     ];
-    $mapping = [...boqImportMapping(), 'section' => '', 'end_row' => 9];
-    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, [$mapping], null);
-    expect($preview['rows'])->toHaveCount(3)
+
+    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, null);
+    expect($preview['rows'])->toHaveCount(2)
         ->and($preview['rows'][0]['line']['section'])->toBe('GROUND FLOOR')
         ->and($preview['rows'][1]['line']['section'])->toBe('FIRST FLOOR')
-        ->and($preview['rows'][2]['line']['section'])->toBe('')
-        ->and(array_column($preview['rows'], 'blocked'))->toBe([false, false, false]);
-
-    $fixed = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, [[...$mapping, 'section' => 'Manual section']], null);
-    expect($fixed['rows'][0]['line']['section'])->toBe('Manual section')
-        ->and($fixed['rows'][1]['blocked'])->toBeTrue();
+        ->and(array_column($preview['rows'], 'blocked'))->toBe([false, false]);
 });
 
-it('retains sheet-wide floor headings across elements', function (): void {
-    $cell = fn (string $value): array => ['value' => $value, 'formula' => false, 'error' => false];
+it('keeps floor headings across elements in the standard sheet', function (): void {
     $workbook = boqImportWorkbook();
     $item = $workbook['sheets'][0]['rows'][2];
+    $heading = fn (string $value): array => ['B' => ['value' => $value, 'formula' => false, 'error' => false]];
     $workbook['sheets'][0]['rows'] = [
-        1 => ['C' => $cell('GROUND FLOOR')],
-        2 => ['C' => $cell('ELEMENT NO. 1')],
-        3 => ['C' => $cell('Substructure')],
-        4 => $item,
-        5 => ['C' => $cell('ELEMENT NO. 2')],
-        6 => ['C' => $cell('Frame')],
-        7 => $item,
+        1 => $workbook['sheets'][0]['rows'][1],
+        2 => $heading('GROUND FLOOR'),
+        3 => $heading('ELEMENT NO. 1'),
+        4 => $heading('Substructure'),
+        5 => $item,
+        6 => $heading('ELEMENT NO. 2'),
+        7 => $heading('Frame'),
+        8 => $item,
     ];
-    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, [[...boqImportMapping(), 'section' => '', 'end_row' => 7]], null);
+
+    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, null);
     expect($preview['rows'][0]['line']['section'])->toBe('GROUND FLOOR')
         ->and($preview['rows'][1]['line']['section'])->toBe('GROUND FLOOR')
         ->and($preview['rows'][1]['line']['element'])->toBe('Frame');
 });
 
-it('detects dayworks from workbook headings even when the selected range excludes the heading', function (): void {
-    $cell = fn (string $value): array => ['value' => $value, 'formula' => false, 'error' => false];
+it('detects daywork rows from a heading in the standard sheet', function (): void {
     $workbook = boqImportWorkbook();
-    $workbook['sheets'][0]['name'] = 'Series 8000';
-    $workbook['sheets'][0]['rows'][1] = ['B' => $cell('SERIES 8000: DAYWORKS (ALL PROVISIONAL)')];
-    $workbook['sheets'][0]['rows'][2]['D']['value'] = 'hour (hr)';
-    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, [[...boqImportMapping(), 'start_row' => 2]], null);
+    $item = $workbook['sheets'][0]['rows'][2];
+    $item['B']['value'] = 'Unskilled labour';
+    $item['C']['value'] = 'hour (hr)';
+    $workbook['sheets'][0]['rows'][2] = ['B' => ['value' => 'SERIES 8000: DAYWORKS (ALL PROVISIONAL)', 'formula' => false, 'error' => false]];
+    $workbook['sheets'][0]['rows'][3] = $item;
+
+    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, null);
     expect($preview['rows'][0]['blocked'])->toBeTrue()
         ->and($preview['rows'][0]['classification'])->toBe('Dayworks')
         ->and($preview['rows'][0]['commercial_review'])->toBeFalse()
-        ->and($preview['rows'][0]['daywork_mapping_required'])->toBeTrue()
-        ->and(implode(' ', $preview['rows'][0]['warnings']))->toContain('approved usage')
-        ->not->toContain('Ambiguous or duplicate');
+        ->and($preview['rows'][0]['daywork_resource_required'])->toBeTrue();
 });
 
-it('preserves roadwork parent references and section headings', function (): void {
-    $cell = fn (string $value): array => ['value' => $value, 'formula' => false, 'error' => false];
+it('preserves parent references and section headings in the standard sheet', function (): void {
     $workbook = boqImportWorkbook();
     $item = $workbook['sheets'][0]['rows'][2];
-    $item['B'] = $cell('(a)(i)');
+    $item['A']['value'] = '(a)(i)';
+    $item['B']['value'] = 'Excavation in soil';
     $workbook['sheets'][0]['rows'] = [
-        1 => ['B' => $cell('SECTION 2200: PREFABRICATED CULVERTS')],
-        2 => ['B' => $cell('22.01'), 'C' => $cell('Excavation:')],
-        3 => $item,
+        1 => $workbook['sheets'][0]['rows'][1],
+        2 => ['B' => ['value' => 'SECTION 2200: PREFABRICATED CULVERTS', 'formula' => false, 'error' => false]],
+        3 => ['A' => ['value' => '22.01', 'formula' => false, 'error' => false], 'B' => ['value' => 'Excavation:', 'formula' => false, 'error' => false]],
+        4 => $item,
     ];
-    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, [[...boqImportMapping(), 'section' => '']], null);
+
+    $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, null);
     expect($preview['rows'][0]['line']['boq_reference'])->toBe('22.01(a)(i)')
         ->and($preview['rows'][0]['line']['section'])->toBe('SECTION 2200: PREFABRICATED CULVERTS')
         ->and($preview['rows'][0]['line']['description'])->toContain('22.01 Excavation:');
 });
 
+it('rejects workbooks that do not use the standard BOQ template', function (): void {
+    $workbook = boqImportWorkbook();
+    $workbook['sheets'][0]['rows'][1]['B']['value'] = 'Item details';
+    expect(fn () => resolve(PreviewBoqImport::class)->handle($this->project, $workbook, null))
+        ->toThrow(ValidationException::class);
+
+    $workbook = boqImportWorkbook();
+    $workbook['sheets'][] = ['id' => '2', 'name' => 'Other BOQ', 'hidden' => false, 'rows' => []];
+    expect(fn () => resolve(PreviewBoqImport::class)->handle($this->project, $workbook, null))
+        ->toThrow(ValidationException::class);
+});
+
 
 it('updates only matching prices and preserves scope resources and blank existing prices', function (): void {
     $this->actingAs($this->manager);
-    $preview = resolve(PreviewBoqImport::class)->handle($this->project, boqImportWorkbook(), [boqImportMapping()], null);
+    $preview = resolve(PreviewBoqImport::class)->handle($this->project, boqImportWorkbook(), null);
     $line = $preview['rows'][0]['line'];
     $line['unit_of_measure_id'] = UnitOfMeasure::query()->where('code', 'M3')->firstOrFail()->id;
     $line['selling_rate'] = '25';
@@ -410,7 +425,7 @@ it('updates only matching prices and preserves scope resources and blank existin
         $key = 'boq-import:'.$this->project->tenant_id.':'.$this->manager->id.':'.$this->project->id.':'.$token;
         Cache::store('file')->put($key, boqImportWorkbook(), now()->addHours(2));
         $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]),
-            ['target_id' => $draft->id, 'sheets' => [boqImportMapping()]])->assertSessionHasNoErrors();
+            ['target_id' => $draft->id])->assertSessionHasNoErrors();
         $state = Cache::store('file')->get($key);
         $proposed = [...$state['preview']['rows'][0]['line'], 'unit_of_measure_id' => $line['unit_of_measure_id'],
             'planned_quantity' => '999', 'name' => 'Attempted scope change', 'selling_rate' => $price];
@@ -431,7 +446,7 @@ it('omits only explicitly reviewed missing items and keeps the approved revision
     $token = (string) Str::uuid();
     $key = 'boq-import:'.$this->project->tenant_id.':'.$this->manager->id.':'.$this->project->id.':'.$token;
     Cache::store('file')->put($key, boqImportWorkbook(), now()->addHours(2));
-    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]), ['sheets' => [boqImportMapping()]])->assertSessionHasNoErrors();
+    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]), [])->assertSessionHasNoErrors();
     $state = Cache::store('file')->get($key);
     $line = [...$state['preview']['rows'][0]['line'], 'unit_of_measure_id' => UnitOfMeasure::query()->where('code', 'M3')->firstOrFail()->id];
     $payload = ['title' => 'Reviewed omissions', 'currency_code' => 'UGX', 'preview_id' => $state['preview_id'], 'lines' => [$line], 'remove_keys' => [(string) Str::uuid()]];
@@ -448,7 +463,7 @@ it('refuses a new item in a prices-only import', function (): void {
     $token = (string) Str::uuid();
     $key = 'boq-import:'.$this->project->tenant_id.':'.$this->manager->id.':'.$this->project->id.':'.$token;
     Cache::store('file')->put($key, boqImportWorkbook(), now()->addHours(2));
-    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]), ['sheets' => [boqImportMapping()]])->assertSessionHasNoErrors();
+    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]), [])->assertSessionHasNoErrors();
     $state = Cache::store('file')->get($key);
     $line = [...$state['preview']['rows'][0]['line'], 'unit_of_measure_id' => UnitOfMeasure::query()->where('code', 'M3')->firstOrFail()->id];
     $this->post(route('project-estimates.import.store', ['project' => $this->project, 'import' => $token]), [

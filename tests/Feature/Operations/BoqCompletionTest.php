@@ -155,17 +155,18 @@ it('retains the original workbook and review after cache expiry with protected s
     $zip->open($path, ZipArchive::OVERWRITE);
     $zip->addFromString('xl/workbook.xml', '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="BOQ" sheetId="1" r:id="rId1"/></sheets></workbook>');
     $zip->addFromString('xl/_rels/workbook.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>');
-    $zip->addFromString('xl/worksheets/sheet1.xml', '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData/></worksheet>');
+    $zip->addFromString('xl/worksheets/sheet1.xml', '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Reference</t></is></c><c r="B1" t="inlineStr"><is><t>Description</t></is></c><c r="C1" t="inlineStr"><is><t>Unit</t></is></c><c r="D1" t="inlineStr"><is><t>Quantity</t></is></c><c r="E1" t="inlineStr"><is><t>Client rate</t></is></c><c r="F1" t="inlineStr"><is><t>Amount</t></is></c></row></sheetData></worksheet>');
     $zip->close();
     try {
         $file = new UploadedFile($path, 'Client.xlsx',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
-        $this->post(route('project-estimates.import.upload', $this->project), ['file' => $file])->assertSessionHasNoErrors()->assertRedirect();
+        $response = $this->post(route('project-estimates.import.upload', $this->project), ['file' => $file])->assertSessionHasNoErrors();
         $import = BoqImport::query()->where('project_id', $this->project->id)->sole();
+        $response->assertRedirect(route('project-estimates.import.review', ['project' => $this->project, 'import' => $import->id]));
         Storage::disk('local')->assertExists($import->path);
         expect($import->getAttribute('sha256'))->toBe(hash_file('sha256', $path));
         Cache::store('file')->flush();
-        $this->get(route('project-estimates.import', ['project' => $this->project, 'import' => $import->id]))->assertOk();
+        $this->get(route('project-estimates.import.review', ['project' => $this->project, 'import' => $import->id]))->assertOk();
         $this->get(route('project-estimates.import.source', ['project' => $this->project, 'boqImport' => $import]))->assertDownload('Client.xlsx');
         $other = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
         $this->actingAs($other)->get(route('project-estimates.import', ['project' => $this->project, 'import' => $import->id]))->assertSessionHasErrors('file');

@@ -259,7 +259,7 @@ it('shows current paid and unpaid counts for approved period expenses', function
     ExpensePayment::factory()->create(['expense_id' => $partial->id, 'branch_id' => $this->dashboardBranch, 'amount' => '25', 'status' => 'recorded']);
     Expense::factory()->create(['branch_id' => $this->dashboardBranch, 'status' => 'draft', 'currency_code' => 'UGX', 'expense_date' => now()]);
     $this->get(route('dashboard', ['period' => 'today', 'currency' => 'UGX']))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
-        ->where('cards.1.subtitle', '1 paid · 1 unpaid')->where('cards.3.title', 'Unpaid expenses'));
+        ->where('cards.1.subtitle', '1 paid · 1 unpaid')->where('cards.3.title', 'Still to pay'));
     $this->dashboardUser->revokePermissionTo('expense-payments.view');
     $this->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $page): Assert => $page->where('cards.1.subtitle', null));
 });

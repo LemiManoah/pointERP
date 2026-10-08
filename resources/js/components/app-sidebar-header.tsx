@@ -1,7 +1,10 @@
 import { BranchSelector } from '@/components/branch-selector';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { NotificationBell } from '@/components/notification-bell';
+import { Button } from '@/components/ui/button';
+import { useAppearance } from '@/hooks/use-appearance';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { Moon, Sun } from 'lucide-react';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@/types';
 
 export function AppSidebarHeader({
@@ -9,6 +12,9 @@ export function AppSidebarHeader({
 }: {
     breadcrumbs?: BreadcrumbItemType[];
 }) {
+    const { resolvedAppearance, updateAppearance } = useAppearance();
+    const dark = resolvedAppearance === 'dark';
+
     return (
         <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-sidebar-border/50 px-6 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 md:px-4">
             <div className="flex min-w-0 items-center gap-2">
@@ -17,6 +23,16 @@ export function AppSidebarHeader({
             </div>
             <div className="flex min-w-0 items-center gap-1">
                 <NotificationBell />
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Switch to ${dark ? 'light' : 'dark'} mode`}
+                    title={`Switch to ${dark ? 'light' : 'dark'} mode`}
+                    onClick={() => updateAppearance(dark ? 'light' : 'dark')}
+                >
+                    {dark ? <Sun /> : <Moon />}
+                </Button>
                 <BranchSelector />
             </div>
         </header>

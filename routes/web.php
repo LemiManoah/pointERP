@@ -205,6 +205,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('projects/{project}/estimates/imports/{boqImport}/source', [ProjectEstimateImportController::class, 'source'])->name('project-estimates.import.source');
     Route::get('projects/{project}/estimates/import/template', [ProjectEstimateImportController::class, 'template'])->name('project-estimates.import.template');
     Route::get('projects/{project}/estimates/import', [ProjectEstimateImportController::class, 'index'])->name('project-estimates.import');
+    Route::get('projects/{project}/estimates/import/{import}/review', [ProjectEstimateImportController::class, 'review'])->whereUuid('import')->name('project-estimates.import.review');
     Route::post('projects/{project}/estimates/import', [ProjectEstimateImportController::class, 'upload'])->middleware('throttle:10,1')->name('project-estimates.import.upload');
     Route::post('projects/{project}/estimates/import/{import}/preview', [ProjectEstimateImportController::class, 'preview'])->whereUuid('import')->name('project-estimates.import.preview');
     Route::post('projects/{project}/estimates/import/{import}', [ProjectEstimateImportController::class, 'store'])->whereUuid('import')->name('project-estimates.import.store');

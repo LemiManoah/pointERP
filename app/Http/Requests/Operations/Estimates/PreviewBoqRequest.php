@@ -20,19 +20,6 @@ final class PreviewBoqRequest extends FormRequest
     {
         return [
             'target_id' => ['nullable', 'uuid'],
-            'sheets' => ['required', 'array', 'min:1', 'max:100'],
-            'sheets.*.sheet' => ['required', 'string', 'distinct'],
-            'sheets.*.start_row' => ['required', 'integer', 'min:1', 'max:1048576'],
-            'sheets.*.end_row' => ['required', 'integer', 'gte:sheets.*.start_row', 'max:1048576'],
-            'sheets.*.bill' => ['nullable', 'string', 'max:160'],
-            'sheets.*.section' => ['nullable', 'string', 'max:160'],
-            'sheets.*.element' => ['nullable', 'string', 'max:160'],
-            'sheets.*.reference' => ['nullable', 'regex:/^[A-Z]{1,3}$/'],
-            'sheets.*.description' => ['required', 'regex:/^[A-Z]{1,3}$/'],
-            'sheets.*.unit' => ['required', 'regex:/^[A-Z]{1,3}$/'],
-            'sheets.*.quantity' => ['required', 'regex:/^[A-Z]{1,3}$/'],
-            'sheets.*.rate' => ['nullable', 'regex:/^[A-Z]{1,3}$/'],
-            'sheets.*.amount' => ['nullable', 'regex:/^[A-Z]{1,3}$/'],
         ];
     }
 }

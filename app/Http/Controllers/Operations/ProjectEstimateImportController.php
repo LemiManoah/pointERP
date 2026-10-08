@@ -41,7 +41,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  * @phpstan-import-type ProjectEstimatePayload from SaveProjectEstimate
  *
  * @phpstan-type ImportPreview array{rows: list<array<string, mixed>>, skipped: list<array<string, mixed>>, retained: list<array<string, mixed>>, existing: list<array<string, mixed>>, title?: string, notes?: string, currency_code?: string, preview_id?: string}
- * @phpstan-type ImportState array{name: string, sheets: list<BoqSheet>, preview?: ImportPreview, saved_id?: string, base_id?: string|null, target_id?: string|null, fingerprint?: string, preview_id?: string, mapping?: list<array<string, mixed>>, decisions?: array<string, mixed>}
+ * @phpstan-type ImportState array{name: string, sheets: list<BoqSheet>, format_version?: int, preview?: ImportPreview, saved_id?: string, base_id?: string|null, target_id?: string|null, fingerprint?: string, preview_id?: string, decisions?: array<string, mixed>}
  */
 final class ProjectEstimateImportController
 {
@@ -55,8 +55,13 @@ final class ProjectEstimateImportController
             return to_route('project-estimates.show', $state['saved_id']);
         }
 
+        if ($state !== null && isset($state['preview'])) {
+            return to_route('project-estimates.import.review', ['project' => $project, 'import' => $token]);
+        }
+
         return Inertia::render('operations/projects/estimates/import', [
             'project' => $project->only(['id', 'name', 'reference', 'base_currency_code']),
+            'pageMode' => 'upload',
             'token' => $state === null ? null : $token,
             'imports' => BoqImport::query()->where('project_id', $project->id)->latest()->limit(50)->get()
                 ->map(fn (BoqImport $item): array => [
@@ -65,17 +70,12 @@ final class ProjectEstimateImportController
                     'estimate_id' => $item->project_estimate_id ?? $item->state['saved_id'] ?? null,
                     'saved' => ($item->project_estimate_id ?? $item->state['saved_id'] ?? null) !== null,
                     'can_resume' => $item->uploaded_by === $request->user()->id
+                        && ($item->state['format_version'] ?? null) === 1
                         && ($item->project_estimate_id ?? $item->state['saved_id'] ?? null) === null,
                 ]),
             'filename' => $state['name'] ?? null,
-            'mapping' => $state['mapping'] ?? [],
             'targetId' => $state['target_id'] ?? null,
-            'sheets' => collect($state['sheets'] ?? [])->map(fn (array $sheet): array => [
-                'id' => $sheet['id'], 'name' => $sheet['name'], 'hidden' => $sheet['hidden'],
-                'last_row' => $sheet['rows'] === [] ? 1 : max(array_keys($sheet['rows'])),
-                'sample' => array_slice($sheet['rows'], 0, 12, true),
-            ])->values(),
-            'preview' => isset($state['preview']) ? collect($state['preview'])->except('existing')->all() : null,
+            'preview' => isset($state['preview']) && ($state['format_version'] ?? null) === 1 ? collect($state['preview'])->except('existing')->all() : null,
             'drafts' => ProjectEstimate::query()->where('project_id', $project->id)->where('status', 'draft')->orderByDesc('version_number')->get(['id', 'title', 'version_number']),
             'units' => UnitOfMeasure::query()->where('is_active', true)
                 ->where(fn (Builder $query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $project->tenant_id))
@@ -96,12 +96,30 @@ final class ProjectEstimateImportController
         ]);
     }
 
-    public function upload(UploadBoqRequest $request, Project $project, BoqWorkbookReader $reader): RedirectResponse
+    public function upload(UploadBoqRequest $request, Project $project, BoqWorkbookReader $reader, PreviewBoqImport $preview): RedirectResponse
     {
         $file = $request->file('file');
         $token = Str::uuid()->toString();
         $sheets = $reader->read($file->getPathname());
-        $state = ['name' => mb_substr(basename($file->getClientOriginalName()), 0, 255), 'sheets' => $sheets];
+        $base = ProjectEstimate::query()->where('project_id', $project->id)->where('is_baseline', true)->first();
+        $name = mb_substr(basename($file->getClientOriginalName()), 0, 255);
+        $previewData = $preview->handle($project, ['name' => $name, 'sheets' => $sheets], $base);
+        $state = [
+            'name' => $name,
+            'sheets' => $sheets,
+            'format_version' => 1,
+            'preview' => [
+                ...$previewData,
+                'title' => $base->title ?? $project->name.' BOQ',
+                'notes' => $base->notes ?? '',
+                'currency_code' => $base->currency_code ?? $project->base_currency_code,
+            ],
+            'base_id' => $base?->id,
+            'target_id' => null,
+            'fingerprint' => $this->fingerprint($base, $preview),
+            'preview_id' => Str::uuid()->toString(),
+        ];
+        $state['preview']['preview_id'] = $state['preview_id'];
         $path = $file->store('boq-imports/'.$project->tenant_id.'/'.$project->id, 'local');
         throw_unless(is_string($path), LogicException::class, 'Unable to retain the BOQ workbook.');
         try {
@@ -116,7 +134,40 @@ final class ProjectEstimateImportController
         }
         Cache::store('file')->put($this->key($project, $token), $state, now()->addHours(2));
 
-        return to_route('project-estimates.import', ['project' => $project, 'import' => $token]);
+        return to_route('project-estimates.import.review', ['project' => $project, 'import' => $token]);
+    }
+
+    public function review(Project $project, string $import): Response|RedirectResponse
+    {
+        Gate::authorize('create', [ProjectEstimate::class, $project]);
+        $state = $this->state($project, $import);
+        if (! isset($state['preview'])) {
+            return to_route('project-estimates.import', $project);
+        }
+
+        return $this->importPage($project, $import, $state, 'review');
+    }
+
+    /** @param ImportState $state */
+    private function importPage(Project $project, string $import, array $state, string $pageMode): Response
+    {
+        return Inertia::render('operations/projects/estimates/import', [
+            'project' => $project->only(['id', 'name', 'reference', 'base_currency_code']),
+            'token' => $import,
+            'pageMode' => $pageMode,
+            'imports' => [],
+            'filename' => $state['name'],
+            'targetId' => $state['target_id'] ?? null,
+            'preview' => collect($state['preview'])->except('existing')->all(),
+            'drafts' => ProjectEstimate::query()->where('project_id', $project->id)->where('status', 'draft')->orderByDesc('version_number')->get(['id', 'title', 'version_number']),
+            'units' => UnitOfMeasure::query()->where('is_active', true)
+                ->where(fn (Builder $query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $project->tenant_id))
+                ->orderBy('name')->get()->map(fn (UnitOfMeasure $unit): array => ['value' => $unit->id, 'label' => $unit->name.' ('.$unit->code.')', 'dimension' => $unit->quantity_dimension->value]),
+            'itemTypes' => collect(BoqItemType::cases())->map(fn (BoqItemType $type): array => ['value' => $type->value, 'label' => $type->label()]),
+            'items' => InventoryItem::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name', 'stock_unit_id'])->map(fn (InventoryItem $item): array => ['value' => $item->id, 'label' => $item->code.' - '.$item->name, 'unit_id' => $item->stock_unit_id]),
+            'equipmentCategories' => EquipmentCategory::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name'])->map(fn (EquipmentCategory $item): array => ['value' => $item->id, 'label' => mb_trim($item->code.' - '.$item->name)]),
+            'workforceTrades' => WorkforceTrade::query()->where('is_active', true)->orderBy('name')->get(['id', 'code', 'name'])->map(fn (WorkforceTrade $item): array => ['value' => $item->id, 'label' => mb_trim($item->code.' - '.$item->name)]),
+        ]);
     }
 
     public function preview(PreviewBoqRequest $request, Project $project, string $import, PreviewBoqImport $action): RedirectResponse
@@ -136,20 +187,20 @@ final class ProjectEstimateImportController
                 Gate::authorize('update', $base);
             }
 
-            $state['preview'] = $action->handle($project, ['name' => $state['name'], 'sheets' => $state['sheets']], $request->validated('sheets'), $base);
+            $state['preview'] = $action->handle($project, ['name' => $state['name'], 'sheets' => $state['sheets']], $base);
+            $state['format_version'] = 1;
             $state['preview']['title'] = $base->title ?? $project->name.' BOQ';
             $state['preview']['notes'] = $base->notes ?? '';
             $state['preview']['currency_code'] = $base->currency_code ?? $project->base_currency_code;
             $state['base_id'] = $base?->id;
             $state['target_id'] = $targetId;
             $state['fingerprint'] = $this->fingerprint($base, $action);
-            $state['mapping'] = $request->validated('sheets');
             $state['preview_id'] = Str::uuid()->toString();
             $state['preview']['preview_id'] = $state['preview_id'];
             BoqImport::query()->whereKey($import)->where('project_id', $project->id)->where('uploaded_by', request()->user()->id)->first()?->update(['state' => $state]);
             Cache::store('file')->put($this->key($project, $import), $state, now()->addHours(2));
 
-            return to_route('project-estimates.import', ['project' => $project, 'import' => $import]);
+            return to_route('project-estimates.import.review', ['project' => $project, 'import' => $import]);
         }));
     }
 
@@ -163,6 +214,10 @@ final class ProjectEstimateImportController
             $state = $this->state($project, $import);
             if (isset($state['saved_id'])) {
                 return to_route('project-estimates.show', $state['saved_id']);
+            }
+
+            if (($state['format_version'] ?? null) !== 1) {
+                throw ValidationException::withMessages(['file' => 'This import used an older workbook format. Upload the downloaded BOQ template to continue.']);
             }
 
             if (! isset($state['preview']) || $request->input('preview_id') !== $state['preview_id']) {
@@ -188,7 +243,7 @@ final class ProjectEstimateImportController
 
                 $data = $request->validated();
                 $data['currency_code'] = $state['preview']['currency_code'];
-                $available = collect($state['preview']['rows'])->filter(fn (array $row): bool => ! (bool) $row['blocked'] || (bool) ($row['daywork_mapping_required'] ?? false))->keyBy('line.work_item_key');
+                $available = collect($state['preview']['rows'])->filter(fn (array $row): bool => ! (bool) $row['blocked'] || (bool) ($row['daywork_resource_required'] ?? false))->keyBy('line.work_item_key');
                 $merged = collect($state['preview']['existing'])->keyBy('work_item_key');
                 foreach ($data['lines'] as $line) {
                     $candidate = $available->get($line['work_item_key'] ?? '');
@@ -207,7 +262,7 @@ final class ProjectEstimateImportController
 
                     if (in_array($candidate['line']['item_type'], ['preliminary_fixed', 'preliminary_time'], true)
                         && ! in_array($allowed['item_type'] ?? null, ['preliminary_fixed', 'preliminary_time'], true)) {
-                        throw ValidationException::withMessages(['lines' => 'Keep preliminary entries as fixed or time-based preliminaries. Correct the source mapping if this classification is wrong.']);
+                        throw ValidationException::withMessages(['lines' => 'Keep preliminary entries as fixed or time-based preliminaries. Correct the source heading if this classification is wrong.']);
                     }
 
                     if (($data['import_mode'] ?? 'scope') === 'prices') {

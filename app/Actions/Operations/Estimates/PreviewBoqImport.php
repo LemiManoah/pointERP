@@ -38,69 +38,63 @@ final class PreviewBoqImport
 
     /**
      * @param  BoqWorkbook  $workbook
-     * @param  list<array{sheet: string, start_row: int, end_row: int, bill?: string|null, section?: string|null, element?: string|null, reference?: string|null, description: string, unit: string, quantity: string, rate?: string|null, amount?: string|null}>  $mappings
      * @return array<string, mixed>
      */
-    public function handle(Project $project, array $workbook, array $mappings, ?ProjectEstimate $base): array
+    public function handle(Project $project, array $workbook, ?ProjectEstimate $base): array
     {
+        $sheet = collect($workbook['sheets'])->first(fn (array $candidate): bool => mb_strtolower($candidate['name']) === 'boq');
+        if ($sheet === null) {
+            throw ValidationException::withMessages(['file' => 'Use the downloaded BOQ template. It must contain a sheet named BOQ.']);
+        }
+
+        if (collect($workbook['sheets'])->contains(fn (array $candidate): bool => ! in_array(mb_strtolower($candidate['name']), ['boq', 'guide'], true))) {
+            throw ValidationException::withMessages(['file' => 'Use one BOQ sheet only. Remove extra sheets and fill in the downloaded template.']);
+        }
+
+        $headers = ['A' => 'Reference', 'B' => 'Description', 'C' => 'Unit', 'D' => 'Quantity', 'E' => 'Client rate', 'F' => 'Amount'];
+        foreach ($headers as $column => $expected) {
+            if (mb_strtolower($sheet['rows'][1][$column]['value'] ?? '') !== mb_strtolower($expected)) {
+                throw ValidationException::withMessages(['file' => 'The BOQ sheet columns do not match the downloaded template. Download a fresh template and copy your items into its BOQ sheet.']);
+            }
+        }
+
+        foreach ($sheet['rows'] as $row) {
+            if (array_diff(array_keys($row), array_keys($headers)) !== []) {
+                throw ValidationException::withMessages(['file' => 'The BOQ template has six columns. Remove extra columns and use the downloaded template.']);
+            }
+        }
+
         $existing = $this->existingLines($base);
         $units = UnitOfMeasure::query()->where('is_active', true)
             ->where(fn (Builder $query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $project->tenant_id))->get();
         $rows = [];
         $skipped = [];
         $seen = [];
-        foreach ($mappings as $mapping) {
-            $sheet = null;
-            foreach ($workbook['sheets'] as $candidate) {
-                if ($candidate['id'] === $mapping['sheet']) {
-                    $sheet = $candidate;
-                    break;
-                }
-            }
-
-            if ($sheet === null) {
-                throw ValidationException::withMessages(['sheets' => 'Select sheets from the uploaded workbook.']);
-            }
-
-            $bill = ($mapping['bill'] ?? '') ?: $sheet['name'];
-            $section = $mapping['section'] ?? null;
-            $explicitSection = ($mapping['section'] ?? '') !== '';
-            $sheetSection = $section;
-            $hasElement = false;
-            $element = $mapping['element'] ?? null;
-            $context = [];
-            $previousDescription = '';
-            $parentReference = '';
-            $dayworkSheet = (bool) preg_match('/day[ -]?works?/i', $sheet['name']);
-            foreach ($sheet['rows'] as $headingCells) {
-                $heading = ($headingCells[$mapping['description']]['value'] ?? '') ?: ($headingCells[$mapping['reference'] ?? '']['value'] ?? '');
-                if (($headingCells[$mapping['unit']]['value'] ?? '') === ''
-                    && ($headingCells[$mapping['quantity']]['value'] ?? '') === ''
-                    && preg_match('/^(?:SERIES\s+\d+\s*:\s*)?DAY[ -]?WORKS?\b/i', $heading)) {
-                    $dayworkSheet = true;
-                }
-            }
-
-            $expectElement = false;
-            foreach ($sheet['rows'] as $number => $cells) {
-                if ($number < $mapping['start_row']) {
+        $bill = 'BOQ';
+        $section = null;
+        $sheetSection = $section;
+        $hasElement = false;
+        $element = null;
+        $context = [];
+        $previousDescription = '';
+        $parentReference = '';
+        $dayworkSection = false;
+        $expectElement = false;
+        foreach ($sheet['rows'] as $number => $cells) {
+                if ($number < 2) {
                     continue;
                 }
 
-                if ($number > $mapping['end_row']) {
-                    continue;
-                }
-
-                $value = fn (string $field): string => $cells[$mapping[$field] ?? '']['value'] ?? '';
-                $description = $value('description');
-                $reference = $value('reference');
+                $value = fn (string $column): string => $cells[$column]['value'] ?? '';
+                $description = $value('B');
+                $reference = $value('A');
                 if (is_numeric($reference) && str_contains($reference, '.') && mb_strlen($reference) > 12) {
                     $reference = mb_rtrim(mb_rtrim(number_format((float) $reference, 8, '.', ''), '0'), '.');
                 }
 
-                $unit = $value('unit');
-                $quantity = $value('quantity');
-                $rate = $value('rate');
+                $unit = $value('C');
+                $quantity = $value('D');
+                $rate = $value('E');
                 if ($description === '' && $reference === '' && $quantity === '') {
                     continue;
                 }
@@ -112,6 +106,18 @@ final class PreviewBoqImport
                 $isTotal = preg_match('/^(?:sub[ -]?total|grand total|total(?:[ :]|$)|carried (?:to|forward)|brought forward|collection|amount carried)/i', $description);
                 $isHeader = preg_match('/^(?:description|unit|qty|quantity)$/i', $description);
                 if ($isTotal || $isHeader || ($unit === '' && $quantity === '')) {
+                    if (! $isTotal && ! $isHeader && preg_match('/^(?:SERIES\s+\d+\s*:\s*)?DAY[ -]?WORKS?\b/i', $description)) {
+                        $dayworkSection = true;
+                    } elseif (! $isTotal && ! $isHeader && preg_match('/^BILL(?:\s+NO\.?)?\s*\d+/i', $description)) {
+                        $bill = mb_substr($description, 0, 160);
+                        $section = null;
+                        $element = null;
+                        $hasElement = false;
+                        $dayworkSection = false;
+                        $context = [];
+                        $previousDescription = '';
+                        $parentReference = '';
+                    }
                     if (! $isTotal && ! $isHeader && $expectElement && $description !== '') {
                         $element = $description;
                         $expectElement = false;
@@ -123,12 +129,12 @@ final class PreviewBoqImport
                         $context = [];
                         $previousDescription = '';
                         $parentReference = '';
-                    } elseif (! $isTotal && ! $isHeader && ! $explicitSection && preg_match('/^SECTION\s+\d+\s*:/i', $description)) {
+                    } elseif (! $isTotal && ! $isHeader && preg_match('/^SECTION\s+\d+\s*:/i', $description)) {
                         $section = mb_substr($description, 0, 160);
                         $context = [];
                         $previousDescription = '';
                         $parentReference = '';
-                    } elseif (! $isTotal && ! $isHeader && ! $explicitSection && $this->isFloorHeading($description)) {
+                    } elseif (! $isTotal && ! $isHeader && $this->isFloorHeading($description)) {
                         $section = $description;
                         if (! $hasElement) {
                             $sheetSection = $description;
@@ -153,7 +159,7 @@ final class PreviewBoqImport
                 }
 
                 if (count($rows) >= 2000) {
-                    throw ValidationException::withMessages(['sheets' => 'Import at most 2,000 BOQ items at a time.']);
+                    throw ValidationException::withMessages(['file' => 'Import at most 2,000 BOQ items at a time.']);
                 }
 
                 $warnings = [];
@@ -161,8 +167,8 @@ final class PreviewBoqImport
                     $reference = $parentReference.$reference;
                 }
 
-                foreach (['quantity', 'rate', 'amount'] as $field) {
-                    $cell = $cells[$mapping[$field] ?? ''] ?? null;
+                foreach (['quantity' => 'D', 'rate' => 'E', 'amount' => 'F'] as $field => $column) {
+                    $cell = $cells[$column] ?? null;
                     if ($cell !== null && ($cell['error'] || ($cell['formula'] && $cell['value'] === ''))) {
                         $warnings[] = ucfirst($field).' has an Excel error or no saved formula result. Enter the value before saving.';
                     } elseif ($cell !== null && $cell['formula']) {
@@ -184,7 +190,7 @@ final class PreviewBoqImport
                     $warnings[] = 'Rate must be blank or a non-negative number.';
                 }
 
-                $amount = $value('amount');
+                $amount = $value('F');
                 if (is_numeric($quantity) && is_numeric($rate) && is_numeric($amount)
                     && abs((float) $quantity * (float) $rate - (float) $amount) > 0.01) {
                     $warnings[] = 'Excel amount differs from quantity x rate. The draft will use quantity x rate.';
@@ -205,9 +211,9 @@ final class PreviewBoqImport
                     'ITEM', 'SUM', 'LS', 'L.S.', 'LUMP SUM', 'LUMPSUM' => 'lump_sum',
                     default => 'measured',
                 };
-                $preliminary = (bool) preg_match('/\bpreliminar(?:y|ies)\b/i', $sheet['name'].' '.$bill)
+                $preliminary = (bool) preg_match('/\bpreliminar(?:y|ies)\b/i', $bill.' '.$section.' '.implode(' ', $context).' '.$description)
                     || (bool) preg_match('/\b(?:fixed|time)[ -]related\s+(?:obligations|charges)\b/i', $description);
-                if ($preliminary && ! $dayworkSheet) {
+                if ($preliminary && ! $dayworkSection) {
                     if ($type === 'lump_sum') {
                         $type = 'preliminary_fixed';
                     } elseif (preg_match('/^(?:hours?|hrs?|days?|weeks?|wks?|months?|mths?|years?|yrs?)(?:\s*\([a-z]+\))?$/i', mb_trim($unit))) {
@@ -220,14 +226,14 @@ final class PreviewBoqImport
                     $warnings[] = 'Review the provisional allowance in the description; it has not been used as a price.';
                 }
 
-                if (! $dayworkSheet && (str_contains($unit, '%') || preg_match('/percent(?:age)?/i', $unit))) {
+                if (! $dayworkSection && (str_contains($unit, '%') || preg_match('/percent(?:age)?/i', $unit))) {
                     $type = 'percentage_adjustment';
                     $warnings[] = 'Confirm the percentage and select its calculation base. Source quantity: '.$quantity.'; source rate: '.$rate.'. Neither is automatically interpreted as the percentage.';
                     $quantity = '1';
                     $rate = '';
                 }
 
-                if ($dayworkSheet) {
+                if ($dayworkSection) {
                     $type = BoqItemType::Daywork->value;
                     $warnings[] = 'Map this daywork item to approved usage from a Daily Site Report before saving.';
                 }
@@ -257,7 +263,7 @@ final class PreviewBoqImport
                 $identity = $this->identity($line);
                 $matching = array_values(array_filter($existing, fn (array $old): bool => $this->identity($old) === $identity));
                 $classification = match (true) {
-                    $dayworkSheet => 'Dayworks',
+                    $dayworkSection => 'Dayworks',
                     str_contains($unit, '%') || (bool) preg_match('/percent(?:age)?/i', $unit) => 'Percentage adjustment',
                     $type === 'preliminary_fixed' => 'Fixed preliminary',
                     $type === 'preliminary_time' => 'Time-based preliminary',
@@ -289,7 +295,7 @@ final class PreviewBoqImport
                 }
 
                 if (count($matching) > 1 || isset($seen[$identity])) {
-                    $warnings[] = 'Ambiguous or duplicate item reference in this section. Adjust the section mapping or import range before saving.';
+                    $warnings[] = 'This reference appears more than once. Correct the duplicate before saving.';
                 }
 
                 $seen[$identity] = true;
@@ -346,17 +352,16 @@ final class PreviewBoqImport
                     $blocked = $blocked || ! $resourceId;
                 }
 
-                $rows[] = ['id' => $sheet['id'].':'.$number, 'line' => $line, 'classification' => $classification, 'commercial_review' => $commercialReview, 'daywork_mapping_required' => $dayworkMappingRequired, 'source_unit' => $unit, 'source_amount' => $amount, 'warnings' => $warnings, 'blocked' => $blocked, 'change' => $change];
+                $rows[] = ['id' => $sheet['id'].':'.$number, 'line' => $line, 'classification' => $classification, 'commercial_review' => $commercialReview, 'daywork_resource_required' => $dayworkMappingRequired, 'source_unit' => $unit, 'source_amount' => $amount, 'warnings' => $warnings, 'blocked' => $blocked, 'change' => $change];
                 $previousDescription = $description;
-            }
         }
 
         $counts = array_count_values(array_map(fn (array $row): string => $this->identity($row['line']), $rows));
         foreach ($rows as &$row) {
             if ($counts[$this->identity($row['line'])] > 1) {
                 $row['blocked'] = true;
-                $row['daywork_mapping_required'] = false;
-                $row['warnings'][] = 'This reference occurs more than once in the selected section. Narrow the range or correct the mapping.';
+                $row['daywork_resource_required'] = false;
+                $row['warnings'][] = 'This reference occurs more than once in this bill or section. Correct the duplicate before saving.';
             }
         }
 
