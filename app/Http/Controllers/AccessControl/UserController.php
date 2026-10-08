@@ -91,6 +91,7 @@ final class UserController
                 ->all(),
             'staff' => Staff::query()
                 ->with(['branch', 'position', 'user'])
+                ->whereNotNull('email')
                 ->where('tenant_id', $tenantId)
                 ->where('status', 'active')
                 ->unless($canViewAllBranches, fn (Builder $query) => $query->whereIn('branch_id', $accessibleBranchIds))
@@ -103,7 +104,7 @@ final class UserController
                     'email' => $staff->email,
                     'branch_id' => $staff->branch_id,
                     'branch_name' => $staff->branch->name,
-                    'position_name' => $staff->position->name,
+                    'position_name' => $staff->position?->name ?? 'No position',
                     'user_id' => $staff->user?->id,
                 ]),
         ]);

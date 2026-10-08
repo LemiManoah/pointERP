@@ -126,6 +126,7 @@ final readonly class BuildDashboard
         }
 
         $result = [
+            'defaultView' => $this->defaultView($user),
             'filters' => ['period' => $period, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'currency' => $currency],
             'currencies' => $currencies->all(),
             'cards' => $cards,
@@ -136,6 +137,15 @@ final readonly class BuildDashboard
         }
 
         return $result;
+    }
+
+    private function defaultView(User $user): string
+    {
+        /** @var array<string, string> $roleViews */
+        $roleViews = config('dashboard.role_views', []);
+        $views = $user->getRoleNames()->map(fn (string $role): string => $roleViews[$role] ?? 'overview')->unique()->values();
+
+        return $views->count() === 1 ? ($views->first() ?? 'overview') : 'overview';
     }
 
     /** @return array<string, mixed> */

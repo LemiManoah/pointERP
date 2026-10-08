@@ -43,6 +43,9 @@ final class StoreProjectEstimateRequest extends FormRequest
 
         return [
             'title' => ['required', 'string', 'max:160'],
+            'import_mode' => ['sometimes', Rule::in(['scope', 'prices'])],
+            'remove_keys' => ['sometimes', 'array', 'max:2000'],
+            'remove_keys.*' => ['required', 'uuid', 'distinct'],
             'currency_code' => ['required', 'string', 'size:3', Rule::exists((new TenantCurrency)->getTable(), 'currency_code')->where('tenant_id', $tenantId)->where('is_enabled', true)],
             'notes' => ['nullable', 'string', 'max:5000'],
             'lines' => ['required', 'array', 'min:1', 'max:2000'],

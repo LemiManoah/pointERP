@@ -64,6 +64,17 @@ function dashboardReceipt(PosSale $sale, array $attributes = []): PosPayment
     ]);
 }
 
+it('selects a role default without granting extra dashboard permissions', function (): void {
+    $role = Role::query()->firstOrCreate(['name' => 'Quantity Surveyor', 'guard_name' => 'web']);
+    $this->dashboardUser->syncRoles([$role]);
+    $this->dashboardUser->syncPermissions([]);
+    $this->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
+        ->where('defaultView', 'projects')->has('cards', 0)->missing('cashFlow'));
+    $this->dashboardUser->assignRole('Accountant');
+    $this->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
+        ->where('defaultView', 'overview'));
+});
+
 it('shows no financial data without permissions', function (): void {
     $this->dashboardUser->syncPermissions([]);
     $this->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $page): Assert => $page

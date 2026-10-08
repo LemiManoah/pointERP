@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Actions\Operations\DailySiteReports;
 
+use App\Actions\Operations\Boq\ValidateDayworkUsage;
+
 use App\Enums\DsrLabourSource;
 use App\Enums\DsrMaterialSource;
 use App\Enums\DsrMaterialUsageStatus;
@@ -44,6 +46,7 @@ final readonly class SaveDailySiteReport
     public function __construct(
         private TenantContext $tenantContext,
         private AuditLogger $auditLogger,
+        private ValidateDayworkUsage $validateDayworkUsage,
         private ReportingCalendarResolver $calendarResolver,
         private InventoryQuantityConverter $quantityConverter,
         private RefreshDailySiteReportCosts $refreshCosts,
@@ -66,7 +69,7 @@ final readonly class SaveDailySiteReport
             $oldValues = $report?->toArray() ?? [];
             $report ??= new DailySiteReport();
 
-            if ($report->exists && $report->isApproved()) {
+            if ($report->exists && in_array($report->status, [DailySiteReport::STATUS_APPROVED, DailySiteReport::STATUS_ARCHIVED], true)) {
                 throw ValidationException::withMessages([
                     'report' => 'Approved daily site reports are locked. Create a correction instead.',
                 ]);
@@ -110,6 +113,7 @@ final readonly class SaveDailySiteReport
             );
             $this->syncLines($report, DailySiteReportMaterialLine::class, $this->normalizeMaterialLines($report, $data['material_lines'] ?? []));
             $this->syncLines($report, DailySiteReportDelayLine::class, $data['delay_lines'] ?? []);
+            $this->validateDayworkUsage->handle($report);
             $this->refreshCosts->handle($report);
 
             $event = $oldValues === []
@@ -223,6 +227,7 @@ final readonly class SaveDailySiteReport
                     'unit_of_measure_id' => null,
                     'conversion_multiplier' => null,
                     'stock_unit_quantity' => null,
+                    'work_type' => $line['work_type'] ?? 'ordinary',
                     'material_source' => $source->value,
                     'material_usage_status' => DsrMaterialUsageStatus::Pending->value,
                 ];
@@ -278,7 +283,8 @@ final readonly class SaveDailySiteReport
                 'unit_of_measure_id' => $unit->id,
                 'conversion_multiplier' => (string) $multiplier->toScale(10),
                 'stock_unit_quantity' => (string) $quantity->multipliedBy($multiplier)->toScale(4),
-                'material_source' => $source->value,
+                'work_type' => $line['work_type'] ?? 'ordinary',
+                    'material_source' => $source->value,
                 'material_usage_status' => DsrMaterialUsageStatus::Pending->value,
                 'material_name' => $item->name,
                 'unit' => $unit->symbol ?? $unit->name,
@@ -319,6 +325,7 @@ final readonly class SaveDailySiteReport
 
                 return [
                     ...$line,
+                    'work_type' => $line['work_type'] ?? 'ordinary',
                     'equipment_name' => $equipment->name,
                     'equipment_identifier' => $equipment->asset_code,
                     'fleet_posting_status' => 'unposted',
@@ -367,6 +374,7 @@ final readonly class SaveDailySiteReport
 
                 return [
                     ...$line,
+                    'work_type' => $line['work_type'] ?? 'ordinary',
                     'labour_source' => $source->value,
                     'workforce_trade_id' => $trade?->id,
                     'trade_or_role' => $trade instanceof WorkforceTrade ? $trade->name : $line['trade_or_role'],

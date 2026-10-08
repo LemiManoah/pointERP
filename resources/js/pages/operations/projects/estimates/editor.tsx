@@ -1241,8 +1241,7 @@ export default function EstimateEditor({
                                                             .filter(
                                                                 (base) =>
                                                                     base.work_item_key &&
-                                                                    base.item_type !==
-                                                                        'percentage_adjustment',
+                                                                    base.work_item_key !== line.work_item_key,
                                                             )
                                                             .map((base) => (
                                                                 <label

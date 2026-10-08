@@ -42,6 +42,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import type { Auth, CurrentTenant } from '@/types';
+import { index as workers } from '@/routes/workforce/workers';
 
 type SidebarLink = {
     title: string;
@@ -154,14 +155,21 @@ const groups: SidebarGroupItem[] = [
                 permission: 'inventory.stock.view',
             },
             {
-                title: 'Staff',
+                title: 'Company Staff',
                 href: '/staff',
                 icon: Users,
                 status: 'ready',
                 permission: 'resources.staff.manage',
             },
             {
-                title: 'Workforce',
+                title: 'Project Workforce',
+                href: workers.url(),
+                icon: HardHat,
+                status: 'ready',
+                permission: 'workforce.deployments.manage',
+            },
+            {
+                title: 'Site attendance',
                 href: '/workforce/attendance',
                 icon: ClipboardCheck,
                 status: 'ready',

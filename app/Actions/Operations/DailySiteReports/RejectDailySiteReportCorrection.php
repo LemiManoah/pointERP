@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Actions\Operations\DailySiteReports;
 
 use App\Models\DailySiteReportCorrection;
+use App\Models\DailySiteReport;
+use App\Models\Project;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\DailySiteReportNotificationService;
@@ -24,7 +26,9 @@ final readonly class RejectDailySiteReportCorrection
     {
         return DB::transaction(function () use ($actor, $correction, $reason): DailySiteReportCorrection {
             $correction->loadMissing('report');
-            $report = $correction->report;
+            Project::query()->whereKey($correction->report->project_id)->lockForUpdate()->firstOrFail();
+            $report = DailySiteReport::query()->whereKey($correction->daily_site_report_id)->lockForUpdate()->firstOrFail();
+            $correction = DailySiteReportCorrection::query()->whereKey($correction->id)->lockForUpdate()->firstOrFail();
 
             if ($correction->status !== DailySiteReportCorrection::STATUS_SUBMITTED || $report === null) {
                 throw ValidationException::withMessages([

@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Enums\BoqItemType;
 use App\Models\DailySiteReport;
+use App\Models\DsrEquipmentLineAdjustment;
 use App\Models\DailySiteReportEquipmentLine;
 use App\Models\DailySiteReportLabourLine;
 use App\Models\DailySiteReportMaterialLine;
@@ -33,10 +34,10 @@ final class DayworkValuation
 
         $approvedReport = fn (Builder $query): Builder => $query
             ->where('project_id', $project->id)
-            ->where('status', DailySiteReport::STATUS_APPROVED);
+            ->whereIn('status', [DailySiteReport::STATUS_APPROVED, DailySiteReport::STATUS_ARCHIVED]);
 
         $labourTargets = $dayworks->where('daywork_resource_type', 'labour')->keyBy('daywork_workforce_trade_id');
-        DailySiteReportLabourLine::query()->with('report:id,reference,report_date')
+        DailySiteReportLabourLine::query()->where('work_type', 'daywork')->with('report:id,reference,report_date')
             ->whereIn('workforce_trade_id', $labourTargets->keys())->whereHas('report', $approvedReport)
             ->get()->each(function (DailySiteReportLabourLine $usage) use (&$result, $labourTargets): void {
                 $target = $labourTargets->get($usage->workforce_trade_id);
@@ -45,19 +46,22 @@ final class DayworkValuation
                 }
             });
 
+        $equipmentCorrections = DsrEquipmentLineAdjustment::query()
+            ->whereHas('correction', fn (Builder $query): Builder => $query->where('status', 'approved')->whereHas('report', $approvedReport))
+            ->get()->groupBy('daily_site_report_equipment_line_id');
         $equipmentTargets = $dayworks->where('daywork_resource_type', 'equipment')->keyBy('daywork_equipment_category_id');
-        DailySiteReportEquipmentLine::query()->with(['report:id,reference,report_date', 'equipment:id,equipment_category_id'])
+        DailySiteReportEquipmentLine::query()->where('work_type', 'daywork')->with(['report:id,reference,report_date', 'equipment:id,equipment_category_id'])
             ->whereHas('equipment', fn (Builder $query): Builder => $query->whereIn('equipment_category_id', $equipmentTargets->keys()))
             ->whereHas('report', $approvedReport)->get()
-            ->each(function (DailySiteReportEquipmentLine $usage) use (&$result, $equipmentTargets): void {
+            ->each(function (DailySiteReportEquipmentLine $usage) use (&$result, $equipmentTargets, $equipmentCorrections): void {
                 $target = $equipmentTargets->get($usage->equipment?->equipment_category_id);
                 if ($target instanceof ProjectEstimateLine) {
-                    $result = $this->add($result, $target, $usage->id, $usage->report, $usage->equipment_name, (float) ($usage->working_hours ?? 0));
+                    $result = $this->add($result, $target, $usage->id, $usage->report, $usage->equipment_name, (float) ($usage->working_hours ?? 0) + (float) $equipmentCorrections->get($usage->id, collect())->sum('working_hours_delta'));
                 }
             });
 
         $materialTargets = $dayworks->where('daywork_resource_type', 'material')->keyBy('daywork_inventory_item_id');
-        DailySiteReportMaterialLine::query()->with('report:id,reference,report_date')
+        DailySiteReportMaterialLine::query()->where('work_type', 'daywork')->with('report:id,reference,report_date')
             ->whereIn('inventory_item_id', $materialTargets->keys())->whereHas('report', $approvedReport)
             ->get()->each(function (DailySiteReportMaterialLine $usage) use (&$result, $materialTargets): void {
                 $target = $materialTargets->get($usage->inventory_item_id);

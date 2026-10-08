@@ -1,4 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
+import { store as requestCorrection } from '@/actions/App/Http/Controllers/Operations/DailySiteReportCorrectionController';
 import {
     CheckCircle2,
     LockKeyhole,
@@ -189,11 +190,13 @@ const numericLineFields = new Set([
     'closing_meter_reading',
     'fuel_quantity',
     'hours_lost',
+    'accepted_quantity',
     'previous_approved_quantity',
     'cumulative_to_date',
 ]);
 
 const readOnlyLineFields = new Set([
+    'accepted_quantity',
     'previous_approved_quantity',
     'cumulative_to_date',
     'fleet_posting_status',
@@ -215,6 +218,7 @@ const equipmentSnapshotFields = new Set([
 const materialSnapshotFields = new Set(['material_name', 'unit']);
 
 const controlledLineOptions: Record<string, string[]> = {
+    work_type: ['ordinary', 'daywork'],
     side: ['Full width', 'LHS', 'RHS', 'Centreline'],
     status: ['working', 'idle', 'breakdown', 'off-hire'],
     fuel_type: ['Diesel', 'Petrol'],
@@ -313,6 +317,8 @@ type EquipmentAdjustmentForm = {
 
 type CorrectionChanges = Record<CorrectionField, string> & {
     equipment_adjustments: EquipmentAdjustmentForm[];
+    usage_treatments: Array<{ group: string; line_id: string; description: string; work_type: string }>;
+    work_adjustments: Array<{ line_id: string; description: string; quantity_delta: string }>;
 };
 
 type CorrectionFormData = {
@@ -605,6 +611,7 @@ export default function DailySiteReportShow({
                                     'side',
                                     'quantity',
                                     'unit',
+                                    'accepted_quantity',
                                     'previous_approved_quantity',
                                     'cumulative_to_date',
                                     ...(canViewCosts ? ['rate_amount'] : []),
@@ -638,6 +645,7 @@ export default function DailySiteReportShow({
                                 disabled={!can.update}
                                 lines={form.data.labour_lines}
                                 fields={[
+                                    'work_type',
                                     'labour_source',
                                     'subcontractor_id',
                                     'workforce_trade_id',
@@ -669,6 +677,7 @@ export default function DailySiteReportShow({
                                 disabled={!can.update}
                                 lines={form.data.equipment_lines}
                                 fields={[
+                                    'work_type',
                                     'equipment_id',
                                     'equipment_name',
                                     'equipment_identifier',
@@ -712,6 +721,7 @@ export default function DailySiteReportShow({
                                 disabled={!can.update}
                                 lines={form.data.material_lines}
                                 fields={[
+                                    'work_type',
                                     'material_source',
                                     'inventory_item_id',
                                     'inventory_store_id',
@@ -919,7 +929,11 @@ function WorkflowTrailCard({
                                                 {Object.entries(
                                                     correction.new_values,
                                                 ).map(([field, value]) =>
-                                                    field ===
+                                                    field === 'usage_treatments' && Array.isArray(value) ? (
+                                                        <div key={field}>{value.map((entry: { line_id: string; group: string; previous_type: string; work_type: string }) => <p key={entry.line_id}>{entry.group}: {entry.previous_type} to {entry.work_type}</p>)}</div>
+                                                    ) : field === 'work_adjustments' && Array.isArray(value) ? (
+                                                        <div key={field}>{value.map((entry: { line_id: string; description?: string; quantity_delta: string; unit?: string }) => <p key={entry.line_id}>{entry.description ?? entry.line_id}: {entry.quantity_delta} {entry.unit}</p>)}</div>
+                                                    ) : field ===
                                                         'equipment_adjustments' &&
                                                     Array.isArray(value) ? (
                                                         <CorrectionAdjustmentSummary
@@ -1501,6 +1515,12 @@ function CorrectionDialog({ report }: { report: Report }) {
             environment_notes: report.environment_notes ?? '',
             social_notes: report.social_notes ?? '',
             completion_percent: report.completion_percent ?? '',
+            usage_treatments: [
+                ...report.labour_lines.map((line) => ({ group: 'labour', line_id: line.id ?? '', description: line.trade_or_role ?? 'Labour', work_type: line.work_type ?? 'ordinary' })),
+                ...report.equipment_lines.map((line) => ({ group: 'equipment', line_id: line.id ?? '', description: line.equipment_name ?? 'Equipment', work_type: line.work_type ?? 'ordinary' })),
+                ...report.material_lines.map((line) => ({ group: 'material', line_id: line.id ?? '', description: line.material_name ?? 'Material', work_type: line.work_type ?? 'ordinary' })),
+            ],
+            work_adjustments: report.work_lines.filter((line) => line.boq_item_id && line.counts_towards_boq).map((line) => ({ line_id: line.id ?? '', description: line.description ?? '', quantity_delta: '' })),
             equipment_adjustments: report.equipment_lines
                 .filter(
                     (line) =>
@@ -1523,7 +1543,7 @@ function CorrectionDialog({ report }: { report: Report }) {
 
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
-        form.post(`/daily-site-reports/${report.id}/corrections`, {
+        form.post(requestCorrection.url(report.id), {
             preserveScroll: true,
             onSuccess: () => setOpen(false),
         });
@@ -1554,6 +1574,47 @@ function CorrectionDialog({ report }: { report: Report }) {
                         />
                         <InputError message={form.errors.reason} />
                     </div>
+                    {form.data.changes.usage_treatments.length > 0 && (
+                        <details className="rounded-md border p-3">
+                            <summary>Correct daywork eligibility</summary>
+                            <p className="my-2 text-sm text-muted-foreground">Only authorised extra usage should be chargeable daywork. Changes take effect after approval.</p>
+                            <Table>
+                                <TableHeader><TableRow><TableHead>Resource</TableHead><TableHead>Treatment</TableHead></TableRow></TableHeader>
+                                <TableBody>{form.data.changes.usage_treatments.map((item, index) => (
+                                    <TableRow key={item.line_id}>
+                                        <TableCell>{item.description}</TableCell>
+                                        <TableCell><SearchableSelect value={item.work_type}
+                                            options={[{ value: 'ordinary', label: 'Ordinary work' }, { value: 'daywork', label: 'Chargeable daywork' }]}
+                                            onValueChange={(value) => form.setData('changes', { ...form.data.changes,
+                                                usage_treatments: form.data.changes.usage_treatments.map((row, i) => i === index ? { ...row, work_type: value } : row),
+                                            })} />
+                                        </TableCell>
+                                    </TableRow>
+                                ))}</TableBody>
+                            </Table>
+                            <InputError message={form.errors['changes.usage_treatments']} />
+                        </details>
+                    )}
+                    {form.data.changes.work_adjustments.length > 0 && (
+                        <div className="grid gap-2">
+                            <Label>BOQ quantity corrections</Label>
+                            <p className="text-sm text-muted-foreground">Enter the difference: -2 removes two units, 2 adds two. Approval preserves the original measurement and records an adjustment.</p>
+                            <Table>
+                                <TableHeader><TableRow><TableHead>Reported work</TableHead><TableHead>Quantity adjustment</TableHead></TableRow></TableHeader>
+                                <TableBody>{form.data.changes.work_adjustments.map((item, index) => (
+                                    <TableRow key={item.line_id}>
+                                        <TableCell>{item.description}</TableCell>
+                                        <TableCell><Input type="number" step="0.0001" value={item.quantity_delta}
+                                            onChange={(event) => form.setData('changes', { ...form.data.changes,
+                                                work_adjustments: form.data.changes.work_adjustments.map((row, i) => i === index ? { ...row, quantity_delta: event.target.value } : row),
+                                            })} />
+                                        </TableCell>
+                                    </TableRow>
+                                ))}</TableBody>
+                            </Table>
+                            <InputError message={form.errors['changes.work_adjustments']} />
+                        </div>
+                    )}
                     <div className="grid gap-4 md:grid-cols-2">
                         {correctionFields.map(({ field, label }) => (
                             <div key={field} className="grid gap-2">
@@ -3008,6 +3069,7 @@ function LineCard({
                                         <TableCell>
                                             <div className="font-medium">
                                                 {summary.primary}
+                                                {line.work_type === 'daywork' && <Badge variant="secondary" className="ml-2">Chargeable daywork</Badge>}
                                             </div>
                                             {summary.secondary && (
                                                 <div className="text-xs text-muted-foreground">
@@ -3502,7 +3564,7 @@ function lineTableSummary(
             secondary: line.boq_item_number
                 ? `Item ${line.boq_item_number}`
                 : null,
-            quantity: quantity(line.quantity, line.unit),
+            quantity: quantity(line.accepted_quantity ?? line.quantity, line.unit),
             details:
                 [
                     line.chainage_from && `From ${line.chainage_from}`,
@@ -3580,7 +3642,7 @@ function lineFieldOptions(field: string, line: Line, units: string[]) {
     const options =
         current && !values.includes(current) ? [current, ...values] : values;
 
-    return options.map((value) => ({ value, label: value }));
+    return options.map((value) => ({ value, label: field === 'work_type' ? (value === 'daywork' ? 'Chargeable daywork' : 'Ordinary work') : value }));
 }
 
 function lineFieldVisible(
@@ -3661,7 +3723,7 @@ function lineFieldLabel(field: string, section: string): string {
         return 'Rate per person-hour';
     }
 
-    return field.replaceAll('_', ' ');
+    return field === 'work_type' ? 'Usage treatment' : field.replaceAll('_', ' ');
 }
 
 function lineFieldRequired(
@@ -3703,6 +3765,7 @@ function lineFieldRequired(
 
 function cleanLines(lines: Line[]): Line[] {
     const defaults = new Set([
+        'work_type',
         'currency_code',
         'status',
         'fuel_transaction_type',
@@ -3736,6 +3799,7 @@ function emptyWorkLine(): Line {
 
 function emptyLabourLine(): Line {
     return {
+        work_type: 'ordinary',
         labour_source: 'internal',
         workforce_trade_id: '',
         subcontractor_id: '',
@@ -3750,6 +3814,7 @@ function emptyLabourLine(): Line {
 
 function emptyEquipmentLine(): Line {
     return {
+        work_type: 'ordinary',
         equipment_id: '',
         equipment_name: '',
         equipment_identifier: '',
@@ -3770,6 +3835,7 @@ function emptyEquipmentLine(): Line {
 
 function emptyMaterialLine(): Line {
     return {
+        work_type: 'ordinary',
         material_source: 'site_store',
         inventory_item_id: '',
         inventory_store_id: '',

@@ -229,7 +229,7 @@ final class PreviewBoqImport
 
                 if ($dayworkSheet) {
                     $type = BoqItemType::Daywork->value;
-                    $warnings[] = 'Choose the approved Daily Site Report usage source for this daywork item before saving.';
+                    $warnings[] = 'Map this daywork item to approved usage from a Daily Site Report before saving.';
                 }
 
                 $fullDescription = implode("\n", array_filter([...$context, preg_match('/^ditto\b/i', $description) ? 'Previous item: '.$previousDescription : '', $description]));
@@ -267,7 +267,7 @@ final class PreviewBoqImport
                     default => 'Measured work',
                 };
                 $commercialReview = $classification === 'Preliminaries';
-                $unsupportedMeasurement = $commercialReview;
+                $unsupportedMeasurement = $classification === 'Preliminaries';
                 $blocked = count($matching) > 1 || isset($seen[$identity]) || (bool) $unsupportedMeasurement;
                 if ($matching === [] && $section && collect($existing)->contains(fn (array $old): bool => ($old['bill'] ?? '') === $bill && ($old['element'] ?? '') === ($element ?? '')
                     && empty($old['section']) && ($old['boq_reference'] ?? '') === ($reference ?: '')
@@ -334,7 +334,19 @@ final class PreviewBoqImport
 
                 }
 
-                $rows[] = ['id' => $sheet['id'].':'.$number, 'line' => $line, 'classification' => $classification, 'commercial_review' => $commercialReview, 'source_unit' => $unit, 'source_amount' => $amount, 'warnings' => $warnings, 'blocked' => $blocked, 'change' => $change];
+                $dayworkMappingRequired = false;
+                if ($classification === 'Dayworks') {
+                    $resourceId = match ($line['daywork_resource_type']) {
+                        'labour' => $line['daywork_workforce_trade_id'],
+                        'equipment' => $line['daywork_equipment_category_id'],
+                        'material' => $line['daywork_inventory_item_id'],
+                        default => null,
+                    };
+                    $dayworkMappingRequired = ! $resourceId && ! $blocked;
+                    $blocked = $blocked || ! $resourceId;
+                }
+
+                $rows[] = ['id' => $sheet['id'].':'.$number, 'line' => $line, 'classification' => $classification, 'commercial_review' => $commercialReview, 'daywork_mapping_required' => $dayworkMappingRequired, 'source_unit' => $unit, 'source_amount' => $amount, 'warnings' => $warnings, 'blocked' => $blocked, 'change' => $change];
                 $previousDescription = $description;
             }
         }
@@ -343,6 +355,7 @@ final class PreviewBoqImport
         foreach ($rows as &$row) {
             if ($counts[$this->identity($row['line'])] > 1) {
                 $row['blocked'] = true;
+                $row['daywork_mapping_required'] = false;
                 $row['warnings'][] = 'This reference occurs more than once in the selected section. Narrow the range or correct the mapping.';
             }
         }

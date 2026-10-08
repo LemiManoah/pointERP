@@ -89,31 +89,50 @@ final class ProjectEstimateLine extends Model
     /** @param Collection<int, ProjectEstimateLine> $lines */
     public function boqAmount(Collection $lines): ?string
     {
+        $amounts = [];
+        return $this->calculateBoqAmount($lines, $amounts, []);
+    }
+
+    /**
+     * @param Collection<int, ProjectEstimateLine> $lines
+     * @param array<string, string|null> $amounts
+     * @param array<string, bool> $visited
+     */
+    private function calculateBoqAmount(Collection $lines, array &$amounts, array $visited): ?string
+    {
+        if (array_key_exists($this->work_item_key, $amounts)) {
+            return $amounts[$this->work_item_key];
+        }
+        if (isset($visited[$this->work_item_key]) || count($visited) >= 100) {
+            return $amounts[$this->work_item_key] = null;
+        }
+        $visited[$this->work_item_key] = true;
         if ($this->item_type !== BoqItemType::PercentageAdjustment) {
-            return $this->selling_rate === null ? null : (string) BigDecimal::of($this->planned_quantity)
+            return $amounts[$this->work_item_key] = $this->selling_rate === null ? null : (string) BigDecimal::of($this->planned_quantity)
                 ->multipliedBy($this->selling_rate)->toScale(4, RoundingMode::HalfUp);
         }
 
         $keys = $this->percentage_base_keys ?? [];
         if ($this->percentage_rate === null || $keys === []) {
-            return null;
+            return $amounts[$this->work_item_key] = null;
         }
 
         $bases = $lines->whereIn('work_item_key', $keys);
         if ($bases->count() !== count($keys)) {
-            return null;
+            return $amounts[$this->work_item_key] = null;
         }
 
         $total = BigDecimal::zero();
         foreach ($bases as $base) {
-            if ($base->item_type === BoqItemType::PercentageAdjustment || $base->selling_rate === null) {
-                return null;
+            $amount = $base->calculateBoqAmount($lines, $amounts, $visited);
+            if ($amount === null) {
+                return $amounts[$this->work_item_key] = null;
             }
 
-            $total = $total->plus(BigDecimal::of($base->planned_quantity)->multipliedBy($base->selling_rate)->toScale(4, RoundingMode::HalfUp));
+            $total = $total->plus($amount);
         }
 
-        return (string) $total->multipliedBy($this->percentage_rate)->dividedBy(100, 4, RoundingMode::HalfUp);
+        return $amounts[$this->work_item_key] = (string) $total->multipliedBy($this->percentage_rate)->dividedBy(100, 4, RoundingMode::HalfUp);
     }
 
     /** @return BelongsTo<ProjectEstimate, $this> */

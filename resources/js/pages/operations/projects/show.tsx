@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { show as showProject } from '@/actions/App/Http/Controllers/Operations/ProjectController';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import { Badge } from '@/components/ui/badge';
@@ -173,6 +173,17 @@ export default function ProjectShow({
     const [tab, setTab] = useState(
         activeTab === 'boq' && canViewEstimates ? 'boq' : 'sites',
     );
+    useEffect(() => {
+        const availableTabs = [
+            'sites',
+            'activities',
+            'access',
+            'documents',
+            ...(canViewEstimates ? ['boq', 'performance'] : []),
+            ...(canViewFleet ? ['equipment'] : []),
+        ];
+        setTab(availableTabs.includes(activeTab) ? activeTab : 'sites');
+    }, [activeTab, canViewEstimates, canViewFleet]);
     const activeSites = sites.filter((site) =>
         ['planned', 'active', 'suspended'].includes(site.status),
     );
@@ -274,7 +285,10 @@ export default function ProjectShow({
                                 preserveState: true,
                                 preserveScroll: true,
                                 replace: true,
-                                only: ['boq', 'activeTab'],
+                                only:
+                                    value === 'boq'
+                                        ? ['boq', 'activeTab']
+                                        : ['activeTab'],
                             },
                         );
                     }}

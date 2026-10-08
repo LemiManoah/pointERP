@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\BoqProgressEntry;
 use App\Models\DailySiteReport;
+use App\Models\EstimateResourceLine;
 use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\ProjectEstimate;
@@ -21,7 +22,7 @@ final class ProjectBoqSummary
         Gate::authorize('view', $project);
         Gate::authorize('viewAny', ProjectEstimate::class);
         $baseline = $revision ?? ProjectEstimate::query()->with('lines.unit')->where('project_id', $project->id)->where('is_baseline', true)->first();
-        $baseline?->loadMissing('lines.unit');
+        $baseline?->loadMissing(['lines.unit', 'lines.resources.unit']);
         $historical = $baseline !== null && ! $baseline->is_baseline;
         $canViewCosts = $baseline && Gate::allows('viewCosts', $baseline);
         $activities = ProjectActivity::query()->where('project_id', $project->id)->whereNotNull('boq_item_id')
@@ -53,6 +54,15 @@ final class ProjectBoqSummary
                 'unit_of_measure_id' => $line->unit_of_measure_id,
                 'source_document' => $line->source_document, 'source_sheet' => $line->source_sheet,
                 'source_row' => $line->source_row,
+                'resources' => $line->resources->map(fn (EstimateResourceLine $resource): array => [
+                    'id' => $resource->id,
+                    'type' => $resource->resource_type->label(),
+                    'name' => $resource->name,
+                    'unit' => $resource->unit?->symbol ?? $resource->unit?->code,
+                    'quantity_per_work_unit' => $resource->quantity_per_work_unit,
+                    'estimated_unit_cost' => $canViewCosts ? $resource->estimated_unit_cost : null,
+                    'notes' => $resource->notes,
+                ])->values()->all(),
             ])->values()->all() ?? [],
             'activities' => $activities->map(fn (ProjectActivity $activity): array => $activity->only([
                 'id', 'boq_item_id', 'name', 'unit', 'progress_method', 'approved_quantity', 'status',

@@ -46,7 +46,7 @@ final readonly class ValidateDayworkItems
             if (! $valid) {
                 throw ValidationException::withMessages(['lines.'.$index.'.unit_of_measure_id' => $type === 'material'
                     ? 'A material daywork must use the selected inventory item’s stock unit.'
-                    : 'Labour and equipment dayworks require a time unit.']);
+                    : 'Labour and equipment dayworks require hours, matching DSR usage.']);
             }
 
             $targetKey = $type.':'.$targets[$type];
@@ -62,6 +62,6 @@ final readonly class ValidateDayworkItems
     {
         return UnitOfMeasure::query()->whereKey($unitId)->where('is_active', true)
             ->where(fn ($query) => $query->whereNull('tenant_id')->orWhere('tenant_id', $project->tenant_id))
-            ->where('quantity_dimension', UnitDimension::Time->value)->exists();
+            ->where('quantity_dimension', UnitDimension::Time->value)->whereIn('code', ['HOUR', 'HR', 'H'])->exists();
     }
 }

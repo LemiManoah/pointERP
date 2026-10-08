@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Operations\DailySiteReports;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 final class StoreDailySiteReportCorrectionRequest extends FormRequest
 {
@@ -16,6 +17,13 @@ final class StoreDailySiteReportCorrectionRequest extends FormRequest
         return [
             'reason' => ['required', 'string', 'max:2000'],
             'changes' => ['required', 'array', 'min:1'],
+            'changes.work_adjustments' => ['sometimes', 'array', 'max:100'],
+            'changes.usage_treatments' => ['sometimes', 'array', 'max:200'],
+            'changes.usage_treatments.*.group' => ['required', Rule::in(['labour', 'equipment', 'material'])],
+            'changes.usage_treatments.*.line_id' => ['required', 'uuid', 'distinct'],
+            'changes.usage_treatments.*.work_type' => ['required', Rule::in(['ordinary', 'daywork'])],
+            'changes.work_adjustments.*.line_id' => ['required', 'uuid', 'distinct'],
+            'changes.work_adjustments.*.quantity_delta' => ['nullable', 'numeric', 'between:-1000000000,1000000000', 'decimal:0,4'],
             'changes.weather' => ['nullable', 'string', 'max:255'],
             'changes.site_conditions' => ['nullable', 'string', 'max:255'],
             'changes.work_summary' => ['nullable', 'string'],

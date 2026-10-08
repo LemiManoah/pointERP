@@ -3,11 +3,15 @@
 declare(strict_types=1);
 
 use App\Actions\Operations\Boq\PostReportProgress;
+use App\Actions\Operations\Boq\ReconcileProjectProgress;
 use App\Actions\Operations\DailySiteReports\ApproveDailySiteReport;
 use App\Actions\Operations\DailySiteReports\SaveDailySiteReport;
 use App\Actions\Operations\Estimates\ApproveProjectEstimate;
 use App\Actions\Operations\Estimates\SaveProjectEstimate;
 use App\Actions\Operations\ProjectActivities\SaveProjectActivity;
+use App\Enums\UnitDimension;
+use App\Enums\WorkforceTradeCategory;
+use Carbon\CarbonImmutable;
 use App\Models\BoqProgressEntry;
 use App\Models\DailySiteReport;
 use App\Models\DailySiteReportLabourLine;
@@ -39,6 +43,14 @@ beforeEach(function (): void {
     $this->actor = User::query()->where('email', 'pm.gulu@point.test')->firstOrFail();
     $this->project = Project::query()->where('reference', 'BKH-ROAD')->firstOrFail();
     $this->unit = UnitOfMeasure::query()->where('code', 'M3')->firstOrFail();
+    WorkforceTrade::query()->create([
+        'tenant_id' => $this->actor->tenant_id,
+        'code' => 'BOQ-TEST-TRADE',
+        'name' => 'BOQ test trade',
+        'category' => WorkforceTradeCategory::Skilled,
+        'is_active' => true,
+        'created_by' => $this->actor->id,
+    ]);
     $this->line = ['work_item_key' => (string) Str::uuid(), 'unit_of_measure_id' => $this->unit->id,
         'boq_reference' => 'B', 'name' => 'Excavation', 'planned_quantity' => '1648', 'selling_rate' => '25000', 'item_type' => 'measured'];
     $this->estimate = resolve(SaveProjectEstimate::class)->handle($this->project,
@@ -47,6 +59,18 @@ beforeEach(function (): void {
     $this->activity = ProjectActivity::query()->where('estimate_work_item_key', $this->line['work_item_key'])->firstOrFail();
     Notification::fake();
 });
+
+function unusedBoqReportDate(Project $project): string
+{
+    $siteId = $project->sites()->value('id');
+    $date = CarbonImmutable::today();
+
+    while (DailySiteReport::query()->where('site_id', $siteId)->whereDate('report_date', $date->toDateString())->exists()) {
+        $date = $date->subDay();
+    }
+
+    return $date->toDateString();
+}
 
 it('values preliminaries in the BOQ without creating measured activities or earned output', function (): void {
     $timeUnit = UnitOfMeasure::query()->where('tenant_id', $this->actor->tenant_id)->where('code', 'HOUR')->firstOrFail();
@@ -106,7 +130,7 @@ it('calculates percentage additions and deductions from an explicit BOQ base', f
         ->and($summary['totals']['baseline_revenue'])->toBe('23750000.0000');
 });
 
-it('values a labour daywork automatically from approved DSR usage', function (): void {
+it('values only approved labour explicitly marked as chargeable daywork', function (): void {
     $timeUnit = UnitOfMeasure::query()->where('tenant_id', $this->actor->tenant_id)->where('code', 'HOUR')->firstOrFail();
     $trade = WorkforceTrade::query()->where('tenant_id', $this->actor->tenant_id)->where('is_active', true)->firstOrFail();
     $site = $this->project->sites()->firstOrFail();
@@ -125,18 +149,25 @@ it('values a labour daywork automatically from approved DSR usage', function ():
         $report = DailySiteReport::query()->create([
             'tenant_id' => $this->project->tenant_id, 'branch_id' => $this->project->branch_id,
             'project_id' => $this->project->id, 'site_id' => $site->id,
-            'report_date' => now()->subDay()->toDateString(), 'reference' => 'DSR-DAYWORK-'.mb_strtoupper($status),
+            'report_date' => unusedBoqReportDate($this->project), 'reference' => 'DSR-DAYWORK-'.mb_strtoupper($status),
             'status' => $status, 'approved_by' => $status === DailySiteReport::STATUS_APPROVED ? $this->actor->id : null,
             'approved_at' => $status === DailySiteReport::STATUS_APPROVED ? now() : null,
             'created_by' => $this->actor->id, 'updated_by' => $this->actor->id,
         ]);
         DailySiteReportLabourLine::query()->create([
+            'work_type' => 'daywork',
             'tenant_id' => $report->tenant_id, 'branch_id' => $report->branch_id,
             'daily_site_report_id' => $report->id, 'labour_source' => 'casual',
             'workforce_trade_id' => $trade->id, 'trade_or_role' => $trade->name,
             'headcount' => $headcount, 'hours' => $hours, 'sort_order' => 0,
         ]);
     }
+
+    $approved = DailySiteReport::query()->where('reference', 'DSR-DAYWORK-APPROVED')->firstOrFail();
+    $ordinary = $approved->labourLines()->firstOrFail()->replicate();
+    $ordinary->work_type = 'ordinary';
+    $ordinary->headcount = 100;
+    $ordinary->save();
 
     $summary = resolve(ProjectPerformanceSummary::class)->forProject($this->project, true);
     $row = collect($summary['work_items'])->firstWhere('item_type', 'daywork');
@@ -173,11 +204,12 @@ it('values equipment and material dayworks from the same approved DSR', function
     $report = DailySiteReport::query()->create([
         'tenant_id' => $this->project->tenant_id, 'branch_id' => $this->project->branch_id,
         'project_id' => $this->project->id, 'site_id' => $site->id,
-        'report_date' => now()->subDay()->toDateString(), 'reference' => 'DSR-DAYWORK-RESOURCES',
+        'report_date' => unusedBoqReportDate($this->project), 'reference' => 'DSR-DAYWORK-RESOURCES',
         'status' => DailySiteReport::STATUS_APPROVED, 'approved_by' => $this->actor->id,
         'approved_at' => now(), 'created_by' => $this->actor->id, 'updated_by' => $this->actor->id,
     ]);
     DailySiteReportEquipmentLine::query()->create([
+            'work_type' => 'daywork',
         'tenant_id' => $report->tenant_id, 'branch_id' => $report->branch_id,
         'daily_site_report_id' => $report->id, 'equipment_id' => $equipment->id,
         'equipment_name' => $equipment->name, 'equipment_identifier' => $equipment->asset_code,
@@ -185,6 +217,7 @@ it('values equipment and material dayworks from the same approved DSR', function
         'fleet_posting_status' => 'unposted', 'sort_order' => 0,
     ]);
     DailySiteReportMaterialLine::query()->create([
+            'work_type' => 'daywork',
         'tenant_id' => $report->tenant_id, 'branch_id' => $report->branch_id,
         'daily_site_report_id' => $report->id, 'inventory_item_id' => $material->id,
         'unit_of_measure_id' => $material->stock_unit_id, 'conversion_multiplier' => '1',
@@ -193,6 +226,12 @@ it('values equipment and material dayworks from the same approved DSR', function
         'quantity' => '12', 'unit' => $material->stockUnit->symbol ?? $material->stockUnit->name,
         'sort_order' => 0,
     ]);
+
+    foreach ([$report->equipmentLines()->sole(), $report->materialLines()->sole()] as $usage) {
+        $ordinary = $usage->replicate();
+        $ordinary->work_type = 'ordinary';
+        $ordinary->save();
+    }
 
     $summary = resolve(ProjectPerformanceSummary::class)->forProject($this->project, true);
     $rows = collect($summary['work_items'])->where('item_type', 'daywork')->keyBy('daywork_resource_type');
@@ -262,6 +301,54 @@ it('offers active library activities without exposing template costs on BOQ deta
         }));
 });
 
+it('shows resources from the approved BOQ revision and protects their costs', function (): void {
+    $resource = ['resource_type' => 'material', 'name' => 'Excavation consumables',
+        'unit_of_measure_id' => $this->unit->id, 'quantity_per_work_unit' => '0.5',
+        'estimated_unit_cost' => '1200', 'notes' => 'Allow for ground conditions'];
+    $draft = resolve(SaveProjectEstimate::class)->handle($this->project,
+        ['title' => 'Resource baseline', 'currency_code' => 'UGX',
+            'lines' => [[...$this->line, 'resources' => [$resource]]]], $this->actor);
+    resolve(ApproveProjectEstimate::class)->handle($draft, $this->actor);
+    resolve(SaveProjectEstimate::class)->handle($this->project,
+        ['title' => 'Unapproved resource change', 'currency_code' => 'UGX',
+            'lines' => [[...$this->line, 'resources' => [[...$resource, 'name' => 'Draft only resource']]]]], $this->actor);
+
+    $url = route('projects.boq.item', ['project' => $this->project, 'item' => $this->activity->boq_item_id]);
+    $this->actingAs($this->actor)->get($url)->assertOk()
+        ->assertInertia(fn (Assert $page): Assert => $page
+            ->has('items.0.resources', 1)
+            ->where('items.0.resources.0.name', 'Excavation consumables')
+            ->where('items.0.resources.0.type', 'Material')
+            ->where('items.0.resources.0.quantity_per_work_unit', '0.500000')
+            ->where('items.0.resources.0.estimated_unit_cost', '1200.0000')
+            ->where('items.0.resources.0.notes', 'Allow for ground conditions'));
+
+    $engineer = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();
+    $this->actingAs($engineer)->get($url)->assertOk()
+        ->assertInertia(fn (Assert $page): Assert => $page
+            ->where('can.viewCosts', false)
+            ->where('items.0.resources.0.name', 'Excavation consumables')
+            ->where('items.0.resources.0.estimated_unit_cost', null));
+});
+
+it('adds subactivities through the BOQ details form without changing the contract quantity or rate', function (): void {
+    $this->actor->givePermissionTo('project-activities.manage');
+    $this->actingAs($this->actor)
+        ->post(route('projects.boq.activities.store', $this->project), [
+            'project_id' => $this->project->id, 'boq_item_id' => $this->activity->boq_item_id,
+            'name' => 'North wing excavation', 'unit' => $this->activity->unit,
+            'progress_method' => 'measured', 'status' => 'active', 'rate_amount' => '999',
+        ])->assertSessionHasNoErrors()
+        ->assertRedirect(route('projects.boq.item', ['project' => $this->project, 'item' => $this->activity->boq_item_id]));
+
+    $child = ProjectActivity::query()->where('project_id', $this->project->id)->where('name', 'North wing excavation')->firstOrFail();
+    $line = $this->estimate->fresh()->lines->sole();
+    expect($child->rate_amount)->toBe('25000.0000')
+        ->and($child->planned_quantity)->toBeNull()
+        ->and($line->planned_quantity)->toBe('1648.0000')
+        ->and($line->selling_rate)->toBe('25000.0000');
+});
+
 it('aggregates distinct measured activities once and excludes supporting and draft quantities', function (): void {
     $second = resolve(SaveProjectActivity::class)->handle(['project_id' => $this->project->id,
         'boq_item_id' => $this->activity->boq_item_id, 'name' => 'North wing', 'unit' => 'wrong unit',
@@ -292,6 +379,40 @@ it('aggregates distinct measured activities once and excludes supporting and dra
         ->and($second->unit)->toBe($this->activity->unit)
         ->and($second->rate_amount)->toBe('25000.0000')
         ->and($report->fresh()->output_value)->toBe('6250000.0000');
+
+    $recordIds = $report->workLines->pluck('id')
+        ->merge([$this->activity->id, $second->id, $support->id])
+        ->merge(BoqProgressEntry::query()->where('boq_item_id', $this->activity->boq_item_id)->pluck('id'));
+    expect(collect(resolve(ReconcileProjectProgress::class)->handle($this->project))
+        ->whereIn('record', $recordIds)->all())->toBe([]);
+
+    $source = $report->workLines->firstWhere('project_activity_id', $second->id);
+    $source->update(['quantity' => '160']);
+    $finding = collect(resolve(ReconcileProjectProgress::class)->handle($this->project))
+        ->firstWhere('record', $source->id);
+    expect($finding['type'])->toBe('Source quantity mismatch')
+        ->and($source->fresh()->quantity)->toBe('160.0000')
+        ->and($second->fresh()->approved_quantity)->toBe('149.8750');
+});
+
+it('reports unresolved legacy balances and quantity differences without modifying progress', function (): void {
+    $entry = BoqProgressEntry::query()->create([
+        'tenant_id' => $this->project->tenant_id, 'project_id' => $this->project->id,
+        'boq_item_id' => $this->activity->boq_item_id, 'project_activity_id' => $this->activity->id,
+        'estimate_line_id' => $this->activity->estimate_line_id,
+        'source_key' => 'legacy:'.$this->activity->id, 'quantity' => '15',
+        'unit' => $this->activity->unit, 'measurement_date' => '2026-09-10',
+        'description' => 'Opening balance requiring review',
+    ]);
+    $findings = resolve(ReconcileProjectProgress::class)->handle($this->project);
+    expect(array_column($findings, 'type'))->toContain('Legacy balance', 'Activity quantity mismatch')
+        ->and($entry->fresh()->quantity)->toBe('15.0000')
+        ->and($this->activity->fresh()->approved_quantity)->toBe('0.0000');
+
+    $this->artisan('boq:reconcile', ['project' => $this->project->id, '--user' => $this->actor->email])
+        ->assertFailed();
+    expect($entry->fresh()->quantity)->toBe('15.0000')
+        ->and($this->activity->fresh()->approved_quantity)->toBe('0.0000');
 });
 
 it('preserves identity and measured progress across a quantity revision', function (): void {
@@ -309,7 +430,11 @@ it('preserves identity and measured progress across a quantity revision', functi
 });
 
 it('rejects cross-project BoQ activity links', function (): void {
-    $other = Project::query()->whereKeyNot($this->project->id)->firstOrFail();
+    $other = Project::factory()->create([
+        'tenant_id' => $this->project->tenant_id,
+        'branch_id' => $this->project->branch_id,
+        'created_by' => $this->actor->id,
+    ]);
     expect(fn () => resolve(SaveProjectActivity::class)->handle(['project_id' => $other->id,
         'boq_item_id' => $this->activity->boq_item_id, 'name' => 'Wrong project', 'unit' => 'm3', 'status' => 'active'], $this->actor))
         ->toThrow(ValidationException::class);
@@ -374,7 +499,14 @@ it('rejects a unit change when reported BOQ work returns after removal', functio
     $replacement = resolve(SaveProjectEstimate::class)->handle($this->project,
         ['title' => 'Other scope', 'currency_code' => 'UGX', 'lines' => [[...$this->line, 'work_item_key' => (string) Str::uuid()]]], $this->actor);
     resolve(ApproveProjectEstimate::class)->handle($replacement, $this->actor);
-    $otherUnit = UnitOfMeasure::query()->where('code', 'M2')->firstOrFail();
+    $otherUnit = UnitOfMeasure::query()->create([
+        'tenant_id' => $this->project->tenant_id,
+        'code' => 'BOQ-M2-TEST',
+        'name' => 'Test square metre',
+        'symbol' => 'm²',
+        'quantity_dimension' => UnitDimension::Area,
+        'is_active' => true,
+    ]);
     $restored = resolve(SaveProjectEstimate::class)->handle($this->project,
         ['title' => 'Changed unit', 'currency_code' => 'UGX', 'lines' => [[...$this->line, 'unit_of_measure_id' => $otherUnit->id]]], $this->actor);
     expect(fn () => resolve(ApproveProjectEstimate::class)->handle($restored, $this->actor))->toThrow(ValidationException::class);

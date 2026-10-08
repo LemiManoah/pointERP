@@ -10,22 +10,25 @@ import {
     NativeSelectOption,
 } from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
+import * as staffRoutes from '@/routes/resources/staff';
+import * as workerRoutes from '@/routes/workforce/workers';
 
 export type Staff = {
+    person_category: 'company_staff' | 'workforce';
     id: string;
     branch_id: string;
-    staff_position_id: string;
+    staff_position_id: string | null;
     employment_type: string;
     employment_type_label: string;
     primary_trade_id: string | null;
     primary_trade_name: string | null;
     staff_number: string;
     name: string;
-    email: string;
+    email: string | null;
     phone: string | null;
     status: 'active' | 'inactive';
     branch_name: string;
-    position_name: string;
+    position_name: string | null;
     has_user: boolean;
 };
 
@@ -35,6 +38,7 @@ export type Option = {
 };
 
 type StaffFormData = Record<string, string> & {
+    person_category: 'company_staff' | 'workforce';
     branch_id: string;
     staff_position_id: string;
     employment_type: string;
@@ -47,6 +51,8 @@ type StaffFormData = Record<string, string> & {
 };
 
 type Props = {
+    canReclassify?: boolean;
+    directory?: 'company_staff' | 'workforce';
     staff?: Staff;
     branches: Option[];
     positions: Option[];
@@ -57,6 +63,8 @@ type Props = {
 };
 
 export function StaffForm({
+    canReclassify = false,
+    directory = 'company_staff',
     staff,
     branches,
     positions,
@@ -65,11 +73,14 @@ export function StaffForm({
     onCancel,
     onSuccess,
 }: Props) {
+    const isWorkerDirectory = directory === 'workforce';
+    const routes = isWorkerDirectory ? workerRoutes : staffRoutes;
     const form = useForm<StaffFormData>({
+        person_category: staff?.person_category ?? directory,
         branch_id: staff?.branch_id ?? branches[0]?.id ?? '',
-        staff_position_id: staff?.staff_position_id ?? positions[0]?.id ?? '',
+        staff_position_id: staff?.staff_position_id ?? (isWorkerDirectory ? '' : positions[0]?.id ?? ''),
         employment_type:
-            staff?.employment_type ?? employmentTypes[0]?.id ?? 'permanent',
+            staff?.employment_type ?? (isWorkerDirectory ? 'casual' : employmentTypes[0]?.id ?? 'permanent'),
         primary_trade_id: staff?.primary_trade_id ?? '',
         staff_number: staff?.staff_number ?? '',
         name: staff?.name ?? '',
@@ -77,17 +88,18 @@ export function StaffForm({
         phone: staff?.phone ?? '',
         status: staff?.status ?? 'active',
     });
+    const isWorker = form.data.person_category === 'workforce';
 
     function submit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
         if (staff) {
-            form.put('/staff/' + staff.id, { onSuccess });
+            form.put(routes.update.url(staff.id), { onSuccess });
 
             return;
         }
 
-        form.post('/staff', {
+        form.post(routes.store.url(), {
             onSuccess: () => {
                 form.reset();
                 onSuccess?.();
@@ -97,6 +109,16 @@ export function StaffForm({
 
     return (
         <form onSubmit={submit} className="grid gap-5">
+            {staff && canReclassify && <div className="grid gap-2">
+                <Label htmlFor="person-category">Directory</Label>
+                <NativeSelect id="person-category" value={form.data.person_category}
+                    onChange={(event) => form.setData('person_category', event.target.value as 'company_staff' | 'workforce')}>
+                    <NativeSelectOption value="company_staff">Company Staff</NativeSelectOption>
+                    <NativeSelectOption value="workforce">Project Workforce</NativeSelectOption>
+                </NativeSelect>
+                <p className="text-sm text-muted-foreground">Moving a person keeps their assignments, attendance and account history.</p>
+                <InputError message={form.errors.person_category} />
+            </div>}
             <div className="grid gap-5 md:grid-cols-2">
                 <div className="grid gap-2">
                     <Label htmlFor="branch_id" required>
@@ -118,7 +140,7 @@ export function StaffForm({
                 </div>
 
                 <div className="grid gap-2">
-                    <Label htmlFor="staff_position_id" required>
+                    <Label htmlFor="staff_position_id" required={!isWorker}>
                         Position
                     </Label>
                     <SearchableSelect
@@ -156,7 +178,7 @@ export function StaffForm({
                 </div>
 
                 <div className="grid gap-2">
-                    <Label htmlFor="primary_trade_id">Primary trade</Label>
+                    <Label htmlFor="primary_trade_id" required={isWorker}>Primary trade</Label>
                     <SearchableSelect
                         value={form.data.primary_trade_id}
                         onValueChange={(value) =>
@@ -176,7 +198,7 @@ export function StaffForm({
                 </div>
 
                 <div className="grid gap-2">
-                    <Label htmlFor="staff_number">Staff number</Label>
+                    <Label htmlFor="staff_number">{isWorker ? 'Worker number' : 'Staff number'}</Label>
                     <Input
                         id="staff_number"
                         value={form.data.staff_number}
@@ -207,7 +229,7 @@ export function StaffForm({
                 </div>
 
                 <div className="grid gap-2">
-                    <Label htmlFor="email" required>
+                    <Label htmlFor="email" required={!isWorker}>
                         Email
                     </Label>
                     <Input
@@ -267,7 +289,7 @@ export function StaffForm({
                 </Button>
                 <Button type="submit" disabled={form.processing}>
                     {form.processing && <Spinner />}
-                    Save staff
+                    {isWorker ? 'Save worker' : 'Save staff'}
                 </Button>
             </div>
         </form>

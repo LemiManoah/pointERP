@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read bool $multi_store_enabled
  * @property-read string $timezone
  * @property-read string $status
+ * @property-read string|null $logo_url
  * @property-read CarbonInterface $created_at
  * @property-read CarbonInterface $updated_at
  * @property-read CarbonInterface|null $deleted_at

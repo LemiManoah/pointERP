@@ -29,6 +29,15 @@ export function PriceListDialog({ priceList }: { priceList?: PriceList }) {
     });
     function submit(event: FormEvent) {
         event.preventDefault();
+        form.transform((data) =>
+            priceList
+                ? data
+                : {
+                      name: data.name,
+                      description: data.description,
+                      is_active: data.is_active,
+                  },
+        );
         const options = {
             preserveScroll: true,
             onSuccess: () => setOpen(false),
@@ -70,17 +79,19 @@ export function PriceListDialog({ priceList }: { priceList?: PriceList }) {
                                 }
                             />
                         </Field>
-                        <Field label="Code" error={form.errors.code}>
-                            <Input
-                                value={form.data.code}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'code',
-                                        event.target.value.toUpperCase(),
-                                    )
-                                }
-                            />
-                        </Field>
+                        {priceList && (
+                            <Field label="Code" error={form.errors.code}>
+                                <Input
+                                    value={form.data.code}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'code',
+                                            event.target.value.toUpperCase(),
+                                        )
+                                    }
+                                />
+                            </Field>
+                        )}
                     </div>
                     <Field label="Description" error={form.errors.description}>
                         <Textarea
@@ -90,19 +101,21 @@ export function PriceListDialog({ priceList }: { priceList?: PriceList }) {
                             }
                         />
                     </Field>
-                    <Field
-                        label="Display priority"
-                        error={form.errors.priority}
-                    >
-                        <Input
-                            type="number"
-                            min="0"
-                            value={form.data.priority}
-                            onChange={(event) =>
-                                form.setData('priority', event.target.value)
-                            }
-                        />
-                    </Field>
+                    {priceList && (
+                        <Field
+                            label="Display priority"
+                            error={form.errors.priority}
+                        >
+                            <Input
+                                type="number"
+                                min="0"
+                                value={form.data.priority}
+                                onChange={(event) =>
+                                    form.setData('priority', event.target.value)
+                                }
+                            />
+                        </Field>
+                    )}
                     <label className="flex items-center gap-2 text-sm">
                         <input
                             type="checkbox"

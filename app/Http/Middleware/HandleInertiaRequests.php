@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Models\Branch;
+use App\Models\Tenant;
 use App\Models\User;
 use App\Services\BranchContext;
 use Illuminate\Http\Request;
@@ -37,6 +38,11 @@ final class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
         $tenant = $user instanceof User ? $user->tenant : null;
+        $brandingTenant = $tenant;
+        $tenantCode = $request->query('tenant');
+        if (! $brandingTenant && $request->routeIs('login') && is_string($tenantCode)) {
+            $brandingTenant = Tenant::query()->active()->where('code', mb_strtoupper($tenantCode))->first();
+        }
         $branchContext = $user instanceof User ? resolve(BranchContext::class) : null;
         $currentBranch = $branchContext?->current($user instanceof User ? $user : null);
         $canViewNotifications = $user instanceof User && $user->can('notifications.view');
@@ -47,6 +53,7 @@ final class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'branding' => $brandingTenant ? ['name' => $brandingTenant->name, 'logo_url' => $brandingTenant->logo_url] : null,
             'auth' => [
                 'user' => $user instanceof User ? [
                     ...$user->toArray(),

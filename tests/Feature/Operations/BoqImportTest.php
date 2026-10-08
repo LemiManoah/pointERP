@@ -229,7 +229,8 @@ it('imports percentage adjustments and dayworks for explicit source mapping', fu
     $workbook['sheets'][0]['rows'][2]['D']['value'] = 'hr';
     $workbook['sheets'][0]['name'] = 'Dayworks';
     $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, [boqImportMapping()], null);
-    expect($preview['rows'][0]['blocked'])->toBeFalse()
+    expect($preview['rows'][0]['blocked'])->toBeTrue()
+        ->and($preview['rows'][0]['daywork_mapping_required'])->toBeTrue()
         ->and($preview['rows'][0]['line']['item_type'])->toBe('daywork')
         ->and($preview['rows'][0]['line']['daywork_resource_type'])->toBeNull()
         ->and($preview['rows'][0]['line']['daywork_workforce_trade_id'])->toBeNull();
@@ -373,7 +374,8 @@ it('detects dayworks from workbook headings even when the selected range exclude
     $preview = resolve(PreviewBoqImport::class)->handle($this->project, $workbook, [[...boqImportMapping(), 'start_row' => 2]], null);
     expect($preview['rows'][0]['blocked'])->toBeTrue()
         ->and($preview['rows'][0]['classification'])->toBe('Dayworks')
-        ->and($preview['rows'][0]['commercial_review'])->toBeTrue()
+        ->and($preview['rows'][0]['commercial_review'])->toBeFalse()
+        ->and($preview['rows'][0]['daywork_mapping_required'])->toBeTrue()
         ->and(implode(' ', $preview['rows'][0]['warnings']))->toContain('approved usage')
         ->not->toContain('Ambiguous or duplicate');
 });
@@ -392,4 +394,64 @@ it('preserves roadwork parent references and section headings', function (): voi
     expect($preview['rows'][0]['line']['boq_reference'])->toBe('22.01(a)(i)')
         ->and($preview['rows'][0]['line']['section'])->toBe('SECTION 2200: PREFABRICATED CULVERTS')
         ->and($preview['rows'][0]['line']['description'])->toContain('22.01 Excavation:');
+});
+
+
+it('updates only matching prices and preserves scope resources and blank existing prices', function (): void {
+    $this->actingAs($this->manager);
+    $preview = resolve(PreviewBoqImport::class)->handle($this->project, boqImportWorkbook(), [boqImportMapping()], null);
+    $line = $preview['rows'][0]['line'];
+    $line['unit_of_measure_id'] = UnitOfMeasure::query()->where('code', 'M3')->firstOrFail()->id;
+    $line['selling_rate'] = '25';
+    $draft = resolve(SaveProjectEstimate::class)->handle($this->project,
+        ['title' => 'Price update target', 'currency_code' => 'UGX', 'lines' => [$line]], $this->manager);
+    foreach (['30', null] as $price) {
+        $token = (string) Str::uuid();
+        $key = 'boq-import:'.$this->project->tenant_id.':'.$this->manager->id.':'.$this->project->id.':'.$token;
+        Cache::store('file')->put($key, boqImportWorkbook(), now()->addHours(2));
+        $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]),
+            ['target_id' => $draft->id, 'sheets' => [boqImportMapping()]])->assertSessionHasNoErrors();
+        $state = Cache::store('file')->get($key);
+        $proposed = [...$state['preview']['rows'][0]['line'], 'unit_of_measure_id' => $line['unit_of_measure_id'],
+            'planned_quantity' => '999', 'name' => 'Attempted scope change', 'selling_rate' => $price];
+        $this->post(route('project-estimates.import.store', ['project' => $this->project, 'import' => $token]), [
+            'title' => $draft->title, 'currency_code' => 'UGX', 'preview_id' => $state['preview_id'],
+            'import_mode' => 'prices', 'lines' => [$proposed],
+        ])->assertSessionHasNoErrors();
+        $saved = $draft->fresh()->lines()->sole();
+        expect($saved->name)->toBe($line['name'])->and($saved->planned_quantity)->toBe('1648.0000')
+            ->and($saved->selling_rate)->toBe('30.0000')->and($saved->work_item_key)->toBe($line['work_item_key']);
+    }
+});
+
+it('omits only explicitly reviewed missing items and keeps the approved revision unchanged', function (): void {
+    $this->actingAs($this->manager);
+    $baseline = ProjectEstimate::query()->where('project_id', $this->project->id)->where('is_baseline', true)->firstOrFail();
+    $oldCount = $baseline->lines()->count();
+    $token = (string) Str::uuid();
+    $key = 'boq-import:'.$this->project->tenant_id.':'.$this->manager->id.':'.$this->project->id.':'.$token;
+    Cache::store('file')->put($key, boqImportWorkbook(), now()->addHours(2));
+    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]), ['sheets' => [boqImportMapping()]])->assertSessionHasNoErrors();
+    $state = Cache::store('file')->get($key);
+    $line = [...$state['preview']['rows'][0]['line'], 'unit_of_measure_id' => UnitOfMeasure::query()->where('code', 'M3')->firstOrFail()->id];
+    $payload = ['title' => 'Reviewed omissions', 'currency_code' => 'UGX', 'preview_id' => $state['preview_id'], 'lines' => [$line], 'remove_keys' => [(string) Str::uuid()]];
+    $url = route('project-estimates.import.store', ['project' => $this->project, 'import' => $token]);
+    $this->post($url, $payload)->assertSessionHasErrors('remove_keys');
+    $payload['remove_keys'] = array_column($state['preview']['retained'], 'work_item_key');
+    $this->post($url, $payload)->assertSessionHasNoErrors();
+    expect(ProjectEstimate::query()->where('title', 'Reviewed omissions')->sole()->lines()->count())->toBe(1)
+        ->and($baseline->fresh()->lines()->count())->toBe($oldCount);
+});
+
+it('refuses a new item in a prices-only import', function (): void {
+    $this->actingAs($this->manager);
+    $token = (string) Str::uuid();
+    $key = 'boq-import:'.$this->project->tenant_id.':'.$this->manager->id.':'.$this->project->id.':'.$token;
+    Cache::store('file')->put($key, boqImportWorkbook(), now()->addHours(2));
+    $this->post(route('project-estimates.import.preview', ['project' => $this->project, 'import' => $token]), ['sheets' => [boqImportMapping()]])->assertSessionHasNoErrors();
+    $state = Cache::store('file')->get($key);
+    $line = [...$state['preview']['rows'][0]['line'], 'unit_of_measure_id' => UnitOfMeasure::query()->where('code', 'M3')->firstOrFail()->id];
+    $this->post(route('project-estimates.import.store', ['project' => $this->project, 'import' => $token]), [
+        'title' => 'Prices only', 'currency_code' => 'UGX', 'preview_id' => $state['preview_id'], 'import_mode' => 'prices', 'lines' => [$line],
+    ])->assertSessionHasErrors('lines');
 });

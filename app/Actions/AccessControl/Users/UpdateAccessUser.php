@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\TenantContext;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 final readonly class UpdateAccessUser
 {
@@ -29,6 +30,9 @@ final readonly class UpdateAccessUser
                 ->where('tenant_id', $this->tenantContext->id())
                 ->with('branch')
                 ->findOrFail($data['staff_id']);
+            if (empty($staff->email)) {
+                throw ValidationException::withMessages(['staff_id' => 'Add an email address to this person before creating or linking an ERP account.']);
+            }
             $attributes = [
                 'staff_id' => $staff->id,
                 'name' => $staff->name,

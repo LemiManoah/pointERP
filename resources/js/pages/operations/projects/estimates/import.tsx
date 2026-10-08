@@ -3,10 +3,12 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { show as showBoq } from '@/actions/App/Http/Controllers/Operations/ProjectBoqController';
 import { show as projectShow } from '@/actions/App/Http/Controllers/Operations/ProjectController';
+import { show as showEstimate } from '@/actions/App/Http/Controllers/Operations/ProjectEstimateController';
 import {
     index,
     upload,
     template,
+    source,
     preview as previewImport,
     store,
 } from '@/actions/App/Http/Controllers/Operations/ProjectEstimateImportController';
@@ -74,6 +76,7 @@ type Row = {
     change: string;
     classification?: string;
     commercial_review?: boolean;
+    daywork_mapping_required?: boolean;
 };
 type Preview = {
     preview_id: string;
@@ -94,7 +97,15 @@ type Preview = {
         item_type: string;
     }[];
 };
+type SheetMapping = {
+    sheet: string; start_row: number; end_row: number;
+    bill?: string | null; section?: string | null; element?: string | null;
+    reference?: string | null; description: string; unit: string; quantity: string; rate?: string | null; amount?: string | null;
+};
 type Props = {
+    mapping: SheetMapping[];
+    targetId: string | null;
+    imports: Array<{ id: string; filename: string; created_at: string; saved: boolean; can_resume: boolean; estimate_id: string | null }>;
     project: Project;
     token: string | null;
     filename: string | null;
@@ -154,7 +165,7 @@ export default function BoqImport(props: Props) {
                     </Button>
                 </div>
                 <form
-                    className="grid gap-3 rounded-lg border p-4"
+                    className="grid gap-3"
                     onSubmit={(event) => {
                         event.preventDefault();
                         uploadForm.post(upload.url(project.id), {
@@ -209,6 +220,8 @@ export default function BoqImport(props: Props) {
                         token={token}
                         sheets={sheets}
                         drafts={props.drafts}
+                        mapping={props.mapping}
+                        targetId={props.targetId}
                         onDirty={() => setMappingDirty(true)}
                         onPreview={() => setMappingDirty(false)}
                     />
@@ -231,6 +244,17 @@ export default function BoqImport(props: Props) {
                         workforceTrades={props.workforceTrades}
                     />
                 )}
+                {props.imports.length > 0 && <div className="grid gap-2">
+                    <h2 className="text-lg font-semibold">Import history</h2>
+                    <Table><TableHeader><TableRow><TableHead>Workbook</TableHead><TableHead>Uploaded</TableHead><TableHead>Status</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
+                        <TableBody>{props.imports.map((item) => <TableRow key={item.id}>
+                            <TableCell>{item.filename}</TableCell><TableCell>{item.created_at}</TableCell><TableCell>{item.saved ? 'Saved to draft' : 'Review pending'}</TableCell>
+                            <TableCell><div className="flex gap-2"><Button asChild variant="outline" size="sm"><a href={source.url({ project: project.id, boqImport: item.id })}>Download source</a></Button>
+                                {item.can_resume && <Button asChild variant="outline" size="sm"><Link preserveScroll={false} href={index.url(project.id, { query: { import: item.id } })}>Open review</Link></Button>}
+                                {item.saved && item.estimate_id && <Button asChild variant="outline" size="sm"><Link href={showEstimate.url(item.estimate_id)}>View saved draft</Link></Button>}
+                            </div></TableCell></TableRow>)}</TableBody>
+                    </Table>
+                </div>}
             </div>
         </AppLayout>
     );
@@ -241,33 +265,36 @@ function Mapping({
     token,
     sheets,
     drafts,
+    mapping,
+    targetId,
     onDirty,
     onPreview,
-}: Pick<Props, 'project' | 'sheets' | 'drafts'> & {
+}: Pick<Props, 'project' | 'sheets' | 'drafts' | 'mapping' | 'targetId'> & {
     token: string;
     onDirty: () => void;
     onPreview: () => void;
 }) {
     const form = useForm({
-        target_id: '',
+        target_id: targetId ?? '',
         sheets: sheets.map((sheet) => {
+            const saved = mapping.find((item) => item.sheet === sheet.id);
             const isTemplate =
                 sheet.sample['1']?.A?.value === 'Reference' &&
                 sheet.sample['1']?.B?.value === 'Description';
             return {
                 sheet: sheet.id,
-                selected: false,
-                start_row: isTemplate ? 2 : 1,
-                end_row: sheet.last_row,
-                bill: sheet.name,
-                section: '',
-                element: '',
-                reference: isTemplate ? 'A' : 'B',
-                description: isTemplate ? 'B' : 'C',
-                unit: isTemplate ? 'C' : 'D',
-                quantity: isTemplate ? 'D' : 'E',
-                rate: isTemplate ? 'E' : 'F',
-                amount: isTemplate ? 'F' : 'G',
+                selected: saved !== undefined,
+                start_row: saved?.start_row ?? (isTemplate ? 2 : 1),
+                end_row: saved?.end_row ?? (sheet.last_row),
+                bill: saved?.bill ?? (sheet.name),
+                section: saved?.section ?? (''),
+                element: saved?.element ?? (''),
+                reference: saved?.reference ?? (isTemplate ? 'A' : 'B'),
+                description: saved?.description ?? (isTemplate ? 'B' : 'C'),
+                unit: saved?.unit ?? (isTemplate ? 'C' : 'D'),
+                quantity: saved?.quantity ?? (isTemplate ? 'D' : 'E'),
+                rate: saved?.rate ?? (isTemplate ? 'E' : 'F'),
+                amount: saved?.amount ?? (isTemplate ? 'F' : 'G'),
             };
         }),
     });
@@ -297,11 +324,13 @@ function Mapping({
     }
     return (
         <form onSubmit={submit} className="grid gap-4 rounded-lg border p-4">
-            <h2 className="text-lg font-semibold">Match the Excel columns</h2>
+            <h2 className="text-lg font-semibold">Map Excel columns</h2>
             <p className="text-sm text-muted-foreground">
-                Choose the sheets containing actual BOQ items. Matching tells
-                the importer which Excel column holds each detail. For example,
-                if descriptions are in column C, enter C for Description.
+                Choose sheets with BOQ items, then tell the importer which
+                Excel column contains each detail. For example, enter C for
+                Description if descriptions are in column C. This column
+                mapping is separate from matching imported rows to existing
+                BOQ items during review.
                 Check the sample rows below; the suggested letters may need
                 changing for your workbook. Leave cover sheets, summaries and
                 totals unchecked.
@@ -502,6 +531,8 @@ function Review({
     );
     const [reviewed, setReviewed] = useState(false);
     const form = useForm({
+        import_mode: 'scope',
+        remove_keys: [] as string[],
         title: preview.title,
         currency_code: preview.currency_code,
         notes: preview.notes,
@@ -568,10 +599,32 @@ function Review({
         >
             <h2 className="text-lg font-semibold">Review import</h2>
             <p className="text-sm text-muted-foreground">
+                “Matched” means the bill, section, element, BOQ reference and
+                item name identify an existing BOQ item. “Changed” means that
+                item’s imported details differ; “New” means no existing item
+                was identified. Matching preserves the existing item identity
+                and its resources.
+            </p>
+            <label className="grid gap-1 text-sm">Import purpose
+                <NativeSelect value={form.data.import_mode} onChange={(event) => {
+                    form.setData('import_mode', event.target.value);
+                    form.setData('remove_keys', []);
+                    if (event.target.value === 'prices') setSelected(preview.rows.filter((row) => !row.blocked && row.change !== 'New').map((row) => row.id));
+                    setReviewed(false);
+                }}><NativeSelectOption value="scope">Update scope and prices</NativeSelectOption><NativeSelectOption value="prices">Update prices only</NativeSelectOption></NativeSelect>
+            </label>
+            {form.data.import_mode === 'prices' && <p className="text-sm text-muted-foreground">Only rates of matched items will change. Quantities, specifications, resources and missing items stay as they are. Blank prices keep the existing rate.</p>}
+            {form.data.import_mode === 'scope' && preview.retained.length > 0 && <details className="rounded-md border p-3"><summary>Review items missing from this workbook</summary>
+                <p className="my-2 text-sm text-muted-foreground">Keep missing items unless this revision deliberately omits them. Their earlier revisions and progress history remain available.</p>
+                {preview.retained.map((item) => <label key={item.work_item_key} className="flex items-center gap-2 py-1 text-sm"><input type="checkbox" checked={form.data.remove_keys.includes(item.work_item_key)} onChange={(event) => {
+                    form.setData('remove_keys', event.target.checked ? [...form.data.remove_keys, item.work_item_key] : form.data.remove_keys.filter((key) => key !== item.work_item_key)); setReviewed(false);
+                }} />Omit {item.boq_reference} {item.name}</label>)}
+            </details>}
+            <p className="text-sm text-muted-foreground">
                 {selected.length} selected of {preview.rows.length} items.{' '}
                 {preview.skipped.length} headings or totals excluded.{' '}
                 {preview.retained.length} existing items absent from this upload
-                will be kept. No items are automatically deleted.
+                are kept unless explicitly marked for omission below.
             </p>
             <label className="grid gap-1 text-sm">
                 Draft title
@@ -717,7 +770,22 @@ function Review({
                         <label className="flex items-center gap-2 text-sm">
                             <input
                                 type="checkbox"
-                                disabled={row.blocked}
+                                disabled={
+                                    row.blocked &&
+                                    !(
+                                        row.daywork_mapping_required &&
+                                        Boolean(
+                                            form.data.lines[i]
+                                                .daywork_resource_type &&
+                                                (form.data.lines[i]
+                                                    .daywork_inventory_item_id ||
+                                                    form.data.lines[i]
+                                                        .daywork_equipment_category_id ||
+                                                    form.data.lines[i]
+                                                        .daywork_workforce_trade_id),
+                                        )
+                                    )
+                                }
                                 checked={selected.includes(row.id)}
                                 onChange={(event) => {
                                     setSelected(
@@ -732,9 +800,11 @@ function Review({
                             />
                             Include this item
                             {row.blocked
-                                ? row.commercial_review
-                                    ? ' (commercial valuation not yet supported)'
-                                    : ' (resolve the notices below first)'
+                                ? row.classification === 'Dayworks'
+                                    ? ' (map an approved usage source before including)'
+                                    : row.commercial_review
+                                      ? ' (commercial valuation not yet supported)'
+                                      : ' (resolve the notices below first)'
                                 : ''}
                         </label>
                         {row.warnings.length > 0 && (
@@ -771,14 +841,16 @@ function Review({
                                 Item type
                                 <NativeSelect
                                     disabled={
-                                        row.commercial_review ||
+                                        (row.commercial_review &&
+                                            row.classification !== 'Dayworks') ||
                                         [
                                             'percentage_adjustment',
                                             'daywork',
                                         ].includes(row.line.item_type)
                                     }
                                     value={
-                                        row.commercial_review
+                                        row.commercial_review &&
+                                        row.classification !== 'Dayworks'
                                             ? ''
                                             : form.data.lines[i].item_type
                                     }
@@ -790,10 +862,16 @@ function Review({
                                         )
                                     }
                                 >
-                                    {row.commercial_review && (
+                                    {row.commercial_review &&
+                                        row.classification !== 'Dayworks' && (
                                         <NativeSelectOption value="">
                                             {row.classification} — review
                                             required
+                                        </NativeSelectOption>
+                                    )}
+                                    {row.classification === 'Dayworks' && (
+                                        <NativeSelectOption value="daywork">
+                                            Daywork
                                         </NativeSelectOption>
                                     )}
                                     {itemTypes.map((type) => (
@@ -1029,8 +1107,7 @@ function Review({
                                     ]
                                         .filter(
                                             (base) =>
-                                                base.item_type !==
-                                                'percentage_adjustment',
+                                                base.work_item_key !== form.data.lines[i].work_item_key && !form.data.remove_keys.includes(base.work_item_key),
                                         )
                                         .map((base) => (
                                             <label
@@ -1111,7 +1188,7 @@ function Review({
             {preview.retained.length > 0 && (
                 <details>
                     <summary className="cursor-pointer text-sm">
-                        Existing items retained ({preview.retained.length})
+                        Existing items absent from upload ({preview.retained.length})
                     </summary>
                     {preview.retained.map((line, i) => (
                         <p key={i} className="text-sm">
@@ -1134,7 +1211,7 @@ function Review({
                     onChange={(event) => setReviewed(event.target.checked)}
                 />
                 I reviewed the selected rows, unit mappings, pricing notices and
-                retained items.
+                missing-item decisions.
             </label>
             <Button
                 className="w-fit"

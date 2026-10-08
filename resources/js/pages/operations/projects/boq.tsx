@@ -50,6 +50,15 @@ type Item = {
     source_document: string | null;
     source_sheet: string | null;
     source_row: number | null;
+    resources: {
+        id: string;
+        type: string;
+        name: string;
+        unit: string | null;
+        quantity_per_work_unit: string;
+        estimated_unit_cost: string | null;
+        notes: string | null;
+    }[];
 };
 type Row = {
     id: string;
@@ -376,7 +385,7 @@ export function BoqPanel({
                                                         )}
                                                         {row.item_type ===
                                                             'daywork' &&
-                                                            ' · valued from approved DSR usage'}
+                                                            ' · valued from approved chargeable daywork'}
                                                         {row.item_type !==
                                                             'measured' &&
                                                             row.item_type !==
@@ -967,7 +976,7 @@ export function BoqPanel({
                                                     .length === 0 && (
                                                     <EmptyRow
                                                         columns={4}
-                                                        text="No approved Daily Site Report usage has been recorded for this source."
+                                                        text="No approved usage marked as chargeable daywork has been recorded for this source."
                                                     />
                                                 )}
                                             </TableBody>
@@ -975,6 +984,44 @@ export function BoqPanel({
                                     </CardContent>
                                 </Card>
                             )}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Attached resources</CardTitle>
+                                    <p className="text-sm text-muted-foreground">
+                                        Planned resources saved with this BOQ revision. Actual usage is recorded in Daily Site Reports.
+                                    </p>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Type</TableHead>
+                                                <TableHead>Resource</TableHead>
+                                                <TableHead>Unit</TableHead>
+                                                <TableHead className="text-right">Qty per {currentItem.unit}</TableHead>
+                                                <TableHead className="text-right">Planned quantity</TableHead>
+                                                {can.viewCosts && <TableHead className="text-right">Estimated unit cost</TableHead>}
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {currentItem.resources.map((resource) => (
+                                                <TableRow key={resource.id}>
+                                                    <TableCell>{resource.type}</TableCell>
+                                                    <TableCell>
+                                                        <div>{resource.name}</div>
+                                                        {resource.notes && <p className="text-sm whitespace-pre-wrap text-muted-foreground">{resource.notes}</p>}
+                                                    </TableCell>
+                                                    <TableCell>{resource.unit ?? '—'}</TableCell>
+                                                    <TableCell className="text-right tabular-nums">{number(resource.quantity_per_work_unit)}</TableCell>
+                                                    <TableCell className="text-right tabular-nums">{number(Number(resource.quantity_per_work_unit) * Number(currentRow.planned_quantity))}</TableCell>
+                                                    {can.viewCosts && <TableCell className="text-right tabular-nums">{resource.estimated_unit_cost === null ? 'Not set' : money(resource.estimated_unit_cost)}</TableCell>}
+                                                </TableRow>
+                                            ))}
+                                            {currentItem.resources.length === 0 && <EmptyRow columns={can.viewCosts ? 6 : 5} text="No resources are attached to this BOQ revision. Add them when editing a revision." />}
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
+                            </Card>
                             <Card>
                                 <CardHeader>
                                     <CardTitle>Activities for this BOQ item</CardTitle>

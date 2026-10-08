@@ -202,6 +202,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('projects/{project}/boq', [ProjectBoqController::class, 'show'])->name('projects.boq.show');
     Route::get('projects/{project}/boq/items/{item}', [ProjectBoqController::class, 'item'])->name('projects.boq.item');
     Route::post('projects/{project}/boq/activities', [ProjectBoqController::class, 'storeActivity'])->name('projects.boq.activities.store');
+    Route::get('projects/{project}/estimates/imports/{boqImport}/source', [ProjectEstimateImportController::class, 'source'])->name('project-estimates.import.source');
     Route::get('projects/{project}/estimates/import/template', [ProjectEstimateImportController::class, 'template'])->name('project-estimates.import.template');
     Route::get('projects/{project}/estimates/import', [ProjectEstimateImportController::class, 'index'])->name('project-estimates.import');
     Route::post('projects/{project}/estimates/import', [ProjectEstimateImportController::class, 'upload'])->middleware('throttle:10,1')->name('project-estimates.import.upload');
@@ -333,6 +334,10 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::resource('roles', AccessRoleController::class)->only(['index', 'create', 'store', 'update', 'destroy'])->names('access-control.roles');
 
     Route::resource('staff', StaffController::class)->only(['index', 'store', 'update', 'destroy'])->names('resources.staff');
+    Route::get('workforce/workers', [StaffController::class, 'index'])->name('workforce.workers.index');
+    Route::post('workforce/workers', [StaffController::class, 'store'])->name('workforce.workers.store');
+    Route::put('workforce/workers/{staff}', [StaffController::class, 'update'])->name('workforce.workers.update');
+    Route::delete('workforce/workers/{staff}', [StaffController::class, 'destroy'])->name('workforce.workers.destroy');
     Route::resource('staff-positions', StaffPositionController::class)->only(['index', 'store', 'update', 'destroy'])->names('resources.staff-positions');
 
     Route::get('workforce/exceptions', WorkforceExceptionController::class)->name('workforce.exceptions.index');

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Actions\Operations\DailySiteReports;
 
+use App\Actions\Operations\Boq\ValidateDayworkUsage;
+
 use App\Actions\Operations\Boq\PostReportProgress;
 use App\Enums\DsrLabourAttendanceStatus;
 use App\Models\DailySiteReport;
@@ -23,6 +25,7 @@ final readonly class ApproveDailySiteReport
 {
     public function __construct(
         private AuditLogger $auditLogger,
+        private ValidateDayworkUsage $validateDayworkUsage,
         private DailySiteReportNotificationService $notificationService,
         private DsrLabourAttendanceComparison $labourComparison,
         private PostApprovedDsrEquipmentLines $postEquipmentLines,
@@ -45,6 +48,7 @@ final readonly class ApproveDailySiteReport
                 throw ValidationException::withMessages(['report' => 'Submit the report before approving it.']);
             }
 
+            $this->validateDayworkUsage->handle($report);
             $report->loadMissing('workLines');
             $labourComparison = $this->labourComparison->compare($report);
             $isOverReported = $labourComparison['status'] === DsrLabourAttendanceStatus::OverReported->value;

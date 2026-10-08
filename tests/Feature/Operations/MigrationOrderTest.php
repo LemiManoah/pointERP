@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 it('creates workforce trade foreign keys only after workforce trades exists', function (): void {
@@ -17,7 +18,15 @@ it('repairs missing legacy resource columns and tolerates a partially applied fo
     $foreignKeys = require database_path('migrations/2026_09_13_103630_add_workforce_trade_fk_to_resource_tables.php');
     $repair = require database_path('migrations/2026_09_13_103625_repair_legacy_estimate_resource_columns.php');
     $foreignKeyRepair = require database_path('migrations/2026_10_05_040924_ensure_workforce_trade_foreign_keys_on_resource_tables.php');
-    $foreignKeys->down();
+    if (DB::getDriverName() === 'sqlite') {
+        foreach (['estimate_resource_lines', 'work_item_resource_templates'] as $tableName) {
+            Schema::table($tableName, function (Blueprint $table): void {
+                $table->dropForeign(['workforce_trade_id']);
+            });
+        }
+    } else {
+        $foreignKeys->down();
+    }
     foreach (['estimate_resource_lines', 'work_item_resource_templates'] as $tableName) {
         Schema::table($tableName, function (Blueprint $table): void {
             $table->dropColumn('workforce_trade_id');

@@ -33,13 +33,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read DailySiteReport $report
  * @property-read Equipment|null $equipment
  */
-#[Fillable(['tenant_id', 'branch_id', 'daily_site_report_id', 'equipment_id', 'equipment_name', 'equipment_identifier', 'status', 'working_hours', 'idle_hours', 'opening_meter_reading', 'closing_meter_reading', 'fuel_type', 'fuel_quantity', 'fuel_transaction_type', 'rate_amount', 'amount', 'currency_code', 'notes', 'evidence_note', 'fleet_posting_status', 'fleet_posted_at', 'sort_order'])]
+#[Fillable(['work_type', 'tenant_id', 'branch_id', 'daily_site_report_id', 'equipment_id', 'equipment_name', 'equipment_identifier', 'status', 'working_hours', 'idle_hours', 'opening_meter_reading', 'closing_meter_reading', 'fuel_type', 'fuel_quantity', 'fuel_transaction_type', 'rate_amount', 'amount', 'currency_code', 'notes', 'evidence_note', 'fleet_posting_status', 'fleet_posted_at', 'sort_order'])]
 final class DailySiteReportEquipmentLine extends Model
 {
     /** @use HasFactory<Factory<DailySiteReportEquipmentLine>> */
     use HasFactory;
 
     use HasUuids;
+
+    protected $attributes = ['work_type' => 'ordinary'];
 
     /**
      * @return array<string, string>

@@ -73,6 +73,7 @@ type CashFlow = {
     methods: Method[];
 };
 type Props = {
+    defaultView: string;
     filters: Filters;
     currencies: string[];
     cards: Metric[];
@@ -155,6 +156,7 @@ const dashboardSections: DashboardSection[] = [
 ];
 
 export default function Dashboard({
+    defaultView,
     filters,
     currencies,
     cards,
@@ -162,6 +164,13 @@ export default function Dashboard({
     operationalCards = [],
     workQueues = [],
 }: Props) {
+    const availableSections = dashboardSections.filter((section) =>
+        [...cards, ...operationalCards].some((card) => section.cardIds.includes(card.id)) ||
+        workQueues.some((queue) => section.queueIds.includes(queue.id)) ||
+        (section.id === 'finance' && cashFlow !== undefined)
+    );
+    const [selectedView, setSelectedView] = useState(defaultView);
+    const view = availableSections.some((section) => section.id === selectedView) ? selectedView : 'overview';
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
@@ -170,7 +179,19 @@ export default function Dashboard({
                     <h1 className="text-2xl font-semibold tracking-tight">
                         Dashboard
                     </h1>
-                    {cards.length > 0 && (
+                    {availableSections.length > 1 && (
+                        <div className="flex items-center gap-2">
+                            <Label htmlFor="dashboard-view">View</Label>
+                            <Select value={view} onValueChange={setSelectedView}>
+                                <SelectTrigger id="dashboard-view" className="w-60"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="overview">Overview</SelectItem>
+                                    {availableSections.map((section) => <SelectItem key={section.id} value={section.id}>{section.title}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+                    {(view === 'overview' || view === 'finance') && cards.length > 0 && (
                         <DashboardFilters
                             key={JSON.stringify(filters)}
                             filters={filters}
@@ -193,7 +214,7 @@ export default function Dashboard({
                 ) : (
                     <>
                         <TooltipProvider delayDuration={200}>
-                            {dashboardSections.map((section) => {
+                            {availableSections.filter((section) => view === 'overview' || section.id === view).map((section) => {
                                 const sectionCards = [
                                     ...cards.filter((card) =>
                                         section.cardIds.includes(card.id),
@@ -225,7 +246,7 @@ export default function Dashboard({
                                 );
                             })}
                         </TooltipProvider>
-                        {cashFlow && (
+                        {cashFlow && (view === 'overview' || view === 'finance') && (
                             <div className="grid min-w-0 gap-6 xl:grid-cols-5">
                                 <MoneyMovement
                                     flow={cashFlow}

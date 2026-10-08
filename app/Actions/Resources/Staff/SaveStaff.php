@@ -22,18 +22,22 @@ final readonly class SaveStaff
     /**
      * @param array{
      *   branch_id: string,
-     *   staff_position_id: string,
+     *   staff_position_id?: string|null,
+     *   person_category?: string,
      *   employment_type: string,
      *   primary_trade_id?: string|null,
      *   staff_number?: string|null,
      *   name: string,
-     *   email: string,
+     *   email?: string|null,
      *   phone?: string|null,
      *   status: string
      * } $data
      */
     public function handle(array $data, User $actor, ?Staff $staff = null): Staff
     {
+        if ($staff?->user && empty($data['email'])) {
+            throw ValidationException::withMessages(['email' => 'A person with an ERP account must retain an email address.']);
+        }
         if ($staff instanceof Staff && $staff->deployments()->where('status', StaffDeploymentStatus::Active->value)->exists()) {
             if ($staff->branch_id !== $data['branch_id']) {
                 throw ValidationException::withMessages([
@@ -50,13 +54,14 @@ final readonly class SaveStaff
 
         $attributes = [
             'tenant_id' => $this->tenantContext->id(),
+            'person_category' => $data['person_category'] ?? $staff?->person_category ?? 'company_staff',
             'branch_id' => $data['branch_id'],
-            'staff_position_id' => $data['staff_position_id'],
+            'staff_position_id' => $data['staff_position_id'] ?? null,
             'employment_type' => $data['employment_type'],
             'primary_trade_id' => $data['primary_trade_id'] ?? null,
             'staff_number' => $this->staffNumber($data['staff_number'] ?? null),
             'name' => $data['name'],
-            'email' => Str::lower($data['email']),
+            'email' => empty($data['email']) ? null : Str::lower($data['email']),
             'phone' => $data['phone'] ?? null,
             'status' => $data['status'],
         ];

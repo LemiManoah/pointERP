@@ -49,7 +49,7 @@ final class BoqWorkbookReader
 
             $relationships = [];
             $rels = $this->element($this->entry($zip, 'xl/_rels/workbook.xml.rels'));
-            foreach ($rels->children() as $rel) {
+            foreach ($rels->children() ?: [] as $rel) {
                 if ((string) $rel['TargetMode'] === 'External') {
                     continue;
                 }

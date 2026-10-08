@@ -12,6 +12,8 @@ import {
 import { StaffForm, type Option, type Staff } from './staff-form';
 
 type Props = {
+    canReclassify?: boolean;
+    directory?: 'company_staff' | 'workforce';
     staff?: Staff;
     branches: Option[];
     positions: Option[];
@@ -20,6 +22,8 @@ type Props = {
 };
 
 export function StaffDialog({
+    canReclassify = false,
+    directory = 'company_staff',
     staff,
     branches,
     positions,
@@ -37,20 +41,23 @@ export function StaffDialog({
                     size={isEditing ? 'sm' : 'default'}
                 >
                     {isEditing ? <Pencil /> : <Plus />}
-                    {isEditing ? 'Edit' : 'New staff'}
+                    {isEditing ? 'Edit' : directory === 'workforce' ? 'Register worker' : 'New staff'}
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>
-                        {isEditing ? 'Edit ' + staff?.name : 'New staff'}
+                        {isEditing ? 'Edit ' + staff?.name : directory === 'workforce' ? 'Register worker' : 'New staff'}
                     </DialogTitle>
                     <DialogDescription>
-                        Position describes the job title. Trade describes the
-                        practical work capability used on site.
+                        {directory === 'workforce'
+                            ? 'Register a worker by name and trade. Email and position are optional. Assign their project or site through Deployments.'
+                            : 'Position describes the job title. Trade describes the practical work capability used on site.'}
                     </DialogDescription>
                 </DialogHeader>
                 <StaffForm
+                    canReclassify={canReclassify}
+                    directory={directory}
                     staff={staff}
                     branches={branches}
                     positions={positions}

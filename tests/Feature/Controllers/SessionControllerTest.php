@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use App\Models\Tenant;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
@@ -16,6 +17,20 @@ it('renders login page', function (): void {
             ->component('session/create')
             ->has('canResetPassword')
             ->has('status'));
+});
+
+it('shows only explicitly selected active tenant branding on guest login', function (): void {
+    $this->withoutVite();
+    $tenant = Tenant::factory()->create(['logo_url' => 'https://manager.example.test/tenant-logos/company']);
+    $this->get(route('login'))->assertOk()->assertInertia(fn ($page) => $page->where('branding', null));
+    $this->get(route('login', ['tenant' => $tenant->code]))->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('branding.name', $tenant->name)
+            ->where('branding.logo_url', $tenant->logo_url)
+            ->where('currentTenant', null));
+    $tenant->update(['status' => 'inactive']);
+    $this->get(route('login', ['tenant' => $tenant->code]))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('branding', null));
 });
 
 it('may create a session', function (): void {

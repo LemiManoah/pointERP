@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\TenantContext;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 final readonly class CreateAccessUser
 {
@@ -27,6 +28,9 @@ final readonly class CreateAccessUser
             $staff = Staff::query()
                 ->where('tenant_id', $tenant->id)
                 ->findOrFail($data['staff_id']);
+            if (empty($staff->email)) {
+                throw ValidationException::withMessages(['staff_id' => 'Add an email address to this person before creating or linking an ERP account.']);
+            }
 
             $user = User::query()->create([
                 'tenant_id' => $tenant->id,

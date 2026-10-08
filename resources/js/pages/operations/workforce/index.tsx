@@ -25,6 +25,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
+import { index as workers } from '@/routes/workforce/workers';
 import { StaffDeploymentDialog } from './partials/staff-deployment-dialog';
 import {
     WorkforceTradeDialog,
@@ -39,6 +40,9 @@ type WorkforceStaff = {
     branch_name: string;
     primary_trade_id: string | null;
     primary_trade_name: string | null;
+    staff_position_id: string | null;
+    position_name: string | null;
+    has_active_deployment: boolean;
 };
 
 type Project = {
@@ -75,6 +79,7 @@ type Props = {
     deployments: Deployment[];
     tradeCategories: { value: string; label: string }[];
     can: {
+        manageWorkers: boolean;
         manageTrades: boolean;
         manageDeployments: boolean;
     };
@@ -149,19 +154,22 @@ export default function WorkforceIndex({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h1 className="text-2xl font-semibold">
-                            Workforce setup
+                            Project workforce
                         </h1>
                         <p className="mt-1 text-sm text-muted-foreground">
                             Maintain site trades and a clear history of where
                             staff are deployed.
                         </p>
                     </div>
+                    <div className="flex gap-2">
+                    {can.manageWorkers && <Button asChild variant="outline"><Link href={workers()}>Worker directory</Link></Button>}
                     <Button asChild variant="outline">
                         <Link href="/workforce/attendance">
                             <ClipboardCheck />
                             Site attendance
                         </Link>
                     </Button>
+                    </div>
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

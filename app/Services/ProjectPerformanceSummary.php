@@ -59,7 +59,7 @@ final readonly class ProjectPerformanceSummary
             return [
                 'id' => $line->id,
                 'boq_item_id' => $line->boq_item_id,
-                'overrun_quantity' => number_format(max($approved - $planned, 0), 4, '.', ''),
+                'overrun_quantity' => number_format(max($output - $planned, 0), 4, '.', ''),
                 'work_item_id' => $activity?->id,
                 'boq_reference' => $line->boq_reference,
                 'bill' => $line->bill,
