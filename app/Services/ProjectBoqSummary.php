@@ -58,7 +58,7 @@ final class ProjectBoqSummary
                     'id' => $resource->id,
                     'type' => $resource->resource_type->label(),
                     'name' => $resource->name,
-                    'unit' => $resource->unit?->symbol ?? $resource->unit?->code,
+                    'unit' => $resource->unit->symbol ?? $resource->unit->code,
                     'quantity_per_work_unit' => $resource->quantity_per_work_unit,
                     'estimated_unit_cost' => $canViewCosts ? $resource->estimated_unit_cost : null,
                     'notes' => $resource->notes,

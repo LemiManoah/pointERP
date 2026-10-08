@@ -18,7 +18,7 @@ final class RefreshDailySiteReportCosts
                 ->where('source_key', 'like', 'correction:%')->get();
             foreach ($adjustments as $adjustment) {
                 $line = $lines->get($adjustment->getAttribute('daily_site_report_work_line_id'));
-                $output += (float) $adjustment->quantity * (float) ($line?->rate_amount ?? 0);
+                $output += (float) $adjustment->quantity * (float) ($line->rate_amount ?? 0);
             }
         }
 

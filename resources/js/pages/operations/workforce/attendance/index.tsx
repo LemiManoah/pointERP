@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { StaffSectionNav } from '@/components/staff-section-nav';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -81,6 +82,7 @@ export default function AttendanceIndex({
                         shift.
                     </p>
                 </div>
+                <StaffSectionNav active="attendance" />
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                     <div className="relative w-full sm:max-w-sm">
                         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -105,9 +107,6 @@ export default function AttendanceIndex({
                                 </TabsTrigger>
                             </TabsList>
                         </Tabs>
-                        <Button asChild variant="outline">
-                            <Link href="/workforce">Setup</Link>
-                        </Button>
                         {canViewReports && (
                             <Button asChild variant="outline">
                                 <Link href="/workforce/exceptions">

@@ -30,7 +30,7 @@ final readonly class RejectDailySiteReportCorrection
             $report = DailySiteReport::query()->whereKey($correction->daily_site_report_id)->lockForUpdate()->firstOrFail();
             $correction = DailySiteReportCorrection::query()->whereKey($correction->id)->lockForUpdate()->firstOrFail();
 
-            if ($correction->status !== DailySiteReportCorrection::STATUS_SUBMITTED || $report === null) {
+            if ($correction->status !== DailySiteReportCorrection::STATUS_SUBMITTED) {
                 throw ValidationException::withMessages([
                     'correction' => 'Only a pending correction can be rejected.',
                 ]);

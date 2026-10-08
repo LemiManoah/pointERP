@@ -104,7 +104,7 @@ final class UserController
                     'email' => $staff->email,
                     'branch_id' => $staff->branch_id,
                     'branch_name' => $staff->branch->name,
-                    'position_name' => $staff->position?->name ?? 'No position',
+                    'position_name' => $staff->position->name ?? 'No position',
                     'user_id' => $staff->user?->id,
                 ]),
         ]);

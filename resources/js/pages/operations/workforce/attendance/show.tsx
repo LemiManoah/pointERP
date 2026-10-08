@@ -24,6 +24,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { StaffSectionNav } from '@/components/staff-section-nav';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import {
@@ -115,6 +116,7 @@ export default function ShowAttendance({ register, can, ...options }: Props) {
                             </Button>
                         )}
                     </div>
+                    <StaffSectionNav active="attendance" />
                     <AttendanceForm {...options} register={register} />
                 </div>
             </AppLayout>
@@ -152,6 +154,7 @@ export default function ShowAttendance({ register, can, ...options }: Props) {
                         </Button>
                     )}
                 </div>
+                <StaffSectionNav active="attendance" />
                 <div className="grid gap-4 sm:grid-cols-3">
                     <Card>
                         <CardHeader>

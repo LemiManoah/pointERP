@@ -55,7 +55,7 @@ final readonly class SaveStaff
 
         $attributes = [
             'tenant_id' => $this->tenantContext->id(),
-            'person_category' => $data['person_category'] ?? $staff?->person_category ?? 'company_staff',
+            'person_category' => $data['person_category'] ?? $staff->person_category ?? 'company_staff',
             'branch_id' => $data['branch_id'],
             'staff_position_id' => $data['staff_position_id'] ?? null,
             'employment_type' => $data['employment_type'],

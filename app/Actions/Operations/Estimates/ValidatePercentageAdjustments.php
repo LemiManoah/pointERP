@@ -30,7 +30,7 @@ final readonly class ValidatePercentageAdjustments
 
             foreach ($keys as $key) {
                 $base = $byKey->get($key);
-                if (! $base || $key === ($line['work_item_key'] ?? null)) {
+                if (! $base || $key === $line['work_item_key']) {
                     throw ValidationException::withMessages(['lines.'.$index.'.percentage_base_keys' => 'Select other items in this BOQ revision as the calculation base.']);
                 }
             }

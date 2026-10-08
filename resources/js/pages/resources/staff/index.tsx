@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
@@ -22,9 +22,8 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { StaffSectionNav } from '@/components/staff-section-nav';
 import AppLayout from '@/layouts/app-layout';
-import * as staffRoutes from '@/routes/resources/staff';
-import * as workerRoutes from '@/routes/workforce/workers';
 import type { BreadcrumbItem } from '@/types';
 import { StaffDialog } from './partials/staff-dialog';
 import type { Option, Staff } from './partials/staff-form';
@@ -49,11 +48,10 @@ export default function StaffIndex({
     employmentTypes,
 }: Props) {
     const isWorker = directory === 'workforce';
-    const title = isWorker ? 'Project Workforce' : 'Company Staff';
-    const routes = isWorker ? workerRoutes : staffRoutes;
+    const title = 'Staff';
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Dashboard', href: '/dashboard' },
-        { title, href: routes.index.url() },
+        { title, href: '/staff' },
     ];
     const confirm = useConfirmDialog();
     const [search, setSearch] = useState('');
@@ -89,12 +87,9 @@ export default function StaffIndex({
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="grid gap-4">
                         <div>
-                            <h1 className="text-2xl font-semibold">{title}</h1>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                {isWorker
-                                    ? 'Register workers, then assign them to projects and sites through Deployments.'
-                                    : 'Maintain company staff, positions and contact details.'}
-                            </p>
+                            <h1 className="text-2xl font-semibold">
+                                {isWorker ? 'Project Workforce' : 'Company Staff'}
+                            </h1>
                         </div>
                         <div className="relative">
                             <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -120,34 +115,7 @@ export default function StaffIndex({
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex flex-wrap gap-2">
-                        {can.companyStaff && (
-                            <Button
-                                variant={isWorker ? 'outline' : 'secondary'}
-                                asChild
-                            >
-                                <Link href={staffRoutes.index()}>
-                                    Company Staff
-                                </Link>
-                            </Button>
-                        )}
-                        {can.workers && (
-                            <Button
-                                variant={isWorker ? 'secondary' : 'outline'}
-                                asChild
-                            >
-                                <Link href={workerRoutes.index()}>
-                                    Project Workforce
-                                </Link>
-                            </Button>
-                        )}
-                        <Button variant="outline" asChild>
-                            <Link href="/staff-positions">Positions</Link>
-                        </Button>
-                        <Button variant="outline" asChild>
-                            <Link href="/workforce">Deployments</Link>
-                        </Button>
-                    </div>
+                    <StaffSectionNav active={isWorker ? 'workforce' : 'company'} />
                     <Tabs value={status} onValueChange={setStatus}>
                         <TabsList>
                             <TabsTrigger value="active">Active</TabsTrigger>

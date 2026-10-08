@@ -339,7 +339,7 @@ final class ProjectEstimateImportController
     private function state(Project $project, string $token): array
     {
         $archived = BoqImport::query()->whereKey($token)->where('project_id', $project->id)->where('uploaded_by', request()->user()->id)->first();
-        $state = $archived?->state ?? Cache::store('file')->get($this->key($project, $token));
+        $state = $archived->state ?? Cache::store('file')->get($this->key($project, $token));
         if (! is_array($state)) {
             throw ValidationException::withMessages(['file' => 'This import expired or belongs to another session. Upload the workbook again.']);
         }

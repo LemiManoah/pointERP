@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { StaffSectionNav } from '@/components/staff-section-nav';
 import AppLayout from '@/layouts/app-layout';
 import { formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
@@ -81,14 +82,7 @@ export default function StaffPositionsIndex({ positions }: Props) {
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex gap-2">
-                        <Button variant="outline" asChild>
-                            <Link href="/staff">Staff</Link>
-                        </Button>
-                        <Button variant="secondary" asChild>
-                            <Link href="/staff-positions">Positions</Link>
-                        </Button>
-                    </div>
+                    <StaffSectionNav active="positions" />
                     <Tabs value={status} onValueChange={setStatus}>
                         <TabsList>
                             <TabsTrigger value="active">Active</TabsTrigger>

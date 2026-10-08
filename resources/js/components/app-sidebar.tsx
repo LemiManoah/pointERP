@@ -41,7 +41,6 @@ import {
     SidebarRail,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
-import { index as workers } from '@/routes/workforce/workers';
 import type { Auth, CurrentTenant } from '@/types';
 
 type SidebarLink = {
@@ -50,6 +49,7 @@ type SidebarLink = {
     icon: LucideIcon;
     status?: 'ready' | 'next' | 'later';
     permission?: string;
+    permissionAny?: string[];
 };
 
 type SidebarGroupItem = {
@@ -155,25 +155,11 @@ const groups: SidebarGroupItem[] = [
                 permission: 'inventory.stock.view',
             },
             {
-                title: 'Company Staff',
+                title: 'Staff',
                 href: '/staff',
                 icon: Users,
                 status: 'ready',
-                permission: 'resources.staff.manage',
-            },
-            {
-                title: 'Project Workforce',
-                href: workers.url(),
-                icon: HardHat,
-                status: 'ready',
-                permission: 'workforce.deployments.manage',
-            },
-            {
-                title: 'Site attendance',
-                href: '/workforce/attendance',
-                icon: ClipboardCheck,
-                status: 'ready',
-                permission: 'workforce.view',
+                permissionAny: ['resources.staff.manage', 'workforce.deployments.manage', 'workforce.view'],
             },
             {
                 title: 'Equipment',
@@ -286,10 +272,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         auth: Auth;
         currentTenant: CurrentTenant | null;
     }>().props;
-    const { currentUrl, isCurrentUrl } = useCurrentUrl();
+    const { currentUrl, isCurrentUrl, isCurrentOrParentUrl } = useCurrentUrl();
     const permissions = auth.user.permissions ?? [];
-    const can = (permission?: string) =>
-        !permission || permissions.includes(permission);
+    const can = (permission?: string, permissionAny?: string[]) =>
+        (!permission || permissions.includes(permission)) &&
+        (!permissionAny || permissionAny.some((item) => permissions.includes(item)));
 
     return (
         <Sidebar collapsible="icon" variant="inset" {...props}>
@@ -335,17 +322,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                     <SidebarMenu>
                                         {group.items
                                             .filter((item) =>
-                                                can(item.permission),
+                                                can(item.permission, item.permissionAny),
                                             )
                                             .map((item) => {
                                                 const Icon = item.icon;
                                                 const disabled =
                                                     item.href === '#';
                                                 const href =
-                                                    item.title ===
-                                                    'Add new stock'
-                                                        ? `/inventory/add-stock?return_to=${encodeURIComponent(currentUrl === '/inventory/add-stock' ? '/inventory/stock' : currentUrl)}`
-                                                        : item.href;
+                                                    item.title === 'Staff' &&
+                                                    !permissions.includes('resources.staff.manage')
+                                                        ? permissions.includes('workforce.deployments.manage')
+                                                            ? '/workforce/workers'
+                                                            : '/workforce/attendance'
+                                                        : item.title === 'Add new stock'
+                                                            ? `/inventory/add-stock?return_to=${encodeURIComponent(currentUrl === '/inventory/add-stock' ? '/inventory/stock' : currentUrl)}`
+                                                            : item.href;
 
                                                 return (
                                                     <SidebarMenuItem
@@ -356,12 +347,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                                             disabled={disabled}
                                                             isActive={
                                                                 !disabled &&
-                                                                isCurrentUrl(
-                                                                    item.title ===
-                                                                        'Add new stock'
+                                                                (isCurrentUrl(
+                                                                    item.title === 'Add new stock'
                                                                         ? '/inventory/add-stock'
                                                                         : href,
-                                                                )
+                                                                ) ||
+                                                                    (item.title === 'Staff' &&
+                                                                        (isCurrentOrParentUrl('/workforce') ||
+                                                                            isCurrentUrl('/staff-positions'))))
                                                             }
                                                             tooltip={{
                                                                 children:

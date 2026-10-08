@@ -1,6 +1,6 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { format, parseISO } from 'date-fns';
-import { ClipboardCheck, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
 import { Badge } from '@/components/ui/badge';
@@ -23,8 +23,8 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { StaffSectionNav } from '@/components/staff-section-nav';
 import AppLayout from '@/layouts/app-layout';
-import { index as workers } from '@/routes/workforce/workers';
 import type { BreadcrumbItem } from '@/types';
 import { StaffDeploymentDialog } from './partials/staff-deployment-dialog';
 import {
@@ -104,7 +104,6 @@ export default function WorkforceIndex({
     can,
 }: Props) {
     const confirm = useConfirmDialog();
-    const [currentTab, setCurrentTab] = useState(tab);
     const [tradeStatus, setTradeStatus] = useState('active');
     const [deploymentStatus, setDeploymentStatus] = useState('active');
     const [search, setSearch] = useState('');
@@ -149,32 +148,21 @@ export default function WorkforceIndex({
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Workforce" />
+            <Head title="Staff" />
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                         <h1 className="text-2xl font-semibold">
-                            Project workforce
+                            Staff
                         </h1>
                         <p className="mt-1 text-sm text-muted-foreground">
                             Maintain site trades and a clear history of where
                             staff are deployed.
                         </p>
                     </div>
-                    <div className="flex gap-2">
-                        {can.manageWorkers && (
-                            <Button asChild variant="outline">
-                                <Link href={workers()}>Worker directory</Link>
-                            </Button>
-                        )}
-                        <Button asChild variant="outline">
-                            <Link href="/workforce/attendance">
-                                <ClipboardCheck />
-                                Site attendance
-                            </Link>
-                        </Button>
-                    </div>
                 </div>
+
+                <StaffSectionNav active={tab === 'trades' ? 'trades' : 'deployments'} />
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="relative w-full sm:max-w-sm">
@@ -183,41 +171,27 @@ export default function WorkforceIndex({
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
                             placeholder={
-                                currentTab === 'deployments'
+                                tab === 'deployments'
                                     ? 'Search deployments'
                                     : 'Search trades'
                             }
                             className="pl-9"
                         />
                     </div>
-                    {currentTab === 'deployments' && can.manageDeployments && (
+                    {tab === 'deployments' && can.manageDeployments && (
                         <StaffDeploymentDialog
                             staff={staff}
                             projects={projects}
                             trades={trades}
                         />
                     )}
-                    {currentTab === 'trades' && can.manageTrades && (
+                    {tab === 'trades' && can.manageTrades && (
                         <WorkforceTradeDialog categories={tradeCategories} />
                     )}
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <Tabs
-                        value={currentTab}
-                        onValueChange={(value) =>
-                            setCurrentTab(value as 'deployments' | 'trades')
-                        }
-                    >
-                        <TabsList>
-                            <TabsTrigger value="deployments">
-                                Deployments
-                            </TabsTrigger>
-                            <TabsTrigger value="trades">Trades</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-
-                    {currentTab === 'deployments' ? (
+                    {tab === 'deployments' ? (
                         <Tabs
                             value={deploymentStatus}
                             onValueChange={setDeploymentStatus}
@@ -242,7 +216,7 @@ export default function WorkforceIndex({
                     )}
                 </div>
 
-                {currentTab === 'deployments' ? (
+                {tab === 'deployments' ? (
                     <Card>
                         <CardHeader>
                             <CardTitle>Staff deployments</CardTitle>
