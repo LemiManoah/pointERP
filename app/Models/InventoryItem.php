@@ -107,12 +107,6 @@ final class InventoryItem extends Model
         return $this->hasMany(InventoryBatch::class);
     }
 
-    /** @return HasMany<InventoryStoreItem, $this> */
-    public function storeSettings(): HasMany
-    {
-        return $this->hasMany(InventoryStoreItem::class);
-    }
-
     /** @return HasMany<InventoryStockMovement, $this> */
     public function stockMovements(): HasMany
     {

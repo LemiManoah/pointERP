@@ -95,8 +95,9 @@ export default function MaterialRequisitionIndex(props: Props) {
                             onValueChange={(value) =>
                                 setTab(value as StatusTab)
                             }
+                            className="max-w-full min-w-0"
                         >
-                            <TabsList className="flex-wrap">
+                            <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
                                 <TabsTrigger value="open">Open</TabsTrigger>
                                 <TabsTrigger value="fulfilled">
                                     Fulfilled

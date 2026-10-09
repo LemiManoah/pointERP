@@ -181,9 +181,13 @@ export default function DailySiteReportsIndex({
                     </form>
                 </div>
 
-                <div className="flex justify-end">
-                    <Tabs value={tab} onValueChange={setTab}>
-                        <TabsList>
+                <div className="flex min-w-0 justify-end">
+                    <Tabs
+                        value={tab}
+                        onValueChange={setTab}
+                        className="max-w-full min-w-0"
+                    >
+                        <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
                             <TabsTrigger value="open">
                                 Open ({formatNumber(summary.open)})
                             </TabsTrigger>

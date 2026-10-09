@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Minus, Plus, Search, ShoppingCart, Trash2 } from 'lucide-react';
+import { Search, ShoppingCart } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import InputError from '@/components/input-error';
@@ -305,7 +305,6 @@ export default function PosIndex(props: Props) {
                                 subtotal={subtotal}
                                 discount={discount}
                                 total={total}
-                                canDiscount={props.can.discount}
                                 processing={form.processing}
                                 error={
                                     Object.values(form.errors)[0] ??
@@ -319,12 +318,6 @@ export default function PosIndex(props: Props) {
                                     !props.selected.store_id ||
                                     !props.selected.price_list_id ||
                                     !props.can.sell
-                                }
-                                onUpdate={update}
-                                onRemove={(index) =>
-                                    setCart(
-                                        cart.filter((_, row) => row !== index),
-                                    )
                                 }
                                 onCheckout={checkout}
                             />
@@ -403,6 +396,103 @@ export default function PosIndex(props: Props) {
                                 </div>
                             </CardContent>
                         </Card>
+                        {details.length > 0 && (
+                            <Card>
+                                <CardHeader className="font-semibold">
+                                    Cart items
+                                </CardHeader>
+                                <CardContent className="grid gap-3">
+                                    {details.map(({ line, item }, index) => (
+                                        <div
+                                            key={`${item.id}-${index}`}
+                                            className="grid gap-3 rounded-md border p-3 sm:grid-cols-[minmax(0,1fr)_7rem_9rem_auto] sm:items-end"
+                                        >
+                                            <div className="min-w-0">
+                                                <p className="font-medium">
+                                                    {item.name}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {item.code}
+                                                </p>
+                                            </div>
+                                            <Field label="Quantity">
+                                                <Input
+                                                    type="number"
+                                                    min="0.0001"
+                                                    step="0.0001"
+                                                    value={line.quantity}
+                                                    onChange={(event) =>
+                                                        update(index, {
+                                                            quantity:
+                                                                event.target
+                                                                    .value,
+                                                        })
+                                                    }
+                                                />
+                                            </Field>
+                                            {item.units.length > 1 && (
+                                                <Field label="Selling unit">
+                                                    <SearchableSelect
+                                                        value={
+                                                            line.unit_of_measure_id
+                                                        }
+                                                        onValueChange={(
+                                                            value,
+                                                        ) =>
+                                                            update(index, {
+                                                                unit_of_measure_id:
+                                                                    value,
+                                                                quantity: '1',
+                                                            })
+                                                        }
+                                                        options={item.units.map(
+                                                            (unit) => ({
+                                                                value: unit.id,
+                                                                label: unit.label,
+                                                            }),
+                                                        )}
+                                                    />
+                                                </Field>
+                                            )}
+                                            {props.can.discount && (
+                                                <Field label="Discount">
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        value={
+                                                            line.discount_amount
+                                                        }
+                                                        onChange={(event) =>
+                                                            update(index, {
+                                                                discount_amount:
+                                                                    event.target
+                                                                        .value,
+                                                            })
+                                                        }
+                                                    />
+                                                </Field>
+                                            )}
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                className="text-destructive"
+                                                onClick={() =>
+                                                    setCart(
+                                                        cart.filter(
+                                                            (_, row) =>
+                                                                row !== index,
+                                                        ),
+                                                    )
+                                                }
+                                            >
+                                                Remove
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </CardContent>
+                            </Card>
+                        )}
                     </>
                 ) : (
                     <Card>
@@ -511,12 +601,9 @@ function PosCartDrawer({
     subtotal,
     discount,
     total,
-    canDiscount,
     processing,
     error,
     checkoutDisabled,
-    onUpdate,
-    onRemove,
     onCheckout,
 }: {
     currencyCode: string;
@@ -525,12 +612,9 @@ function PosCartDrawer({
     subtotal: number;
     discount: number;
     total: number;
-    canDiscount: boolean;
     processing: boolean;
     error?: string;
     checkoutDisabled: boolean;
-    onUpdate: (index: number, values: Partial<CartLine>) => void;
-    onRemove: (index: number) => void;
     onCheckout: () => void;
 }) {
     return (
@@ -559,7 +643,7 @@ function PosCartDrawer({
                         </Badge>
                     </DrawerTitle>
                     <DrawerDescription>
-                        Review items, quantities, and discounts before checkout.
+                        Review the cart before payment.
                     </DrawerDescription>
                 </DrawerHeader>
 
@@ -600,126 +684,12 @@ function PosCartDrawer({
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-wrap items-end justify-between gap-3">
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-8 px-0 text-destructive hover:bg-transparent hover:text-destructive/80"
-                                            onClick={() => onRemove(index)}
-                                        >
-                                            <Trash2 className="size-4" />
-                                            Remove
-                                        </Button>
-                                        <div className="flex items-center gap-2">
-                                            <Button
-                                                type="button"
-                                                size="icon"
-                                                variant="outline"
-                                                className="size-9"
-                                                onClick={() =>
-                                                    onUpdate(index, {
-                                                        quantity: String(
-                                                            Math.max(
-                                                                Number(
-                                                                    line.quantity,
-                                                                ) - 1,
-                                                                0.0001,
-                                                            ),
-                                                        ),
-                                                    })
-                                                }
-                                                aria-label={`Reduce ${item.name} quantity`}
-                                            >
-                                                <Minus className="size-4" />
-                                            </Button>
-                                            <Input
-                                                className="h-9 w-20 text-center tabular-nums"
-                                                type="number"
-                                                min="0.0001"
-                                                step="0.0001"
-                                                max={unit.available}
-                                                value={line.quantity}
-                                                onChange={(event) =>
-                                                    onUpdate(index, {
-                                                        quantity:
-                                                            event.target.value,
-                                                    })
-                                                }
-                                                aria-label={`${item.name} quantity`}
-                                            />
-                                            <Button
-                                                type="button"
-                                                size="icon"
-                                                className="size-9"
-                                                onClick={() =>
-                                                    onUpdate(index, {
-                                                        quantity: String(
-                                                            Math.min(
-                                                                Number(
-                                                                    line.quantity,
-                                                                ) + 1,
-                                                                Number(
-                                                                    unit.available,
-                                                                ),
-                                                            ),
-                                                        ),
-                                                    })
-                                                }
-                                                aria-label={`Increase ${item.name} quantity`}
-                                            >
-                                                <Plus className="size-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    {(item.units.length > 1 || canDiscount) && (
-                                        <div className="grid gap-3 sm:grid-cols-2">
-                                            {item.units.length > 1 && (
-                                                <Field label="Selling unit">
-                                                    <SearchableSelect
-                                                        value={
-                                                            line.unit_of_measure_id
-                                                        }
-                                                        onValueChange={(
-                                                            value,
-                                                        ) =>
-                                                            onUpdate(index, {
-                                                                unit_of_measure_id:
-                                                                    value,
-                                                                quantity: '1',
-                                                            })
-                                                        }
-                                                        options={item.units.map(
-                                                            (row) => ({
-                                                                value: row.id,
-                                                                label: `${row.label} · ${formatCurrencyAmount(currencyCode, row.price)}`,
-                                                            }),
-                                                        )}
-                                                    />
-                                                </Field>
-                                            )}
-                                            {canDiscount && (
-                                                <Field label="Discount">
-                                                    <Input
-                                                        type="number"
-                                                        min="0"
-                                                        step="0.01"
-                                                        value={
-                                                            line.discount_amount
-                                                        }
-                                                        onChange={(event) =>
-                                                            onUpdate(index, {
-                                                                discount_amount:
-                                                                    event.target
-                                                                        .value,
-                                                            })
-                                                        }
-                                                    />
-                                                </Field>
-                                            )}
-                                        </div>
-                                    )}
+                                    <p className="text-sm text-muted-foreground">
+                                        {formatNumber(line.quantity)}{' '}
+                                        {unit.symbol}
+                                        {Number(line.discount_amount) > 0 &&
+                                            ` · Discount ${formatCurrencyAmount(currencyCode, line.discount_amount)}`}
+                                    </p>
                                 </div>
                             ),
                         )}
@@ -767,7 +737,7 @@ function PosCartDrawer({
                             disabled={processing || checkoutDisabled}
                             onClick={onCheckout}
                         >
-                            Continue to checkout ·{' '}
+                            Proceed to payment ·{' '}
                             {formatCurrencyAmount(currencyCode, total)}
                         </Button>
                     </div>

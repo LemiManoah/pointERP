@@ -10,9 +10,9 @@ use App\Models\Expense;
 use App\Models\ExpenseLine;
 use App\Models\ExpensePayment;
 use App\Models\InventoryBatch;
+use App\Models\InventoryItem;
 use App\Models\InventoryPriceTier;
 use App\Models\InventoryStore;
-use App\Models\InventoryStoreItem;
 use App\Models\PosPayment;
 use App\Models\PosSale;
 use App\Models\Project;
@@ -206,8 +206,7 @@ it('shows operational cards without financial access and keeps current snapshots
 
 it('exposes inventory alert counts only with stock permission', function (): void {
     $this->dashboardUser->syncPermissions(['inventory.stock.view', 'branches.view-all']);
-    $setting = InventoryStoreItem::query()->whereHas('store', fn ($query) => $query->where('branch_id', $this->dashboardBranch))->firstOrFail();
-    $setting->update(['is_active' => true, 'minimum_stock' => '999999']);
+    InventoryItem::query()->firstOrFail()->update(['minimum_stock' => '999999']);
     $this->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
         ->has('cards', 0)->missing('cashFlow')->where('operationalCards.0.id', 'low-stock')
         ->has('operationalCards.0.nearExpiry')->has('operationalCards.0.expired')->missing('lowStock'));
@@ -259,7 +258,7 @@ it('shows current paid and unpaid counts for approved period expenses', function
     ExpensePayment::factory()->create(['expense_id' => $partial->id, 'branch_id' => $this->dashboardBranch, 'amount' => '25', 'status' => 'recorded']);
     Expense::factory()->create(['branch_id' => $this->dashboardBranch, 'status' => 'draft', 'currency_code' => 'UGX', 'expense_date' => now()]);
     $this->get(route('dashboard', ['period' => 'today', 'currency' => 'UGX']))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
-        ->where('cards.1.subtitle', '1 paid · 1 unpaid')->where('cards.3.title', 'Still to pay'));
+        ->where('cards.1.subtitle', '1 paid · 1 unpaid')->where('cards.3.title', 'Unpaid expenses'));
     $this->dashboardUser->revokePermissionTo('expense-payments.view');
     $this->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $page): Assert => $page->where('cards.1.subtitle', null));
 });

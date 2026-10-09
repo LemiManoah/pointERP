@@ -25,6 +25,7 @@ it('accounts for the complete client workbook scope and partial pricing without 
             if ($sheet['hidden']) {
                 continue;
             }
+
             if (! preg_match('/^(?:Bill No\.\s*(?:2\.|[34568]\b)|Series\s)/i', $sheet['name'])) {
                 continue;
             }
@@ -36,9 +37,11 @@ it('accounts for the complete client workbook scope and partial pricing without 
                 if ($description === '') {
                     continue;
                 }
+
                 if ($unit === '') {
                     continue;
                 }
+
                 if (! is_numeric($quantity)) {
                     continue;
                 }

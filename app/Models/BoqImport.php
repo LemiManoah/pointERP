@@ -26,6 +26,7 @@ final class BoqImport extends Model
 
     /** @use HasFactory<Factory<BoqImport>> */
     use HasFactory;
+
     use HasUuids;
 
     protected function casts(): array

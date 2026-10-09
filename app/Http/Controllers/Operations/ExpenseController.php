@@ -161,7 +161,7 @@ final class ExpenseController
             ->values()
             ->join(', ');
 
-        return ['id' => $expense->id, 'expense_number' => $expense->expense_number, 'expense_date' => $expense->expense_date->toDateString(), 'payee' => $expense->payee_name_snapshot, 'branch' => $expense->branch->name, 'reference' => $expense->reference, 'status' => $expense->status->value, 'status_label' => $expense->status->label(), 'currency_code' => $expense->currency_code, 'total_amount' => $canViewCosts ? $expense->total_amount : null, 'paid_amount' => $canViewCosts ? number_format($expense->paidAmount(), 4, '.', '') : null, 'balance' => $canViewCosts ? number_format($expense->balance(), 4, '.', '') : null, 'payment_status' => $expense->paymentStatus(), 'projects' => $projects];
+        return ['id' => $expense->id, 'expense_number' => $expense->expense_number, 'expense_date' => $expense->expense_date->toDateString(), 'payee' => $expense->payee_name_snapshot, 'branch' => $expense->branch->name, 'reference' => $expense->reference, 'status' => $expense->status->value, 'status_label' => $expense->status->label(), 'currency_code' => $expense->currency_code, 'total_amount' => $canViewCosts ? $expense->total_amount : null, 'paid_amount' => $canViewCosts ? number_format($expense->paidAmount(), 4, '.', '') : null, 'balance' => $canViewCosts ? number_format($expense->balance(), 4, '.', '') : null, 'payment_status' => $expense->paymentStatus(), 'projects' => $projects, 'categories' => $expense->lines->pluck('expense_category_name_snapshot')->unique()->values()->all()];
     }
 
     /** @return array<string, mixed> */

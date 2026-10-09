@@ -12,22 +12,18 @@ import {
     formatDateTime,
     formatNumber,
 } from '@/lib/utils';
+import { index as inventoryIndex } from '@/routes/inventory';
 import type { BreadcrumbItem } from '@/types';
 import { DocumentDialog } from '../documents/partials/document-dialog';
 import type {
     DocumentTypeOption,
     LinkOptions,
 } from '../documents/partials/document-dialog';
-import {
-    ConversionDialog,
-    PriceDialog,
-    StoreSettingDialog,
-} from './partials/item-detail-dialogs';
+import { ConversionDialog, PriceDialog } from './partials/item-detail-dialogs';
 import type {
     Batch,
     Conversion,
     ItemPrice,
-    StoreSetting,
 } from './partials/item-detail-dialogs';
 import { StockMovementReversalDialog } from './partials/stock-movement-dialogs';
 
@@ -36,6 +32,7 @@ type Option = {
     name: string;
     code?: string;
     symbol?: string;
+    quantity_dimension?: string;
     branch_name?: string;
 };
 type Item = {
@@ -54,7 +51,12 @@ type Item = {
     default_selling_price: string | null;
     is_active: boolean;
     category: { id: string; name: string } | null;
-    stock_unit: { id: string; name: string; symbol: string | null } | null;
+    stock_unit: {
+        id: string;
+        name: string;
+        symbol: string | null;
+        quantity_dimension: string;
+    } | null;
     preferred_supplier: { id: string; name: string } | null;
 };
 type ConversionRow = Conversion & {
@@ -67,10 +69,6 @@ type PriceRow = ItemPrice & {
     currency: string;
 };
 type BatchRow = Batch & { store_name: string | null };
-type StoreSettingRow = StoreSetting & {
-    store_name: string;
-    branch_name: string;
-};
 type DocumentRow = {
     id: string;
     title: string;
@@ -108,11 +106,9 @@ type Props = {
     conversions: ConversionRow[];
     prices: PriceRow[];
     batches: BatchRow[];
-    storeSettings: StoreSettingRow[];
     stockBalances: StockBalance[];
     stockMovements: StockMovement[];
     units: Option[];
-    stores: Option[];
     branches: Option[];
     defaultPriceBranchId: string;
     canChangePriceBranch: boolean;
@@ -179,6 +175,23 @@ export default function InventoryItemShow(props: Props) {
                     </div>
                     <div className="flex gap-2">
                         {props.can.manage && (
+                            <Button variant="outline" asChild>
+                                <Link
+                                    href={inventoryIndex.url({
+                                        query: {
+                                            tab: 'items',
+                                            status: item.is_active
+                                                ? 'active'
+                                                : 'inactive',
+                                            edit: item.id,
+                                        },
+                                    })}
+                                >
+                                    Edit item
+                                </Link>
+                            </Button>
+                        )}
+                        {props.can.manage && (
                             <Button
                                 variant={
                                     item.is_active ? 'destructive' : 'secondary'
@@ -232,8 +245,11 @@ export default function InventoryItemShow(props: Props) {
                     </div>
                 </div>
 
-                <Tabs defaultValue={props.activeTab}>
-                    <TabsList className="flex h-auto flex-wrap justify-start">
+                <Tabs
+                    defaultValue={props.activeTab}
+                    className="max-w-full min-w-0"
+                >
+                    <TabsList className="h-auto max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="conversions">
                             Unit conversions
@@ -246,9 +262,6 @@ export default function InventoryItemShow(props: Props) {
                         {item.tracking_type === 'batch' && (
                             <TabsTrigger value="batches">Batches</TabsTrigger>
                         )}
-                        <TabsTrigger value="stores">
-                            Stocked in stores
-                        </TabsTrigger>
                         {props.can.viewStock && (
                             <TabsTrigger value="stock">
                                 Stock ledger
@@ -337,8 +350,11 @@ export default function InventoryItemShow(props: Props) {
                                         itemId={item.id}
                                         units={props.units.filter(
                                             (unit) =>
-                                                unit.id !== item.stock_unit?.id,
+                                                unit.quantity_dimension ===
+                                                item.stock_unit
+                                                    ?.quantity_dimension,
                                         )}
+                                        stockUnit={item.stock_unit}
                                     />
                                 ) : null
                             }
@@ -372,9 +388,11 @@ export default function InventoryItemShow(props: Props) {
                                             itemId={item.id}
                                             units={props.units.filter(
                                                 (unit) =>
-                                                    unit.id !==
-                                                    item.stock_unit?.id,
+                                                    unit.quantity_dimension ===
+                                                    item.stock_unit
+                                                        ?.quantity_dimension,
                                             )}
+                                            stockUnit={item.stock_unit}
                                             conversion={row}
                                         />
                                     ) : null,
@@ -470,98 +488,46 @@ export default function InventoryItemShow(props: Props) {
                             </Section>
                         </TabsContent>
                     )}
-                    <TabsContent value="stores" className="mt-6">
-                        <Section
-                            title="Store availability"
-                            action={
-                                props.can.manage ? (
-                                    <StoreSettingDialog
-                                        itemId={item.id}
-                                        stores={props.stores}
-                                    />
-                                ) : null
-                            }
-                        >
-                            <Table
-                                headers={[
-                                    'Store',
-                                    'Branch',
-                                    'Minimum stock',
-                                    'Reorder quantity',
-                                    'Storage location',
-                                    '',
-                                ]}
-                                rows={props.storeSettings.map((row) => [
-                                    row.store_name,
-                                    row.branch_name,
-                                    formatNumber(row.minimum_stock),
-                                    formatNumber(row.reorder_quantity),
-                                    row.storage_location ?? 'Not set',
-                                    props.can.manage ? (
-                                        <StoreSettingDialog
-                                            key={`${row.id}-action`}
-                                            itemId={item.id}
-                                            stores={props.stores}
-                                            setting={row}
-                                        />
-                                    ) : null,
-                                ])}
-                            />
-                        </Section>
-                    </TabsContent>
                     {props.can.viewStock && (
                         <TabsContent value="stock" className="mt-6 space-y-6">
-                            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                                {props.stockBalances.map((balance) => {
-                                    const low =
-                                        balance.minimum_stock !== null &&
-                                        Number(balance.on_hand) <=
-                                            Number(balance.minimum_stock);
-                                    return (
-                                        <Card key={balance.store_id}>
-                                            <CardHeader className="pb-3">
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div>
-                                                        <CardTitle className="text-base">
-                                                            {balance.store_name}
-                                                        </CardTitle>
-                                                        <p className="mt-1 text-sm text-muted-foreground">
-                                                            {
-                                                                balance.branch_name
-                                                            }
-                                                        </p>
-                                                    </div>
-                                                    {low && (
-                                                        <Badge variant="destructive">
-                                                            Low stock
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                            </CardHeader>
-                                            <CardContent className="grid grid-cols-3 gap-3">
-                                                <Value
-                                                    label="On hand"
-                                                    value={formatNumber(
-                                                        balance.on_hand,
-                                                    )}
-                                                />
-                                                <Value
-                                                    label="Reserved"
-                                                    value={formatNumber(
-                                                        balance.reserved,
-                                                    )}
-                                                />
-                                                <Value
-                                                    label="Available"
-                                                    value={formatNumber(
-                                                        balance.available,
-                                                    )}
-                                                />
-                                            </CardContent>
-                                        </Card>
-                                    );
-                                })}
-                            </div>
+                            <Section title="Quantity by store">
+                                <Table
+                                    headers={[
+                                        'Store',
+                                        'Branch',
+                                        'On hand',
+                                        'Reserved',
+                                        'Available',
+                                        'Minimum warning',
+                                        'Status',
+                                    ]}
+                                    rows={props.stockBalances.map((balance) => {
+                                        const low =
+                                            balance.minimum_stock !== null &&
+                                            Number(balance.available) <=
+                                                Number(balance.minimum_stock);
+
+                                        return [
+                                            balance.store_name,
+                                            balance.branch_name,
+                                            `${formatNumber(balance.on_hand)} ${item.stock_unit?.symbol ?? item.stock_unit?.name ?? ''}`,
+                                            `${formatNumber(balance.reserved)} ${item.stock_unit?.symbol ?? item.stock_unit?.name ?? ''}`,
+                                            `${formatNumber(balance.available)} ${item.stock_unit?.symbol ?? item.stock_unit?.name ?? ''}`,
+                                            formatNumber(balance.minimum_stock),
+                                            <Badge
+                                                key={`${balance.store_id}-status`}
+                                                variant={
+                                                    low
+                                                        ? 'destructive'
+                                                        : 'secondary'
+                                                }
+                                            >
+                                                {low ? 'Low stock' : 'In range'}
+                                            </Badge>,
+                                        ];
+                                    })}
+                                />
+                            </Section>
                             <Section
                                 title="Movement ledger"
                                 action={
@@ -724,7 +690,7 @@ function Section({
     children,
 }: {
     title: string;
-    action: ReactNode;
+    action?: ReactNode;
     children: ReactNode;
 }) {
     return (

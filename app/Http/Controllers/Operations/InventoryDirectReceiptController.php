@@ -24,6 +24,34 @@ use Inertia\Response;
 
 final class InventoryDirectReceiptController
 {
+    public function index(Request $request): Response
+    {
+        Gate::authorize('viewAny', InventoryDirectReceipt::class);
+        $actor = $request->user();
+        abort_unless($actor instanceof User, 403);
+
+        $receipts = InventoryDirectReceipt::query()
+            ->whereIn('inventory_store_id', InventoryStore::query()->visibleTo($actor)->select('id'))
+            ->with(['store.branch', 'receiver'])
+            ->withCount('lines')
+            ->latest('received_on')
+            ->latest()
+            ->paginate(25);
+
+        return Inertia::render('operations/inventory/direct-receipts/index', [
+            'receipts' => $receipts->through(fn (InventoryDirectReceipt $receipt): array => [
+                'id' => $receipt->id,
+                'reference' => $receipt->reference,
+                'received_on' => $receipt->received_on->toDateString(),
+                'reason' => $receipt->reason->label(),
+                'store' => $receipt->store->name,
+                'branch' => $receipt->store->branch->name,
+                'received_by' => $receipt->receiver->name,
+                'lines_count' => (int) $receipt->getAttribute('lines_count'),
+            ]),
+        ]);
+    }
+
     public function create(Request $request, InventoryStoreStockOptions $options): Response
     {
         $actor = $request->user();
@@ -65,7 +93,7 @@ final class InventoryDirectReceiptController
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Stock added successfully under '.$receipt->reference.'.']);
 
-        return redirect()->to((string) $request->validated('return_to'));
+        return to_route('inventory.direct-receipts.index');
     }
 
     public function show(InventoryDirectReceipt $inventoryDirectReceipt): Response

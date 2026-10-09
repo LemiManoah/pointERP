@@ -13,7 +13,8 @@ const sections = [
 export type StaffSection = (typeof sections)[number]['id'];
 
 export function StaffSectionNav({ active }: { active: StaffSection }) {
-    const { auth } = usePage<{ auth: { user: { permissions?: string[] } } }>().props;
+    const { auth } = usePage<{ auth: { user: { permissions?: string[] } } }>()
+        .props;
     const permissions = auth.user.permissions ?? [];
     const permissionBySection: Record<StaffSection, string> = {
         company: 'resources.staff.manage',
@@ -28,7 +29,10 @@ export function StaffSectionNav({ active }: { active: StaffSection }) {
     );
 
     return (
-        <nav aria-label="Staff sections" className="flex gap-2 overflow-x-auto pb-1">
+        <nav
+            aria-label="Staff sections"
+            className="flex gap-2 overflow-x-auto pb-1"
+        >
             {visibleSections.map((section) => (
                 <Button
                     key={section.id}

@@ -21,7 +21,6 @@ use App\Models\ExpectedDailySiteReport;
 use App\Models\InventoryBatch;
 use App\Models\InventoryItem;
 use App\Models\InventoryStore;
-use App\Models\InventoryStoreItem;
 use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\Site;
@@ -244,10 +243,6 @@ final readonly class SaveDailySiteReport
             $store = is_string($storeId) && $storeId !== ''
                 ? InventoryStore::query()->where('branch_id', $report->branch_id)->where('site_id', $report->site_id)->where('is_active', true)->findOrFail($storeId)
                 : InventoryStore::query()->where('site_id', $report->site_id)->where('is_default_for_site', true)->where('is_active', true)->firstOrFail();
-
-            if (! InventoryStoreItem::query()->where('inventory_store_id', $store->id)->where('inventory_item_id', $item->id)->where('is_active', true)->exists()) {
-                throw ValidationException::withMessages(['material_lines' => $item->name.' is not enabled in '.$store->name.'.']);
-            }
 
             $batchId = $line['inventory_batch_id'] ?? null;
             if ($item->tracking_type === InventoryTrackingType::Batch) {

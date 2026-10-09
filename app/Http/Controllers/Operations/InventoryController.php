@@ -102,6 +102,7 @@ final class InventoryController
                 'viewCosts' => $canViewCosts,
                 'permanentlyDeleteItems' => $actor->can('inventory.items.delete'),
                 'permanentlyDeleteStores' => $actor->can('inventory.stores.delete'),
+                'viewStock' => $actor->can('inventory.stock.view'),
             ],
         ]);
     }

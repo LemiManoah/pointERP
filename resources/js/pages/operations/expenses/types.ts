@@ -40,6 +40,7 @@ export type ExpenseRow = {
     balance: string | null;
     payment_status: string;
     projects: string;
+    categories: string[];
 };
 export type PaymentRow = {
     id: string;

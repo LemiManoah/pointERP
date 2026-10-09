@@ -15,7 +15,6 @@ use App\Models\InventoryGoodsReceiptLine;
 use App\Models\InventoryItem;
 use App\Models\InventoryStockMovement;
 use App\Models\InventoryStore;
-use App\Models\InventoryStoreItem;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\User;
@@ -100,11 +99,6 @@ final readonly class ReceiveInventoryStock
                 if ($accepted->isGreaterThan($purchaseOrderLine->outstandingQuantity())) {
                     throw ValidationException::withMessages([sprintf('lines.%d.accepted_quantity', $index) => 'Accepted quantity exceeds the outstanding purchase-order quantity.']);
                 }
-
-                InventoryStoreItem::query()->firstOrCreate(
-                    ['tenant_id' => $receipt->tenant_id, 'inventory_store_id' => $store->id, 'inventory_item_id' => $item->id],
-                    ['is_active' => true, 'created_by' => $actor->id, 'updated_by' => $actor->id],
-                );
 
                 $batch = $accepted->isZero() ? null : $this->resolveBatch($item, $line, $actor);
                 $movement = $accepted->isZero() ? null : $this->postMovement->handle($store, $item, [

@@ -12,6 +12,11 @@ final class InventoryDirectReceiptPolicy
 {
     use ChecksTenantAccess;
 
+    public function viewAny(User $user): bool
+    {
+        return $user->canAny(['inventory.stock.view', 'inventory.stock.add']);
+    }
+
     public function view(User $user, InventoryDirectReceipt $receipt): bool
     {
         return $this->belongsToSameTenant($user, $receipt->tenant_id)

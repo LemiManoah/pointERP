@@ -30,7 +30,7 @@ type Option = {
     id: string;
     name: string;
     code?: string;
-    symbol?: string;
+    symbol?: string | null;
     branch_name?: string;
 };
 export type Conversion = {
@@ -61,15 +61,6 @@ export type Batch = {
     notes: string | null;
     is_active: boolean;
 };
-export type StoreSetting = {
-    id: string;
-    inventory_store_id: string;
-    minimum_stock: string | null;
-    reorder_quantity: string | null;
-    storage_location: string | null;
-    is_active: boolean;
-};
-
 function Field({
     label,
     error,
@@ -108,10 +99,12 @@ const Trigger = forwardRef<
 export function ConversionDialog({
     itemId,
     units,
+    stockUnit,
     conversion,
 }: {
     itemId: string;
     units: Option[];
+    stockUnit: Option | null;
     conversion?: Conversion;
 }) {
     const [open, setOpen] = useState(false);
@@ -151,8 +144,9 @@ export function ConversionDialog({
                             : 'Add unit conversion'}
                     </DialogTitle>
                     <DialogDescription>
-                        Define how one transaction unit converts into the item
-                        stock unit.
+                        Include the item stock unit (
+                        {stockUnit?.name ?? 'not set'}) as either From or To.
+                        Both units must use the same measurement dimension.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={submit} className="grid gap-4">
@@ -518,139 +512,6 @@ export function BatchDialog({
                     </label>
                     <Button type="submit" disabled={form.processing}>
                         Save batch
-                    </Button>
-                </form>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-export function StoreSettingDialog({
-    itemId,
-    stores,
-    setting,
-}: {
-    itemId: string;
-    stores: Option[];
-    setting?: StoreSetting;
-}) {
-    const [open, setOpen] = useState(false);
-    const form = useForm({
-        inventory_store_id: setting?.inventory_store_id ?? '',
-        minimum_stock: setting?.minimum_stock ?? '',
-        reorder_quantity: setting?.reorder_quantity ?? '',
-        storage_location: setting?.storage_location ?? '',
-        is_active: setting?.is_active ?? true,
-    });
-    function submit(event: FormEvent) {
-        event.preventDefault();
-        const options = {
-            preserveScroll: true,
-            onSuccess: () => setOpen(false),
-        };
-        if (setting) {
-            form.put(
-                `/inventory/items/${itemId}/store-settings/${setting.id}`,
-                options,
-            );
-        } else {
-            form.post(`/inventory/items/${itemId}/store-settings`, options);
-        }
-    }
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Trigger editing={Boolean(setting)} />
-            </DialogTrigger>
-            <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl">
-                <DialogHeader>
-                    <DialogTitle>
-                        {setting
-                            ? 'Edit store settings'
-                            : 'Enable item in store'}
-                    </DialogTitle>
-                    <DialogDescription>
-                        Enable this item in a store and optionally override its
-                        warning level, reorder quantity and storage location.
-                    </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={submit} className="grid gap-4">
-                    <Field label="Store" error={form.errors.inventory_store_id}>
-                        <SearchableSelect
-                            value={form.data.inventory_store_id}
-                            options={stores.map((store) => ({
-                                value: store.id,
-                                label: store.name,
-                                description: store.branch_name,
-                            }))}
-                            onValueChange={(value) =>
-                                form.setData('inventory_store_id', value)
-                            }
-                            placeholder="Select store"
-                        />
-                    </Field>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <Field
-                            label="Minimum stock warning"
-                            error={form.errors.minimum_stock}
-                        >
-                            <Input
-                                type="number"
-                                min="0"
-                                step="0.0001"
-                                value={form.data.minimum_stock}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'minimum_stock',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                        </Field>
-                        <Field
-                            label="Reorder quantity"
-                            error={form.errors.reorder_quantity}
-                        >
-                            <Input
-                                type="number"
-                                min="0"
-                                step="0.0001"
-                                value={form.data.reorder_quantity}
-                                onChange={(event) =>
-                                    form.setData(
-                                        'reorder_quantity',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                        </Field>
-                    </div>
-                    <Field
-                        label="Storage location"
-                        error={form.errors.storage_location}
-                    >
-                        <Input
-                            value={form.data.storage_location}
-                            onChange={(event) =>
-                                form.setData(
-                                    'storage_location',
-                                    event.target.value,
-                                )
-                            }
-                        />
-                    </Field>
-                    <label className="flex items-center gap-2 text-sm">
-                        <input
-                            type="checkbox"
-                            checked={form.data.is_active}
-                            onChange={(event) =>
-                                form.setData('is_active', event.target.checked)
-                            }
-                        />{' '}
-                        Active
-                    </label>
-                    <Button type="submit" disabled={form.processing}>
-                        Save store settings
                     </Button>
                 </form>
             </DialogContent>

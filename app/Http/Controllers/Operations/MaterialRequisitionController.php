@@ -13,7 +13,6 @@ use App\Models\InventoryItem;
 use App\Models\InventoryReservation;
 use App\Models\InventoryStockMovement;
 use App\Models\InventoryStore;
-use App\Models\InventoryStoreItem;
 use App\Models\MaterialRequisition;
 use App\Models\MaterialRequisitionLine;
 use App\Models\Project;
@@ -219,12 +218,8 @@ final class MaterialRequisitionController
         $sites = Site::query()->whereIn('project_id', $projectIds)->where('status', 'active')->orderBy('name')->get()->filter(fn (Site $site): bool => Gate::forUser($actor)->allows('view', $site))->values();
         $stores = InventoryStore::query()->visibleTo($actor)->where('is_active', true)->orderBy('name')->get(['id', 'branch_id', 'name', 'code']);
         $balances = resolve(InventoryStockBalance::class);
-        $storeItems = InventoryStoreItem::query()
-            ->whereIn('inventory_store_id', $stores->pluck('id'))
-            ->where('is_active', true)
-            ->with(['item.stockUnit', 'store'])
-            ->get()
-            ->filter(fn (InventoryStoreItem $setting): bool => $setting->item->is_active);
+        $items = InventoryItem::query()->where('is_active', true)->with('stockUnit')->orderBy('name')->get();
+        $balanceMap = $balances->forStoresAndItems($stores->pluck('id')->all(), $items->pluck('id')->all());
 
         return [
             'branches' => $context->accessibleBranches($actor)->values(),
@@ -234,30 +229,17 @@ final class MaterialRequisitionController
             'projects' => $projects->map(fn (Project $project): array => $project->only(['id', 'branch_id', 'name', 'reference'])),
             'sites' => $sites->map(fn (Site $site): array => $site->only(['id', 'branch_id', 'project_id', 'name', 'reference'])),
             'activities' => ProjectActivity::query()->whereIn('project_id', $projectIds)->where('status', 'active')->orderBy('name')->get(['id', 'project_id', 'name', 'code']),
-            'items' => $storeItems
-                ->groupBy('inventory_item_id')
-                ->map(
-                    /** @param Collection<int, InventoryStoreItem> $settings */
-                    function (Collection $settings) use ($balances): array {
-                        /** @var InventoryStoreItem $first */
-                        $first = $settings->first();
-                        $item = $first->item;
-
-                        return [
-                            'id' => $item->id,
-                            'code' => $item->code,
-                            'name' => $item->name,
-                            'stock_unit_id' => $item->stock_unit_id,
-                            'stock_unit_name' => $item->stockUnit->symbol ?? $item->stockUnit->code,
-                            'store_availability' => $settings->map(fn (InventoryStoreItem $setting): array => [
-                                'store_id' => $setting->inventory_store_id,
-                                'available' => $balances->for($setting->store, $item)['available'],
-                            ])->values(),
-                        ];
-                    },
-                )
-                ->sortBy('name')
-                ->values(),
+            'items' => $items->map(fn (InventoryItem $item): array => [
+                'id' => $item->id,
+                'code' => $item->code,
+                'name' => $item->name,
+                'stock_unit_id' => $item->stock_unit_id,
+                'stock_unit_name' => $item->stockUnit->symbol ?? $item->stockUnit->code,
+                'store_availability' => $stores->map(fn (InventoryStore $store): array => [
+                    'store_id' => $store->id,
+                    'available' => $balanceMap[$store->id.':'.$item->id]['available'],
+                ])->values(),
+            ])->values(),
         ];
     }
 }

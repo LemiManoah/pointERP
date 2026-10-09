@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Operations\Projects;
 
 use App\Actions\Workforce\EndProjectDeployments;
+use App\Enums\ProjectType;
 use App\Models\Contract;
 use App\Models\Customer;
 use App\Models\Project;
@@ -26,7 +27,7 @@ final readonly class SaveProject
     }
 
     /**
-     * @param  array{branch_id: string, customer_id?: string|null, contract_id?: string|null, reference: string, name: string, description?: string|null, manager_id?: string|null, base_currency_code: string, budget_amount?: string|null, starts_on?: string|null, ends_on?: string|null, reporting_deadline?: string|null, status: string}  $data
+     * @param  array{branch_id: string, customer_id?: string|null, contract_id?: string|null, reference: string, name: string, project_type?: ProjectType|string|null, location?: string|null, description?: string|null, manager_id?: string|null, base_currency_code: string, budget_amount?: string|null, starts_on?: string|null, ends_on?: string|null, reporting_deadline?: string|null, status: string}  $data
      */
     public function handle(array $data, User $actor, ?Project $project = null): Project
     {
@@ -44,6 +45,8 @@ final readonly class SaveProject
                 'contract_id' => $data['contract_id'] ?? null,
                 'reference' => Str::upper($data['reference']),
                 'name' => $data['name'],
+                'project_type' => $data['project_type'] ?? null,
+                'location' => $data['location'] ?? null,
                 'description' => $data['description'] ?? null,
                 'manager_id' => $data['manager_id'] ?? null,
                 'base_currency_code' => Str::upper($data['base_currency_code']),
@@ -81,7 +84,7 @@ final readonly class SaveProject
     }
 
     /**
-     * @param  array{branch_id: string, customer_id?: string|null, contract_id?: string|null, reference: string, name: string, description?: string|null, manager_id?: string|null, base_currency_code: string, budget_amount?: string|null, starts_on?: string|null, ends_on?: string|null, reporting_deadline?: string|null, status: string}  $data
+     * @param  array{branch_id: string, customer_id?: string|null, contract_id?: string|null, reference: string, name: string, project_type?: ProjectType|string|null, location?: string|null, description?: string|null, manager_id?: string|null, base_currency_code: string, budget_amount?: string|null, starts_on?: string|null, ends_on?: string|null, reporting_deadline?: string|null, status: string}  $data
      */
     private function validateOptionalRelations(array $data): void
     {

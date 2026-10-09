@@ -94,7 +94,6 @@ use App\Http\Controllers\Operations\InventoryStockExportController;
 use App\Http\Controllers\Operations\InventoryStockMovementController;
 use App\Http\Controllers\Operations\InventoryStockMovementReversalController;
 use App\Http\Controllers\Operations\InventoryStoreController;
-use App\Http\Controllers\Operations\InventoryStoreItemController;
 use App\Http\Controllers\Operations\InventoryStorePermanentDeleteController;
 use App\Http\Controllers\Operations\InventoryTransferApprovalController;
 use App\Http\Controllers\Operations\InventoryTransferController;
@@ -252,6 +251,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('inventory/receipts/{inventoryGoodsReceipt}', [InventoryGoodsReceiptController::class, 'show'])->name('inventory.receipts.show');
     Route::get('inventory/stock-movements', [InventoryStockMovementController::class, 'index'])->name('inventory.movements.index');
     Route::get('inventory/add-stock', [InventoryDirectReceiptController::class, 'create'])->name('inventory.direct-receipts.create');
+    Route::get('inventory/stock-receipts', [InventoryDirectReceiptController::class, 'index'])->name('inventory.direct-receipts.index');
     Route::post('inventory/add-stock', [InventoryDirectReceiptController::class, 'store'])->name('inventory.direct-receipts.store');
     Route::get('inventory/add-stock/{inventoryDirectReceipt}', [InventoryDirectReceiptController::class, 'show'])->name('inventory.direct-receipts.show');
     Route::get('inventory/transfers', [InventoryTransferController::class, 'index'])->name('inventory.transfers.index');
@@ -299,8 +299,6 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::delete('inventory/items/{inventoryItem}/conversions/{inventoryUnitConversion}/permanent', InventoryUnitConversionPermanentDeleteController::class)->name('inventory.items.conversions.force-destroy');
     Route::post('inventory/items/{inventoryItem}/prices', [InventoryItemPriceController::class, 'store'])->name('inventory.items.prices.store');
     Route::put('inventory/items/{inventoryItem}/prices/{inventoryItemPrice}', [InventoryItemPriceController::class, 'update'])->name('inventory.items.prices.update');
-    Route::post('inventory/items/{inventoryItem}/store-settings', [InventoryStoreItemController::class, 'store'])->name('inventory.items.store-settings.store');
-    Route::put('inventory/items/{inventoryItem}/store-settings/{inventoryStoreItem}', [InventoryStoreItemController::class, 'update'])->name('inventory.items.store-settings.update');
     Route::post('inventory/stock-movements/{inventoryStockMovement}/reverse', InventoryStockMovementReversalController::class)->name('inventory.stock-movements.reverse');
     Route::post('inventory/stores', [InventoryStoreController::class, 'store'])->name('inventory.stores.store');
     Route::put('inventory/stores/{inventoryStore}', [InventoryStoreController::class, 'update'])->name('inventory.stores.update');

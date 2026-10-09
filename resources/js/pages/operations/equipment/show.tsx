@@ -253,8 +253,12 @@ export default function EquipmentShow(props: Props) {
                     </div>
                 </div>
 
-                <Tabs value={tab} onValueChange={setTab}>
-                    <TabsList>
+                <Tabs
+                    value={tab}
+                    onValueChange={setTab}
+                    className="max-w-full min-w-0"
+                >
+                    <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="assignments">
                             Assignments
@@ -589,7 +593,7 @@ export default function EquipmentShow(props: Props) {
                                             setMaintenanceScheduleStatus
                                         }
                                     >
-                                        <TabsList>
+                                        <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
                                             <TabsTrigger value="active">
                                                 Active
                                             </TabsTrigger>

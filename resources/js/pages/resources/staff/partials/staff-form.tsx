@@ -307,6 +307,13 @@ export function StaffForm({
                             Inactive
                         </NativeSelectOption>
                     </NativeSelect>
+                    {staff?.status === 'active' &&
+                        form.data.status === 'inactive' && (
+                            <p className="text-xs text-muted-foreground">
+                                Active project deployments will end today when
+                                you save.
+                            </p>
+                        )}
                     <InputError message={form.errors.status} />
                 </div>
             </div>

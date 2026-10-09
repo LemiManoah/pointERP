@@ -344,11 +344,10 @@ final class DailySiteReportController
                     'current_meter_reading' => $equipment->current_meter_reading,
                     'meter_type' => $equipment->meter_type,
                 ]),
-            'inventoryItems' => InventoryItem::query()->where('is_active', true)->with(['stockUnit', 'conversions.fromUnit', 'storeSettings', 'batches'])->orderBy('name')->get()->map(fn (InventoryItem $item): array => [
+            'inventoryItems' => InventoryItem::query()->where('is_active', true)->with(['stockUnit', 'conversions.fromUnit', 'batches'])->orderBy('name')->get()->map(fn (InventoryItem $item): array => [
                 'id' => $item->id, 'name' => $item->name, 'code' => $item->code, 'stock_unit_id' => $item->stock_unit_id,
                 'stock_unit' => $item->stockUnit->symbol ?? $item->stockUnit->name,
                 'tracking_type' => $item->tracking_type->value,
-                'store_ids' => $item->storeSettings->where('is_active', true)->pluck('inventory_store_id')->values()->all(),
                 'units' => collect([['id' => $item->stockUnit->id, 'name' => $item->stockUnit->name, 'symbol' => $item->stockUnit->symbol]])->merge($item->conversions->where('is_active', true)->map(fn (InventoryUnitConversion $conversion): array => ['id' => $conversion->fromUnit->id, 'name' => $conversion->fromUnit->name, 'symbol' => $conversion->fromUnit->symbol]))->unique('id')->values()->all(),
                 'batches' => $item->batches->where('is_active', true)->map(fn (InventoryBatch $batch): array => ['id' => $batch->id, 'batch_number' => $batch->batch_number, 'inventory_store_id' => $batch->inventory_store_id])->values()->all(),
             ]),

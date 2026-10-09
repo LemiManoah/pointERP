@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { formatNumber } from '@/lib/utils';
+import { index as receiptsIndex } from '@/routes/inventory/direct-receipts';
 import type { BreadcrumbItem } from '@/types';
 
 type Receipt = {
@@ -32,7 +33,7 @@ type Receipt = {
 
 export default function DirectReceiptShow({ receipt }: { receipt: Receipt }) {
     const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Stock movements', href: '/inventory/stock-movements' },
+        { title: 'Stock receipts', href: receiptsIndex.url() },
         { title: receipt.reference, href: '#' },
     ];
 
@@ -53,9 +54,9 @@ export default function DirectReceiptShow({ receipt }: { receipt: Receipt }) {
                         </p>
                     </div>
                     <Button asChild variant="outline">
-                        <Link href="/inventory/stock-movements">
+                        <Link href={receiptsIndex.url()}>
                             <ArrowLeft />
-                            Stock movements
+                            Stock receipts
                         </Link>
                     </Button>
                 </div>

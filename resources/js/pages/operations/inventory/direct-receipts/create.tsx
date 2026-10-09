@@ -356,6 +356,14 @@ export default function AddStock({
                                                     placeholder="Select item"
                                                     searchPlaceholder="Search items..."
                                                 />
+                                                {store?.items.length === 0 && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        No active inventory
+                                                        items are available for
+                                                        this store. Check item
+                                                        and store settings.
+                                                    </p>
+                                                )}
                                                 <InputError
                                                     message={
                                                         form.errors[

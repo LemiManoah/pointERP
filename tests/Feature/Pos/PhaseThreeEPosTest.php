@@ -123,6 +123,36 @@ it('allows authorised credit sales and records later payments without moving sto
         ->and(InventoryStockMovement::query()->where('source_key', 'like', 'pos-sale:%')->count())->toBe($movementCount);
 });
 
+it('records a split payment against one completed sale', function (): void {
+    $cashier = User::query()->where('email', 'cashier.kla@point.test')->firstOrFail();
+    $store = InventoryStore::query()->where('code', 'KLA-MAIN-STORE')->firstOrFail();
+    $item = InventoryItem::query()->where('code', 'CEM-42')->firstOrFail();
+    $tier = InventoryPriceTier::query()->where('code', 'RETAIL')->firstOrFail();
+
+    $this->actingAs($cashier)->post(route('pos.store'), [
+        'checkout_key' => fake()->uuid(),
+        'branch_id' => $store->branch_id,
+        'inventory_store_id' => $store->id,
+        'inventory_price_tier_id' => $tier->id,
+        'lines' => [[
+            'inventory_item_id' => $item->id,
+            'unit_of_measure_id' => $item->stock_unit_id,
+            'quantity' => '1',
+            'discount_amount' => '0',
+        ]],
+        'payments' => [
+            ['method' => 'cash', 'amount' => '18000', 'reference' => null],
+            ['method' => 'mobile_money', 'amount' => '30000', 'reference' => 'MM-SPLIT-001'],
+        ],
+    ])->assertSessionHasNoErrors()->assertRedirect();
+
+    $sale = PosSale::query()->latest()->firstOrFail();
+    expect($sale->amount_paid)->toBe('48000.0000')
+        ->and($sale->balance_due)->toBe('0.0000')
+        ->and($sale->payments()->count())->toBe(2)
+        ->and($sale->payments()->where('method', 'mobile_money')->value('reference'))->toBe('MM-SPLIT-001');
+});
+
 it('rejects a sale that would create negative stock', function (): void {
     $cashier = User::query()->where('email', 'cashier.kla@point.test')->firstOrFail();
     $store = InventoryStore::query()->where('code', 'KLA-MAIN-STORE')->firstOrFail();

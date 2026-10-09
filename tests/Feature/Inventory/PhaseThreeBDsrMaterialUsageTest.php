@@ -14,7 +14,6 @@ use App\Models\DailySiteReportMaterialLine;
 use App\Models\InventoryBatch;
 use App\Models\InventoryItem;
 use App\Models\InventoryStockMovement;
-use App\Models\InventoryStoreItem;
 use App\Models\Project;
 use App\Models\Site;
 use App\Models\User;
@@ -55,15 +54,6 @@ it('posts approved site-store material usage once', function (): void {
 
     $site = Site::query()->findOrFail($report->site_id);
     $store = $site->defaultStore()->firstOrFail();
-    InventoryStoreItem::query()->updateOrCreate(
-        ['inventory_store_id' => $store->id, 'inventory_item_id' => $item->id],
-        [
-            'tenant_id' => $report->tenant_id,
-            'is_active' => true,
-            'created_by' => $director->id,
-            'updated_by' => $director->id,
-        ],
-    );
     $batch = InventoryBatch::query()->create([
         'tenant_id' => $report->tenant_id,
         'inventory_item_id' => $item->id,

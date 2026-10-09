@@ -203,6 +203,26 @@
     }
 }
 
+@page {
+    margin: 0;
+}
+
+@media print {
+    body {
+        background: white !important;
+        color: black !important;
+    }
+
+    [data-slot='sidebar'] {
+        display: none !important;
+    }
+
+    [data-slot='sidebar-inset'] {
+        margin: 0 !important;
+        box-shadow: none !important;
+    }
+}
+
 @theme inline {
     --font-sans: Outfit, sans-serif;
     --font-mono: Fira Code, monospace;

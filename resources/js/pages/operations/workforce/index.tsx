@@ -3,6 +3,7 @@ import { format, parseISO } from 'date-fns';
 import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
+import { StaffSectionNav } from '@/components/staff-section-nav';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,7 +24,6 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import { StaffSectionNav } from '@/components/staff-section-nav';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { StaffDeploymentDialog } from './partials/staff-deployment-dialog';
@@ -152,9 +152,7 @@ export default function WorkforceIndex({
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <h1 className="text-2xl font-semibold">
-                            Staff
-                        </h1>
+                        <h1 className="text-2xl font-semibold">Staff</h1>
                         <p className="mt-1 text-sm text-muted-foreground">
                             Maintain site trades and a clear history of where
                             staff are deployed.
@@ -162,7 +160,9 @@ export default function WorkforceIndex({
                     </div>
                 </div>
 
-                <StaffSectionNav active={tab === 'trades' ? 'trades' : 'deployments'} />
+                <StaffSectionNav
+                    active={tab === 'trades' ? 'trades' : 'deployments'}
+                />
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="relative w-full sm:max-w-sm">

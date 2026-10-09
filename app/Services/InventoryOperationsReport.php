@@ -15,7 +15,6 @@ use App\Models\InventoryGoodsReceiptLine;
 use App\Models\InventoryItem;
 use App\Models\InventoryStockMovement;
 use App\Models\InventoryStore;
-use App\Models\InventoryStoreItem;
 use App\Models\MaterialRequisition;
 use App\Models\MaterialRequisitionLine;
 use App\Models\Project;
@@ -183,32 +182,34 @@ final readonly class InventoryOperationsReport
      */
     private function stockRows(User $actor, array $scope): Collection
     {
-        $movementTotals = DB::table('inventory_stock_movements')->where('tenant_id', $actor->tenant_id)->whereIn('inventory_store_id', $scope['store_ids'])
+        $movementTotals = DB::table('inventory_stock_movements')->where('tenant_id', $actor->tenant_id)->whereIn('inventory_store_id', $scope['store_ids'])->whereIn('inventory_item_id', InventoryItem::query()->where('is_active', true)->select('id'))
             ->selectRaw('inventory_store_id, inventory_item_id, SUM(quantity) as quantity')->groupBy('inventory_store_id', 'inventory_item_id')->get()
             ->keyBy(fn (object $row): string => $row->inventory_store_id.':'.$row->inventory_item_id);
-        $reservationTotals = DB::table('inventory_reservations')->where('tenant_id', $actor->tenant_id)->whereIn('inventory_store_id', $scope['store_ids'])
+        $reservationTotals = DB::table('inventory_reservations')->where('tenant_id', $actor->tenant_id)->whereIn('inventory_store_id', $scope['store_ids'])->whereIn('inventory_item_id', InventoryItem::query()->where('is_active', true)->select('id'))
             ->whereIn('status', ['active', 'partially_issued'])->selectRaw('inventory_store_id, inventory_item_id, SUM(reserved_quantity - issued_quantity - released_quantity) as quantity')
             ->groupBy('inventory_store_id', 'inventory_item_id')->get()->keyBy(fn (object $row): string => $row->inventory_store_id.':'.$row->inventory_item_id);
 
-        return InventoryStoreItem::query()->where('is_active', true)->whereIn('inventory_store_id', $scope['store_ids'])
-            ->when($scope['selected']['item_id'], fn (Builder $query, string $id): Builder => $query->where('inventory_item_id', $id))
-            ->when($scope['selected']['category_id'], fn (Builder $query, string $id): Builder => $query->whereHas('item', fn (Builder $itemQuery): Builder => $itemQuery->where('inventory_category_id', $id)))
-            ->with(['store.branch', 'item.stockUnit', 'item.category'])->get()
-            ->map(function (InventoryStoreItem $setting) use ($movementTotals, $reservationTotals): array {
-                $key = $setting->inventory_store_id.':'.$setting->inventory_item_id;
-                $onHand = BigDecimal::of((string) ($movementTotals->get($key)->quantity ?? 0));
-                $reserved = BigDecimal::of((string) ($reservationTotals->get($key)->quantity ?? 0));
-                $available = $onHand->minus($reserved);
-                $minimum = $setting->minimum_stock ?? $setting->item->minimum_stock;
+        $stores = InventoryStore::query()->whereIn('id', $scope['store_ids'])->with('branch')->get();
+        $items = InventoryItem::query()->where('is_active', true)
+            ->when($scope['selected']['item_id'], fn (Builder $query, string $id): Builder => $query->whereKey($id))
+            ->when($scope['selected']['category_id'], fn (Builder $query, string $id): Builder => $query->where('inventory_category_id', $id))
+            ->with(['stockUnit', 'category'])->get();
 
-                return [
-                    'id' => $setting->id, 'item_id' => $setting->item->id, 'item_code' => $setting->item->code, 'item_name' => $setting->item->name,
-                    'category' => $setting->item->category?->name, 'store_id' => $setting->store->id, 'store_name' => $setting->store->name,
-                    'branch_name' => $setting->store->branch->name, 'unit' => $setting->item->stockUnit->symbol ?? $setting->item->stockUnit->name,
-                    'on_hand' => (string) $onHand->toScale(4), 'reserved' => (string) $reserved->toScale(4), 'available' => (string) $available->toScale(4),
-                    'minimum_stock' => $minimum, 'is_low_stock' => $minimum !== null && $available->isLessThanOrEqualTo((string) $minimum),
-                ];
-            })->values();
+        return $stores->flatMap(fn (InventoryStore $store) => $items->map(function (InventoryItem $item) use ($movementTotals, $reservationTotals, $store): array {
+            $key = $store->id.':'.$item->id;
+            $onHand = BigDecimal::of((string) ($movementTotals->get($key)->quantity ?? 0));
+            $reserved = BigDecimal::of((string) ($reservationTotals->get($key)->quantity ?? 0));
+            $available = $onHand->minus($reserved);
+            $minimum = $item->minimum_stock;
+
+            return [
+                'id' => $store->id.':'.$item->id, 'item_id' => $item->id, 'item_code' => $item->code, 'item_name' => $item->name,
+                'category' => $item->category?->name, 'store_id' => $store->id, 'store_name' => $store->name,
+                'branch_name' => $store->branch->name, 'unit' => $item->stockUnit->symbol ?? $item->stockUnit->name,
+                'on_hand' => (string) $onHand->toScale(4), 'reserved' => (string) $reserved->toScale(4), 'available' => (string) $available->toScale(4),
+                'minimum_stock' => $minimum, 'is_low_stock' => $minimum !== null && $available->isLessThanOrEqualTo((string) $minimum),
+            ];
+        })->all())->values();
     }
 
     /**

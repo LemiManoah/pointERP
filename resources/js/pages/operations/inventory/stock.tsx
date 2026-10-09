@@ -6,10 +6,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+    NativeSelect,
+    NativeSelectOption,
+} from '@/components/ui/native-select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
 import { formatNumber } from '@/lib/utils';
+import { index as stockReceipts } from '@/routes/inventory/direct-receipts';
 import type { BreadcrumbItem } from '@/types';
 
 type Row = {
@@ -19,6 +24,7 @@ type Row = {
     item_name: string;
     unit: string;
     store_name: string;
+    store_id: string;
     branch_name: string;
     minimum_stock: string | null;
     is_low_stock: boolean;
@@ -28,7 +34,8 @@ type Row = {
 };
 type Props = {
     rows: Row[];
-    summary: { stocked_items: number; stores: number; low_stock: number };
+    stores: Array<{ id: string; name: string; branch_name: string }>;
+    summary: { item_store_balances: number; stores: number; low_stock: number };
     canExport: boolean;
     canAddStock: boolean;
 };
@@ -39,24 +46,27 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function InventoryStockIndex({
     rows,
+    stores,
     summary,
     canExport,
     canAddStock,
 }: Props) {
     const [status, setStatus] = useState<'all' | 'low'>('all');
     const [search, setSearch] = useState('');
+    const [storeId, setStoreId] = useState('all');
     const term = useDebouncedValue(search).trim().toLowerCase();
     const filtered = useMemo(
         () =>
             rows.filter(
                 (row) =>
                     (status === 'all' || row.is_low_stock) &&
+                    (storeId === 'all' || row.store_id === storeId) &&
                     (!term ||
                         `${row.item_code} ${row.item_name} ${row.store_name} ${row.branch_name}`
                             .toLowerCase()
                             .includes(term)),
             ),
-        [rows, status, term],
+        [rows, status, storeId, term],
     );
 
     return (
@@ -74,6 +84,11 @@ export default function InventoryStockIndex({
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                        <Button asChild variant="outline">
+                            <Link href={stockReceipts.url()}>
+                                Stock receipts
+                            </Link>
+                        </Button>
                         {canExport && (
                             <Button asChild variant="outline">
                                 <a href="/inventory/stock/export">
@@ -94,8 +109,8 @@ export default function InventoryStockIndex({
                 </div>
                 <div className="grid gap-4 sm:grid-cols-3">
                     <Metric
-                        label="Stocked item locations"
-                        value={summary.stocked_items}
+                        label="Item/store balances"
+                        value={summary.item_store_balances}
                     />
                     <Metric label="Operational stores" value={summary.stores} />
                     <Metric
@@ -120,11 +135,26 @@ export default function InventoryStockIndex({
                             setStatus(value as 'all' | 'low')
                         }
                     >
-                        <TabsList>
+                        <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
                             <TabsTrigger value="all">All stock</TabsTrigger>
                             <TabsTrigger value="low">Low stock</TabsTrigger>
                         </TabsList>
                     </Tabs>
+                    <NativeSelect
+                        aria-label="Filter by store"
+                        value={storeId}
+                        onChange={(event) => setStoreId(event.target.value)}
+                        className="w-full sm:w-60"
+                    >
+                        <NativeSelectOption value="all">
+                            All stores
+                        </NativeSelectOption>
+                        {stores.map((store) => (
+                            <NativeSelectOption key={store.id} value={store.id}>
+                                {store.name} — {store.branch_name}
+                            </NativeSelectOption>
+                        ))}
+                    </NativeSelect>
                 </div>
                 <Card>
                     <CardContent className="pt-6">

@@ -51,7 +51,7 @@ export default function GoodsReceiptShow({ receipt, canViewCosts }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={receipt.reference} />
-            <div className="flex min-w-0 flex-1 flex-col gap-6 p-4 md:p-6 print:block print:p-0">
+            <div className="flex min-w-0 flex-1 flex-col gap-6 p-4 md:p-6 print:block print:p-[12mm]">
                 <div className="flex flex-wrap items-start justify-between gap-4 print:hidden">
                     <div>
                         <div className="flex items-center gap-3">
@@ -144,7 +144,58 @@ export default function GoodsReceiptShow({ receipt, canViewCosts }: Props) {
                         />
                     </section>
 
-                    <div className="overflow-x-auto">
+                    <div className="grid gap-3 sm:hidden print:hidden">
+                        {receipt.lines.map((line) => (
+                            <div
+                                key={line.id}
+                                className="rounded-md border p-3 text-sm"
+                            >
+                                <p className="font-medium">{line.item_name}</p>
+                                <p className="text-muted-foreground">
+                                    {line.item_code}
+                                </p>
+                                <div className="mt-2 grid grid-cols-2 gap-2">
+                                    <span>
+                                        Delivered: {formatNumber(line.quantity)}{' '}
+                                        {line.unit}
+                                    </span>
+                                    <span>
+                                        Accepted:{' '}
+                                        {formatNumber(line.accepted_quantity)}
+                                    </span>
+                                    <span>
+                                        Rejected:{' '}
+                                        {formatNumber(line.rejected_quantity)}
+                                    </span>
+                                </div>
+                                {(line.batch_number || line.expires_on) && (
+                                    <p className="mt-2">
+                                        Batch {line.batch_number ?? '—'} ·
+                                        Expiry {line.expires_on ?? '—'}
+                                    </p>
+                                )}
+                                {line.rejection_reason && (
+                                    <p className="mt-2 text-muted-foreground">
+                                        {line.rejection_reason}
+                                    </p>
+                                )}
+                                {canViewCosts && (
+                                    <p className="mt-2">
+                                        {formatCurrencyAmount(
+                                            receipt.currency_code,
+                                            line.unit_cost,
+                                        )}{' '}
+                                        per unit ·{' '}
+                                        {formatCurrencyAmount(
+                                            receipt.currency_code,
+                                            line.line_total,
+                                        )}
+                                    </p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    <div className="hidden overflow-x-auto sm:block print:block">
                         <table className="w-full min-w-[850px] border-collapse text-sm print:min-w-0">
                             <thead>
                                 <tr className="border-y text-left">

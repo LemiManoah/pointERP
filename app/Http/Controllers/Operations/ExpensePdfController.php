@@ -20,7 +20,14 @@ final class ExpensePdfController
         Gate::authorize('viewAny', Expense::class);
         $user = $request->user();
         abort_unless($user instanceof User && $user->can('expenses.export') && $user->can('expenses.view-costs'), 403);
-        $register = $export->for($user);
+        $register = $export->for($user, $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'status' => ['nullable', 'string', 'max:40'],
+            'branch' => ['nullable', 'string', 'max:255'],
+            'project' => ['nullable', 'string', 'max:255'],
+            'category' => ['nullable', 'string', 'max:120'],
+        ]));
         $auditLogger->record('expenses.export.pdf', $user, $user, properties: ['row_count' => count($register['rows'])]);
 
         return Pdf::loadView('reports.inventory', [

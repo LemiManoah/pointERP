@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Operations;
 
 use App\Actions\Operations\Projects\SaveProject;
 use App\Actions\Workforce\EndProjectDeployments;
+use App\Enums\ProjectType;
 use App\Http\Requests\Operations\Projects\StoreProjectRequest;
 use App\Http\Requests\Operations\Projects\UpdateProjectRequest;
 use App\Models\Branch;
@@ -13,6 +14,7 @@ use App\Models\Contract;
 use App\Models\Customer;
 use App\Models\DailySiteReport;
 use App\Models\Document;
+use App\Models\ExpenseLine;
 use App\Models\Project;
 use App\Models\ProjectActivity;
 use App\Models\ProjectEstimate;
@@ -44,15 +46,58 @@ final class ProjectController
 
         $user = auth()->user();
         abort_unless($user instanceof User, 403);
+        $tenant = resolve(TenantContext::class)->current();
+        $canFilterBranches = $tenant->is_multibranch && $user->can('branches.view-all');
+        $projects = Project::query()
+            ->with(['branch.country', 'customer', 'contract', 'manager'])
+            ->withCount(['sites', 'activities'])
+            ->visibleTo($user)
+            ->orderBy('name')
+            ->get();
+        $canViewProjectCosts = $user->can('daily-site-reports.view-costs')
+            || $user->can('expenses.view-costs')
+            || $user->can('estimates.view-costs')
+            || $user->can('finance.reports.view')
+            || $user->can('projects.update')
+            || $user->can('projects.view-all')
+            || $user->can('project-activities.manage');
+        $reportCosts = collect();
+        $expenseCosts = collect();
+
+        if ($canViewProjectCosts && $projects->isNotEmpty()) {
+            $projectIds = $projects->modelKeys();
+            $reportCosts = DailySiteReport::query()
+                ->whereIn('project_id', $projectIds)
+                ->where('status', DailySiteReport::STATUS_APPROVED)
+                ->selectRaw('project_id, SUM(input_cost) as total')
+                ->groupBy('project_id')
+                ->pluck('total', 'project_id');
+            $expenseCosts = ExpenseLine::query()
+                ->whereIn('project_id', $projectIds)
+                ->whereHas('expense', fn (Builder $query): Builder => $query->where('status', 'approved'))
+                ->selectRaw('project_id, SUM(base_currency_amount) as total')
+                ->groupBy('project_id')
+                ->pluck('total', 'project_id');
+        }
 
         return Inertia::render('operations/projects/index', [
-            'projects' => Project::query()
-                ->with(['branch', 'customer', 'contract', 'manager'])
-                ->withCount(['sites', 'activities'])
-                ->visibleTo($user)
-                ->orderBy('name')
-                ->get()
-                ->map(fn (Project $project): array => $this->projectRow($project)),
+            'projects' => $projects->map(function (Project $project) use ($canViewProjectCosts, $reportCosts, $expenseCosts): array {
+                $row = $this->projectRow($project);
+                $recordedCost = (float) ($reportCosts->get($project->id) ?? 0)
+                    + (float) ($expenseCosts->get($project->id) ?? 0);
+
+                return [
+                    ...$row,
+                    'recorded_cost_amount' => $canViewProjectCosts ? number_format($recordedCost, 4, '.', '') : null,
+                    'recorded_cost_currency_code' => $canViewProjectCosts ? $project->branch->default_currency_code : null,
+                ];
+            }),
+            'branchFilter' => [
+                'visible' => $canFilterBranches,
+                'branches' => $canFilterBranches
+                    ? Branch::query()->where('tenant_id', $tenant->id)->where('status', 'active')->orderBy('name')->get(['id', 'name'])->map(fn (Branch $branch): array => ['id' => $branch->id, 'name' => $branch->name])->values()->all()
+                    : [],
+            ],
             ...$this->formOptions($user),
         ]);
     }
@@ -64,7 +109,7 @@ final class ProjectController
         $user = auth()->user();
         abort_unless($user instanceof User, 403);
 
-        $project->load(['branch', 'customer', 'contract', 'manager', 'users', 'sites.manager', 'activities.site']);
+        $project->load(['branch.country', 'customer', 'contract', 'manager', 'users', 'sites.manager', 'activities.site']);
         $canViewFleet = $user->can('equipment.view');
         $canViewEstimates = $user->can('estimates.view');
         $canViewEstimateCosts = $user->can('estimates.view-costs');
@@ -142,7 +187,7 @@ final class ProjectController
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
 
-        /** @var array{branch_id: string, customer_id?: string|null, contract_id?: string|null, reference: string, name: string, description?: string|null, manager_id?: string|null, base_currency_code: string, budget_amount?: string|null, starts_on?: string|null, ends_on?: string|null, reporting_deadline?: string|null, status: string} $data */
+        /** @var array{branch_id: string, customer_id?: string|null, contract_id?: string|null, reference: string, name: string, project_type?: string|null, location?: string|null, description?: string|null, manager_id?: string|null, base_currency_code: string, budget_amount?: string|null, starts_on?: string|null, ends_on?: string|null, reporting_deadline?: string|null, status: string} $data */
         $data = $request->validated();
         $project = $action->handle($data, $actor);
 
@@ -158,13 +203,13 @@ final class ProjectController
         $actor = $request->user();
         abort_unless($actor instanceof User, 403);
 
-        /** @var array{branch_id: string, customer_id?: string|null, contract_id?: string|null, reference: string, name: string, description?: string|null, manager_id?: string|null, base_currency_code: string, budget_amount?: string|null, starts_on?: string|null, ends_on?: string|null, reporting_deadline?: string|null, status: string} $data */
+        /** @var array{branch_id: string, customer_id?: string|null, contract_id?: string|null, reference: string, name: string, project_type?: string|null, location?: string|null, description?: string|null, manager_id?: string|null, base_currency_code: string, budget_amount?: string|null, starts_on?: string|null, ends_on?: string|null, reporting_deadline?: string|null, status: string} $data */
         $data = $request->validated();
         $action->handle($data, $actor, $project);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Project updated.']);
 
-        return to_route('projects.show', $project);
+        return to_route('projects.index');
     }
 
     public function destroy(Project $project, AuditLogger $auditLogger, EndProjectDeployments $endDeployments): RedirectResponse
@@ -202,16 +247,20 @@ final class ProjectController
     private function formOptions(User $user): array
     {
         $tenantId = resolve(TenantContext::class)->id();
-        $branchIds = resolve(BranchContext::class)->accessibleBranchIds($user);
+        $branchContext = resolve(BranchContext::class);
+        $branchIds = $branchContext->accessibleBranchIds($user);
+        $defaultBranch = $branchContext->current($user) ?? $branchContext->operationalDefault($user);
 
         return [
+            'defaultBranchId' => $defaultBranch?->id,
             'branches' => Branch::query()
                 ->where('tenant_id', $tenantId)
                 ->where('status', 'active')
                 ->whereIn('id', $branchIds)
                 ->orderBy('name')
-                ->get(['id', 'name'])
-                ->map(fn (Branch $branch): array => ['id' => $branch->id, 'name' => $branch->name]),
+                ->with('country')
+                ->get(['id', 'name', 'country_code'])
+                ->map(fn (Branch $branch): array => ['id' => $branch->id, 'name' => $branch->name, 'country_code' => $branch->country_code, 'country_name' => $branch->country->name]),
             'customers' => Customer::query()
                 ->where('tenant_id', $tenantId)
                 ->where('status', 'active')
@@ -255,6 +304,7 @@ final class ProjectController
                 ->orderBy('currency_code')
                 ->get()
                 ->map(fn (TenantCurrency $currency): array => ['id' => $currency->currency_code, 'name' => sprintf('%s - %s', $currency->currency_code, $currency->currency->name)]),
+            'projectTypes' => collect(ProjectType::cases())->map(fn (ProjectType $type): array => ['id' => $type->value, 'name' => $type->label()])->values()->all(),
         ];
     }
 
@@ -270,10 +320,14 @@ final class ProjectController
             'contract_id' => $project->contract_id,
             'reference' => $project->reference,
             'name' => $project->name,
+            'project_type' => $project->project_type?->value,
+            'project_type_label' => $project->project_type?->label(),
+            'location' => $project->location,
             'description' => $project->description,
             'manager_id' => $project->manager_id,
             'manager_name' => $project->manager?->name,
             'branch_name' => $project->branch->name,
+            'branch_country_name' => $project->branch->country->name,
             'customer_name' => $project->customer?->name,
             'contract_reference' => $project->contract?->reference,
             'base_currency_code' => $project->base_currency_code,

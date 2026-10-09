@@ -3,6 +3,7 @@ import { format, parseISO } from 'date-fns';
 import { CheckCircle2, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
+import { StaffSectionNav } from '@/components/staff-section-nav';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +25,6 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { StaffSectionNav } from '@/components/staff-section-nav';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import {

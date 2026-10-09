@@ -17,6 +17,10 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    NativeSelect,
+    NativeSelectOption,
+} from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 import {
     Table,
@@ -338,6 +342,10 @@ export function AttendanceForm({
                             {totals.headcount.toLocaleString()} people,{' '}
                             {totals.hours.toLocaleString()} person-hours
                         </p>
+                        <p className="text-xs text-muted-foreground">
+                            Set each worker’s status in the table. Absent, sick,
+                            and authorized absence record zero working hours.
+                        </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <Button
@@ -354,18 +362,19 @@ export function AttendanceForm({
                             variant="outline"
                             disabled={form.data.records.length === 0}
                             onClick={() =>
-                                form.setData(
-                                    'records',
-                                    form.data.records.map((record) => ({
+                                form.setData((data) => ({
+                                    ...data,
+                                    records: data.records.map((record) => ({
                                         ...record,
                                         attendance_status: 'present',
                                         regular_hours_per_person:
-                                            record.regular_hours_per_person ===
-                                            '0'
-                                                ? '8'
-                                                : record.regular_hours_per_person,
+                                            Number(
+                                                record.regular_hours_per_person,
+                                            ) > 0
+                                                ? record.regular_hours_per_person
+                                                : '8',
                                     })),
-                                )
+                                }))
                             }
                         >
                             <CheckCircle2 />
@@ -441,13 +450,63 @@ export function AttendanceForm({
                                                     )?.name ?? 'Not set'}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {
-                                                        attendanceStatuses.find(
-                                                            (status) =>
-                                                                status.value ===
-                                                                record.attendance_status,
-                                                        )?.label
-                                                    }
+                                                    <NativeSelect
+                                                        aria-label={`Attendance status for ${worker?.name ?? record.worker_name_snapshot ?? company?.name ?? 'worker'}`}
+                                                        value={
+                                                            record.attendance_status
+                                                        }
+                                                        onChange={(event) => {
+                                                            const value =
+                                                                event.target
+                                                                    .value;
+                                                            form.setData(
+                                                                'records',
+                                                                form.data.records.map(
+                                                                    (entry) =>
+                                                                        entry.key ===
+                                                                        record.key
+                                                                            ? {
+                                                                                  ...entry,
+                                                                                  attendance_status:
+                                                                                      value,
+                                                                                  regular_hours_per_person:
+                                                                                      value ===
+                                                                                      'present'
+                                                                                          ? Number(
+                                                                                                entry.regular_hours_per_person,
+                                                                                            ) >
+                                                                                            0
+                                                                                              ? entry.regular_hours_per_person
+                                                                                              : '8'
+                                                                                          : '0',
+                                                                                  overtime_hours_per_person:
+                                                                                      value ===
+                                                                                      'present'
+                                                                                          ? entry.overtime_hours_per_person
+                                                                                          : '0',
+                                                                              }
+                                                                            : entry,
+                                                                ),
+                                                            );
+                                                        }}
+                                                    >
+                                                        {attendanceStatuses.map(
+                                                            (status) => (
+                                                                <NativeSelectOption
+                                                                    key={
+                                                                        status.value
+                                                                    }
+                                                                    value={
+                                                                        status.value
+                                                                    }
+                                                                >
+                                                                    {
+                                                                        status.label
+                                                                    }
+                                                                </NativeSelectOption>
+                                                            ),
+                                                        )}
+                                                    </NativeSelect>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     {record.headcount}

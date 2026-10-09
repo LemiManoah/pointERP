@@ -30,7 +30,7 @@ it('shows material masters and stores to an authorised quantity user without cos
         ->assertInertia(fn (Assert $page): Assert => $page
             ->component('operations/inventory/index')
             ->has('items', $itemCount)
-            ->has('stores', 1)
+            ->has('stores', 2)
             ->where('can.manageItems', false)
             ->where('can.viewCosts', false)
             ->missing('items.0.default_unit_cost')
@@ -43,6 +43,7 @@ it('lets a director create an item and store while preserving cost authority', f
     $unit = UnitOfMeasure::query()->where('code', 'BAG')->firstOrFail();
     $branch = $director->branches()->where('code', 'KLA-HQ')->firstOrFail();
     $director->tenant()->update(['multi_store_enabled' => true]);
+    resolve(TenantContext::class)->set($director->tenant()->firstOrFail());
 
     $this->actingAs($director)->post(route('inventory.items.store'), [
         'inventory_category_id' => $category->id,
@@ -145,7 +146,7 @@ it('shows the seeded item reference details and hides price lists without cost p
             ->has('conversions', 1)
             ->has('prices', 2)
             ->has('batches', 1)
-            ->has('storeSettings', 1)
+            ->has('stockBalances')
             ->where('can.manage', true)
             ->where('can.viewCosts', true));
 
@@ -188,6 +189,7 @@ it('authorises inventory mutations by permission and audits permanent deletion',
 
     $this->actingAs($siteManager)->post(route('inventory.items.conversions.store', $item), [
         'from_unit_id' => $unit->id,
+        'to_unit_id' => $item->stock_unit_id,
         'multiplier' => 1,
         'is_active' => true,
     ])->assertForbidden();

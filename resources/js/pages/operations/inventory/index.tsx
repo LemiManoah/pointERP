@@ -63,6 +63,7 @@ type Props = {
         createStore: boolean;
         managePriceLists: boolean;
         viewCosts: boolean;
+        viewStock: boolean;
         permanentlyDeleteItems: boolean;
         permanentlyDeleteStores: boolean;
     };
@@ -120,12 +121,23 @@ export default function InventoryIndex(props: Props) {
     );
     const action =
         tab === 'items' && props.can.manageItems ? (
-            <ItemDialog
-                categories={props.categories}
-                units={props.units}
-                suppliers={props.suppliers}
-                canViewCosts={props.can.viewCosts}
-            />
+            <div className="flex flex-wrap gap-2">
+                {props.can.viewStock && (
+                    <Button asChild variant="outline">
+                        <Link href="/inventory/stock">Stock balances</Link>
+                    </Button>
+                )}
+                <ItemDialog
+                    categories={props.categories}
+                    units={props.units}
+                    suppliers={props.suppliers}
+                    canViewCosts={props.can.viewCosts}
+                />
+            </div>
+        ) : tab === 'items' && props.can.viewStock ? (
+            <Button asChild variant="outline">
+                <Link href="/inventory/stock">Stock balances</Link>
+            </Button>
         ) : tab === 'categories' && props.can.manageCategories ? (
             <CategoryDialog />
         ) : tab === 'units' && props.can.manageUnits ? (
@@ -178,8 +190,9 @@ export default function InventoryIndex(props: Props) {
                                 setTab(value as InventoryTab);
                             }
                         }}
+                        className="max-w-full min-w-0"
                     >
-                        <TabsList>
+                        <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
                             <TabsTrigger value="items">Items</TabsTrigger>
                             <TabsTrigger value="categories">
                                 Categories
@@ -371,6 +384,12 @@ function ItemTable({
                             {props.can.manageItems && (
                                 <ItemDialog
                                     item={item}
+                                    initialOpen={
+                                        typeof window !== 'undefined' &&
+                                        new URLSearchParams(
+                                            window.location.search,
+                                        ).get('edit') === item.id
+                                    }
                                     categories={props.categories}
                                     units={props.units}
                                     suppliers={props.suppliers}

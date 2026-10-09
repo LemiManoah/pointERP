@@ -15,7 +15,6 @@ use App\Models\InventoryUnitConversion;
 use App\Models\User;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -92,7 +91,6 @@ final readonly class PosFormOptions
             ->where('is_active', true)
             ->where('is_for_sale', true)
             ->where('tracking_type', '!=', InventoryTrackingType::Serial->value)
-            ->whereHas('storeSettings', fn (Builder $query): Builder => $query->where('inventory_store_id', $store->id)->where('is_active', true))
             ->with(['category', 'stockUnit', 'conversions.fromUnit'])
             ->orderBy('name')
             ->get()
