@@ -23,9 +23,7 @@ type CartDetail = {
 export default function PosCheckout(props: Omit<Props, 'sales'>) {
     const confirm = useConfirmDialog();
     const [customerId, setCustomerId] = useState('');
-    const [method, setMethod] = useState('cash');
-    const [reference, setReference] = useState('');
-    const [paymentAmount, setPaymentAmount] = useState<string | null>(null);
+    const [payments, setPayments] = useState([{ method: 'cash', amount: '', reference: '' }]);
     const [cart] = useState<CartLine[]>(props.draft?.lines ?? []);
     const form = useForm({
         checkout_key: props.checkoutKey,
@@ -61,11 +59,7 @@ export default function PosCheckout(props: Omit<Props, 'sales'>) {
         0,
     );
     const total = Number(Math.max(subtotal - discount, 0).toFixed(4));
-    const enteredPaymentAmount =
-        paymentAmount === null ? total : Number(paymentAmount || 0);
-    const paidAmount = Number.isFinite(enteredPaymentAmount)
-        ? enteredPaymentAmount
-        : 0;
+    const paidAmount = Number(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0).toFixed(4));
     const balanceDue = Number(Math.max(total - paidAmount, 0).toFixed(4));
 
     const currencyCode = props.selected.currency_code;
@@ -90,10 +84,10 @@ export default function PosCheckout(props: Omit<Props, 'sales'>) {
         invalidLines ||
         cart.length === 0 ||
         total <= 0 ||
-        !Number.isFinite(enteredPaymentAmount) ||
+        payments.some((payment) => !Number.isFinite(Number(payment.amount)) || Number(payment.amount) < 0 || (Number(payment.amount) > 0 && payment.method !== 'cash' && !payment.reference.trim())) ||
+        !Number.isFinite(paidAmount) ||
         paidAmount < 0 ||
         paidAmount > total ||
-        (paidAmount > 0 && method !== 'cash' && reference.trim() === '') ||
         (balanceDue > 0 && (!canSellOnCredit || !customerId));
     function checkout() {
         if (cart.length === 0 || total <= 0) return;
@@ -106,16 +100,7 @@ export default function PosCheckout(props: Omit<Props, 'sales'>) {
                     ...data,
                     customer_id: customerId,
                     lines: cart,
-                    payments:
-                        paidAmount > 0
-                            ? [
-                                  {
-                                      method,
-                                      amount: paidAmount.toFixed(4),
-                                      reference,
-                                  },
-                              ]
-                            : [],
+                    payments: payments.filter((payment) => Number(payment.amount) > 0).map((payment) => ({ ...payment, amount: Number(payment.amount).toFixed(4) })),
                 }));
                 form.post(store.url(), { preserveScroll: true });
             },
@@ -126,17 +111,16 @@ export default function PosCheckout(props: Omit<Props, 'sales'>) {
         <AppLayout
             breadcrumbs={[
                 { title: 'POS', href: index.url() },
-                { title: 'Checkout', href: '#' },
+                { title: 'Payment', href: '#' },
             ]}
         >
-            <Head title="Checkout" />
+            <Head title="Payment" />
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 md:p-6">
                 <div className="flex items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-semibold">Checkout</h1>
+                        <h1 className="text-2xl font-semibold">Payment</h1>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            Review the sale, select a customer, and collect
-                            payment.
+                            Review the sale and record each payment method.
                         </p>
                     </div>
                     <Button variant="outline" asChild>
@@ -250,7 +234,7 @@ export default function PosCheckout(props: Omit<Props, 'sales'>) {
                     </Card>
                     <Card>
                         <CardHeader className="font-semibold">
-                            Customer & payment
+                            Customer & payments
                         </CardHeader>
                         <CardContent>
                             <form
@@ -274,59 +258,28 @@ export default function PosCheckout(props: Omit<Props, 'sales'>) {
                                         placeholder="Walk-in customer"
                                     />
                                 </Field>
-                                <Field label="Amount paid" required>
-                                    <Input
-                                        type="number"
-                                        min="0"
-                                        max={total}
-                                        step="0.0001"
-                                        value={
-                                            paymentAmount ??
-                                            (total > 0 ? total.toFixed(4) : '')
-                                        }
-                                        onChange={(event) =>
-                                            setPaymentAmount(event.target.value)
-                                        }
-                                    />
-                                    {balanceDue > 0 && (
-                                        <p
-                                            className={`text-xs ${canSellOnCredit ? 'text-muted-foreground' : 'text-destructive'}`}
-                                        >
-                                            {canSellOnCredit
-                                                ? `The remaining ${formatCurrencyAmount(currencyCode, balanceDue)} will be recorded as customer credit.`
-                                                : 'You do not have permission to leave a customer balance.'}
-                                        </p>
-                                    )}
-                                </Field>
-                                {paidAmount > 0 && (
-                                    <div className="grid gap-3 sm:grid-cols-2">
-                                        <Field label="Payment method">
-                                            <SearchableSelect
-                                                value={method}
-                                                onValueChange={setMethod}
-                                                options={paymentMethods}
-                                            />
-                                        </Field>
-                                        <Field
-                                            label="Payment reference"
-                                            required={method !== 'cash'}
-                                        >
-                                            <Input
-                                                value={reference}
-                                                onChange={(event) =>
-                                                    setReference(
-                                                        event.target.value,
-                                                    )
-                                                }
-                                                placeholder={
-                                                    method === 'cash'
-                                                        ? 'Optional'
-                                                        : 'Required'
-                                                }
-                                            />
-                                        </Field>
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <h2 className="font-medium">Payments</h2>
+                                        <Button type="button" variant="outline" size="sm" onClick={() => setPayments([...payments, { method: 'cash', amount: '', reference: '' }])}>Add payment method</Button>
                                     </div>
-                                )}
+                                    {payments.map((payment, index) => (
+                                        <div key={index} className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
+                                            <Field label={`Method ${index + 1}`}>
+                                                <SearchableSelect value={payment.method} onValueChange={(method) => setPayments(payments.map((row, rowIndex) => rowIndex === index ? { ...row, method, reference: method === 'cash' ? '' : row.reference } : row))} options={paymentMethods} />
+                                            </Field>
+                                            <Field label="Amount" required>
+                                                <Input type="number" min="0" step="0.0001" value={payment.amount} onChange={(event) => setPayments(payments.map((row, rowIndex) => rowIndex === index ? { ...row, amount: event.target.value } : row))} />
+                                                <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={() => setPayments(payments.map((row, rowIndex) => rowIndex === index ? { ...row, amount: Math.max(total - paidAmount + Number(row.amount || 0), 0).toFixed(4) } : row))}>Pay remaining</Button>
+                                            </Field>
+                                            <Field label="Reference" required={payment.method !== 'cash'}>
+                                                <Input value={payment.reference} onChange={(event) => setPayments(payments.map((row, rowIndex) => rowIndex === index ? { ...row, reference: event.target.value } : row))} placeholder={payment.method === 'cash' ? 'Optional' : 'Required'} />
+                                            </Field>
+                                            {payments.length > 1 && <div className="flex items-end"><Button type="button" variant="ghost" onClick={() => setPayments(payments.filter((_, rowIndex) => rowIndex !== index))}>Remove</Button></div>}
+                                        </div>
+                                    ))}
+                                    {balanceDue > 0 && <p className={`text-xs ${canSellOnCredit ? 'text-muted-foreground' : 'text-destructive'}`}>{canSellOnCredit ? `The remaining ${formatCurrencyAmount(currencyCode, balanceDue)} will be recorded as customer credit.` : 'You do not have permission to leave a customer balance.'}</p>}
+                                </div>
                                 <div className="space-y-1 border-t pt-3 text-sm">
                                     <Total
                                         label="Paid now"

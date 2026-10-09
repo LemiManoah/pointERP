@@ -288,9 +288,9 @@ export function PurchaseOrderForm({
                             </Button>
                         }
                     >
-                        <div className="overflow-x-auto rounded-md border">
-                            <table className="w-full min-w-[850px] table-fixed text-sm">
-                                <thead>
+                        <div className="min-w-0 rounded-md border p-2 md:overflow-x-auto md:p-0">
+                            <table className="block w-full text-sm md:table md:min-w-[850px] md:table-fixed">
+                                <thead className="hidden md:table-header-group">
                                     <tr className="border-b text-left text-muted-foreground">
                                         <Th className="w-[34%]">Item</Th>
                                         <Th className="w-[20%]">Unit</Th>
@@ -312,7 +312,7 @@ export function PurchaseOrderForm({
                                         </Th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody className="grid gap-3 md:table-row-group">
                                     {form.data.lines.map((line, index) => {
                                         const item = options.items.find(
                                             (row) =>
@@ -322,9 +322,9 @@ export function PurchaseOrderForm({
                                         return (
                                             <tr
                                                 key={index}
-                                                className="border-b last:border-0"
+                                                className="grid min-w-0 gap-2 rounded-md border p-3 last:border-0 md:table-row md:rounded-none md:border-0 md:border-b md:p-0"
                                             >
-                                                <Td>
+                                                <Td label="Item">
                                                     <SearchableSelect
                                                         value={
                                                             line.inventory_item_id
@@ -366,7 +366,7 @@ export function PurchaseOrderForm({
                                                         }
                                                     />
                                                 </Td>
-                                                <Td>
+                                                <Td label="Unit">
                                                     <SearchableSelect
                                                         value={
                                                             line.unit_of_measure_id
@@ -402,7 +402,7 @@ export function PurchaseOrderForm({
                                                         }
                                                     />
                                                 </Td>
-                                                <Td>
+                                                <Td label="Quantity">
                                                     <Input
                                                         type="number"
                                                         min="0"
@@ -428,7 +428,7 @@ export function PurchaseOrderForm({
                                                 </Td>
                                                 {options.canViewCosts && (
                                                     <>
-                                                        <Td>
+                                                        <Td label="Unit price">
                                                             <Input
                                                                 type="number"
                                                                 min="0"
@@ -461,7 +461,7 @@ export function PurchaseOrderForm({
                                                                 }
                                                             />
                                                         </Td>
-                                                        <Td className="font-medium">
+                                                        <Td label="Total" className="font-medium">
                                                             {formatCurrencyAmount(
                                                                 form.data
                                                                     .currency_code,
@@ -477,7 +477,7 @@ export function PurchaseOrderForm({
                                                         </Td>
                                                     </>
                                                 )}
-                                                <Td>
+                                                <Td label="Actions">
                                                     <Button
                                                         type="button"
                                                         variant="ghost"
@@ -724,9 +724,11 @@ function Th({
 function Td({
     children,
     className = '',
+    label,
 }: {
     children: ReactNode;
     className?: string;
+    label?: string;
 }) {
-    return <td className={`px-3 py-3 align-top ${className}`}>{children}</td>;
+    return <td className={`block min-w-0 py-1 align-top md:table-cell md:px-3 md:py-3 ${className}`}>{label && <span className="mb-1 block text-xs font-medium text-muted-foreground md:hidden">{label}</span>}{children}</td>;
 }

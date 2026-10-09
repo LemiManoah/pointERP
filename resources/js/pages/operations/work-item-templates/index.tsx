@@ -426,7 +426,7 @@ export default function WorkItemTemplatesIndex({
                                         className="flex cursor-pointer flex-col gap-3 p-4 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"
                                         onClick={() => toggleExpand(item.id)}
                                     >
-                                        <div className="flex items-start gap-3">
+                                        <div className="flex min-w-0 items-start gap-3">
                                             <button
                                                 type="button"
                                                 className="mt-1 text-muted-foreground hover:text-foreground"
@@ -441,7 +441,7 @@ export default function WorkItemTemplatesIndex({
                                                     <ChevronRight className="size-5" />
                                                 )}
                                             </button>
-                                            <div>
+                                            <div className="min-w-0">
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     <Badge
                                                         variant="outline"
@@ -455,7 +455,7 @@ export default function WorkItemTemplatesIndex({
                                                     >
                                                         {item.category}
                                                     </Badge>
-                                                    <span className="text-base font-semibold">
+                                                    <span className="min-w-0 break-words text-base font-semibold">
                                                         {item.name}
                                                     </span>
                                                     <span className="font-mono text-xs text-muted-foreground">
@@ -473,7 +473,7 @@ export default function WorkItemTemplatesIndex({
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-6 self-end sm:self-auto">
+                                        <div className="grid w-full grid-cols-2 gap-3 sm:w-auto sm:flex sm:items-center sm:gap-6">
                                             <div className="text-right">
                                                 <div className="text-xs text-muted-foreground">
                                                     Dynamic Unit Cost
@@ -569,7 +569,17 @@ export default function WorkItemTemplatesIndex({
                                                     defined for this template.
                                                 </p>
                                             ) : (
-                                                <div className="overflow-x-auto rounded border bg-background">
+                                                <div className="grid gap-2 sm:hidden">
+                                                    {item.resources.map((res, index) => (
+                                                        <div key={index} className="rounded-md border bg-background p-3 text-sm">
+                                                            <div className="flex items-start justify-between gap-2"><span className="font-medium">{res.name}</span><Badge variant="secondary">{res.resource_type}</Badge></div>
+                                                            <p className="mt-1 text-muted-foreground">{res.quantity_per_work_unit} {res.unit_symbol || ''} per work unit</p>
+                                                            <p className="mt-1">Unit cost: {Number(res.unit_cost) > 0 ? formatCurrencyAmount(currencyCode, Number(res.unit_cost)) : '—'}</p>
+                                                            {res.notes && <p className="mt-1 text-muted-foreground">{res.notes}</p>}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="hidden overflow-x-auto rounded border bg-background sm:block">
                                                     <table className="w-full text-left text-xs">
                                                         <thead className="border-b bg-muted/50 text-muted-foreground">
                                                             <tr>
@@ -679,7 +689,7 @@ export default function WorkItemTemplatesIndex({
 
                 {/* Create/Edit Modal */}
                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                    <DialogContent className="max-h-[92vh] w-[96vw] overflow-y-auto sm:max-w-6xl">
+                    <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto sm:max-h-[92vh] sm:w-[96vw] sm:max-w-6xl">
                         <DialogHeader>
                             <DialogTitle>
                                 {editingTemplate
@@ -697,7 +707,7 @@ export default function WorkItemTemplatesIndex({
                             onSubmit={handleSubmit}
                             className="flex flex-col gap-5 py-2"
                         >
-                            <div className="grid gap-4 sm:grid-cols-3">
+                            <div className="grid min-w-0 gap-4 sm:grid-cols-3">
                                 <div>
                                     <Label htmlFor="category">Category *</Label>
                                     <SearchableSelect
@@ -710,10 +720,6 @@ export default function WorkItemTemplatesIndex({
                                             form.setData('category', value)
                                         }
                                         placeholder="Select category"
-                                    />
-                                    <InputError
-                                        message={form.errors.category}
-                                        className="mt-1"
                                     />
                                     <InputError
                                         message={form.errors.category}
@@ -854,8 +860,8 @@ export default function WorkItemTemplatesIndex({
                             </div>
 
                             {/* Resource Recipe Sub-form */}
-                            <div className="mt-2 flex flex-col gap-3 rounded-lg border bg-muted/20 p-4">
-                                <div className="flex items-center justify-between">
+                            <div className="mt-2 flex min-w-0 flex-col gap-3 rounded-lg border bg-muted/20 p-3 sm:p-4">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div>
                                         <h4 className="text-sm font-semibold">
                                             Resource Assumptions (Norms)
@@ -881,7 +887,7 @@ export default function WorkItemTemplatesIndex({
                                     {form.data.resources.map((res, index) => (
                                         <div
                                             key={index}
-                                            className="grid items-center gap-3 rounded-lg border bg-background p-3.5 shadow-xs sm:grid-cols-[10rem_minmax(14rem,1fr)_8rem_9rem_3rem]"
+                                            className="grid min-w-0 items-center gap-3 rounded-lg border bg-background p-3.5 shadow-xs xl:grid-cols-[10rem_minmax(14rem,1fr)_8rem_9rem_3rem]"
                                         >
                                             <div>
                                                 <Label className="text-xs font-medium text-muted-foreground">

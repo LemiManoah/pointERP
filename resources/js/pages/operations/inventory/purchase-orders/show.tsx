@@ -231,7 +231,17 @@ export default function PurchaseOrderShow({ purchaseOrder: po, can }: Props) {
                         <CardTitle className="text-base">Order lines</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="overflow-x-auto">
+                        <div className="grid gap-3 md:hidden">
+                            {po.lines.map((line) => (
+                                <div key={line.id} className="rounded-md border p-3 text-sm">
+                                    <p className="font-medium">{line.item_name_snapshot}</p>
+                                    <p className="text-muted-foreground">{line.item_code_snapshot} · {line.unit_symbol_snapshot}</p>
+                                    <div className="mt-2 grid grid-cols-2 gap-2"><span>Ordered: {formatNumber(line.ordered_quantity)}</span><span>Accepted: {formatNumber(line.accepted_quantity)}</span><span>Rejected: {formatNumber(line.rejected_quantity)}</span><span>Outstanding: {formatNumber(line.outstanding_quantity)}</span></div>
+                                    {can.viewCosts && <p className="mt-2">{formatCurrencyAmount(po.currency_code, line.unit_price)} per unit · {formatCurrencyAmount(po.currency_code, line.line_amount)}</p>}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="hidden overflow-x-auto md:block">
                             <table className="w-full min-w-[900px] text-sm">
                                 <thead>
                                     <tr className="border-b text-left text-muted-foreground">
@@ -315,7 +325,7 @@ export default function PurchaseOrderShow({ purchaseOrder: po, can }: Props) {
                             {po.receipts.map((receipt) => (
                                 <div
                                     key={receipt.id}
-                                    className="flex justify-between border-b py-3 last:border-0"
+                                    className="flex flex-col gap-1 border-b py-3 last:border-0 sm:flex-row sm:justify-between"
                                 >
                                     <span>{receipt.reference}</span>
                                     <span className="text-muted-foreground">

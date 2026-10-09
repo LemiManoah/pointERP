@@ -10,6 +10,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
+import { index as stockReceipts } from '@/routes/inventory/direct-receipts';
 import { formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
@@ -80,6 +81,9 @@ export default function InventoryStockIndex({
                         </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                        <Button asChild variant="outline">
+                            <Link href={stockReceipts.url()}>Stock receipts</Link>
+                        </Button>
                         {canExport && (
                             <Button asChild variant="outline">
                                 <a href="/inventory/stock/export">
@@ -123,7 +127,7 @@ export default function InventoryStockIndex({
                             setStatus(value as 'all' | 'low')
                         }
                     >
-                        <TabsList>
+                        <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
                             <TabsTrigger value="all">All stock</TabsTrigger>
                             <TabsTrigger value="low">Low stock</TabsTrigger>
                         </TabsList>

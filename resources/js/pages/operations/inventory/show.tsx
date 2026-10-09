@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
+import { index as inventoryIndex } from '@/routes/inventory';
 import {
     formatCurrencyAmount,
     formatDateTime,
@@ -177,6 +178,11 @@ export default function InventoryItemShow(props: Props) {
                     </div>
                     <div className="flex gap-2">
                         {props.can.manage && (
+                            <Button variant="outline" asChild>
+                                <Link href={inventoryIndex.url({ query: { tab: 'items', status: item.is_active ? 'active' : 'inactive', edit: item.id } })}>Edit item</Link>
+                            </Button>
+                        )}
+                        {props.can.manage && (
                             <Button
                                 variant={
                                     item.is_active ? 'destructive' : 'secondary'
@@ -230,8 +236,8 @@ export default function InventoryItemShow(props: Props) {
                     </div>
                 </div>
 
-                <Tabs defaultValue={props.activeTab}>
-                    <TabsList className="flex h-auto flex-wrap justify-start">
+                <Tabs defaultValue={props.activeTab} className="min-w-0 max-w-full">
+                    <TabsList className="h-auto max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="conversions">
                             Unit conversions

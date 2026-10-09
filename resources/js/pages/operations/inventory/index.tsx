@@ -190,8 +190,9 @@ export default function InventoryIndex(props: Props) {
                                 setTab(value as InventoryTab);
                             }
                         }}
+                        className="min-w-0 max-w-full"
                     >
-                        <TabsList>
+                        <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
                             <TabsTrigger value="items">Items</TabsTrigger>
                             <TabsTrigger value="categories">
                                 Categories
@@ -383,6 +384,7 @@ function ItemTable({
                             {props.can.manageItems && (
                                 <ItemDialog
                                     item={item}
+                                    initialOpen={typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('edit') === item.id}
                                     categories={props.categories}
                                     units={props.units}
                                     suppliers={props.suppliers}

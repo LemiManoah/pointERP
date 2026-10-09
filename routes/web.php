@@ -251,6 +251,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('inventory/receipts/{inventoryGoodsReceipt}', [InventoryGoodsReceiptController::class, 'show'])->name('inventory.receipts.show');
     Route::get('inventory/stock-movements', [InventoryStockMovementController::class, 'index'])->name('inventory.movements.index');
     Route::get('inventory/add-stock', [InventoryDirectReceiptController::class, 'create'])->name('inventory.direct-receipts.create');
+    Route::get('inventory/stock-receipts', [InventoryDirectReceiptController::class, 'index'])->name('inventory.direct-receipts.index');
     Route::post('inventory/add-stock', [InventoryDirectReceiptController::class, 'store'])->name('inventory.direct-receipts.store');
     Route::get('inventory/add-stock/{inventoryDirectReceipt}', [InventoryDirectReceiptController::class, 'show'])->name('inventory.direct-receipts.show');
     Route::get('inventory/transfers', [InventoryTransferController::class, 'index'])->name('inventory.transfers.index');

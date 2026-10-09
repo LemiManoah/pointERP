@@ -13,12 +13,21 @@ final readonly class ExpenseRegisterExport
 {
     public function __construct(private BranchContext $branchContext) {}
 
-    /** @return array{headers: list<string>, rows: list<list<string>>} */
-    public function for(User $user): array
+    /**
+     * @param array<string, mixed> $filters
+     * @return array{headers: list<string>, rows: list<list<string>>}
+     */
+    public function for(User $user, array $filters = []): array
     {
         $expenses = Expense::query()
             ->with(['branch', 'lines.project', 'payments'])
             ->whereIn('branch_id', $this->branchContext->accessibleBranchIds($user))
+            ->when($filters['date_from'] ?? null, fn ($query, $date) => $query->whereDate('expense_date', '>=', $date))
+            ->when($filters['date_to'] ?? null, fn ($query, $date) => $query->whereDate('expense_date', '<=', $date))
+            ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when($filters['branch'] ?? null, fn ($query, $branch) => $query->whereHas('branch', fn ($branchQuery) => $branchQuery->where('name', $branch)))
+            ->when($filters['project'] ?? null, fn ($query, $project) => $query->whereHas('lines.project', fn ($projectQuery) => $projectQuery->where('name', $project)))
+            ->when($filters['category'] ?? null, fn ($query, $category) => $query->whereHas('lines', fn ($lineQuery) => $lineQuery->where('expense_category_name_snapshot', $category)))
             ->latest('expense_date')
             ->get()
             ->filter(fn (Expense $expense): bool => Gate::forUser($user)->allows('view', $expense))

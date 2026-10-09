@@ -290,18 +290,20 @@ export function UnitDialog({ unit }: { unit?: Unit }) {
 
 export function ItemDialog({
     item,
+    initialOpen = false,
     categories,
     units,
     suppliers,
     canViewCosts,
 }: {
     item?: Item;
+    initialOpen?: boolean;
     categories: Category[];
     units: Unit[];
     suppliers: Option[];
     canViewCosts: boolean;
 }) {
-    const [open, setOpen] = useState(false);
+    const [open, setOpen] = useState(initialOpen);
     const [codeEdited, setCodeEdited] = useState(item !== undefined);
     const { form, submit } = useModalForm(
         {

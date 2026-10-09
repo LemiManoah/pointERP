@@ -48,8 +48,8 @@ it('guards direct stock receipts and posts an idempotent receipt movement', func
 
     $this->actingAs($siteManager)->get(route('inventory.direct-receipts.create'))->assertForbidden();
     $this->actingAs($storeKeeper)->get(route('inventory.direct-receipts.create'))->assertOk();
-    $this->actingAs($storeKeeper)->post(route('inventory.direct-receipts.store'), $payload)->assertRedirect('/inventory/stock');
-    $this->actingAs($storeKeeper)->post(route('inventory.direct-receipts.store'), $payload)->assertRedirect('/inventory/stock');
+    $this->actingAs($storeKeeper)->post(route('inventory.direct-receipts.store'), $payload)->assertRedirect(route('inventory.direct-receipts.index'));
+    $this->actingAs($storeKeeper)->post(route('inventory.direct-receipts.store'), $payload)->assertRedirect(route('inventory.direct-receipts.index'));
 
     $receipt = InventoryDirectReceipt::query()->where('receipt_key', $receiptKey)->firstOrFail();
     expect(InventoryDirectReceipt::query()->where('receipt_key', $receiptKey)->count())->toBe(1)
@@ -83,6 +83,17 @@ it('records a batch while adding batch-tracked stock', function (): void {
     expect(InventoryStockMovement::query()->where('inventory_batch_id', $batch->id)->value('quantity'))->toBe('20.0000');
 });
 
+it('shows direct stock receipts in a dedicated history page', function (): void {
+    $storeKeeper = User::query()->where('email', 'store.kla@point.test')->firstOrFail();
+
+    $this->actingAs($storeKeeper)
+        ->get(route('inventory.direct-receipts.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page): Assert => $page
+            ->component('operations/inventory/direct-receipts/index')
+            ->has('receipts.data'));
+});
+
 it('makes active items available in a new store and records only store-specific quantity', function (): void {
     $storeKeeper = User::query()->where('email', 'store.kla@point.test')->firstOrFail();
     $branch = $storeKeeper->branches()->firstOrFail();
@@ -114,7 +125,7 @@ it('makes active items available in a new store and records only store-specific 
             'unit_of_measure_id' => $item->stock_unit_id,
             'quantity' => '3',
         ]],
-    ])->assertRedirect('/inventory/stock');
+    ])->assertRedirect(route('inventory.direct-receipts.index'));
 
     expect((float) resolve(InventoryStockBalance::class)->for($store, $item)['on_hand'])->toBe(3.0)
         ->and(InventoryStockMovement::query()->where('inventory_store_id', $store->id)->where('inventory_item_id', $item->id)->exists())->toBeTrue();
