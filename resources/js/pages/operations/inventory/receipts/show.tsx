@@ -51,7 +51,7 @@ export default function GoodsReceiptShow({ receipt, canViewCosts }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={receipt.reference} />
-            <div className="flex min-w-0 flex-1 flex-col gap-6 p-4 md:p-6 print:block print:p-0">
+            <div className="flex min-w-0 flex-1 flex-col gap-6 p-4 md:p-6 print:block print:p-[12mm]">
                 <div className="flex flex-wrap items-start justify-between gap-4 print:hidden">
                     <div>
                         <div className="flex items-center gap-3">

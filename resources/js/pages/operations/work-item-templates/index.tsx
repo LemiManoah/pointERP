@@ -569,6 +569,7 @@ export default function WorkItemTemplatesIndex({
                                                     defined for this template.
                                                 </p>
                                             ) : (
+                                                <>
                                                 <div className="grid gap-2 sm:hidden">
                                                     {item.resources.map((res, index) => (
                                                         <div key={index} className="rounded-md border bg-background p-3 text-sm">
@@ -678,6 +679,7 @@ export default function WorkItemTemplatesIndex({
                                                         </tbody>
                                                     </table>
                                                 </div>
+                                                </>
                                             )}
                                         </div>
                                     )}

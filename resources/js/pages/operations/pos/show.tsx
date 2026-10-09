@@ -77,7 +77,7 @@ export default function PosShow({
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={sale.sale_number} />
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
+            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6 print:block print:p-[12mm]">
                 <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
                     <div>
                         <Button asChild variant="ghost" className="mb-2 -ml-3">
@@ -105,7 +105,7 @@ export default function PosShow({
                         </Button>
                     </div>
                 </div>
-                <Card className="mx-auto w-full max-w-4xl">
+                <Card className="mx-auto w-full max-w-4xl print:max-w-none print:border-0 print:bg-white print:text-black print:shadow-none">
                     <CardHeader className="border-b">
                         <div className="flex flex-wrap items-start justify-between gap-4">
                             <div>
