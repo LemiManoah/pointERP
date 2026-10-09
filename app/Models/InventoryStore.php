@@ -63,12 +63,6 @@ final class InventoryStore extends Model
         return $this->hasMany(InventoryStockMovement::class);
     }
 
-    /** @return HasMany<InventoryStoreItem, $this> */
-    public function storeSettings(): HasMany
-    {
-        return $this->hasMany(InventoryStoreItem::class);
-    }
-
     /**
      * @param  Builder<InventoryStore>  $query
      * @return Builder<InventoryStore>

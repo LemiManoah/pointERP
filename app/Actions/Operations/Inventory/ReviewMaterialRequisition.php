@@ -6,8 +6,8 @@ namespace App\Actions\Operations\Inventory;
 
 use App\Enums\InventoryReservationStatus;
 use App\Enums\MaterialRequisitionStatus;
+use App\Models\InventoryItem;
 use App\Models\InventoryReservation;
-use App\Models\InventoryStoreItem;
 use App\Models\MaterialRequisition;
 use App\Models\MaterialRequisitionLine;
 use App\Models\User;
@@ -72,12 +72,8 @@ final readonly class ReviewMaterialRequisition
                 continue;
             }
 
-            $storeItem = InventoryStoreItem::query()->where('inventory_store_id', $requisition->inventory_store_id)->where('inventory_item_id', $line->inventory_item_id)->where('is_active', true)->lockForUpdate()->first();
-            if (! $storeItem instanceof InventoryStoreItem) {
-                throw ValidationException::withMessages(['lines' => $line->item_name_snapshot.' is not enabled in the selected source store.']);
-            }
-
-            $available = BigDecimal::of($this->balances->for($requisition->store, $storeItem->item)['available']);
+            $item = InventoryItem::query()->where('is_active', true)->findOrFail($line->inventory_item_id);
+            $available = BigDecimal::of($this->balances->for($requisition->store, $item)['available']);
             if ($approved->isGreaterThan($available)) {
                 throw ValidationException::withMessages([
                     'lines' => $line->item_name_snapshot.' cannot be approved for '.$approved->toScale(4).' stock units because only '.$available->toScale(4).' are currently available in '.$requisition->store->name.'. Reduce the approved quantity or replenish the store first.',

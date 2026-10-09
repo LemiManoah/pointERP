@@ -27,6 +27,10 @@ final readonly class SaveInventoryUnitConversion
             throw ValidationException::withMessages(['to_unit_id' => 'Choose a different unit.']);
         }
 
+        if ($fromUnit->quantity_dimension !== $toUnit->quantity_dimension) {
+            throw ValidationException::withMessages(['to_unit_id' => 'Choose a unit with the same measurement dimension.']);
+        }
+
         if ($fromUnit->id !== $stockUnit->id && $toUnit->id !== $stockUnit->id) {
             throw ValidationException::withMessages([
                 'to_unit_id' => 'One side of the conversion must be the item stock unit ('.$stockUnit->name.').',

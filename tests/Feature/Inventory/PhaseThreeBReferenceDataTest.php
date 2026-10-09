@@ -145,7 +145,7 @@ it('shows the seeded item reference details and hides price lists without cost p
             ->has('conversions', 1)
             ->has('prices', 2)
             ->has('batches', 1)
-            ->has('storeSettings', 1)
+            ->has('stockBalances')
             ->where('can.manage', true)
             ->where('can.viewCosts', true));
 

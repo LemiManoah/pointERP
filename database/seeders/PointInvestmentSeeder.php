@@ -66,7 +66,6 @@ use App\Models\InventoryItem;
 use App\Models\InventoryItemPrice;
 use App\Models\InventoryPriceTier;
 use App\Models\InventoryStore;
-use App\Models\InventoryStoreItem;
 use App\Models\InventoryUnitConversion;
 use App\Models\Project;
 use App\Models\ProjectActivity;
@@ -433,12 +432,6 @@ final class PointInvestmentSeeder extends Seeder
                 ],
             );
 
-            foreach ($inventoryItems as $item) {
-                InventoryStoreItem::query()->updateOrCreate(
-                    ['inventory_store_id' => $siteStore->id, 'inventory_item_id' => $item->id],
-                    ['tenant_id' => $tenantId, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
-                );
-            }
         }
 
         InventoryUnitConversion::query()->updateOrCreate(
@@ -465,29 +458,6 @@ final class PointInvestmentSeeder extends Seeder
             ['tenant_id' => $tenantId, 'inventory_item_id' => $inventoryItems['CEM-42']->id, 'batch_number' => 'CEM-42-2026-08'],
             ['inventory_store_id' => $kampalaStore->id, 'manufactured_on' => now()->subMonth()->toDateString(), 'expires_on' => now()->addMonths(5)->toDateString(), 'status' => InventoryBatchStatus::Available->value, 'notes' => 'Demo cement batch for the Ironpoint store.', 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
         );
-        foreach ([[$kampalaStore, '250', '500', 'Aisle A / Cement bay']] as [$store, $minimumStock, $reorderQuantity, $storageLocation]) {
-            /** @var InventoryStore $store */
-            InventoryStoreItem::query()->updateOrCreate(
-                ['inventory_store_id' => $store->id, 'inventory_item_id' => $inventoryItems['CEM-42']->id],
-                ['tenant_id' => $tenantId, 'minimum_stock' => $minimumStock, 'reorder_quantity' => $reorderQuantity, 'storage_location' => $storageLocation, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
-            );
-        }
-
-        foreach ([['AGG-20', '25', '100', 'Aggregate yard'], ['PPE-VEST', '20', '50', 'PPE cage']] as [$itemCode, $minimumStock, $reorderQuantity, $storageLocation]) {
-            InventoryStoreItem::query()->updateOrCreate(
-                ['inventory_store_id' => $kampalaStore->id, 'inventory_item_id' => $inventoryItems[$itemCode]->id],
-                ['tenant_id' => $tenantId, 'minimum_stock' => $minimumStock, 'reorder_quantity' => $reorderQuantity, 'storage_location' => $storageLocation, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
-            );
-        }
-
-        foreach ([[$kampalaStore, '100', '250', 'Pilot receipt bay']] as [$store, $minimumStock, $reorderQuantity, $storageLocation]) {
-            /** @var InventoryStore $store */
-            InventoryStoreItem::query()->updateOrCreate(
-                ['inventory_store_id' => $store->id, 'inventory_item_id' => $inventoryItems['CEM-PILOT']->id],
-                ['tenant_id' => $tenantId, 'minimum_stock' => $minimumStock, 'reorder_quantity' => $reorderQuantity, 'storage_location' => $storageLocation, 'is_active' => true, 'created_by' => $director->id, 'updated_by' => $director->id],
-            );
-        }
-
         $stockPosting = resolve(PostInventoryStockMovement::class);
         foreach ([
             [$inventoryItems['CEM-42'], $kampalaStore, $units['BAG'], $cementBatch, '1200', 'seed:opening:cem-42:kla'],

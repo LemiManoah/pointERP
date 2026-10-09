@@ -18,6 +18,50 @@ use Illuminate\Support\Collection;
 
 final class InventoryStockBalance
 {
+    /**
+     * @param list<string> $storeIds
+     * @param list<string> $itemIds
+     * @return array<string, array{on_hand: string, reserved: string, available: string}>
+     */
+    public function forStoresAndItems(array $storeIds, array $itemIds): array
+    {
+        if ($storeIds === [] || $itemIds === []) {
+            return [];
+        }
+
+        $movementTotals = InventoryStockMovement::query()
+            ->whereIn('inventory_store_id', $storeIds)
+            ->whereIn('inventory_item_id', $itemIds)
+            ->selectRaw('inventory_store_id, inventory_item_id, SUM(quantity) as quantity')
+            ->groupBy('inventory_store_id', 'inventory_item_id')
+            ->get()
+            ->keyBy(fn (InventoryStockMovement $row): string => $row->inventory_store_id.':'.$row->inventory_item_id);
+        $reservationTotals = InventoryReservation::query()
+            ->whereIn('inventory_store_id', $storeIds)
+            ->whereIn('inventory_item_id', $itemIds)
+            ->whereIn('status', [InventoryReservationStatus::Active->value, InventoryReservationStatus::PartiallyIssued->value])
+            ->selectRaw('inventory_store_id, inventory_item_id, SUM(reserved_quantity - issued_quantity - released_quantity) as quantity')
+            ->groupBy('inventory_store_id', 'inventory_item_id')
+            ->get()
+            ->keyBy(fn (InventoryReservation $row): string => $row->inventory_store_id.':'.$row->inventory_item_id);
+
+        $balances = [];
+        foreach ($storeIds as $storeId) {
+            foreach ($itemIds as $itemId) {
+                $key = $storeId.':'.$itemId;
+                $onHand = BigDecimal::of((string) ($movementTotals->get($key)->quantity ?? 0));
+                $reserved = BigDecimal::of((string) ($reservationTotals->get($key)->quantity ?? 0));
+                $balances[$key] = [
+                    'on_hand' => (string) $onHand->toScale(4),
+                    'reserved' => (string) $reserved->toScale(4),
+                    'available' => (string) $onHand->minus($reserved)->toScale(4),
+                ];
+            }
+        }
+
+        return $balances;
+    }
+
     /** @return array{on_hand: string, reserved: string, available: string} */
     public function for(InventoryStore $store, InventoryItem $item): array
     {

@@ -7,7 +7,6 @@ namespace App\Actions\Operations\Inventory;
 use App\Enums\InventoryMovementStatus;
 use App\Enums\InventoryMovementType;
 use App\Models\InventoryStockMovement;
-use App\Models\InventoryStoreItem;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\InventoryStockBalance;
@@ -28,7 +27,6 @@ final readonly class ReverseInventoryStockMovement
                 throw ValidationException::withMessages(['movement' => 'This movement is already a reversal or has already been reversed.']);
             }
 
-            InventoryStoreItem::query()->where('inventory_store_id', $movement->inventory_store_id)->where('inventory_item_id', $movement->inventory_item_id)->lockForUpdate()->firstOrFail();
             $reversalQuantity = BigDecimal::of($movement->quantity)->negated();
             $current = BigDecimal::of($this->balances->for($movement->store, $movement->item)['on_hand']);
             if ($current->plus($reversalQuantity)->isNegative()) {

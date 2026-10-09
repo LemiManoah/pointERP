@@ -7,7 +7,6 @@ namespace App\Actions\Operations\Inventory;
 use App\Enums\InventoryApprovalStatus;
 use App\Models\InventoryItem;
 use App\Models\InventoryStore;
-use App\Models\InventoryStoreItem;
 use App\Models\InventoryTransfer;
 use App\Models\InventoryTransferLine;
 use App\Models\User;
@@ -16,7 +15,6 @@ use App\Services\InventoryQuantityConverter;
 use App\Services\TenantContext;
 use Brick\Math\BigDecimal;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 final readonly class TransferInventoryItems
 {
@@ -45,11 +43,6 @@ final readonly class TransferInventoryItems
 
             foreach ($lines as $index => $line) {
                 $item = InventoryItem::query()->where('is_active', true)->findOrFail($line['inventory_item_id']);
-                $enabledStoreCount = InventoryStoreItem::query()->where('inventory_item_id', $item->id)->where('is_active', true)->whereIn('inventory_store_id', [$source->id, $destination->id])->count();
-                if ($enabledStoreCount !== 2) {
-                    throw ValidationException::withMessages([sprintf('lines.%d.inventory_item_id', $index) => 'The item must be enabled in both stores before it can be transferred.']);
-                }
-
                 $multiplier = $this->converter->multiplier($item, (string) $line['unit_of_measure_id']);
                 $quantity = BigDecimal::of((string) $line['quantity']);
                 InventoryTransferLine::query()->create([

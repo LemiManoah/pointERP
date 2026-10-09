@@ -14,8 +14,12 @@ final class StoreUnitOfMeasureRequest extends FormRequest
     /** @return array<string, list<mixed>> */
     public function rules(): array
     {
+        $codeRules = $this->route('unitOfMeasure') !== null
+            ? ['required', 'string', 'max:30', Rule::unique('unit_of_measures', 'code')->where('tenant_id', resolve(TenantContext::class)->id())->ignore($this->route('unitOfMeasure')?->id)]
+            : ['prohibited'];
+
         return [
-            'code' => ['required', 'string', 'max:30', Rule::unique('unit_of_measures', 'code')->where('tenant_id', resolve(TenantContext::class)->id())->ignore($this->route('unitOfMeasure')?->id)],
+            'code' => $codeRules,
             'name' => ['required', 'string', 'max:100'],
             'symbol' => ['nullable', 'string', 'max:20'],
             'quantity_dimension' => ['required', Rule::enum(UnitDimension::class)],

@@ -4,18 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Enums\InventoryTrackingType;
 use App\Models\Branch;
-use App\Models\InventoryBatch;
+use App\Models\InventoryItem;
 use App\Models\InventoryStore;
-use App\Models\InventoryStoreItem;
 use App\Models\InventoryUnitConversion;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
 final readonly class InventoryStoreStockOptions
 {
-    public function __construct(private BranchContext $branchContext, private InventoryStockBalance $balances) {}
+    public function __construct(private BranchContext $branchContext) {}
 
     /** @return Collection<int, string> */
     public function accessibleStoreIds(User $actor): Collection
@@ -36,10 +34,16 @@ final readonly class InventoryStoreStockOptions
     /** @return Collection<int, array<string, mixed>> */
     public function stores(User $actor): Collection
     {
+        $items = InventoryItem::query()
+            ->where('is_active', true)
+            ->with(['stockUnit', 'conversions.fromUnit'])
+            ->orderBy('name')
+            ->get();
+
         /** @var Collection<int, array<string, mixed>> $stores */
         $stores = InventoryStore::query()
             ->whereIn('id', $this->accessibleStoreIds($actor))
-            ->with(['branch', 'storeSettings.item.stockUnit', 'storeSettings.item.conversions.fromUnit'])
+            ->with('branch')
             ->orderBy('name')
             ->get()
             ->map(fn (InventoryStore $store): array => [
@@ -48,9 +52,8 @@ final readonly class InventoryStoreStockOptions
                 'name' => $store->name,
                 'code' => $store->code,
                 'branch_name' => $store->branch->name,
-                'items' => $store->storeSettings
-                    ->filter(fn (InventoryStoreItem $setting): bool => $setting->is_active && $setting->item->is_active)
-                    ->map(fn (InventoryStoreItem $setting): array => $this->itemOption($store, $setting))
+                'items' => $items
+                    ->map(fn (InventoryItem $item): array => $this->itemOption($item))
                     ->values()
                     ->all(),
             ]);
@@ -59,10 +62,8 @@ final readonly class InventoryStoreStockOptions
     }
 
     /** @return array<string, mixed> */
-    private function itemOption(InventoryStore $store, InventoryStoreItem $setting): array
+    private function itemOption(InventoryItem $item): array
     {
-        $item = $setting->item;
-
         return [
             'id' => $item->id,
             'name' => $item->name,
@@ -80,14 +81,6 @@ final readonly class InventoryStoreStockOptions
                 'name' => $conversion->fromUnit->name,
                 'symbol' => $conversion->fromUnit->symbol,
             ]))->unique('id')->values()->all(),
-            'system_quantity' => $this->balances->for($store, $item)['on_hand'],
-            'batches' => $item->tracking_type === InventoryTrackingType::Batch
-                ? InventoryBatch::query()->where('inventory_item_id', $item->id)->where('is_active', true)->orderBy('batch_number')->get()->map(fn (InventoryBatch $batch): array => [
-                    'id' => $batch->id,
-                    'batch_number' => $batch->batch_number,
-                    'system_quantity' => $this->balances->forBatch($store, $item, $batch->id),
-                ])->values()
-                : [],
         ];
     }
 }

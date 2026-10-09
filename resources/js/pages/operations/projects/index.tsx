@@ -141,7 +141,10 @@ export default function ProjectsIndex({
                     />
                 </div>
 
-                <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+                <div
+                    aria-label="Project filters"
+                    className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center xl:flex-nowrap"
+                >
                     <div className="relative min-w-0 flex-1">
                         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
@@ -152,59 +155,62 @@ export default function ProjectsIndex({
                         />
                     </div>
                     {branchFilter.visible && (
+                        <div className="w-full sm:w-40 sm:flex-none">
+                            <NativeSelect
+                                aria-label="Filter projects by branch"
+                                value={branchId}
+                                onChange={(event) => setBranchId(event.target.value)}
+                            >
+                                <NativeSelectOption value="">All branches</NativeSelectOption>
+                                {branchFilter.branches.map((branch) => (
+                                    <NativeSelectOption key={branch.id} value={branch.id}>
+                                        {branch.name}
+                                    </NativeSelectOption>
+                                ))}
+                            </NativeSelect>
+                        </div>
+                    )}
+                    <div className="w-full sm:w-40 sm:flex-none">
                         <NativeSelect
-                            aria-label="Filter projects by branch"
-                            value={branchId}
-                            onChange={(event) => setBranchId(event.target.value)}
-                            className="w-full xl:w-44 xl:flex-none"
+                            aria-label="Filter projects by status"
+                            value={statusFilter}
+                            onChange={(event) => setStatusFilter(event.target.value)}
                         >
-                            <NativeSelectOption value="">All branches</NativeSelectOption>
-                            {branchFilter.branches.map((branch) => (
-                                <NativeSelectOption key={branch.id} value={branch.id}>
-                                    {branch.name}
+                            <NativeSelectOption value="all">All statuses</NativeSelectOption>
+                            <NativeSelectOption value="planned">Planned</NativeSelectOption>
+                            <NativeSelectOption value="active">Active</NativeSelectOption>
+                            <NativeSelectOption value="on_hold">On hold</NativeSelectOption>
+                            <NativeSelectOption value="completed">Completed</NativeSelectOption>
+                            <NativeSelectOption value="closed">Closed</NativeSelectOption>
+                            <NativeSelectOption value="archived">Archived</NativeSelectOption>
+                        </NativeSelect>
+                    </div>
+                    <div className="w-full sm:w-44 sm:flex-none">
+                        <NativeSelect
+                            aria-label="Filter projects by manager"
+                            value={managerId}
+                            onChange={(event) => setManagerId(event.target.value)}
+                        >
+                            <NativeSelectOption value="all">All managers</NativeSelectOption>
+                            <NativeSelectOption value="unassigned">Unassigned</NativeSelectOption>
+                            {managerOptions.map(([id, name]) => (
+                                <NativeSelectOption key={id} value={id}>
+                                    {name}
                                 </NativeSelectOption>
                             ))}
                         </NativeSelect>
-                    )}
-                    <NativeSelect
-                        aria-label="Filter projects by status"
-                        value={statusFilter}
-                        onChange={(event) => setStatusFilter(event.target.value)}
-                        className="w-full xl:w-44 xl:flex-none"
-                    >
-                        <NativeSelectOption value="all">All statuses</NativeSelectOption>
-                        <NativeSelectOption value="planned">Planned</NativeSelectOption>
-                        <NativeSelectOption value="active">Active</NativeSelectOption>
-                        <NativeSelectOption value="on_hold">On hold</NativeSelectOption>
-                        <NativeSelectOption value="completed">Completed</NativeSelectOption>
-                        <NativeSelectOption value="closed">Closed</NativeSelectOption>
-                        <NativeSelectOption value="archived">Archived</NativeSelectOption>
-                    </NativeSelect>
-                    <NativeSelect
-                        aria-label="Filter projects by manager"
-                        value={managerId}
-                        onChange={(event) => setManagerId(event.target.value)}
-                        className="w-full xl:w-48 xl:flex-none"
-                    >
-                        <NativeSelectOption value="all">All managers</NativeSelectOption>
-                        <NativeSelectOption value="unassigned">Unassigned</NativeSelectOption>
-                        {managerOptions.map(([id, name]) => (
-                            <NativeSelectOption key={id} value={id}>
-                                {name}
-                            </NativeSelectOption>
-                        ))}
-                    </NativeSelect>
+                    </div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                     {summaryCards.map((card) => {
                         return (
-                            <Card key={card.label} className="overflow-hidden">
-                                <CardContent className="min-h-24 p-4">
-                                    <p className="text-sm font-medium text-muted-foreground">
+                            <Card key={card.label}>
+                                <CardContent className="px-3 py-2.5">
+                                    <p className="text-xs font-medium text-muted-foreground">
                                         {card.label}
                                     </p>
-                                    <p className="mt-1 text-2xl font-semibold tracking-tight">
+                                    <p className="mt-0.5 text-xl font-semibold tracking-tight">
                                         {formatNumber(card.value)}
                                     </p>
                                 </CardContent>

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Actions\Operations\Inventory;
 
 use App\Enums\PurchaseOrderStatus;
-use App\Models\InventoryStoreItem;
+use App\Models\InventoryItem;
+use App\Models\InventoryStore;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderLine;
 use App\Models\Tenant;
@@ -50,44 +51,44 @@ final readonly class ProcessInventoryAlerts
      */
     private function processStock(Collection $users, CarbonImmutable $asOf, array &$result): void
     {
-        $settings = InventoryStoreItem::query()->where('is_active', true)->with(['store', 'item.stockUnit'])->get();
+        $stores = InventoryStore::query()->where('is_active', true)->with('branch')->get();
+        $items = InventoryItem::query()->where('is_active', true)->whereNotNull('minimum_stock')->with('stockUnit')->get();
+        $balanceMap = $this->balances->forStoresAndItems($stores->pluck('id')->all(), $items->pluck('id')->all());
 
-        foreach ($settings as $setting) {
-            $minimum = $setting->minimum_stock ?? $setting->item->minimum_stock;
-            if ($minimum === null) {
-                continue;
+        foreach ($stores as $store) {
+            foreach ($items as $item) {
+                $minimum = $item->minimum_stock;
+                $available = $balanceMap[$store->id.':'.$item->id]['available'];
+                $isLow = BigDecimal::of($available)->isLessThanOrEqualTo((string) $minimum);
+                $key = 'inventory-stock:'.$store->id.':'.$item->id;
+                $recipients = $this->recipients($users, 'inventory.stock.view', $store->branch_id);
+                $latestState = $this->latestState($recipients, $key);
+
+                if (! $isLow && $latestState !== 'low') {
+                    continue;
+                }
+
+                $state = $isLow ? 'low' : 'recovered';
+                if ($this->recentlySent($recipients, $key, $state, $asOf, $isLow ? 7 : 30)) {
+                    continue;
+                }
+
+                $this->notifications->send($recipients, [
+                    'tenant_id' => $item->tenant_id,
+                    'branch_id' => $store->branch_id,
+                    'inventory_item_id' => $item->id,
+                    'inventory_store_id' => $store->id,
+                    'alert_key' => $key,
+                    'alert_state' => $state,
+                    'category' => 'inventory_stock',
+                    'severity' => $isLow ? 'warning' : 'success',
+                    'title' => $isLow ? 'Inventory item is low in stock' : 'Inventory stock level recovered',
+                    'message' => sprintf('%s at %s has %s %s available (minimum %s).', $item->name, $store->name, $available, $item->stockUnit->symbol ?? $item->stockUnit->name, $minimum),
+                    'action_url' => '/inventory/items/'.$item->id.'?tab=stock',
+                ]);
+                $result[$isLow ? 'low_stock' : 'recovered']++;
+                $result['notifications'] += $recipients->count();
             }
-
-            $available = $this->balances->for($setting->store, $setting->item)['available'];
-            $isLow = BigDecimal::of($available)->isLessThanOrEqualTo((string) $minimum);
-            $key = 'inventory-stock:'.$setting->id;
-            $recipients = $this->recipients($users, 'inventory.stock.view', $setting->store->branch_id);
-            $latestState = $this->latestState($recipients, $key);
-
-            if (! $isLow && $latestState !== 'low') {
-                continue;
-            }
-
-            $state = $isLow ? 'low' : 'recovered';
-            if ($this->recentlySent($recipients, $key, $state, $asOf, $isLow ? 7 : 30)) {
-                continue;
-            }
-
-            $this->notifications->send($recipients, [
-                'tenant_id' => $setting->tenant_id,
-                'branch_id' => $setting->store->branch_id,
-                'inventory_item_id' => $setting->item->id,
-                'inventory_store_id' => $setting->store->id,
-                'alert_key' => $key,
-                'alert_state' => $state,
-                'category' => 'inventory_stock',
-                'severity' => $isLow ? 'warning' : 'success',
-                'title' => $isLow ? 'Inventory item is low in stock' : 'Inventory stock level recovered',
-                'message' => sprintf('%s at %s has %s %s available (minimum %s).', $setting->item->name, $setting->store->name, $available, $setting->item->stockUnit->symbol ?? $setting->item->stockUnit->name, $minimum),
-                'action_url' => '/inventory/items/'.$setting->item->id.'?tab=stock',
-            ]);
-            $result[$isLow ? 'low_stock' : 'recovered']++;
-            $result['notifications'] += $recipients->count();
         }
     }
 

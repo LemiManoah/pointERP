@@ -152,11 +152,6 @@ final readonly class CompletePosSale
                 throw ValidationException::withMessages([sprintf('lines.%d.inventory_item_id', $index) => 'Serial-tracked items are not available in POS yet.']);
             }
 
-            $enabled = $item->storeSettings()->where('inventory_store_id', $store->id)->where('is_active', true)->exists();
-            if (! $enabled) {
-                throw ValidationException::withMessages([sprintf('lines.%d.inventory_item_id', $index) => $item->name.' is not enabled in the selected store.']);
-            }
-
             $unit = UnitOfMeasure::query()->findOrFail((string) $data['unit_of_measure_id']);
             $quantity = BigDecimal::of((string) $data['quantity']);
             $multiplier = $this->converter->multiplier($item, $unit->id);

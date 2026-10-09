@@ -92,7 +92,6 @@ type InventoryItemOption = {
     stock_unit_id: string;
     stock_unit: string;
     tracking_type: string;
-    store_ids: string[];
     units: InventoryUnitOption[];
     batches: Array<{
         id: string;
@@ -3108,16 +3107,10 @@ function LineCard({
     function selectInventoryItem(index: number, itemId: string) {
         const item = inventoryItems.find((option) => option.id === itemId);
         const currentStoreId = String(lines[index]?.inventory_store_id ?? '');
-        const storeId = item?.store_ids.includes(currentStoreId)
+        const storeId = inventoryStores.some((store) => store.id === currentStoreId)
             ? currentStoreId
-            : (inventoryStores.find(
-                  (store) =>
-                      store.is_default_for_site &&
-                      item?.store_ids.includes(store.id),
-              )?.id ??
-              inventoryStores.find((store) =>
-                  item?.store_ids.includes(store.id),
-              )?.id ??
+            : (inventoryStores.find((store) => store.is_default_for_site)?.id ??
+              inventoryStores[0]?.id ??
               '');
         onChange(
             lines.map((line, lineIndex) =>
@@ -3502,21 +3495,7 @@ function LineCard({
                                                         value,
                                                     )
                                                 }
-                                                options={inventoryStores
-                                                    .filter((store) => {
-                                                        const item =
-                                                            inventoryItems.find(
-                                                                (option) =>
-                                                                    option.id ===
-                                                                    currentLine.inventory_item_id,
-                                                            );
-                                                        return (
-                                                            item?.store_ids.includes(
-                                                                store.id,
-                                                            ) ?? false
-                                                        );
-                                                    })
-                                                    .map((store) => ({
+                                                options={inventoryStores.map((store) => ({
                                                         value: store.id,
                                                         label: store.name,
                                                         description:

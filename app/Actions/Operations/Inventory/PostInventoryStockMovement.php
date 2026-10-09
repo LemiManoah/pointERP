@@ -12,7 +12,6 @@ use App\Models\InventoryItem;
 use App\Models\InventoryReservation;
 use App\Models\InventoryStockMovement;
 use App\Models\InventoryStore;
-use App\Models\InventoryStoreItem;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\InventoryQuantityConverter;
@@ -31,11 +30,6 @@ final readonly class PostInventoryStockMovement
     public function handle(InventoryStore $store, InventoryItem $item, array $data, User $actor): InventoryStockMovement
     {
         return DB::transaction(function () use ($actor, $data, $item, $store): InventoryStockMovement {
-            $storeItem = InventoryStoreItem::query()->where('inventory_store_id', $store->id)->where('inventory_item_id', $item->id)->lockForUpdate()->first();
-            if (! $storeItem instanceof InventoryStoreItem || ! $storeItem->is_active) {
-                throw ValidationException::withMessages(['inventory_item_id' => 'Enable this item in the selected store before posting stock.']);
-            }
-
             $existing = InventoryStockMovement::query()->where('source_key', $data['source_key'])->first();
             if ($existing instanceof InventoryStockMovement) {
                 if ($existing->inventory_store_id !== $store->id || $existing->inventory_item_id !== $item->id) {

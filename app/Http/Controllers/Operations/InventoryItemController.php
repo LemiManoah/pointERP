@@ -13,13 +13,13 @@ use App\Models\InventoryItemPrice;
 use App\Models\InventoryPriceTier;
 use App\Models\InventoryStockMovement;
 use App\Models\InventoryStore;
-use App\Models\InventoryStoreItem;
 use App\Models\InventoryUnitConversion;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\BranchContext;
 use App\Services\InventoryStockBalance;
+use App\Services\InventoryStoreStockOptions;
 use App\Services\TenantContext;
 use App\Support\Operations\PresentsLinkedDocuments;
 use Illuminate\Database\Eloquent\Builder;
@@ -66,8 +66,9 @@ final class InventoryItemController
         $defaultPriceBranch = $branchContext->current($actor) ?? $branchContext->operationalDefault($actor);
         abort_unless($defaultPriceBranch instanceof Branch, 403);
         $canChangePriceBranch = $actor->can('inventory.prices.change-branch') && count($branchIds) > 1;
-        $inventoryItem->load(['category', 'stockUnit', 'preferredSupplier', 'conversions.fromUnit', 'conversions.toUnit', 'prices.tier', 'prices.unit', 'prices.branch', 'batches.store', 'storeSettings.store.branch']);
-        $storeSettings = $inventoryItem->storeSettings->filter(fn (InventoryStoreItem $setting): bool => in_array($setting->store->branch_id, $branchIds, true));
+        $inventoryItem->load(['category', 'stockUnit', 'preferredSupplier', 'conversions.fromUnit', 'conversions.toUnit', 'prices.tier', 'prices.unit', 'prices.branch', 'batches.store']);
+        $stores = InventoryStore::query()->whereIn('id', resolve(InventoryStoreStockOptions::class)->accessibleStoreIds($actor))->with('branch')->orderBy('name')->get();
+        $balanceMap = $stockBalance->forStoresAndItems($stores->pluck('id')->all(), [$inventoryItem->id]);
         $movements = InventoryStockMovement::query()->where('inventory_item_id', $inventoryItem->id)->whereIn('branch_id', $branchIds)->with(['store', 'originalUnit', 'batch', 'postedBy'])->latest('posted_at')->limit(100)->get();
 
         return Inertia::render('operations/inventory/show', [
@@ -87,7 +88,7 @@ final class InventoryItemController
                 'default_selling_price' => $canViewCosts ? $inventoryItem->default_selling_price : null,
                 'is_active' => $inventoryItem->is_active,
                 'category' => $inventoryItem->category?->only(['id', 'name']),
-                'stock_unit' => $inventoryItem->stockUnit->only(['id', 'name', 'symbol']),
+                'stock_unit' => $inventoryItem->stockUnit->only(['id', 'name', 'symbol', 'quantity_dimension']),
                 'preferred_supplier' => $inventoryItem->preferredSupplier?->only(['id', 'name']),
             ],
             'conversions' => $inventoryItem->conversions->map(fn (InventoryUnitConversion $conversion): array => [
@@ -128,20 +129,10 @@ final class InventoryItemController
                 'notes' => $batch->notes,
                 'is_active' => $batch->is_active,
             ]),
-            'storeSettings' => $storeSettings->map(fn (InventoryStoreItem $setting): array => [
-                'id' => $setting->id,
-                'inventory_store_id' => $setting->inventory_store_id,
-                'store_name' => $setting->store->name,
-                'branch_name' => $setting->store->branch->name,
-                'minimum_stock' => $setting->minimum_stock,
-                'reorder_quantity' => $setting->reorder_quantity,
-                'storage_location' => $setting->storage_location,
-                'is_active' => $setting->is_active,
-            ]),
-            'stockBalances' => $storeSettings->filter(fn (InventoryStoreItem $setting): bool => $setting->is_active)->map(function (InventoryStoreItem $setting) use ($inventoryItem, $stockBalance): array {
-                $balance = $stockBalance->for($setting->store, $inventoryItem);
+            'stockBalances' => $stores->map(function (InventoryStore $store) use ($inventoryItem, $balanceMap): array {
+                $balance = $balanceMap[$store->id.':'.$inventoryItem->id];
 
-                return ['store_id' => $setting->store->id, 'store_name' => $setting->store->name, 'branch_name' => $setting->store->branch->name, 'minimum_stock' => $setting->minimum_stock ?? $inventoryItem->minimum_stock, ...$balance];
+                return ['store_id' => $store->id, 'store_name' => $store->name, 'branch_name' => $store->branch->name, 'minimum_stock' => $inventoryItem->minimum_stock, ...$balance];
             })->values(),
             'stockMovements' => $movements->map(fn (InventoryStockMovement $movement): array => [
                 'id' => $movement->id, 'store_name' => $movement->store->name, 'movement_type' => $movement->movement_type->value,
@@ -150,8 +141,7 @@ final class InventoryItemController
                 'reason' => $movement->reason, 'posted_by' => $movement->postedBy->name, 'posted_at' => $movement->posted_at->format('d M Y, H:i'),
                 'reversed_at' => $movement->reversed_at?->toDateTimeString(),
             ]),
-            'units' => UnitOfMeasure::query()->where(fn (Builder $query): Builder => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenant->id))->where('is_active', true)->orderBy('name')->get()->map(fn (UnitOfMeasure $unit): array => ['id' => $unit->id, 'name' => $unit->name, 'code' => $unit->code, 'symbol' => $unit->symbol]),
-            'stores' => InventoryStore::query()->visibleTo($actor)->where('is_active', true)->with('branch')->orderBy('name')->get()->map(fn (InventoryStore $store): array => ['id' => $store->id, 'name' => $store->name, 'code' => $store->code, 'branch_name' => $store->branch->name]),
+            'units' => UnitOfMeasure::query()->where(fn (Builder $query): Builder => $query->whereNull('tenant_id')->orWhere('tenant_id', $tenant->id))->where('is_active', true)->orderBy('name')->get()->map(fn (UnitOfMeasure $unit): array => ['id' => $unit->id, 'name' => $unit->name, 'code' => $unit->code, 'symbol' => $unit->symbol, 'quantity_dimension' => $unit->quantity_dimension->value]),
             'branches' => Branch::query()->whereIn('id', $branchIds)->where('status', 'active')->orderBy('name')->get(['id', 'name', 'code', 'default_currency_code']),
             'defaultPriceBranchId' => $defaultPriceBranch->id,
             'canChangePriceBranch' => $canChangePriceBranch,
@@ -170,7 +160,7 @@ final class InventoryItemController
                 'returnStock' => $actor->can('inventory.stock.return'),
                 'reverseStock' => $actor->can('inventory.stock.reverse'),
             ],
-            'activeTab' => request()->string('tab', 'overview')->toString(),
+            'activeTab' => request()->string('tab', 'overview')->toString() === 'stores' ? 'stock' : request()->string('tab', 'overview')->toString(),
         ]);
     }
 

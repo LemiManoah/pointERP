@@ -63,6 +63,7 @@ type Props = {
         createStore: boolean;
         managePriceLists: boolean;
         viewCosts: boolean;
+        viewStock: boolean;
         permanentlyDeleteItems: boolean;
         permanentlyDeleteStores: boolean;
     };
@@ -120,12 +121,23 @@ export default function InventoryIndex(props: Props) {
     );
     const action =
         tab === 'items' && props.can.manageItems ? (
-            <ItemDialog
-                categories={props.categories}
-                units={props.units}
-                suppliers={props.suppliers}
-                canViewCosts={props.can.viewCosts}
-            />
+            <div className="flex flex-wrap gap-2">
+                {props.can.viewStock && (
+                    <Button asChild variant="outline">
+                        <Link href="/inventory/stock">Stock balances</Link>
+                    </Button>
+                )}
+                <ItemDialog
+                    categories={props.categories}
+                    units={props.units}
+                    suppliers={props.suppliers}
+                    canViewCosts={props.can.viewCosts}
+                />
+            </div>
+        ) : tab === 'items' && props.can.viewStock ? (
+            <Button asChild variant="outline">
+                <Link href="/inventory/stock">Stock balances</Link>
+            </Button>
         ) : tab === 'categories' && props.can.manageCategories ? (
             <CategoryDialog />
         ) : tab === 'units' && props.can.manageUnits ? (
