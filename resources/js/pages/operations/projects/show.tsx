@@ -220,9 +220,11 @@ export default function ProjectShow({
                         </div>
                         <p className="mt-1 text-sm text-muted-foreground">
                             {project.reference} · {project.branch_name}
-                            {project.branch_country_name && ` · ${project.branch_country_name}`}
+                            {project.branch_country_name &&
+                                ` · ${project.branch_country_name}`}
                             {project.location && ` · ${project.location}`}
-                            {' · '}{project.manager_name ?? 'No manager'}
+                            {' · '}
+                            {project.manager_name ?? 'No manager'}
                         </p>
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">

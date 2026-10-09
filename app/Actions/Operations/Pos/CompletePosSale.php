@@ -62,7 +62,7 @@ final readonly class CompletePosSale
         $store = InventoryStore::query()->whereKey((string) $data['inventory_store_id'])->where('branch_id', $branch->id)->where('is_active', true)->firstOrFail();
         $tier = InventoryPriceTier::query()->whereKey((string) $data['inventory_price_tier_id'])->where('is_active', true)->firstOrFail();
         $customer = isset($data['customer_id']) ? Customer::query()->whereKey((string) $data['customer_id'])->where('status', 'active')->firstOrFail() : null;
-        $prepared = $this->prepareLines($data['lines'], $store, $tier, $branch, $actor);
+        $prepared = $this->prepareLines($data['lines'], $tier, $branch, $actor);
         /** @var list<PosPaymentData> $payments */
         $payments = $data['payments'];
         $subtotal = collect($prepared)->reduce(fn (BigDecimal $sum, array $line): BigDecimal => $sum->plus($line['gross']), BigDecimal::zero());
@@ -138,7 +138,7 @@ final readonly class CompletePosSale
      *     discount: BigDecimal
      * }>
      */
-    private function prepareLines(mixed $lines, InventoryStore $store, InventoryPriceTier $tier, Branch $branch, User $actor): array
+    private function prepareLines(mixed $lines, InventoryPriceTier $tier, Branch $branch, User $actor): array
     {
         if (! is_array($lines)) {
             throw ValidationException::withMessages(['lines' => 'Add at least one item to the cart.']);

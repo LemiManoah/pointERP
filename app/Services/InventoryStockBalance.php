@@ -19,8 +19,8 @@ use Illuminate\Support\Collection;
 final class InventoryStockBalance
 {
     /**
-     * @param list<string> $storeIds
-     * @param list<string> $itemIds
+     * @param  list<string>  $storeIds
+     * @param  list<string>  $itemIds
      * @return array<string, array{on_hand: string, reserved: string, available: string}>
      */
     public function forStoresAndItems(array $storeIds, array $itemIds): array

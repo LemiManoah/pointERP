@@ -196,20 +196,20 @@ final readonly class InventoryOperationsReport
             ->with(['stockUnit', 'category'])->get();
 
         return $stores->flatMap(fn (InventoryStore $store) => $items->map(function (InventoryItem $item) use ($movementTotals, $reservationTotals, $store): array {
-                $key = $store->id.':'.$item->id;
-                $onHand = BigDecimal::of((string) ($movementTotals->get($key)->quantity ?? 0));
-                $reserved = BigDecimal::of((string) ($reservationTotals->get($key)->quantity ?? 0));
-                $available = $onHand->minus($reserved);
-                $minimum = $item->minimum_stock;
+            $key = $store->id.':'.$item->id;
+            $onHand = BigDecimal::of((string) ($movementTotals->get($key)->quantity ?? 0));
+            $reserved = BigDecimal::of((string) ($reservationTotals->get($key)->quantity ?? 0));
+            $available = $onHand->minus($reserved);
+            $minimum = $item->minimum_stock;
 
-                return [
-                    'id' => $store->id.':'.$item->id, 'item_id' => $item->id, 'item_code' => $item->code, 'item_name' => $item->name,
-                    'category' => $item->category?->name, 'store_id' => $store->id, 'store_name' => $store->name,
-                    'branch_name' => $store->branch->name, 'unit' => $item->stockUnit->symbol ?? $item->stockUnit->name,
-                    'on_hand' => (string) $onHand->toScale(4), 'reserved' => (string) $reserved->toScale(4), 'available' => (string) $available->toScale(4),
-                    'minimum_stock' => $minimum, 'is_low_stock' => $minimum !== null && $available->isLessThanOrEqualTo((string) $minimum),
-                ];
-            }))->values();
+            return [
+                'id' => $store->id.':'.$item->id, 'item_id' => $item->id, 'item_code' => $item->code, 'item_name' => $item->name,
+                'category' => $item->category?->name, 'store_id' => $store->id, 'store_name' => $store->name,
+                'branch_name' => $store->branch->name, 'unit' => $item->stockUnit->symbol ?? $item->stockUnit->name,
+                'on_hand' => (string) $onHand->toScale(4), 'reserved' => (string) $reserved->toScale(4), 'available' => (string) $available->toScale(4),
+                'minimum_stock' => $minimum, 'is_low_stock' => $minimum !== null && $available->isLessThanOrEqualTo((string) $minimum),
+            ];
+        }))->values();
     }
 
     /**

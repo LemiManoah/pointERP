@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
+import { StaffSectionNav } from '@/components/staff-section-nav';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,8 +23,9 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import { StaffSectionNav } from '@/components/staff-section-nav';
 import AppLayout from '@/layouts/app-layout';
+import * as staffRoutes from '@/routes/resources/staff';
+import * as workerRoutes from '@/routes/workforce/workers';
 import type { BreadcrumbItem } from '@/types';
 import { StaffDialog } from './partials/staff-dialog';
 import type { Option, Staff } from './partials/staff-form';
@@ -88,7 +90,9 @@ export default function StaffIndex({
                     <div className="grid gap-4">
                         <div>
                             <h1 className="text-2xl font-semibold">
-                                {isWorker ? 'Project Workforce' : 'Company Staff'}
+                                {isWorker
+                                    ? 'Project Workforce'
+                                    : 'Company Staff'}
                             </h1>
                         </div>
                         <div className="relative">
@@ -115,7 +119,9 @@ export default function StaffIndex({
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <StaffSectionNav active={isWorker ? 'workforce' : 'company'} />
+                    <StaffSectionNav
+                        active={isWorker ? 'workforce' : 'company'}
+                    />
                     <Tabs value={status} onValueChange={setStatus}>
                         <TabsList>
                             <TabsTrigger value="active">Active</TabsTrigger>
@@ -238,9 +244,13 @@ export default function StaffIndex({
                                                                     : 'default',
                                                             onConfirm: () =>
                                                                 router.delete(
-                                                                    routes.destroy.url(
-                                                                        staffMember.id,
-                                                                    ),
+                                                                    isWorker
+                                                                        ? workerRoutes.destroy.url(
+                                                                              staffMember.id,
+                                                                          )
+                                                                        : staffRoutes.destroy.url(
+                                                                              staffMember.id,
+                                                                          ),
                                                                     {
                                                                         preserveScroll: true,
                                                                     },

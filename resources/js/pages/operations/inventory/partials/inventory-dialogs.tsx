@@ -99,20 +99,18 @@ export function CategoryDialog({ category }: { category?: Category }) {
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={submit} className="grid gap-5">
-                    <div className={`grid gap-4 ${unit ? 'sm:grid-cols-2' : ''}`}>
-                        {unit && (
-                            <Field label="Code" error={form.errors.code}>
-                                <Input
-                                    value={form.data.code}
-                                    onChange={(e) =>
-                                        form.setData(
-                                            'code',
-                                            e.target.value.toUpperCase(),
-                                        )
-                                    }
-                                />
-                            </Field>
-                        )}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Code" error={form.errors.code}>
+                            <Input
+                                value={form.data.code}
+                                onChange={(e) =>
+                                    form.setData(
+                                        'code',
+                                        e.target.value.toUpperCase(),
+                                    )
+                                }
+                            />
+                        </Field>
                         <Field label="Name" error={form.errors.name}>
                             <Input
                                 value={form.data.name}
@@ -186,18 +184,22 @@ export function UnitDialog({ unit }: { unit?: Unit }) {
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={submit} className="grid gap-5">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <Field label="Code" error={form.errors.code}>
-                            <Input
-                                value={form.data.code}
-                                onChange={(e) =>
-                                    form.setData(
-                                        'code',
-                                        e.target.value.toUpperCase(),
-                                    )
-                                }
-                            />
-                        </Field>
+                    <div
+                        className={`grid gap-4 ${unit ? 'sm:grid-cols-2' : ''}`}
+                    >
+                        {unit && (
+                            <Field label="Code" error={form.errors.code}>
+                                <Input
+                                    value={form.data.code}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'code',
+                                            e.target.value.toUpperCase(),
+                                        )
+                                    }
+                                />
+                            </Field>
+                        )}
                         <Field label="Name" error={form.errors.name}>
                             <Input
                                 value={form.data.name}
@@ -277,7 +279,10 @@ export function UnitDialog({ unit }: { unit?: Unit }) {
                         </label>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                        This identifies the reference unit for the dimension; the system does not convert through this flag automatically. Define conversions separately on each inventory item.
+                        This identifies the reference unit for the dimension;
+                        the system does not convert through this flag
+                        automatically. Define conversions separately on each
+                        inventory item.
                     </p>
                     <Button type="submit" disabled={form.processing}>
                         {unit ? 'Save changes' : 'Create unit'}

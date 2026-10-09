@@ -178,7 +178,11 @@ export default function ExpenseIndex(props: Props) {
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                    <Tabs value={tab} onValueChange={changeTab} className="min-w-0 max-w-full">
+                    <Tabs
+                        value={tab}
+                        onValueChange={changeTab}
+                        className="max-w-full min-w-0"
+                    >
                         <TabsList className="h-auto max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
                             <TabsTrigger value="expenses">Expenses</TabsTrigger>
                             {props.can.viewPayments && (
@@ -635,17 +639,37 @@ function Reports({
     const [project, setProject] = useState('');
     const [category, setCategory] = useState('');
     const branches = [...new Set(expenses.map((row) => row.branch))].sort();
-    const projects = [...new Set(expenses.flatMap((row) => row.projects.split(', ').filter((name) => name && name !== 'Branch overhead')))].sort();
-    const reportCategories = [...new Set(expenses.flatMap((row) => row.categories))].sort();
-    const filtered = expenses.filter((row) =>
-        (!dateFrom || row.expense_date >= dateFrom) &&
-        (!dateTo || row.expense_date <= dateTo) &&
-        (!reportStatus || row.status === reportStatus) &&
-        (!branch || row.branch === branch) &&
-        (!project || row.projects.split(', ').includes(project)) &&
-        (!category || row.categories.includes(category)),
+    const projects = [
+        ...new Set(
+            expenses.flatMap((row) =>
+                row.projects
+                    .split(', ')
+                    .filter((name) => name && name !== 'Branch overhead'),
+            ),
+        ),
+    ].sort();
+    const reportCategories = [
+        ...new Set(expenses.flatMap((row) => row.categories)),
+    ].sort();
+    const filtered = expenses.filter(
+        (row) =>
+            (!dateFrom || row.expense_date >= dateFrom) &&
+            (!dateTo || row.expense_date <= dateTo) &&
+            (!reportStatus || row.status === reportStatus) &&
+            (!branch || row.branch === branch) &&
+            (!project || row.projects.split(', ').includes(project)) &&
+            (!category || row.categories.includes(category)),
     );
-    const query = new URLSearchParams(Object.entries({ date_from: dateFrom, date_to: dateTo, status: reportStatus, branch, project, category }).filter(([, value]) => value));
+    const query = new URLSearchParams(
+        Object.entries({
+            date_from: dateFrom,
+            date_to: dateTo,
+            status: reportStatus,
+            branch,
+            project,
+            category,
+        }).filter(([, value]) => value),
+    );
     const exportQuery = query.toString();
     const approved = filtered.filter((row) => row.status === 'approved');
     const outstanding = approved.filter((row) => Number(row.balance ?? 0) > 0);
@@ -665,30 +689,89 @@ function Reports({
     return (
         <div className="grid gap-5">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                <label className="grid gap-1 text-sm">From <Input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label>
-                <label className="grid gap-1 text-sm">To <Input type="date" value={dateTo} min={dateFrom} onChange={(event) => setDateTo(event.target.value)} /></label>
-                <label className="grid gap-1 text-sm">Status
-                    <select className="h-9 rounded-md border bg-background px-2" value={reportStatus} onChange={(event) => setReportStatus(event.target.value)}>
+                <label className="grid gap-1 text-sm">
+                    From{' '}
+                    <Input
+                        type="date"
+                        value={dateFrom}
+                        onChange={(event) => setDateFrom(event.target.value)}
+                    />
+                </label>
+                <label className="grid gap-1 text-sm">
+                    To{' '}
+                    <Input
+                        type="date"
+                        value={dateTo}
+                        min={dateFrom}
+                        onChange={(event) => setDateTo(event.target.value)}
+                    />
+                </label>
+                <label className="grid gap-1 text-sm">
+                    Status
+                    <select
+                        className="h-9 rounded-md border bg-background px-2"
+                        value={reportStatus}
+                        onChange={(event) =>
+                            setReportStatus(event.target.value)
+                        }
+                    >
                         <option value="">All statuses</option>
-                        {['draft', 'submitted', 'approved', 'rejected', 'cancelled'].map((value) => <option key={value} value={value}>{label(value)}</option>)}
+                        {[
+                            'draft',
+                            'submitted',
+                            'approved',
+                            'rejected',
+                            'cancelled',
+                        ].map((value) => (
+                            <option key={value} value={value}>
+                                {label(value)}
+                            </option>
+                        ))}
                     </select>
                 </label>
-                <label className="grid gap-1 text-sm">Branch
-                    <select className="h-9 rounded-md border bg-background px-2" value={branch} onChange={(event) => setBranch(event.target.value)}>
+                <label className="grid gap-1 text-sm">
+                    Branch
+                    <select
+                        className="h-9 rounded-md border bg-background px-2"
+                        value={branch}
+                        onChange={(event) => setBranch(event.target.value)}
+                    >
                         <option value="">All branches</option>
-                        {branches.map((value) => <option key={value} value={value}>{value}</option>)}
+                        {branches.map((value) => (
+                            <option key={value} value={value}>
+                                {value}
+                            </option>
+                        ))}
                     </select>
                 </label>
-                <label className="grid gap-1 text-sm">Project
-                    <select className="h-9 rounded-md border bg-background px-2" value={project} onChange={(event) => setProject(event.target.value)}>
+                <label className="grid gap-1 text-sm">
+                    Project
+                    <select
+                        className="h-9 rounded-md border bg-background px-2"
+                        value={project}
+                        onChange={(event) => setProject(event.target.value)}
+                    >
                         <option value="">All projects</option>
-                        {projects.map((value) => <option key={value} value={value}>{value}</option>)}
+                        {projects.map((value) => (
+                            <option key={value} value={value}>
+                                {value}
+                            </option>
+                        ))}
                     </select>
                 </label>
-                <label className="grid gap-1 text-sm">Category
-                    <select className="h-9 rounded-md border bg-background px-2" value={category} onChange={(event) => setCategory(event.target.value)}>
+                <label className="grid gap-1 text-sm">
+                    Category
+                    <select
+                        className="h-9 rounded-md border bg-background px-2"
+                        value={category}
+                        onChange={(event) => setCategory(event.target.value)}
+                    >
                         <option value="">All categories</option>
-                        {reportCategories.map((value) => <option key={value} value={value}>{value}</option>)}
+                        {reportCategories.map((value) => (
+                            <option key={value} value={value}>
+                                {value}
+                            </option>
+                        ))}
                     </select>
                 </label>
             </div>
@@ -696,13 +779,17 @@ function Reports({
                 {canExport && (
                     <>
                         <Button asChild variant="outline">
-                            <a href={`/expenses-export.csv${exportQuery ? `?${exportQuery}` : ''}`}>
+                            <a
+                                href={`/expenses-export.csv${exportQuery ? `?${exportQuery}` : ''}`}
+                            >
                                 <Download />
                                 CSV
                             </a>
                         </Button>
                         <Button asChild>
-                            <a href={`/expenses-export.pdf${exportQuery ? `?${exportQuery}` : ''}`}>
+                            <a
+                                href={`/expenses-export.pdf${exportQuery ? `?${exportQuery}` : ''}`}
+                            >
                                 <Download />
                                 PDF
                             </a>

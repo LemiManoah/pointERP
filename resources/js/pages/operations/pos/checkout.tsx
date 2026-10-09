@@ -23,7 +23,9 @@ type CartDetail = {
 export default function PosCheckout(props: Omit<Props, 'sales'>) {
     const confirm = useConfirmDialog();
     const [customerId, setCustomerId] = useState('');
-    const [payments, setPayments] = useState([{ method: 'cash', amount: '', reference: '' }]);
+    const [payments, setPayments] = useState([
+        { method: 'cash', amount: '', reference: '' },
+    ]);
     const [cart] = useState<CartLine[]>(props.draft?.lines ?? []);
     const form = useForm({
         checkout_key: props.checkoutKey,
@@ -59,7 +61,11 @@ export default function PosCheckout(props: Omit<Props, 'sales'>) {
         0,
     );
     const total = Number(Math.max(subtotal - discount, 0).toFixed(4));
-    const paidAmount = Number(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0).toFixed(4));
+    const paidAmount = Number(
+        payments
+            .reduce((sum, payment) => sum + Number(payment.amount || 0), 0)
+            .toFixed(4),
+    );
     const balanceDue = Number(Math.max(total - paidAmount, 0).toFixed(4));
 
     const currencyCode = props.selected.currency_code;
@@ -84,7 +90,14 @@ export default function PosCheckout(props: Omit<Props, 'sales'>) {
         invalidLines ||
         cart.length === 0 ||
         total <= 0 ||
-        payments.some((payment) => !Number.isFinite(Number(payment.amount)) || Number(payment.amount) < 0 || (Number(payment.amount) > 0 && payment.method !== 'cash' && !payment.reference.trim())) ||
+        payments.some(
+            (payment) =>
+                !Number.isFinite(Number(payment.amount)) ||
+                Number(payment.amount) < 0 ||
+                (Number(payment.amount) > 0 &&
+                    payment.method !== 'cash' &&
+                    !payment.reference.trim()),
+        ) ||
         !Number.isFinite(paidAmount) ||
         paidAmount < 0 ||
         paidAmount > total ||
@@ -100,7 +113,12 @@ export default function PosCheckout(props: Omit<Props, 'sales'>) {
                     ...data,
                     customer_id: customerId,
                     lines: cart,
-                    payments: payments.filter((payment) => Number(payment.amount) > 0).map((payment) => ({ ...payment, amount: Number(payment.amount).toFixed(4) })),
+                    payments: payments
+                        .filter((payment) => Number(payment.amount) > 0)
+                        .map((payment) => ({
+                            ...payment,
+                            amount: Number(payment.amount).toFixed(4),
+                        })),
                 }));
                 form.post(store.url(), { preserveScroll: true });
             },
@@ -260,25 +278,193 @@ export default function PosCheckout(props: Omit<Props, 'sales'>) {
                                 </Field>
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between gap-3">
-                                        <h2 className="font-medium">Payments</h2>
-                                        <Button type="button" variant="outline" size="sm" onClick={() => setPayments([...payments, { method: 'cash', amount: '', reference: '' }])}>Add payment method</Button>
+                                        <h2 className="font-medium">
+                                            Payments
+                                        </h2>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                                setPayments([
+                                                    ...payments,
+                                                    {
+                                                        method: 'cash',
+                                                        amount: '',
+                                                        reference: '',
+                                                    },
+                                                ])
+                                            }
+                                        >
+                                            Add payment method
+                                        </Button>
                                     </div>
                                     {payments.map((payment, index) => (
-                                        <div key={index} className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
-                                            <Field label={`Method ${index + 1}`}>
-                                                <SearchableSelect value={payment.method} onValueChange={(method) => setPayments(payments.map((row, rowIndex) => rowIndex === index ? { ...row, method, reference: method === 'cash' ? '' : row.reference } : row))} options={paymentMethods} />
+                                        <div
+                                            key={index}
+                                            className="grid gap-3 rounded-md border p-3 sm:grid-cols-2"
+                                        >
+                                            <Field
+                                                label={`Method ${index + 1}`}
+                                            >
+                                                <SearchableSelect
+                                                    value={payment.method}
+                                                    onValueChange={(method) =>
+                                                        setPayments(
+                                                            payments.map(
+                                                                (
+                                                                    row,
+                                                                    rowIndex,
+                                                                ) =>
+                                                                    rowIndex ===
+                                                                    index
+                                                                        ? {
+                                                                              ...row,
+                                                                              method,
+                                                                              reference:
+                                                                                  method ===
+                                                                                  'cash'
+                                                                                      ? ''
+                                                                                      : row.reference,
+                                                                          }
+                                                                        : row,
+                                                            ),
+                                                        )
+                                                    }
+                                                    options={paymentMethods}
+                                                />
                                             </Field>
                                             <Field label="Amount" required>
-                                                <Input type="number" min="0" step="0.0001" value={payment.amount} onChange={(event) => setPayments(payments.map((row, rowIndex) => rowIndex === index ? { ...row, amount: event.target.value } : row))} />
-                                                <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={() => setPayments(payments.map((row, rowIndex) => rowIndex === index ? { ...row, amount: Math.max(total - paidAmount + Number(row.amount || 0), 0).toFixed(4) } : row))}>Pay remaining</Button>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.0001"
+                                                    value={payment.amount}
+                                                    onChange={(event) =>
+                                                        setPayments(
+                                                            payments.map(
+                                                                (
+                                                                    row,
+                                                                    rowIndex,
+                                                                ) =>
+                                                                    rowIndex ===
+                                                                    index
+                                                                        ? {
+                                                                              ...row,
+                                                                              amount: event
+                                                                                  .target
+                                                                                  .value,
+                                                                          }
+                                                                        : row,
+                                                            ),
+                                                        )
+                                                    }
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="link"
+                                                    size="sm"
+                                                    className="h-auto px-0"
+                                                    onClick={() =>
+                                                        setPayments(
+                                                            payments.map(
+                                                                (
+                                                                    row,
+                                                                    rowIndex,
+                                                                ) =>
+                                                                    rowIndex ===
+                                                                    index
+                                                                        ? {
+                                                                              ...row,
+                                                                              amount: Math.max(
+                                                                                  total -
+                                                                                      paidAmount +
+                                                                                      Number(
+                                                                                          row.amount ||
+                                                                                              0,
+                                                                                      ),
+                                                                                  0,
+                                                                              ).toFixed(
+                                                                                  4,
+                                                                              ),
+                                                                          }
+                                                                        : row,
+                                                            ),
+                                                        )
+                                                    }
+                                                >
+                                                    Pay remaining
+                                                </Button>
                                             </Field>
-                                            <Field label="Reference" required={payment.method !== 'cash'}>
-                                                <Input value={payment.reference} onChange={(event) => setPayments(payments.map((row, rowIndex) => rowIndex === index ? { ...row, reference: event.target.value } : row))} placeholder={payment.method === 'cash' ? 'Optional' : 'Required'} />
+                                            <Field
+                                                label="Reference"
+                                                required={
+                                                    payment.method !== 'cash'
+                                                }
+                                            >
+                                                <Input
+                                                    value={payment.reference}
+                                                    onChange={(event) =>
+                                                        setPayments(
+                                                            payments.map(
+                                                                (
+                                                                    row,
+                                                                    rowIndex,
+                                                                ) =>
+                                                                    rowIndex ===
+                                                                    index
+                                                                        ? {
+                                                                              ...row,
+                                                                              reference:
+                                                                                  event
+                                                                                      .target
+                                                                                      .value,
+                                                                          }
+                                                                        : row,
+                                                            ),
+                                                        )
+                                                    }
+                                                    placeholder={
+                                                        payment.method ===
+                                                        'cash'
+                                                            ? 'Optional'
+                                                            : 'Required'
+                                                    }
+                                                />
                                             </Field>
-                                            {payments.length > 1 && <div className="flex items-end"><Button type="button" variant="ghost" onClick={() => setPayments(payments.filter((_, rowIndex) => rowIndex !== index))}>Remove</Button></div>}
+                                            {payments.length > 1 && (
+                                                <div className="flex items-end">
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        onClick={() =>
+                                                            setPayments(
+                                                                payments.filter(
+                                                                    (
+                                                                        _,
+                                                                        rowIndex,
+                                                                    ) =>
+                                                                        rowIndex !==
+                                                                        index,
+                                                                ),
+                                                            )
+                                                        }
+                                                    >
+                                                        Remove
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
-                                    {balanceDue > 0 && <p className={`text-xs ${canSellOnCredit ? 'text-muted-foreground' : 'text-destructive'}`}>{canSellOnCredit ? `The remaining ${formatCurrencyAmount(currencyCode, balanceDue)} will be recorded as customer credit.` : 'You do not have permission to leave a customer balance.'}</p>}
+                                    {balanceDue > 0 && (
+                                        <p
+                                            className={`text-xs ${canSellOnCredit ? 'text-muted-foreground' : 'text-destructive'}`}
+                                        >
+                                            {canSellOnCredit
+                                                ? `The remaining ${formatCurrencyAmount(currencyCode, balanceDue)} will be recorded as customer credit.`
+                                                : 'You do not have permission to leave a customer balance.'}
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="space-y-1 border-t pt-3 text-sm">
                                     <Total

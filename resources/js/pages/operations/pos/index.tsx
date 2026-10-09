@@ -398,15 +398,96 @@ export default function PosIndex(props: Props) {
                         </Card>
                         {details.length > 0 && (
                             <Card>
-                                <CardHeader className="font-semibold">Cart items</CardHeader>
+                                <CardHeader className="font-semibold">
+                                    Cart items
+                                </CardHeader>
                                 <CardContent className="grid gap-3">
                                     {details.map(({ line, item }, index) => (
-                                        <div key={`${item.id}-${index}`} className="grid gap-3 rounded-md border p-3 sm:grid-cols-[minmax(0,1fr)_7rem_9rem_auto] sm:items-end">
-                                            <div className="min-w-0"><p className="font-medium">{item.name}</p><p className="text-xs text-muted-foreground">{item.code}</p></div>
-                                            <Field label="Quantity"><Input type="number" min="0.0001" step="0.0001" value={line.quantity} onChange={(event) => update(index, { quantity: event.target.value })} /></Field>
-                                            {item.units.length > 1 && <Field label="Selling unit"><SearchableSelect value={line.unit_of_measure_id} onValueChange={(value) => update(index, { unit_of_measure_id: value, quantity: '1' })} options={item.units.map((unit) => ({ value: unit.id, label: unit.label }))} /></Field>}
-                                            {props.can.discount && <Field label="Discount"><Input type="number" min="0" step="0.01" value={line.discount_amount} onChange={(event) => update(index, { discount_amount: event.target.value })} /></Field>}
-                                            <Button type="button" variant="ghost" className="text-destructive" onClick={() => setCart(cart.filter((_, row) => row !== index))}>Remove</Button>
+                                        <div
+                                            key={`${item.id}-${index}`}
+                                            className="grid gap-3 rounded-md border p-3 sm:grid-cols-[minmax(0,1fr)_7rem_9rem_auto] sm:items-end"
+                                        >
+                                            <div className="min-w-0">
+                                                <p className="font-medium">
+                                                    {item.name}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {item.code}
+                                                </p>
+                                            </div>
+                                            <Field label="Quantity">
+                                                <Input
+                                                    type="number"
+                                                    min="0.0001"
+                                                    step="0.0001"
+                                                    value={line.quantity}
+                                                    onChange={(event) =>
+                                                        update(index, {
+                                                            quantity:
+                                                                event.target
+                                                                    .value,
+                                                        })
+                                                    }
+                                                />
+                                            </Field>
+                                            {item.units.length > 1 && (
+                                                <Field label="Selling unit">
+                                                    <SearchableSelect
+                                                        value={
+                                                            line.unit_of_measure_id
+                                                        }
+                                                        onValueChange={(
+                                                            value,
+                                                        ) =>
+                                                            update(index, {
+                                                                unit_of_measure_id:
+                                                                    value,
+                                                                quantity: '1',
+                                                            })
+                                                        }
+                                                        options={item.units.map(
+                                                            (unit) => ({
+                                                                value: unit.id,
+                                                                label: unit.label,
+                                                            }),
+                                                        )}
+                                                    />
+                                                </Field>
+                                            )}
+                                            {props.can.discount && (
+                                                <Field label="Discount">
+                                                    <Input
+                                                        type="number"
+                                                        min="0"
+                                                        step="0.01"
+                                                        value={
+                                                            line.discount_amount
+                                                        }
+                                                        onChange={(event) =>
+                                                            update(index, {
+                                                                discount_amount:
+                                                                    event.target
+                                                                        .value,
+                                                            })
+                                                        }
+                                                    />
+                                                </Field>
+                                            )}
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                className="text-destructive"
+                                                onClick={() =>
+                                                    setCart(
+                                                        cart.filter(
+                                                            (_, row) =>
+                                                                row !== index,
+                                                        ),
+                                                    )
+                                                }
+                                            >
+                                                Remove
+                                            </Button>
                                         </div>
                                     ))}
                                 </CardContent>
@@ -604,8 +685,10 @@ function PosCartDrawer({
                                     </div>
 
                                     <p className="text-sm text-muted-foreground">
-                                        {formatNumber(line.quantity)} {unit.symbol}
-                                        {Number(line.discount_amount) > 0 && ` · Discount ${formatCurrencyAmount(currencyCode, line.discount_amount)}`}
+                                        {formatNumber(line.quantity)}{' '}
+                                        {unit.symbol}
+                                        {Number(line.discount_amount) > 0 &&
+                                            ` · Discount ${formatCurrencyAmount(currencyCode, line.discount_amount)}`}
                                     </p>
                                 </div>
                             ),

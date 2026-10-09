@@ -436,7 +436,11 @@ export default function EquipmentIndex(props: Props) {
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <Tabs value={tab} onValueChange={setTab} className="min-w-0 max-w-full">
+                    <Tabs
+                        value={tab}
+                        onValueChange={setTab}
+                        className="max-w-full min-w-0"
+                    >
                         <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
                             <TabsTrigger value="register">Register</TabsTrigger>
                             <TabsTrigger value="categories">
@@ -466,9 +470,9 @@ export default function EquipmentIndex(props: Props) {
                                   ? setMaintenanceStatus
                                   : setStatus
                         }
-                        className="min-w-0 max-w-full"
+                        className="max-w-full min-w-0"
                     >
-                            <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
+                        <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
                             {tab === 'fuel' ? (
                                 <>
                                     <TabsTrigger value="all">All</TabsTrigger>

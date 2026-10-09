@@ -14,7 +14,7 @@ final readonly class ExpenseRegisterExport
     public function __construct(private BranchContext $branchContext) {}
 
     /**
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      * @return array{headers: list<string>, rows: list<list<string>>}
      */
     public function for(User $user, array $filters = []): array

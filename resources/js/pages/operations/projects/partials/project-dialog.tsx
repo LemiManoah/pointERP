@@ -122,7 +122,8 @@ export function ProjectDialog({
     const [open, setOpen] = useState(false);
     const isEditing = Boolean(project);
     const form = useForm<ProjectFormData>({
-        branch_id: project?.branch_id ?? defaultBranchId ?? branches[0]?.id ?? '',
+        branch_id:
+            project?.branch_id ?? defaultBranchId ?? branches[0]?.id ?? '',
         customer_id: project?.customer_id ?? '',
         contract_id: project?.contract_id ?? '',
         reference: project?.reference ?? '',
@@ -217,7 +218,8 @@ export function ProjectDialog({
                             <InputError message={form.errors.branch_id} />
                             {selectedBranch?.country_name && (
                                 <p className="text-xs text-muted-foreground">
-                                    Country: {selectedBranch.country_name} (from the selected branch)
+                                    Country: {selectedBranch.country_name} (from
+                                    the selected branch)
                                 </p>
                             )}
                         </div>
@@ -348,9 +350,14 @@ export function ProjectDialog({
                                 form.setData('project_type', event.target.value)
                             }
                         >
-                            <NativeSelectOption value="">Not specified</NativeSelectOption>
+                            <NativeSelectOption value="">
+                                Not specified
+                            </NativeSelectOption>
                             {projectTypes.map((type) => (
-                                <NativeSelectOption key={type.id} value={type.id}>
+                                <NativeSelectOption
+                                    key={type.id}
+                                    value={type.id}
+                                >
                                     {type.name}
                                 </NativeSelectOption>
                             ))}

@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react';
 import { format, parseISO } from 'date-fns';
 import { Eye, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { StaffSectionNav } from '@/components/staff-section-nav';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,7 +17,6 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import { StaffSectionNav } from '@/components/staff-section-nav';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -141,7 +141,9 @@ export default function AttendanceIndex({
                                         </TableHead>
                                         <TableHead>Recorded by</TableHead>
                                         <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
+                                        <TableHead className="text-right">
+                                            Actions
+                                        </TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -197,8 +199,17 @@ export default function AttendanceIndex({
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <Button asChild size="sm" variant="outline">
-                                                    <Link href={'/workforce/attendance/' + register.id}>
+                                                <Button
+                                                    asChild
+                                                    size="sm"
+                                                    variant="outline"
+                                                >
+                                                    <Link
+                                                        href={
+                                                            '/workforce/attendance/' +
+                                                            register.id
+                                                        }
+                                                    >
                                                         <Eye />
                                                         View
                                                     </Link>

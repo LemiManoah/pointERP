@@ -38,6 +38,7 @@ final readonly class SaveUnitOfMeasure
         $source = mb_trim((string) ($data['symbol'] ?? '')) ?: (string) $data['name'];
         $base = Str::upper(Str::slug($source, '_'));
         $base = $base !== '' ? $base : 'UNIT';
+
         $tenantId = $this->tenantContext->id();
         $suffix = 1;
 

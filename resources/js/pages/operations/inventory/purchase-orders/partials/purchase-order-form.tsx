@@ -461,7 +461,10 @@ export function PurchaseOrderForm({
                                                                 }
                                                             />
                                                         </Td>
-                                                        <Td label="Total" className="font-medium">
+                                                        <Td
+                                                            label="Total"
+                                                            className="font-medium"
+                                                        >
                                                             {formatCurrencyAmount(
                                                                 form.data
                                                                     .currency_code,
@@ -730,5 +733,16 @@ function Td({
     className?: string;
     label?: string;
 }) {
-    return <td className={`block min-w-0 py-1 align-top md:table-cell md:px-3 md:py-3 ${className}`}>{label && <span className="mb-1 block text-xs font-medium text-muted-foreground md:hidden">{label}</span>}{children}</td>;
+    return (
+        <td
+            className={`block min-w-0 py-1 align-top md:table-cell md:px-3 md:py-3 ${className}`}
+        >
+            {label && (
+                <span className="mb-1 block text-xs font-medium text-muted-foreground md:hidden">
+                    {label}
+                </span>
+            )}
+            {children}
+        </td>
+    );
 }

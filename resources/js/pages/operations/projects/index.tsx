@@ -7,7 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import {
+    NativeSelect,
+    NativeSelectOption,
+} from '@/components/ui/native-select';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
 import { formatCurrencyAmount, formatNumber } from '@/lib/utils';
@@ -75,7 +78,9 @@ export default function ProjectsIndex({
                     (managerId === 'unassigned'
                         ? project.manager_id === null
                         : project.manager_id === managerId)) &&
-                (!branchFilter.visible || !branchId || project.branch_id === branchId) &&
+                (!branchFilter.visible ||
+                    !branchId ||
+                    project.branch_id === branchId) &&
                 (!term ||
                     [
                         project.reference,
@@ -88,7 +93,14 @@ export default function ProjectsIndex({
                         .toLowerCase()
                         .includes(term)),
         );
-    }, [branchFilter.visible, branchId, debouncedSearch, managerId, projects, statusFilter]);
+    }, [
+        branchFilter.visible,
+        branchId,
+        debouncedSearch,
+        managerId,
+        projects,
+        statusFilter,
+    ]);
     const openCount = filteredProjects.filter((project) =>
         ['planned', 'active', 'on_hold'].includes(project.status),
     ).length;
@@ -159,11 +171,18 @@ export default function ProjectsIndex({
                             <NativeSelect
                                 aria-label="Filter projects by branch"
                                 value={branchId}
-                                onChange={(event) => setBranchId(event.target.value)}
+                                onChange={(event) =>
+                                    setBranchId(event.target.value)
+                                }
                             >
-                                <NativeSelectOption value="">All branches</NativeSelectOption>
+                                <NativeSelectOption value="">
+                                    All branches
+                                </NativeSelectOption>
                                 {branchFilter.branches.map((branch) => (
-                                    <NativeSelectOption key={branch.id} value={branch.id}>
+                                    <NativeSelectOption
+                                        key={branch.id}
+                                        value={branch.id}
+                                    >
                                         {branch.name}
                                     </NativeSelectOption>
                                 ))}
@@ -174,25 +193,47 @@ export default function ProjectsIndex({
                         <NativeSelect
                             aria-label="Filter projects by status"
                             value={statusFilter}
-                            onChange={(event) => setStatusFilter(event.target.value)}
+                            onChange={(event) =>
+                                setStatusFilter(event.target.value)
+                            }
                         >
-                            <NativeSelectOption value="all">All statuses</NativeSelectOption>
-                            <NativeSelectOption value="planned">Planned</NativeSelectOption>
-                            <NativeSelectOption value="active">Active</NativeSelectOption>
-                            <NativeSelectOption value="on_hold">On hold</NativeSelectOption>
-                            <NativeSelectOption value="completed">Completed</NativeSelectOption>
-                            <NativeSelectOption value="closed">Closed</NativeSelectOption>
-                            <NativeSelectOption value="archived">Archived</NativeSelectOption>
+                            <NativeSelectOption value="all">
+                                All statuses
+                            </NativeSelectOption>
+                            <NativeSelectOption value="planned">
+                                Planned
+                            </NativeSelectOption>
+                            <NativeSelectOption value="active">
+                                Active
+                            </NativeSelectOption>
+                            <NativeSelectOption value="on_hold">
+                                On hold
+                            </NativeSelectOption>
+                            <NativeSelectOption value="completed">
+                                Completed
+                            </NativeSelectOption>
+                            <NativeSelectOption value="closed">
+                                Closed
+                            </NativeSelectOption>
+                            <NativeSelectOption value="archived">
+                                Archived
+                            </NativeSelectOption>
                         </NativeSelect>
                     </div>
                     <div className="w-full sm:w-44 sm:flex-none">
                         <NativeSelect
                             aria-label="Filter projects by manager"
                             value={managerId}
-                            onChange={(event) => setManagerId(event.target.value)}
+                            onChange={(event) =>
+                                setManagerId(event.target.value)
+                            }
                         >
-                            <NativeSelectOption value="all">All managers</NativeSelectOption>
-                            <NativeSelectOption value="unassigned">Unassigned</NativeSelectOption>
+                            <NativeSelectOption value="all">
+                                All managers
+                            </NativeSelectOption>
+                            <NativeSelectOption value="unassigned">
+                                Unassigned
+                            </NativeSelectOption>
                             {managerOptions.map(([id, name]) => (
                                 <NativeSelectOption key={id} value={id}>
                                     {name}
@@ -259,7 +300,8 @@ export default function ProjectsIndex({
                                                     {project.name}
                                                 </Link>
                                                 <div className="text-muted-foreground">
-                                                    {project.project_type_label ?? 'Project type not specified'}
+                                                    {project.project_type_label ??
+                                                        'Project type not specified'}
                                                 </div>
                                                 {project.location && (
                                                     <div className="text-xs text-muted-foreground">
@@ -269,19 +311,49 @@ export default function ProjectsIndex({
                                             </td>
                                             <td className="py-3 pr-4">
                                                 <div>
-                                                    {formatCurrencyAmount(project.base_currency_code, project.budget_amount)}
+                                                    {formatCurrencyAmount(
+                                                        project.base_currency_code,
+                                                        project.budget_amount,
+                                                    )}
                                                 </div>
-                                                {project.recorded_cost_amount !== undefined &&
-                                                    project.recorded_cost_amount !== null &&
+                                                {project.recorded_cost_amount !==
+                                                    undefined &&
+                                                    project.recorded_cost_amount !==
+                                                        null &&
                                                     project.recorded_cost_currency_code && (
                                                         <div className="mt-1 text-xs text-muted-foreground">
-                                                            Recorded costs: {formatCurrencyAmount(project.recorded_cost_currency_code, project.recorded_cost_amount)}
+                                                            Recorded costs:{' '}
+                                                            {formatCurrencyAmount(
+                                                                project.recorded_cost_currency_code,
+                                                                project.recorded_cost_amount,
+                                                            )}
                                                         </div>
                                                     )}
-                                                {(project.starts_on || project.ends_on) && (
+                                                {(project.starts_on ||
+                                                    project.ends_on) && (
                                                     <div className="mt-1 text-xs text-muted-foreground">
-                                                        {project.starts_on && <div>Starts {format(parseISO(project.starts_on), 'dd MMM yyyy')}</div>}
-                                                        {project.ends_on && <div>Ends {format(parseISO(project.ends_on), 'dd MMM yyyy')}</div>}
+                                                        {project.starts_on && (
+                                                            <div>
+                                                                Starts{' '}
+                                                                {format(
+                                                                    parseISO(
+                                                                        project.starts_on,
+                                                                    ),
+                                                                    'dd MMM yyyy',
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                        {project.ends_on && (
+                                                            <div>
+                                                                Ends{' '}
+                                                                {format(
+                                                                    parseISO(
+                                                                        project.ends_on,
+                                                                    ),
+                                                                    'dd MMM yyyy',
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </td>
@@ -323,13 +395,17 @@ export default function ProjectsIndex({
                                                     </Button>
                                                     <ProjectDialog
                                                         project={project}
-                                                        defaultBranchId={defaultBranchId}
+                                                        defaultBranchId={
+                                                            defaultBranchId
+                                                        }
                                                         branches={branches}
                                                         customers={customers}
                                                         contracts={contracts}
                                                         users={users}
                                                         currencies={currencies}
-                                                        projectTypes={projectTypes}
+                                                        projectTypes={
+                                                            projectTypes
+                                                        }
                                                     />
                                                     <Button
                                                         variant="outline"

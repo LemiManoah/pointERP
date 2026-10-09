@@ -159,7 +159,11 @@ const groups: SidebarGroupItem[] = [
                 href: '/staff',
                 icon: Users,
                 status: 'ready',
-                permissionAny: ['resources.staff.manage', 'workforce.deployments.manage', 'workforce.view'],
+                permissionAny: [
+                    'resources.staff.manage',
+                    'workforce.deployments.manage',
+                    'workforce.view',
+                ],
             },
             {
                 title: 'Equipment',
@@ -276,7 +280,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const permissions = auth.user.permissions ?? [];
     const can = (permission?: string, permissionAny?: string[]) =>
         (!permission || permissions.includes(permission)) &&
-        (!permissionAny || permissionAny.some((item) => permissions.includes(item)));
+        (!permissionAny ||
+            permissionAny.some((item) => permissions.includes(item)));
 
     return (
         <Sidebar collapsible="icon" variant="inset" {...props}>
@@ -322,7 +327,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                     <SidebarMenu>
                                         {group.items
                                             .filter((item) =>
-                                                can(item.permission, item.permissionAny),
+                                                can(
+                                                    item.permission,
+                                                    item.permissionAny,
+                                                ),
                                             )
                                             .map((item) => {
                                                 const Icon = item.icon;
@@ -330,13 +338,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                                     item.href === '#';
                                                 const href =
                                                     item.title === 'Staff' &&
-                                                    !permissions.includes('resources.staff.manage')
-                                                        ? permissions.includes('workforce.deployments.manage')
+                                                    !permissions.includes(
+                                                        'resources.staff.manage',
+                                                    )
+                                                        ? permissions.includes(
+                                                              'workforce.deployments.manage',
+                                                          )
                                                             ? '/workforce/workers'
                                                             : '/workforce/attendance'
-                                                        : item.title === 'Add new stock'
-                                                            ? `/inventory/add-stock?return_to=${encodeURIComponent(currentUrl === '/inventory/add-stock' ? '/inventory/stock' : currentUrl)}`
-                                                            : item.href;
+                                                        : item.title ===
+                                                            'Add new stock'
+                                                          ? `/inventory/add-stock?return_to=${encodeURIComponent(currentUrl === '/inventory/add-stock' ? '/inventory/stock' : currentUrl)}`
+                                                          : item.href;
 
                                                 return (
                                                     <SidebarMenuItem
@@ -348,13 +361,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                                             isActive={
                                                                 !disabled &&
                                                                 (isCurrentUrl(
-                                                                    item.title === 'Add new stock'
+                                                                    item.title ===
+                                                                        'Add new stock'
                                                                         ? '/inventory/add-stock'
                                                                         : href,
                                                                 ) ||
-                                                                    (item.title === 'Staff' &&
-                                                                        (isCurrentOrParentUrl('/workforce') ||
-                                                                            isCurrentUrl('/staff-positions'))))
+                                                                    (item.title ===
+                                                                        'Staff' &&
+                                                                        (isCurrentOrParentUrl(
+                                                                            '/workforce',
+                                                                        ) ||
+                                                                            isCurrentUrl(
+                                                                                '/staff-positions',
+                                                                            ))))
                                                             }
                                                             tooltip={{
                                                                 children:

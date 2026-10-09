@@ -358,7 +358,10 @@ export default function AddStock({
                                                 />
                                                 {store?.items.length === 0 && (
                                                     <p className="text-xs text-muted-foreground">
-                                                        No active inventory items are available for this store. Check item and store settings.
+                                                        No active inventory
+                                                        items are available for
+                                                        this store. Check item
+                                                        and store settings.
                                                     </p>
                                                 )}
                                                 <InputError

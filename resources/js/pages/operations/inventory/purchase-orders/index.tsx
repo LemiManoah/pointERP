@@ -138,15 +138,54 @@ export default function PurchaseOrdersIndex(props: Props) {
                             <CardContent className="pt-6">
                                 <div className="grid gap-3 md:hidden">
                                     {rows.map((row) => (
-                                        <div key={row.id} className="rounded-md border p-3 text-sm">
-                                            <div className="flex items-start justify-between gap-2"><Link href={`/inventory/purchase-orders/${row.id}`} className="font-medium text-primary hover:underline">{row.order_number}</Link><Badge variant="secondary">{label(row.status)}</Badge></div>
-                                            <p className="mt-2 font-medium">{row.supplier_name}</p>
-                                            <p className="text-muted-foreground">{row.store_name} · {row.branch_name}</p>
-                                            <p className="mt-1 text-muted-foreground">Ordered {row.order_date} · Delivery {row.expected_date ?? 'Not specified'}</p>
-                                            <div className="mt-2 flex justify-between"><span>{row.lines_count} lines</span>{props.canViewCosts && <span>{formatCurrencyAmount(row.currency_code, row.total_amount)}</span>}</div>
+                                        <div
+                                            key={row.id}
+                                            className="rounded-md border p-3 text-sm"
+                                        >
+                                            <div className="flex items-start justify-between gap-2">
+                                                <Link
+                                                    href={`/inventory/purchase-orders/${row.id}`}
+                                                    className="font-medium text-primary hover:underline"
+                                                >
+                                                    {row.order_number}
+                                                </Link>
+                                                <Badge variant="secondary">
+                                                    {label(row.status)}
+                                                </Badge>
+                                            </div>
+                                            <p className="mt-2 font-medium">
+                                                {row.supplier_name}
+                                            </p>
+                                            <p className="text-muted-foreground">
+                                                {row.store_name} ·{' '}
+                                                {row.branch_name}
+                                            </p>
+                                            <p className="mt-1 text-muted-foreground">
+                                                Ordered {row.order_date} ·
+                                                Delivery{' '}
+                                                {row.expected_date ??
+                                                    'Not specified'}
+                                            </p>
+                                            <div className="mt-2 flex justify-between">
+                                                <span>
+                                                    {row.lines_count} lines
+                                                </span>
+                                                {props.canViewCosts && (
+                                                    <span>
+                                                        {formatCurrencyAmount(
+                                                            row.currency_code,
+                                                            row.total_amount,
+                                                        )}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     ))}
-                                    {rows.length === 0 && <p className="py-8 text-center text-muted-foreground">No purchase orders match this view.</p>}
+                                    {rows.length === 0 && (
+                                        <p className="py-8 text-center text-muted-foreground">
+                                            No purchase orders match this view.
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="hidden overflow-x-auto md:block">
                                     <table className="w-full min-w-[900px] text-sm">

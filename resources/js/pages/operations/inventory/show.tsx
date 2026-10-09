@@ -7,22 +7,19 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
-import { index as inventoryIndex } from '@/routes/inventory';
 import {
     formatCurrencyAmount,
     formatDateTime,
     formatNumber,
 } from '@/lib/utils';
+import { index as inventoryIndex } from '@/routes/inventory';
 import type { BreadcrumbItem } from '@/types';
 import { DocumentDialog } from '../documents/partials/document-dialog';
 import type {
     DocumentTypeOption,
     LinkOptions,
 } from '../documents/partials/document-dialog';
-import {
-    ConversionDialog,
-    PriceDialog,
-} from './partials/item-detail-dialogs';
+import { ConversionDialog, PriceDialog } from './partials/item-detail-dialogs';
 import type {
     Batch,
     Conversion,
@@ -179,7 +176,19 @@ export default function InventoryItemShow(props: Props) {
                     <div className="flex gap-2">
                         {props.can.manage && (
                             <Button variant="outline" asChild>
-                                <Link href={inventoryIndex.url({ query: { tab: 'items', status: item.is_active ? 'active' : 'inactive', edit: item.id } })}>Edit item</Link>
+                                <Link
+                                    href={inventoryIndex.url({
+                                        query: {
+                                            tab: 'items',
+                                            status: item.is_active
+                                                ? 'active'
+                                                : 'inactive',
+                                            edit: item.id,
+                                        },
+                                    })}
+                                >
+                                    Edit item
+                                </Link>
                             </Button>
                         )}
                         {props.can.manage && (
@@ -236,7 +245,10 @@ export default function InventoryItemShow(props: Props) {
                     </div>
                 </div>
 
-                <Tabs defaultValue={props.activeTab} className="min-w-0 max-w-full">
+                <Tabs
+                    defaultValue={props.activeTab}
+                    className="max-w-full min-w-0"
+                >
                     <TabsList className="h-auto max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="conversions">
@@ -336,8 +348,11 @@ export default function InventoryItemShow(props: Props) {
                                 props.can.manage ? (
                                     <ConversionDialog
                                         itemId={item.id}
-                                        units={props.units.filter((unit) =>
-                                            unit.quantity_dimension === item.stock_unit?.quantity_dimension,
+                                        units={props.units.filter(
+                                            (unit) =>
+                                                unit.quantity_dimension ===
+                                                item.stock_unit
+                                                    ?.quantity_dimension,
                                         )}
                                         stockUnit={item.stock_unit}
                                     />
@@ -371,8 +386,11 @@ export default function InventoryItemShow(props: Props) {
                                         <ConversionDialog
                                             key={`${row.id}-action`}
                                             itemId={item.id}
-                                            units={props.units.filter((unit) =>
-                                                unit.quantity_dimension === item.stock_unit?.quantity_dimension,
+                                            units={props.units.filter(
+                                                (unit) =>
+                                                    unit.quantity_dimension ===
+                                                    item.stock_unit
+                                                        ?.quantity_dimension,
                                             )}
                                             stockUnit={item.stock_unit}
                                             conversion={row}
@@ -498,7 +516,11 @@ export default function InventoryItemShow(props: Props) {
                                             formatNumber(balance.minimum_stock),
                                             <Badge
                                                 key={`${balance.store_id}-status`}
-                                                variant={low ? 'destructive' : 'secondary'}
+                                                variant={
+                                                    low
+                                                        ? 'destructive'
+                                                        : 'secondary'
+                                                }
                                             >
                                                 {low ? 'Low stock' : 'In range'}
                                             </Badge>,
@@ -668,7 +690,7 @@ function Section({
     children,
 }: {
     title: string;
-    action: ReactNode;
+    action?: ReactNode;
     children: ReactNode;
 }) {
     return (

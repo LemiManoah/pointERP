@@ -10,8 +10,8 @@ use App\Models\ExpenseItem;
 use App\Models\ExpensePayment;
 use App\Models\Project;
 use App\Models\User;
-use App\Services\ProjectPerformanceSummary;
 use App\Services\ExpenseRegisterExport;
+use App\Services\ProjectPerformanceSummary;
 use App\Services\TenantContext;
 use Database\Seeders\PointInvestmentSeeder;
 use Database\Seeders\RolePermissionSeeder;
@@ -59,6 +59,8 @@ it('filters the expense register export to the selected report status and branch
 it('enforces branch access even when the user has general expense permission', function (): void {
     $siteManager = User::query()->where('email', 'engineer.gulu@point.test')->firstOrFail();
     $restrictedExpense = Expense::query()->where('expense_number', 'EXP-DEMO-001')->firstOrFail();
+    $siteManager->tenant()->update(['is_multibranch' => true]);
+    resolve(TenantContext::class)->set($siteManager->tenant()->firstOrFail());
     $siteManager->branches()->detach($restrictedExpense->branch_id);
 
     $this->actingAs($siteManager)->get(route('expenses.show', $restrictedExpense))->assertForbidden();

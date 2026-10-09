@@ -455,7 +455,7 @@ export default function WorkItemTemplatesIndex({
                                                     >
                                                         {item.category}
                                                     </Badge>
-                                                    <span className="min-w-0 break-words text-base font-semibold">
+                                                    <span className="min-w-0 text-base font-semibold break-words">
                                                         {item.name}
                                                     </span>
                                                     <span className="font-mono text-xs text-muted-foreground">
@@ -473,7 +473,7 @@ export default function WorkItemTemplatesIndex({
                                             </div>
                                         </div>
 
-                                        <div className="grid w-full grid-cols-2 gap-3 sm:w-auto sm:flex sm:items-center sm:gap-6">
+                                        <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:items-center sm:gap-6">
                                             <div className="text-right">
                                                 <div className="text-xs text-muted-foreground">
                                                     Dynamic Unit Cost
@@ -570,115 +570,165 @@ export default function WorkItemTemplatesIndex({
                                                 </p>
                                             ) : (
                                                 <>
-                                                <div className="grid gap-2 sm:hidden">
-                                                    {item.resources.map((res, index) => (
-                                                        <div key={index} className="rounded-md border bg-background p-3 text-sm">
-                                                            <div className="flex items-start justify-between gap-2"><span className="font-medium">{res.name}</span><Badge variant="secondary">{res.resource_type}</Badge></div>
-                                                            <p className="mt-1 text-muted-foreground">{res.quantity_per_work_unit} {res.unit_symbol || ''} per work unit</p>
-                                                            <p className="mt-1">Unit cost: {Number(res.unit_cost) > 0 ? formatCurrencyAmount(currencyCode, Number(res.unit_cost)) : '—'}</p>
-                                                            {res.notes && <p className="mt-1 text-muted-foreground">{res.notes}</p>}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <div className="hidden overflow-x-auto rounded border bg-background sm:block">
-                                                    <table className="w-full text-left text-xs">
-                                                        <thead className="border-b bg-muted/50 text-muted-foreground">
-                                                            <tr>
-                                                                <th className="px-3 py-2 font-medium">
-                                                                    Type
-                                                                </th>
-                                                                <th className="px-3 py-2 font-medium">
-                                                                    Resource
-                                                                    Input
-                                                                </th>
-                                                                <th className="px-3 py-2 font-medium">
-                                                                    Norm /
-                                                                    Consumption
-                                                                </th>
-                                                                <th className="px-3 py-2 font-medium">
-                                                                    Unit Cost
-                                                                </th>
-                                                                <th className="px-3 py-2 font-medium">
-                                                                    Cost / Work
-                                                                    Unit
-                                                                </th>
-                                                                <th className="px-3 py-2 font-medium">
-                                                                    Notes
-                                                                </th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y">
-                                                            {item.resources.map(
-                                                                (res, rIdx) => {
-                                                                    const qty =
-                                                                        Number(
-                                                                            res.quantity_per_work_unit,
-                                                                        ) || 0;
-                                                                    const cost =
-                                                                        Number(
-                                                                            res.unit_cost,
-                                                                        ) || 0;
-                                                                    const subtotal =
-                                                                        qty *
-                                                                        cost;
-                                                                    return (
-                                                                        <tr
-                                                                            key={
-                                                                                rIdx
+                                                    <div className="grid gap-2 sm:hidden">
+                                                        {item.resources.map(
+                                                            (res, index) => (
+                                                                <div
+                                                                    key={index}
+                                                                    className="rounded-md border bg-background p-3 text-sm"
+                                                                >
+                                                                    <div className="flex items-start justify-between gap-2">
+                                                                        <span className="font-medium">
+                                                                            {
+                                                                                res.name
                                                                             }
-                                                                            className="hover:bg-muted/30"
-                                                                        >
-                                                                            <td className="px-3 py-2">
-                                                                                <Badge
-                                                                                    variant="secondary"
-                                                                                    className="text-[10px] capitalize"
-                                                                                >
-                                                                                    {
-                                                                                        res.resource_type
-                                                                                    }
-                                                                                </Badge>
-                                                                            </td>
-                                                                            <td className="px-3 py-2 font-medium">
-                                                                                {
-                                                                                    res.name
+                                                                        </span>
+                                                                        <Badge variant="secondary">
+                                                                            {
+                                                                                res.resource_type
+                                                                            }
+                                                                        </Badge>
+                                                                    </div>
+                                                                    <p className="mt-1 text-muted-foreground">
+                                                                        {
+                                                                            res.quantity_per_work_unit
+                                                                        }{' '}
+                                                                        {res.unit_symbol ||
+                                                                            ''}{' '}
+                                                                        per work
+                                                                        unit
+                                                                    </p>
+                                                                    <p className="mt-1">
+                                                                        Unit
+                                                                        cost:{' '}
+                                                                        {Number(
+                                                                            res.unit_cost,
+                                                                        ) > 0
+                                                                            ? formatCurrencyAmount(
+                                                                                  currencyCode,
+                                                                                  Number(
+                                                                                      res.unit_cost,
+                                                                                  ),
+                                                                              )
+                                                                            : '—'}
+                                                                    </p>
+                                                                    {res.notes && (
+                                                                        <p className="mt-1 text-muted-foreground">
+                                                                            {
+                                                                                res.notes
+                                                                            }
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            ),
+                                                        )}
+                                                    </div>
+                                                    <div className="hidden overflow-x-auto rounded border bg-background sm:block">
+                                                        <table className="w-full text-left text-xs">
+                                                            <thead className="border-b bg-muted/50 text-muted-foreground">
+                                                                <tr>
+                                                                    <th className="px-3 py-2 font-medium">
+                                                                        Type
+                                                                    </th>
+                                                                    <th className="px-3 py-2 font-medium">
+                                                                        Resource
+                                                                        Input
+                                                                    </th>
+                                                                    <th className="px-3 py-2 font-medium">
+                                                                        Norm /
+                                                                        Consumption
+                                                                    </th>
+                                                                    <th className="px-3 py-2 font-medium">
+                                                                        Unit
+                                                                        Cost
+                                                                    </th>
+                                                                    <th className="px-3 py-2 font-medium">
+                                                                        Cost /
+                                                                        Work
+                                                                        Unit
+                                                                    </th>
+                                                                    <th className="px-3 py-2 font-medium">
+                                                                        Notes
+                                                                    </th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y">
+                                                                {item.resources.map(
+                                                                    (
+                                                                        res,
+                                                                        rIdx,
+                                                                    ) => {
+                                                                        const qty =
+                                                                            Number(
+                                                                                res.quantity_per_work_unit,
+                                                                            ) ||
+                                                                            0;
+                                                                        const cost =
+                                                                            Number(
+                                                                                res.unit_cost,
+                                                                            ) ||
+                                                                            0;
+                                                                        const subtotal =
+                                                                            qty *
+                                                                            cost;
+                                                                        return (
+                                                                            <tr
+                                                                                key={
+                                                                                    rIdx
                                                                                 }
-                                                                            </td>
-                                                                            <td className="px-3 py-2 font-mono">
-                                                                                {
-                                                                                    res.quantity_per_work_unit
-                                                                                }{' '}
-                                                                                {res.unit_symbol ||
-                                                                                    ''}
-                                                                            </td>
-                                                                            <td className="px-3 py-2 font-mono text-muted-foreground">
-                                                                                {cost >
-                                                                                0
-                                                                                    ? formatCurrencyAmount(
-                                                                                          currencyCode,
-                                                                                          cost,
-                                                                                      )
-                                                                                    : '—'}
-                                                                            </td>
-                                                                            <td className="px-3 py-2 font-mono font-semibold">
-                                                                                {subtotal >
-                                                                                0
-                                                                                    ? formatCurrencyAmount(
-                                                                                          currencyCode,
-                                                                                          subtotal,
-                                                                                      )
-                                                                                    : '—'}
-                                                                            </td>
-                                                                            <td className="px-3 py-2 text-muted-foreground">
-                                                                                {res.notes ||
-                                                                                    '—'}
-                                                                            </td>
-                                                                        </tr>
-                                                                    );
-                                                                },
-                                                            )}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
+                                                                                className="hover:bg-muted/30"
+                                                                            >
+                                                                                <td className="px-3 py-2">
+                                                                                    <Badge
+                                                                                        variant="secondary"
+                                                                                        className="text-[10px] capitalize"
+                                                                                    >
+                                                                                        {
+                                                                                            res.resource_type
+                                                                                        }
+                                                                                    </Badge>
+                                                                                </td>
+                                                                                <td className="px-3 py-2 font-medium">
+                                                                                    {
+                                                                                        res.name
+                                                                                    }
+                                                                                </td>
+                                                                                <td className="px-3 py-2 font-mono">
+                                                                                    {
+                                                                                        res.quantity_per_work_unit
+                                                                                    }{' '}
+                                                                                    {res.unit_symbol ||
+                                                                                        ''}
+                                                                                </td>
+                                                                                <td className="px-3 py-2 font-mono text-muted-foreground">
+                                                                                    {cost >
+                                                                                    0
+                                                                                        ? formatCurrencyAmount(
+                                                                                              currencyCode,
+                                                                                              cost,
+                                                                                          )
+                                                                                        : '—'}
+                                                                                </td>
+                                                                                <td className="px-3 py-2 font-mono font-semibold">
+                                                                                    {subtotal >
+                                                                                    0
+                                                                                        ? formatCurrencyAmount(
+                                                                                              currencyCode,
+                                                                                              subtotal,
+                                                                                          )
+                                                                                        : '—'}
+                                                                                </td>
+                                                                                <td className="px-3 py-2 text-muted-foreground">
+                                                                                    {res.notes ||
+                                                                                        '—'}
+                                                                                </td>
+                                                                            </tr>
+                                                                        );
+                                                                    },
+                                                                )}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
                                                 </>
                                             )}
                                         </div>

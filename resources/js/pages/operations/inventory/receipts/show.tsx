@@ -146,13 +146,52 @@ export default function GoodsReceiptShow({ receipt, canViewCosts }: Props) {
 
                     <div className="grid gap-3 sm:hidden print:hidden">
                         {receipt.lines.map((line) => (
-                            <div key={line.id} className="rounded-md border p-3 text-sm">
+                            <div
+                                key={line.id}
+                                className="rounded-md border p-3 text-sm"
+                            >
                                 <p className="font-medium">{line.item_name}</p>
-                                <p className="text-muted-foreground">{line.item_code}</p>
-                                <div className="mt-2 grid grid-cols-2 gap-2"><span>Delivered: {formatNumber(line.quantity)} {line.unit}</span><span>Accepted: {formatNumber(line.accepted_quantity)}</span><span>Rejected: {formatNumber(line.rejected_quantity)}</span></div>
-                                {(line.batch_number || line.expires_on) && <p className="mt-2">Batch {line.batch_number ?? '—'} · Expiry {line.expires_on ?? '—'}</p>}
-                                {line.rejection_reason && <p className="mt-2 text-muted-foreground">{line.rejection_reason}</p>}
-                                {canViewCosts && <p className="mt-2">{formatCurrencyAmount(receipt.currency_code, line.unit_cost)} per unit · {formatCurrencyAmount(receipt.currency_code, line.line_total)}</p>}
+                                <p className="text-muted-foreground">
+                                    {line.item_code}
+                                </p>
+                                <div className="mt-2 grid grid-cols-2 gap-2">
+                                    <span>
+                                        Delivered: {formatNumber(line.quantity)}{' '}
+                                        {line.unit}
+                                    </span>
+                                    <span>
+                                        Accepted:{' '}
+                                        {formatNumber(line.accepted_quantity)}
+                                    </span>
+                                    <span>
+                                        Rejected:{' '}
+                                        {formatNumber(line.rejected_quantity)}
+                                    </span>
+                                </div>
+                                {(line.batch_number || line.expires_on) && (
+                                    <p className="mt-2">
+                                        Batch {line.batch_number ?? '—'} ·
+                                        Expiry {line.expires_on ?? '—'}
+                                    </p>
+                                )}
+                                {line.rejection_reason && (
+                                    <p className="mt-2 text-muted-foreground">
+                                        {line.rejection_reason}
+                                    </p>
+                                )}
+                                {canViewCosts && (
+                                    <p className="mt-2">
+                                        {formatCurrencyAmount(
+                                            receipt.currency_code,
+                                            line.unit_cost,
+                                        )}{' '}
+                                        per unit ·{' '}
+                                        {formatCurrencyAmount(
+                                            receipt.currency_code,
+                                            line.line_total,
+                                        )}
+                                    </p>
+                                )}
                             </div>
                         ))}
                     </div>

@@ -4,6 +4,7 @@ import { RotateCcw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { DatePicker } from '@/components/date-picker';
 import { SearchableSelect } from '@/components/searchable-select';
+import { StaffSectionNav } from '@/components/staff-section-nav';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,7 +17,6 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { StaffSectionNav } from '@/components/staff-section-nav';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 

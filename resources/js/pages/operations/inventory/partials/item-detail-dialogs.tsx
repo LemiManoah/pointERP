@@ -30,7 +30,7 @@ type Option = {
     id: string;
     name: string;
     code?: string;
-    symbol?: string;
+    symbol?: string | null;
     branch_name?: string;
 };
 export type Conversion = {
@@ -144,7 +144,9 @@ export function ConversionDialog({
                             : 'Add unit conversion'}
                     </DialogTitle>
                     <DialogDescription>
-                        Include the item stock unit ({stockUnit?.name ?? 'not set'}) as either From or To. Both units must use the same measurement dimension.
+                        Include the item stock unit (
+                        {stockUnit?.name ?? 'not set'}) as either From or To.
+                        Both units must use the same measurement dimension.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={submit} className="grid gap-4">

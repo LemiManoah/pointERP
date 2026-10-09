@@ -6,12 +6,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import {
+    NativeSelect,
+    NativeSelectOption,
+} from '@/components/ui/native-select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
-import { index as stockReceipts } from '@/routes/inventory/direct-receipts';
 import { formatNumber } from '@/lib/utils';
+import { index as stockReceipts } from '@/routes/inventory/direct-receipts';
 import type { BreadcrumbItem } from '@/types';
 
 type Row = {
@@ -82,7 +85,9 @@ export default function InventoryStockIndex({
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <Button asChild variant="outline">
-                            <Link href={stockReceipts.url()}>Stock receipts</Link>
+                            <Link href={stockReceipts.url()}>
+                                Stock receipts
+                            </Link>
                         </Button>
                         {canExport && (
                             <Button asChild variant="outline">
@@ -103,7 +108,10 @@ export default function InventoryStockIndex({
                     </div>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-3">
-                    <Metric label="Item/store balances" value={summary.item_store_balances} />
+                    <Metric
+                        label="Item/store balances"
+                        value={summary.item_store_balances}
+                    />
                     <Metric label="Operational stores" value={summary.stores} />
                     <Metric
                         label="Low-stock warnings"

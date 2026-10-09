@@ -20,7 +20,7 @@ export function PurchaseOrderTabs({
         <Tabs
             value={active}
             onValueChange={(value) => onValueChange(value as PurchaseOrderTab)}
-            className="min-w-0 max-w-full gap-6"
+            className="max-w-full min-w-0 gap-6"
         >
             <TabsList className="h-auto max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
                 <TabsTrigger value="orders">Purchase orders</TabsTrigger>

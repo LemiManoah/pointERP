@@ -3107,7 +3107,9 @@ function LineCard({
     function selectInventoryItem(index: number, itemId: string) {
         const item = inventoryItems.find((option) => option.id === itemId);
         const currentStoreId = String(lines[index]?.inventory_store_id ?? '');
-        const storeId = inventoryStores.some((store) => store.id === currentStoreId)
+        const storeId = inventoryStores.some(
+            (store) => store.id === currentStoreId,
+        )
             ? currentStoreId
             : (inventoryStores.find((store) => store.is_default_for_site)?.id ??
               inventoryStores[0]?.id ??
@@ -3495,12 +3497,14 @@ function LineCard({
                                                         value,
                                                     )
                                                 }
-                                                options={inventoryStores.map((store) => ({
+                                                options={inventoryStores.map(
+                                                    (store) => ({
                                                         value: store.id,
                                                         label: store.name,
                                                         description:
                                                             store.branch_name,
-                                                    }))}
+                                                    }),
+                                                )}
                                                 placeholder="Select source store"
                                                 disabled={
                                                     disabled ||

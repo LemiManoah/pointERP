@@ -233,11 +233,56 @@ export default function PurchaseOrderShow({ purchaseOrder: po, can }: Props) {
                     <CardContent>
                         <div className="grid gap-3 md:hidden">
                             {po.lines.map((line) => (
-                                <div key={line.id} className="rounded-md border p-3 text-sm">
-                                    <p className="font-medium">{line.item_name_snapshot}</p>
-                                    <p className="text-muted-foreground">{line.item_code_snapshot} · {line.unit_symbol_snapshot}</p>
-                                    <div className="mt-2 grid grid-cols-2 gap-2"><span>Ordered: {formatNumber(line.ordered_quantity)}</span><span>Accepted: {formatNumber(line.accepted_quantity)}</span><span>Rejected: {formatNumber(line.rejected_quantity)}</span><span>Outstanding: {formatNumber(line.outstanding_quantity)}</span></div>
-                                    {can.viewCosts && <p className="mt-2">{formatCurrencyAmount(po.currency_code, line.unit_price)} per unit · {formatCurrencyAmount(po.currency_code, line.line_amount)}</p>}
+                                <div
+                                    key={line.id}
+                                    className="rounded-md border p-3 text-sm"
+                                >
+                                    <p className="font-medium">
+                                        {line.item_name_snapshot}
+                                    </p>
+                                    <p className="text-muted-foreground">
+                                        {line.item_code_snapshot} ·{' '}
+                                        {line.unit_symbol_snapshot}
+                                    </p>
+                                    <div className="mt-2 grid grid-cols-2 gap-2">
+                                        <span>
+                                            Ordered:{' '}
+                                            {formatNumber(
+                                                line.ordered_quantity,
+                                            )}
+                                        </span>
+                                        <span>
+                                            Accepted:{' '}
+                                            {formatNumber(
+                                                line.accepted_quantity,
+                                            )}
+                                        </span>
+                                        <span>
+                                            Rejected:{' '}
+                                            {formatNumber(
+                                                line.rejected_quantity,
+                                            )}
+                                        </span>
+                                        <span>
+                                            Outstanding:{' '}
+                                            {formatNumber(
+                                                line.outstanding_quantity,
+                                            )}
+                                        </span>
+                                    </div>
+                                    {can.viewCosts && (
+                                        <p className="mt-2">
+                                            {formatCurrencyAmount(
+                                                po.currency_code,
+                                                line.unit_price,
+                                            )}{' '}
+                                            per unit ·{' '}
+                                            {formatCurrencyAmount(
+                                                po.currency_code,
+                                                line.line_amount,
+                                            )}
+                                        </p>
+                                    )}
                                 </div>
                             ))}
                         </div>
