@@ -36,7 +36,7 @@ final class InventoryStockController
             $minimum = $item->minimum_stock;
 
             return ['id' => $store->id.':'.$item->id, 'item_id' => $item->id, 'item_code' => $item->code, 'item_name' => $item->name, 'unit' => $item->stockUnit->symbol ?? $item->stockUnit->name, 'store_id' => $store->id, 'store_name' => $store->name, 'branch_name' => $store->branch->name, 'minimum_stock' => $minimum, 'is_low_stock' => $minimum !== null && (float) $balance['available'] <= (float) $minimum, ...$balance];
-        }))->values();
+        })->all())->values();
 
         return Inertia::render('operations/inventory/stock', [
             'rows' => $rows,

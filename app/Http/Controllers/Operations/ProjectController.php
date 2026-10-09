@@ -327,7 +327,7 @@ final class ProjectController
             'manager_id' => $project->manager_id,
             'manager_name' => $project->manager?->name,
             'branch_name' => $project->branch->name,
-            'branch_country_name' => $project->branch->country?->name,
+            'branch_country_name' => $project->branch->country->name,
             'customer_name' => $project->customer?->name,
             'contract_reference' => $project->contract?->reference,
             'base_currency_code' => $project->base_currency_code,

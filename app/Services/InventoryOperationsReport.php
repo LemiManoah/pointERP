@@ -209,7 +209,7 @@ final readonly class InventoryOperationsReport
                 'on_hand' => (string) $onHand->toScale(4), 'reserved' => (string) $reserved->toScale(4), 'available' => (string) $available->toScale(4),
                 'minimum_stock' => $minimum, 'is_low_stock' => $minimum !== null && $available->isLessThanOrEqualTo((string) $minimum),
             ];
-        }))->values();
+        })->all())->values();
     }
 
     /**
