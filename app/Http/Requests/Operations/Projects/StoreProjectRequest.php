@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Operations\Projects;
 
+use App\Enums\ProjectType;
 use App\Models\Branch;
 use App\Models\Contract;
 use App\Models\Customer;
@@ -36,6 +37,8 @@ final class StoreProjectRequest extends FormRequest
             'contract_id' => ['nullable', 'uuid', Rule::exists((new Contract)->getTable(), 'id')->where('tenant_id', $tenantId)],
             'reference' => ['required', 'string', 'max:80', Rule::unique((new Project)->getTable(), 'reference')->where('tenant_id', $tenantId)],
             'name' => ['required', 'string', 'max:180'],
+            'project_type' => ['nullable', Rule::enum(ProjectType::class)],
+            'location' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'manager_id' => ['nullable', 'uuid', Rule::exists((new User)->getTable(), 'id')->where('tenant_id', $tenantId)->where('is_active', true)],
             'base_currency_code' => ['required', 'string', 'size:3', Rule::exists((new TenantCurrency)->getTable(), 'currency_code')->where('tenant_id', $tenantId)->where('is_enabled', true)],

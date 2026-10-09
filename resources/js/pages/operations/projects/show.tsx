@@ -48,6 +48,7 @@ type Props = {
     boq: BoqProps | null;
     activeTab: string;
     project: Project;
+    defaultBranchId: string | null;
     sites: SiteRow[];
     activities: ProjectActivity[];
     estimates: EstimateSummary[];
@@ -64,6 +65,7 @@ type Props = {
     contracts: Option[];
     users: Option[];
     currencies: Option[];
+    projectTypes: Option[];
     activityUnits: Option[];
     canViewRates: boolean;
     canViewEstimates: boolean;
@@ -146,6 +148,7 @@ export default function ProjectShow({
     boq,
     activeTab,
     project,
+    defaultBranchId,
     sites,
     activities,
     performance,
@@ -161,6 +164,7 @@ export default function ProjectShow({
     contracts,
     users,
     currencies,
+    projectTypes,
     activityUnits,
     canViewRates,
     canViewEstimates,
@@ -215,8 +219,10 @@ export default function ProjectShow({
                             <Badge variant="secondary">{project.status}</Badge>
                         </div>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            {project.reference} · {project.branch_name} ·{' '}
-                            {project.manager_name ?? 'No manager'}
+                            {project.reference} · {project.branch_name}
+                            {project.branch_country_name && ` · ${project.branch_country_name}`}
+                            {project.location && ` · ${project.location}`}
+                            {' · '}{project.manager_name ?? 'No manager'}
                         </p>
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
@@ -228,11 +234,13 @@ export default function ProjectShow({
                         {canUpdateProject && (
                             <ProjectDialog
                                 project={project}
+                                defaultBranchId={defaultBranchId}
                                 branches={branches}
                                 customers={customers}
                                 contracts={contracts}
                                 users={users}
                                 currencies={currencies}
+                                projectTypes={projectTypes}
                             />
                         )}
                     </div>

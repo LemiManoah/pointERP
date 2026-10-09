@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ProjectType;
 use App\Models\Concerns\BelongsToTenant;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -25,6 +26,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read string|null $contract_id
  * @property-read string $reference
  * @property-read string $name
+ * @property-read ProjectType|null $project_type
+ * @property-read string|null $location
  * @property-read string|null $description
  * @property-read string|null $manager_id
  * @property-read string $base_currency_code
@@ -47,6 +50,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'contract_id',
     'reference',
     'name',
+    'project_type',
+    'location',
     'description',
     'manager_id',
     'base_currency_code',
@@ -81,6 +86,8 @@ final class Project extends Model
             'contract_id' => 'string',
             'reference' => 'string',
             'name' => 'string',
+            'project_type' => ProjectType::class,
+            'location' => 'string',
             'description' => 'string',
             'manager_id' => 'string',
             'base_currency_code' => 'string',

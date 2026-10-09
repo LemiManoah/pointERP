@@ -222,12 +222,10 @@ export default function StaffIndex({
                                                                     : 'Activate staff member?',
                                                             description:
                                                                 staffMember.name +
-                                                                ' will ' +
                                                                 (staffMember.status ===
                                                                 'active'
-                                                                    ? 'no longer'
-                                                                    : 'again') +
-                                                                ' be available for new assignments.',
+                                                                    ? ' will be deactivated. Any active deployments will be ended today.'
+                                                                    : ' will be reactivated and available for new assignments.'),
                                                             confirmLabel:
                                                                 staffMember.status ===
                                                                 'active'

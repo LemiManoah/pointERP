@@ -1,4 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { format, parseISO } from 'date-fns';
 import { Eye, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useConfirmDialog } from '@/components/confirm-dialog-provider';
@@ -6,10 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import AppLayout from '@/layouts/app-layout';
-import { formatNumber } from '@/lib/utils';
+import { formatCurrencyAmount, formatNumber } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import {
     ProjectDialog,
@@ -19,11 +20,14 @@ import {
 
 type Props = {
     projects: Project[];
+    defaultBranchId: string | null;
     branches: Option[];
     customers: Option[];
     contracts: Option[];
     users: Option[];
     currencies: Option[];
+    projectTypes: Option[];
+    branchFilter: { visible: boolean; branches: Option[] };
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -33,27 +37,45 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 export default function ProjectsIndex({
     projects,
+    defaultBranchId,
     branches,
     customers,
     contracts,
     users,
     currencies,
+    projectTypes,
+    branchFilter,
 }: Props) {
     const confirm = useConfirmDialog();
     const [search, setSearch] = useState('');
-    const [status, setStatus] = useState('active');
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [managerId, setManagerId] = useState('all');
+    const [branchId, setBranchId] = useState('');
     const debouncedSearch = useDebouncedValue(search);
+    const managerOptions = useMemo(() => {
+        const managers = new Map<string, string>();
+
+        projects.forEach((project) => {
+            if (project.manager_id && project.manager_name) {
+                managers.set(project.manager_id, project.manager_name);
+            }
+        });
+
+        return [...managers.entries()].sort((left, right) =>
+            left[1].localeCompare(right[1]),
+        );
+    }, [projects]);
     const filteredProjects = useMemo(() => {
         const term = debouncedSearch.trim().toLowerCase();
-        const activeStatuses = ['planned', 'active', 'on_hold'];
 
         return projects.filter(
             (project) =>
-                (status === 'active'
-                    ? activeStatuses.includes(project.status)
-                    : ['completed', 'closed', 'archived'].includes(
-                          project.status,
-                      )) &&
+                (statusFilter === 'all' || project.status === statusFilter) &&
+                (managerId === 'all' ||
+                    (managerId === 'unassigned'
+                        ? project.manager_id === null
+                        : project.manager_id === managerId)) &&
+                (!branchFilter.visible || !branchId || project.branch_id === branchId) &&
                 (!term ||
                     [
                         project.reference,
@@ -66,52 +88,129 @@ export default function ProjectsIndex({
                         .toLowerCase()
                         .includes(term)),
         );
-    }, [debouncedSearch, projects, status]);
+    }, [branchFilter.visible, branchId, debouncedSearch, managerId, projects, statusFilter]);
+    const openCount = filteredProjects.filter((project) =>
+        ['planned', 'active', 'on_hold'].includes(project.status),
+    ).length;
+    const completedCount = filteredProjects.filter((project) =>
+        ['completed', 'closed'].includes(project.status),
+    ).length;
+    const archivedCount = filteredProjects.filter(
+        (project) => project.status === 'archived',
+    ).length;
+    const summaryCards = [
+        {
+            label: 'Projects',
+            value: filteredProjects.length,
+        },
+        {
+            label: 'Open',
+            value: openCount,
+        },
+        {
+            label: 'Completed',
+            value: completedCount,
+        },
+        {
+            label: 'Archived',
+            value: archivedCount,
+        },
+    ];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Projects" />
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="grid gap-4">
-                        <div>
-                            <h1 className="text-2xl font-semibold tracking-tight">
-                                Projects
-                            </h1>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                Projects, sites and daily delivery records.
-                            </p>
-                        </div>
-                        <div className="relative">
-                            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                value={search}
-                                onChange={(event) =>
-                                    setSearch(event.target.value)
-                                }
-                                placeholder="Search projects"
-                                className="w-full pl-9 sm:w-72"
-                            />
-                        </div>
+                    <div>
+                        <h1 className="text-2xl font-semibold tracking-tight">
+                            Projects
+                        </h1>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Projects, sites and daily delivery records.
+                        </p>
                     </div>
                     <ProjectDialog
+                        defaultBranchId={defaultBranchId}
                         branches={branches}
                         customers={customers}
                         contracts={contracts}
                         users={users}
                         currencies={currencies}
+                        projectTypes={projectTypes}
                     />
                 </div>
 
-                <div className="flex justify-end">
-                    <Tabs value={status} onValueChange={setStatus}>
-                        <TabsList>
-                            <TabsTrigger value="active">Active</TabsTrigger>
-                            <TabsTrigger value="inactive">
-                                Completed/archive
-                            </TabsTrigger>
-                        </TabsList>
-                    </Tabs>
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+                    <div className="relative min-w-0 flex-1">
+                        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="Search projects"
+                            className="w-full pl-9"
+                        />
+                    </div>
+                    {branchFilter.visible && (
+                        <NativeSelect
+                            aria-label="Filter projects by branch"
+                            value={branchId}
+                            onChange={(event) => setBranchId(event.target.value)}
+                            className="w-full xl:w-44 xl:flex-none"
+                        >
+                            <NativeSelectOption value="">All branches</NativeSelectOption>
+                            {branchFilter.branches.map((branch) => (
+                                <NativeSelectOption key={branch.id} value={branch.id}>
+                                    {branch.name}
+                                </NativeSelectOption>
+                            ))}
+                        </NativeSelect>
+                    )}
+                    <NativeSelect
+                        aria-label="Filter projects by status"
+                        value={statusFilter}
+                        onChange={(event) => setStatusFilter(event.target.value)}
+                        className="w-full xl:w-44 xl:flex-none"
+                    >
+                        <NativeSelectOption value="all">All statuses</NativeSelectOption>
+                        <NativeSelectOption value="planned">Planned</NativeSelectOption>
+                        <NativeSelectOption value="active">Active</NativeSelectOption>
+                        <NativeSelectOption value="on_hold">On hold</NativeSelectOption>
+                        <NativeSelectOption value="completed">Completed</NativeSelectOption>
+                        <NativeSelectOption value="closed">Closed</NativeSelectOption>
+                        <NativeSelectOption value="archived">Archived</NativeSelectOption>
+                    </NativeSelect>
+                    <NativeSelect
+                        aria-label="Filter projects by manager"
+                        value={managerId}
+                        onChange={(event) => setManagerId(event.target.value)}
+                        className="w-full xl:w-48 xl:flex-none"
+                    >
+                        <NativeSelectOption value="all">All managers</NativeSelectOption>
+                        <NativeSelectOption value="unassigned">Unassigned</NativeSelectOption>
+                        {managerOptions.map(([id, name]) => (
+                            <NativeSelectOption key={id} value={id}>
+                                {name}
+                            </NativeSelectOption>
+                        ))}
+                    </NativeSelect>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {summaryCards.map((card) => {
+                        return (
+                            <Card key={card.label} className="overflow-hidden">
+                                <CardContent className="min-h-24 p-4">
+                                    <p className="text-sm font-medium text-muted-foreground">
+                                        {card.label}
+                                    </p>
+                                    <p className="mt-1 text-2xl font-semibold tracking-tight">
+                                        {formatNumber(card.value)}
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
                 </div>
 
                 <Card>
@@ -124,7 +223,7 @@ export default function ProjectsIndex({
                                             Project
                                         </th>
                                         <th className="py-3 pr-4 font-medium">
-                                            Branch
+                                            Budget and dates
                                         </th>
                                         <th className="py-3 pr-4 font-medium">
                                             Manager
@@ -154,11 +253,31 @@ export default function ProjectsIndex({
                                                     {project.name}
                                                 </Link>
                                                 <div className="text-muted-foreground">
-                                                    {project.reference}
+                                                    {project.project_type_label ?? 'Project type not specified'}
                                                 </div>
+                                                {project.location && (
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {project.location}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="py-3 pr-4">
-                                                {project.branch_name}
+                                                <div>
+                                                    {formatCurrencyAmount(project.base_currency_code, project.budget_amount)}
+                                                </div>
+                                                {project.recorded_cost_amount !== undefined &&
+                                                    project.recorded_cost_amount !== null &&
+                                                    project.recorded_cost_currency_code && (
+                                                        <div className="mt-1 text-xs text-muted-foreground">
+                                                            Recorded costs: {formatCurrencyAmount(project.recorded_cost_currency_code, project.recorded_cost_amount)}
+                                                        </div>
+                                                    )}
+                                                {(project.starts_on || project.ends_on) && (
+                                                    <div className="mt-1 text-xs text-muted-foreground">
+                                                        {project.starts_on && <div>Starts {format(parseISO(project.starts_on), 'dd MMM yyyy')}</div>}
+                                                        {project.ends_on && <div>Ends {format(parseISO(project.ends_on), 'dd MMM yyyy')}</div>}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="py-3 pr-4">
                                                 {project.manager_name ??
@@ -198,11 +317,13 @@ export default function ProjectsIndex({
                                                     </Button>
                                                     <ProjectDialog
                                                         project={project}
+                                                        defaultBranchId={defaultBranchId}
                                                         branches={branches}
                                                         customers={customers}
                                                         contracts={contracts}
                                                         users={users}
                                                         currencies={currencies}
+                                                        projectTypes={projectTypes}
                                                     />
                                                     <Button
                                                         variant="outline"

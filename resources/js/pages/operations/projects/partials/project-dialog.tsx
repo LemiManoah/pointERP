@@ -24,6 +24,8 @@ import { Spinner } from '@/components/ui/spinner';
 export type Option = {
     id: string;
     name: string;
+    country_code?: string;
+    country_name?: string;
     branch_id?: string | null;
     customer_id?: string | null;
     email?: string;
@@ -38,6 +40,22 @@ export type Project = {
     contract_id: string | null;
     reference: string;
     name: string;
+    project_type:
+        | 'building_construction'
+        | 'road_construction'
+        | 'bridge_construction'
+        | 'water_supply'
+        | 'sewerage'
+        | 'drainage'
+        | 'electrical_infrastructure'
+        | 'civil_infrastructure'
+        | 'renovation'
+        | 'maintenance'
+        | 'other'
+        | null;
+    project_type_label: string | null;
+    location: string | null;
+    branch_country_name: string | null;
     description: string | null;
     manager_id: string | null;
     manager_name: string | null;
@@ -58,6 +76,8 @@ export type Project = {
         | 'archived';
     sites_count: number;
     activities_count: number;
+    recorded_cost_amount?: string | null;
+    recorded_cost_currency_code?: string | null;
 };
 
 type ProjectFormData = Record<string, string> & {
@@ -66,7 +86,9 @@ type ProjectFormData = Record<string, string> & {
     contract_id: string;
     reference: string;
     name: string;
+    project_type: string;
     description: string;
+    location: string;
     manager_id: string;
     base_currency_code: string;
     budget_amount: string;
@@ -78,29 +100,35 @@ type ProjectFormData = Record<string, string> & {
 
 type Props = {
     project?: Project;
+    defaultBranchId: string | null;
     branches: Option[];
     customers: Option[];
     contracts: Option[];
     users: Option[];
     currencies: Option[];
+    projectTypes: Option[];
 };
 
 export function ProjectDialog({
     project,
+    defaultBranchId,
     branches,
     customers,
     contracts,
     users,
     currencies,
+    projectTypes,
 }: Props) {
     const [open, setOpen] = useState(false);
     const isEditing = Boolean(project);
     const form = useForm<ProjectFormData>({
-        branch_id: project?.branch_id ?? branches[0]?.id ?? '',
+        branch_id: project?.branch_id ?? defaultBranchId ?? branches[0]?.id ?? '',
         customer_id: project?.customer_id ?? '',
         contract_id: project?.contract_id ?? '',
         reference: project?.reference ?? '',
         name: project?.name ?? '',
+        project_type: project?.project_type ?? '',
+        location: project?.location ?? '',
         description: project?.description ?? '',
         manager_id: project?.manager_id ?? '',
         base_currency_code:
@@ -122,6 +150,9 @@ export function ProjectDialog({
         (user) =>
             user.can_view_all_branches === true ||
             user.branch_ids?.includes(form.data.branch_id),
+    );
+    const selectedBranch = branches.find(
+        (branch) => branch.id === form.data.branch_id,
     );
 
     function submit(event: FormEvent<HTMLFormElement>) {
@@ -184,6 +215,11 @@ export function ProjectDialog({
                                 searchPlaceholder="Search branches..."
                             />
                             <InputError message={form.errors.branch_id} />
+                            {selectedBranch?.country_name && (
+                                <p className="text-xs text-muted-foreground">
+                                    Country: {selectedBranch.country_name} (from the selected branch)
+                                </p>
+                            )}
                         </div>
                         <div className="grid gap-2">
                             <Label>Manager</Label>
@@ -289,6 +325,37 @@ export function ProjectDialog({
                             }
                         />
                         <InputError message={form.errors.description} />
+                    </div>
+
+                    <div className="grid gap-2 sm:max-w-sm">
+                        <Label htmlFor="location">Location</Label>
+                        <Input
+                            id="location"
+                            value={form.data.location}
+                            onChange={(event) =>
+                                form.setData('location', event.target.value)
+                            }
+                            placeholder="Town, district, or site area"
+                        />
+                        <InputError message={form.errors.location} />
+                    </div>
+
+                    <div className="grid gap-2 sm:max-w-sm">
+                        <Label htmlFor="project_type">Project type</Label>
+                        <NativeSelect
+                            value={form.data.project_type}
+                            onChange={(event) =>
+                                form.setData('project_type', event.target.value)
+                            }
+                        >
+                            <NativeSelectOption value="">Not specified</NativeSelectOption>
+                            {projectTypes.map((type) => (
+                                <NativeSelectOption key={type.id} value={type.id}>
+                                    {type.name}
+                                </NativeSelectOption>
+                            ))}
+                        </NativeSelect>
+                        <InputError message={form.errors.project_type} />
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-4">

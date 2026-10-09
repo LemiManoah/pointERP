@@ -1,6 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { format, parseISO } from 'date-fns';
-import { Plus, Search } from 'lucide-react';
+import { Eye, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -141,6 +141,7 @@ export default function AttendanceIndex({
                                         </TableHead>
                                         <TableHead>Recorded by</TableHead>
                                         <TableHead>Status</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -195,12 +196,20 @@ export default function AttendanceIndex({
                                                     {register.status_label}
                                                 </Badge>
                                             </TableCell>
+                                            <TableCell className="text-right">
+                                                <Button asChild size="sm" variant="outline">
+                                                    <Link href={'/workforce/attendance/' + register.id}>
+                                                        <Eye />
+                                                        View
+                                                    </Link>
+                                                </Button>
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                     {rows.length === 0 && (
                                         <TableRow>
                                             <TableCell
-                                                colSpan={7}
+                                                colSpan={8}
                                                 className="h-32 text-center text-muted-foreground"
                                             >
                                                 No {tab} attendance registers

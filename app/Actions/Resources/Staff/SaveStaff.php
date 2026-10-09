@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Resources\Staff;
 
+use App\Actions\Workforce\EndActiveStaffDeployments;
 use App\Enums\StaffDeploymentStatus;
 use App\Models\Staff;
 use App\Models\User;
@@ -17,6 +18,7 @@ final readonly class SaveStaff
     public function __construct(
         private AuditLogger $auditLogger,
         private TenantContext $tenantContext,
+        private EndActiveStaffDeployments $endDeployments,
     ) {}
 
     /**
@@ -46,11 +48,10 @@ final readonly class SaveStaff
                 ]);
             }
 
-            if ($data['status'] === 'inactive') {
-                throw ValidationException::withMessages([
-                    'status' => 'End the current workforce deployment before deactivating this staff member.',
-                ]);
-            }
+        }
+
+        if ($staff instanceof Staff && $data['status'] === 'inactive') {
+            $this->endDeployments->handle($staff, $actor);
         }
 
         $attributes = [
