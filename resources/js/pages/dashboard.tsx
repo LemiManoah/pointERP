@@ -54,6 +54,9 @@ type Metric = {
     description: string;
     href: string;
     snapshot: boolean;
+    budgetSummary?: { spent: string | null; remaining: string | null };
+    nearExpiry?: number;
+    expired?: number;
 };
 type PaymentTotal = { amount: string; count: number };
 type Method = {
@@ -86,6 +89,8 @@ type Props = {
         href: string;
     }[];
     operationalCards?: {
+        amount?: string;
+        budgetSummary?: { spent: string | null; remaining: string | null };
         subtitle?: string | null;
         nearExpiry?: number;
         expired?: number;
@@ -129,14 +134,14 @@ const dashboardSections: DashboardSection[] = [
         title: 'Finance',
         description:
             'Money received, approved costs, and outstanding balances.',
-        cardIds: ['sales', 'expenses', 'receivables', 'payables'],
+        cardIds: ['sales', 'expenses', 'receivables', 'projects', 'project-budgets'],
         queueIds: [],
     },
     {
         id: 'projects',
         title: 'Projects and site reporting',
         description: 'Progress and reports that need your attention.',
-        cardIds: ['projects', 'dsr-approval', 'dsr-review', 'dsr-pending'],
+        cardIds: ['dsr-approval', 'dsr-review', 'dsr-pending'],
         queueIds: ['dsr-drafts', 'dsr-returned'],
     },
     {
@@ -306,7 +311,7 @@ function DashboardSection({
             {cards.length > 0 && (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     {cards.map((card) =>
-                        'amount' in card ? (
+                        typeof card.amount === 'string' ? (
                             <StatCard
                                 key={card.id}
                                 id={card.id}
@@ -315,9 +320,10 @@ function DashboardSection({
                                 currency={currency}
                                 href={card.href}
                                 description={card.description}
+                                budgetSummary={card.budgetSummary}
                                 subtitle={
                                     card.subtitle ??
-                                    `${formatNumber(card.count)} ${card.id === 'sales' || card.id === 'receivables' ? (card.count === 1 ? 'sale' : 'sales') : card.count === 1 ? 'expense' : 'expenses'}`
+                                    `${formatNumber(card.count)} ${card.id === 'sales' || card.id === 'receivables' ? (card.count === 1 ? 'sale' : 'sales') : card.id === 'project-budgets' ? (card.count === 1 ? 'project' : 'projects') : card.count === 1 ? 'expense' : 'expenses'}`
                                 }
                             />
                         ) : (
@@ -383,6 +389,7 @@ function StatCard({
     subtitle,
     nearExpiry,
     expired,
+    budgetSummary,
 }: {
     id: string;
     title: string;
@@ -393,6 +400,7 @@ function StatCard({
     subtitle?: string | null;
     nearExpiry?: number;
     expired?: number;
+    budgetSummary?: { spent: string | null; remaining: string | null };
 }) {
     return (
         <Tooltip>
@@ -424,7 +432,12 @@ function StatCard({
                             >
                                 {value}
                             </p>
-                            {nearExpiry !== undefined &&
+                            {budgetSummary ? (
+                                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                                    <span>Spent<br /><strong className="text-foreground tabular-nums">{budgetSummary.spent === null ? '—' : money(budgetSummary.spent)}</strong></span>
+                                    <span>Remaining<br /><strong className="text-foreground tabular-nums">{budgetSummary.remaining === null ? '—' : money(budgetSummary.remaining)}</strong></span>
+                                </div>
+                            ) : nearExpiry !== undefined &&
                             expired !== undefined ? (
                                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs tabular-nums">
                                     <span className="text-amber-700 dark:text-amber-400">

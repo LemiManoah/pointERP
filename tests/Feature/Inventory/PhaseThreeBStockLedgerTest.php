@@ -14,11 +14,33 @@ use App\Services\InventoryStockBalance;
 use App\Services\TenantContext;
 use Database\Seeders\PointInvestmentSeeder;
 use Database\Seeders\RolePermissionSeeder;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function (): void {
     $this->seed(RolePermissionSeeder::class);
     $this->seed(PointInvestmentSeeder::class);
     resolve(TenantContext::class)->set(User::query()->where('email', 'lemi@gmail.com')->firstOrFail()->tenant);
+});
+
+it('shows ledger quantities and stocked batches when preparing a physical count', function (): void {
+    $storeKeeper = User::query()->where('email', 'store.kla@point.test')->firstOrFail();
+    $store = InventoryStore::query()->where('code', 'KLA-MAIN-STORE')->firstOrFail();
+    $this->actingAs($storeKeeper)
+        ->get(route('inventory.stock-counts.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page): Assert => $page
+            ->component('operations/inventory/stock-counts/index')
+            ->where('stores', function ($stores) use ($store): bool {
+                $storeData = collect($stores)->firstWhere('id', $store->id);
+                if (! is_array($storeData)) {
+                    return false;
+                }
+
+                $items = collect($storeData['items']);
+
+                return $items->contains(fn (array $item): bool => $item['code'] === 'AGG-20' && $item['system_quantity'] === '180.0000')
+                    && $items->contains(fn (array $item): bool => $item['code'] === 'CEM-42' && collect($item['batches'])->contains(fn (array $batch): bool => $batch['system_quantity'] === '1200.0000'));
+            }));
 });
 
 it('records an idempotent physical count reconciliation', function (): void {

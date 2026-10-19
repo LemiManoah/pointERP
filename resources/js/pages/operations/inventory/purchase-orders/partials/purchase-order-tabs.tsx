@@ -22,7 +22,7 @@ export function PurchaseOrderTabs({
             onValueChange={(value) => onValueChange(value as PurchaseOrderTab)}
             className="max-w-full min-w-0 gap-6"
         >
-            <TabsList className="h-auto max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
+            <TabsList className="h-auto max-w-full justify-start overflow-x-auto whitespace-nowrap sm:max-w-none sm:overflow-visible [&_[data-slot=tabs-trigger]]:shrink-0">
                 <TabsTrigger value="orders">Purchase orders</TabsTrigger>
                 {canReceive && (
                     <TabsTrigger value="receive">Receive PO</TabsTrigger>

@@ -135,7 +135,7 @@ export default function InventoryStockIndex({
                             setStatus(value as 'all' | 'low')
                         }
                     >
-                        <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
+                        <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap sm:max-w-none sm:overflow-visible [&_[data-slot=tabs-trigger]]:shrink-0">
                             <TabsTrigger value="all">All stock</TabsTrigger>
                             <TabsTrigger value="low">Low stock</TabsTrigger>
                         </TabsList>

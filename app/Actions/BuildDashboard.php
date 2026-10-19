@@ -24,6 +24,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Services\BranchContext;
 use App\Services\InventoryOperationsReport;
+use App\Services\ProjectBudgetReport;
 use Brick\Math\BigDecimal;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -34,7 +35,7 @@ use Illuminate\Validation\ValidationException;
 
 final readonly class BuildDashboard
 {
-    public function __construct(private BranchContext $branches, private InventoryOperationsReport $inventory) {}
+    public function __construct(private BranchContext $branches, private InventoryOperationsReport $inventory, private ProjectBudgetReport $projectBudgets) {}
 
     /**
      * @param  array{period?: string, from?: string|null, to?: string|null, currency?: string|null}  $filters
@@ -75,8 +76,12 @@ final readonly class BuildDashboard
             ->whereIn('expense_id', $expenses->pluck('id')->all())->where('status', ExpensePaymentStatus::Recorded)->get() : collect();
         $periodPayments = $payments->filter(fn (ExpensePayment $payment): bool => $payment->paid_at->gte($start) && $payment->paid_at->lt($end));
 
+        $budgetCurrencies = $user->can('projects.view-all') && $user->can('dashboards.projects.view')
+            ? $this->scope(Project::query(), $user)->whereNotNull('budget_amount')->distinct()->pluck('base_currency_code')
+            : collect();
         $currencies = $sales->pluck('currency_code')->merge($expenses->pluck('currency_code'))
-            ->merge($receipts->pluck('currency_code'))->merge($periodPayments->pluck('currency_code'))->unique()->sort()->values();
+            ->merge($receipts->pluck('currency_code'))->merge($periodPayments->pluck('currency_code'))
+            ->merge($budgetCurrencies)->unique()->sort()->values();
         $defaultCurrency = $this->branches->current($user)->default_currency_code ?? $user->tenant->default_currency_code;
         if ($currencies->isEmpty()) {
             $currencies = collect([$defaultCurrency]);
@@ -106,7 +111,7 @@ final readonly class BuildDashboard
                 $subtitle = $paidCount.' paid · '.($periodExpenses->count() - $paidCount).' unpaid';
             }
 
-            $cards[] = [...$this->card('expenses', 'Expenses', $this->sum($periodExpenses, 'total_amount'), $periodExpenses->count(), 'Approved costs in the selected period. Paid means fully settled by recorded payments; unpaid includes partly paid expenses. Payment status is current.', route('expenses.index')), 'subtitle' => $subtitle];
+            $cards[] = [...$this->card('expenses', 'Approved expenses', $this->sum($periodExpenses, 'total_amount'), $periodExpenses->count(), 'Approved expenses dated within the selected dashboard period, branch, and currency. Payment status is current.', route('expenses.index')), 'subtitle' => $subtitle];
         }
 
         if ($canSales) {
@@ -114,23 +119,12 @@ final readonly class BuildDashboard
             $cards[] = $this->card('receivables', 'Customers owe', $this->sum($outstanding, 'balance_due'), $outstanding->count(), 'Money customers still owe on completed POS sales, across all dates', route('pos.index'), true);
         }
 
-        if ($canPaid) {
-            $paidByExpense = $payments->groupBy('expense_id');
-            $balances = $approved->map(function (Expense $expense) use ($paidByExpense): string {
-                $paid = $this->sum($paidByExpense->get($expense->id, collect()), 'amount');
-                $balance = BigDecimal::of($expense->total_amount)->minus($paid);
-
-                return (string) ($balance->isNegative() ? BigDecimal::zero() : $balance)->toScale(4);
-            })->filter(fn (string $amount): bool => BigDecimal::of($amount)->isGreaterThan(0));
-            $cards[] = $this->card('payables', 'Unpaid expenses', $this->sumValues($balances), $balances->count(), 'Approved expenses still to pay, across all dates', route('expenses.index'), true);
-        }
-
         $result = [
             'defaultView' => $this->defaultView($user),
             'filters' => ['period' => $period, 'from' => $from->toDateString(), 'to' => $to->toDateString(), 'currency' => $currency],
             'currencies' => $currencies->all(),
             'cards' => $cards,
-            ...$this->operations($user),
+            ...$this->operations($user, $currency),
         ];
         if ($canReceived || $canPaid) {
             $result['cashFlow'] = $this->cashFlow($receipts, $periodPayments, $from, $to, $timezone, $canReceived, $canPaid);
@@ -149,7 +143,7 @@ final readonly class BuildDashboard
     }
 
     /** @return array<string, mixed> */
-    private function operations(User $user): array
+    private function operations(User $user, string $currency): array
     {
         $cards = [];
         $gate = Gate::forUser($user);
@@ -161,6 +155,16 @@ final readonly class BuildDashboard
                 ? $this->scope(Site::query(), $user)->whereIn('project_id', $projects->modelKeys())->with('project')->get()->filter(fn (Site $site): bool => $gate->allows('view', $site))->count()
                 : null;
             $cards[] = ['id' => 'projects', 'title' => 'Active projects', 'count' => $count, 'subtitle' => $sites === null ? null : $sites.' '.($sites === 1 ? 'site' : 'sites'), 'description' => 'Currently active projects you can access, with the number of visible sites belonging to those projects.', 'href' => route('projects.index')];
+            if ($user->can('projects.view-all')) {
+                $budget = $this->projectBudgets->for($user, $currency);
+                $cards[] = [
+                    ...$this->card('project-budgets', 'Project budgets', $budget['total_budget'], $budget['budgeted_count'], 'Total budgets across accessible projects in the selected currency. Recorded spend uses approved site reports and approved project expenses.', route('reports.project-budgets', ['currency' => $currency]), true),
+                    'budgetSummary' => [
+                        'spent' => $budget['total_spent'],
+                        'remaining' => $budget['total_remaining'],
+                    ],
+                ];
+            }
         }
 
         if ($user->can('daily-site-reports.view-dashboard') && $gate->allows('viewAny', DailySiteReport::class)) {
