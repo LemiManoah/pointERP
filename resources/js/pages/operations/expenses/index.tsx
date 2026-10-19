@@ -178,27 +178,29 @@ export default function ExpenseIndex(props: Props) {
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                    <Tabs
-                        value={tab}
-                        onValueChange={changeTab}
-                        className="max-w-full min-w-0"
-                    >
-                        <TabsList className="h-auto max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
-                            <TabsTrigger value="expenses">Expenses</TabsTrigger>
-                            {props.can.viewPayments && (
-                                <TabsTrigger value="payments">
-                                    Payments
+                    <div className="min-w-0 max-w-full overflow-x-auto sm:overflow-visible">
+                        <Tabs
+                            value={tab}
+                            onValueChange={changeTab}
+                            className="w-max sm:w-auto"
+                        >
+                            <TabsList className="justify-start whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
+                                <TabsTrigger value="expenses">Expenses</TabsTrigger>
+                                {props.can.viewPayments && (
+                                    <TabsTrigger value="payments">
+                                        Payments
+                                    </TabsTrigger>
+                                )}
+                                <TabsTrigger value="categories">
+                                    Expense types
                                 </TabsTrigger>
-                            )}
-                            <TabsTrigger value="categories">
-                                Expense types
-                            </TabsTrigger>
-                            <TabsTrigger value="items">
-                                Expense items
-                            </TabsTrigger>
-                            <TabsTrigger value="reports">Reports</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
+                                <TabsTrigger value="items">
+                                    Expense items
+                                </TabsTrigger>
+                                <TabsTrigger value="reports">Reports</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                    </div>
                     {(tab === 'categories' || tab === 'items') && (
                         <Tabs
                             value={recordState}

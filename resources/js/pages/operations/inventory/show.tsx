@@ -249,7 +249,7 @@ export default function InventoryItemShow(props: Props) {
                     defaultValue={props.activeTab}
                     className="max-w-full min-w-0"
                 >
-                    <TabsList className="h-auto max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
+                    <TabsList className="h-auto max-w-full justify-start overflow-x-auto whitespace-nowrap sm:max-w-none sm:overflow-visible [&_[data-slot=tabs-trigger]]:shrink-0">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="conversions">
                             Unit conversions

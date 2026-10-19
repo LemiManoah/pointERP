@@ -192,7 +192,7 @@ export default function InventoryIndex(props: Props) {
                         }}
                         className="max-w-full min-w-0"
                     >
-                        <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
+                        <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap sm:max-w-none sm:overflow-visible [&_[data-slot=tabs-trigger]]:shrink-0">
                             <TabsTrigger value="items">Items</TabsTrigger>
                             <TabsTrigger value="categories">
                                 Categories

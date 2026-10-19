@@ -39,6 +39,20 @@ it('shows POS only to authorised users', function (): void {
     $this->actingAs($siteManager)->get(route('pos.index'))->assertForbidden();
 });
 
+it('prefers the branch depot and rejects an explicitly invalid store', function (): void {
+    $cashier = User::query()->where('email', 'cashier.kla@point.test')->firstOrFail();
+    $depot = InventoryStore::query()->where('code', 'KLA-MAIN-STORE')->firstOrFail();
+
+    $this->actingAs($cashier)->get(route('pos.index'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page): AssertableInertia => $page
+            ->component('operations/pos/index')
+            ->where('selected.store_id', $depot->id));
+
+    $this->actingAs($cashier)->get(route('pos.index', ['store_id' => fake()->uuid()]))
+        ->assertSessionHasErrors('store_id');
+});
+
 it('completes a paid sale and posts the matching stock issue', function (): void {
     $cashier = User::query()->where('email', 'cashier.kla@point.test')->firstOrFail();
     $store = InventoryStore::query()->where('code', 'KLA-MAIN-STORE')->firstOrFail();

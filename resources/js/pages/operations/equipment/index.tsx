@@ -441,7 +441,7 @@ export default function EquipmentIndex(props: Props) {
                         onValueChange={setTab}
                         className="max-w-full min-w-0"
                     >
-                        <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
+                        <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap sm:max-w-none sm:overflow-visible [&_[data-slot=tabs-trigger]]:shrink-0">
                             <TabsTrigger value="register">Register</TabsTrigger>
                             <TabsTrigger value="categories">
                                 Categories
@@ -472,7 +472,7 @@ export default function EquipmentIndex(props: Props) {
                         }
                         className="max-w-full min-w-0"
                     >
-                        <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap [&_[data-slot=tabs-trigger]]:shrink-0">
+                        <TabsList className="max-w-full justify-start overflow-x-auto whitespace-nowrap sm:max-w-none sm:overflow-visible [&_[data-slot=tabs-trigger]]:shrink-0">
                             {tab === 'fuel' ? (
                                 <>
                                     <TabsTrigger value="all">All</TabsTrigger>

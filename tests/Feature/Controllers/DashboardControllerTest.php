@@ -113,7 +113,7 @@ it('separates period sales from receipts and current customer debts', function (
         ->where('cards.2.snapshot', true)->where('cashFlow.received.amount', '200.0000')->where('cashFlow.received.count', 1));
 });
 
-it('counts upfront payments but only approved expenses and all-time unpaid balances', function (): void {
+it('keeps approved expenses and recorded cash flow within the selected period', function (): void {
     $approved = Expense::factory()->create(['branch_id' => $this->dashboardBranch, 'status' => 'approved', 'expense_date' => now()->subMonths(2), 'total_amount' => '1000']);
     ExpensePayment::factory()->create(['expense_id' => $approved->id, 'branch_id' => $this->dashboardBranch, 'amount' => '300', 'paid_at' => now()->subMonth()]);
     ExpensePayment::factory()->create(['expense_id' => $approved->id, 'branch_id' => $this->dashboardBranch, 'amount' => '100', 'payment_method' => 'bank']);
@@ -122,7 +122,7 @@ it('counts upfront payments but only approved expenses and all-time unpaid balan
     ExpensePayment::factory()->create(['expense_id' => $draft->id, 'branch_id' => $this->dashboardBranch, 'amount' => '25']);
     Expense::factory()->create(['branch_id' => $this->dashboardBranch, 'status' => 'approved', 'total_amount' => '200']);
     $this->get(route('dashboard', ['period' => 'today']))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
-        ->where('cards.1.amount', '200.0000')->where('cards.3.amount', '800.0000')
+        ->where('cards.1.amount', '200.0000')->where('cards.1.snapshot', false)->has('cards', 3)
         ->where('cashFlow.paid.amount', '125.0000')->where('cashFlow.paid.count', 2)->where('cashFlow.net', '-125.0000'));
 });
 
@@ -186,7 +186,7 @@ it('excludes expenses and payments attached to inaccessible projects', function 
     $line->save();
     ExpensePayment::factory()->create(['branch_id' => $this->dashboardBranch, 'expense_id' => $expense->id, 'amount' => '500']);
     $this->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
-        ->where('cards.1.amount', '0.0000')->where('cards.3.amount', '0.0000')->where('cashFlow.paid.amount', '0.0000'));
+        ->where('cards.1.amount', '0.0000')->where('cashFlow.paid.amount', '0.0000'));
 });
 
 it('resolves presets and returns empty chart intervals instead of fabricated activity', function (string $period, string $from): void {
@@ -202,6 +202,66 @@ it('shows operational cards without financial access and keeps current snapshots
         $this->get(route('dashboard', ['period' => $period]))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
             ->has('cards', 0)->missing('cashFlow')->where('operationalCards.0.id', 'projects')->where('operationalCards.0.count', $count)->missing('lowStock'));
     }
+});
+
+it('links an owner budget card to a currency-safe project report', function (): void {
+    $this->dashboardUser->syncPermissions(['dashboards.projects.view', 'projects.view', 'projects.view-all', 'branches.view-all']);
+    $this->get(route('dashboard', ['period' => 'today']))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
+        ->where('operationalCards.0.id', 'projects')
+        ->where('operationalCards.1.id', 'project-budgets')
+        ->where('operationalCards.1.amount', '309073180813.0000')
+        ->where('operationalCards.1.href', route('reports.project-budgets', ['currency' => 'UGX'])));
+
+    $this->get(route('reports.project-budgets', ['currency' => 'UGX']))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
+        ->component('reports/project-budgets')
+        ->where('report.total_budget', '309073180813.0000')
+        ->where('report.budgeted_count', 1)
+        ->has('report.rows', 1));
+    $this->get(route('reports.index'))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
+        ->component('reports/index')
+        ->where('reports.0.title', 'Project budgets')
+        ->where('reports.0.href', route('reports.project-budgets')));
+
+    $this->dashboardUser->revokePermissionTo('projects.view-all');
+    $this->get(route('reports.project-budgets'))->assertForbidden();
+    $this->get(route('reports.index'))->assertForbidden();
+});
+
+it('shows an owner report with dated source records and current project snapshots', function (): void {
+    $this->dashboardUser->givePermissionTo('dashboards.projects.view');
+    $expense = Expense::factory()->create([
+        'branch_id' => $this->dashboardBranch, 'status' => 'approved', 'currency_code' => 'UGX',
+        'expense_date' => now(), 'total_amount' => '1000',
+    ]);
+    $sale = dashboardSale($this->dashboardUser);
+    dashboardReceipt($sale, ['amount' => '200']);
+    ExpensePayment::factory()->create([
+        'branch_id' => $this->dashboardBranch, 'expense_id' => $expense->id,
+        'currency_code' => 'UGX', 'amount' => '300', 'paid_at' => now(),
+    ]);
+    $otherBranch = Branch::query()->create([
+        'tenant_id' => $this->dashboardUser->tenant_id, 'code' => 'REPORT-OTHER',
+        'name' => 'Other branch', 'country_code' => 'UG', 'default_currency_code' => 'UGX', 'status' => 'active',
+    ]);
+    Expense::factory()->create([
+        'branch_id' => $otherBranch->id, 'status' => 'approved', 'currency_code' => 'UGX',
+        'expense_date' => now(), 'total_amount' => '999',
+    ]);
+
+    $this->get(route('reports.owner-overview', ['period' => 'today', 'currency' => 'UGX']))
+        ->assertOk()->assertInertia(fn (Assert $page): Assert => $page
+            ->component('reports/owner-overview')
+            ->where('report.summary.approvedExpenses', '1000.0000')
+            ->where('report.summary.moneyIn', '200.0000')
+            ->where('report.summary.moneyOut', '300.0000')
+            ->has('report.sources.expenses.rows', 1)
+            ->has('report.sources.receipts.rows', 1)
+            ->has('report.sources.payments.rows', 1));
+
+    $this->get(route('reports.index'))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
+        ->where('reports.0.title', 'Owner overview'));
+    $this->dashboardUser->revokePermissionTo('expense-payments.view');
+    $this->get(route('reports.owner-overview'))->assertForbidden();
 });
 
 it('exposes inventory alert counts only with stock permission', function (): void {
@@ -258,7 +318,7 @@ it('shows current paid and unpaid counts for approved period expenses', function
     ExpensePayment::factory()->create(['expense_id' => $partial->id, 'branch_id' => $this->dashboardBranch, 'amount' => '25', 'status' => 'recorded']);
     Expense::factory()->create(['branch_id' => $this->dashboardBranch, 'status' => 'draft', 'currency_code' => 'UGX', 'expense_date' => now()]);
     $this->get(route('dashboard', ['period' => 'today', 'currency' => 'UGX']))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
-        ->where('cards.1.subtitle', '1 paid · 1 unpaid')->where('cards.3.title', 'Unpaid expenses'));
+        ->where('cards.1.subtitle', '1 paid · 1 unpaid')->where('cards.1.title', 'Approved expenses'));
     $this->dashboardUser->revokePermissionTo('expense-payments.view');
     $this->get(route('dashboard'))->assertOk()->assertInertia(fn (Assert $page): Assert => $page->where('cards.1.subtitle', null));
 });

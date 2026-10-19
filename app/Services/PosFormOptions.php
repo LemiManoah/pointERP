@@ -34,7 +34,12 @@ final readonly class PosFormOptions
     {
         $branches = $this->branchContext->accessibleBranches($user);
         $branch = $this->branch($request, $user, $branches);
-        $stores = InventoryStore::query()->where('branch_id', $branch->id)->where('is_active', true)->orderBy('name')->get();
+        $stores = InventoryStore::query()
+            ->where('branch_id', $branch->id)
+            ->where('is_active', true)
+            ->orderByRaw('CASE WHEN code = ? THEN 0 WHEN type IN (?, ?) THEN 1 ELSE 2 END', [$branch->code.'-MAIN', 'depot', 'warehouse'])
+            ->orderBy('name')
+            ->get();
         $store = $this->store($request, $stores);
         $tiers = InventoryPriceTier::query()->where('is_active', true)->orderBy('priority')->orderBy('name')->get();
         $tier = $this->tier($request, $tiers);
@@ -71,7 +76,16 @@ final readonly class PosFormOptions
     {
         $requested = $request->string('store_id')->toString();
 
-        return ($requested !== '' ? $stores->firstWhere('id', $requested) : null) ?? $stores->first();
+        if ($requested !== '') {
+            $selected = $stores->firstWhere('id', $requested);
+            if (! $selected instanceof InventoryStore) {
+                throw ValidationException::withMessages(['store_id' => 'Select an active store in this branch.']);
+            }
+
+            return $selected;
+        }
+
+        return $stores->first();
     }
 
     /** @param Collection<int, InventoryPriceTier> $tiers */

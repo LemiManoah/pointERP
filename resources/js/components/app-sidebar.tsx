@@ -41,6 +41,7 @@ import {
     SidebarRail,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
+import { index as reportsIndex } from '@/routes/reports';
 import type { Auth, CurrentTenant } from '@/types';
 
 type SidebarLink = {
@@ -226,6 +227,19 @@ const groups: SidebarGroupItem[] = [
     {
         title: 'Administration',
         items: [
+            {
+                title: 'Reports',
+                href: reportsIndex.url(),
+                icon: FileText,
+                status: 'ready',
+                permissionAny: [
+                    'projects.view-all',
+                    'expenses.view-costs',
+                    'inventory.reports.export',
+                    'equipment.view',
+                    'operations-dashboard.view',
+                ],
+            },
             {
                 title: 'Currency',
                 href: '/currency-settings',

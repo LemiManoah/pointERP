@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Enums\InventoryStoreType;
 use App\Models\Branch;
 use App\Models\BranchCurrency;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\InventoryStore;
 use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\TenantCurrency;
@@ -80,6 +82,16 @@ final class IronPointProductionSeeder extends Seeder
             $this->upsertBranch($tenant, 'IP-JUBA', 'Juba Office', 'SS', 'SSP'),
             $this->upsertBranch($tenant, 'IP-DRC', 'DRC Office', 'CD', 'CDF'),
         ];
+
+        InventoryStore::query()->firstOrCreate(
+            ['tenant_id' => $tenant->id, 'code' => 'IP-KLA-HQ-MAIN'],
+            [
+                'branch_id' => $branches[0]->id,
+                'name' => 'Kampala Main Store',
+                'type' => InventoryStoreType::Depot,
+                'is_active' => true,
+            ],
+        );
 
         foreach ($branches as $branch) {
             foreach (['UGX', 'USD', 'SSP', 'CDF'] as $currencyCode) {
