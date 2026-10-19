@@ -3,10 +3,12 @@
 declare(strict_types=1);
 
 use App\Models\AuditActivity;
+use App\Models\Branch;
 use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
 use App\Models\InventoryPriceTier;
 use App\Models\InventoryStore;
+use App\Models\InventoryStockMovement;
 use App\Models\UnitOfMeasure;
 use App\Models\User;
 use App\Services\TenantContext;
@@ -89,6 +91,59 @@ it('blocks a second active store when multi-store is disabled', function (): voi
     ])->assertSessionHasErrors('store');
 
     expect(InventoryStore::query()->where('code', 'KLA-SECONDARY')->exists())->toBeFalse();
+});
+
+it('allows one active store in each branch when multi-store is disabled', function (): void {
+    $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
+    $director->tenant()->update(['is_multibranch' => true, 'multi_store_enabled' => false]);
+    $branch = Branch::query()->create([
+        'tenant_id' => $director->tenant_id,
+        'code' => 'TEST-SECOND',
+        'name' => 'Second branch',
+        'country_code' => 'UG',
+        'default_currency_code' => 'UGX',
+        'status' => 'active',
+    ]);
+    $director->branches()->attach($branch->id, ['is_default' => false]);
+
+    $this->actingAs($director)->post(route('inventory.stores.store'), [
+        'branch_id' => $branch->id,
+        'code' => 'TEST-SECOND-MAIN',
+        'name' => 'Second branch Main Store',
+        'type' => 'depot',
+        'is_active' => true,
+    ])->assertSessionHasNoErrors();
+
+    expect(InventoryStore::query()->where('code', 'TEST-SECOND-MAIN')->exists())->toBeTrue();
+});
+
+it('backfills a branch main store without changing an existing site store or stock', function (): void {
+    $director = User::query()->where('email', 'lemi@gmail.com')->firstOrFail();
+    $director->tenant()->update(['is_multibranch' => true, 'multi_store_enabled' => true]);
+    $branch = Branch::query()->create([
+        'tenant_id' => $director->tenant_id,
+        'code' => 'TEST-SITE',
+        'name' => 'Test site branch',
+        'country_code' => 'UG',
+        'default_currency_code' => 'UGX',
+        'status' => 'active',
+    ]);
+    $siteStore = InventoryStore::query()->create([
+        'tenant_id' => $director->tenant_id,
+        'branch_id' => $branch->id,
+        'code' => 'TEST-SITE-STORE',
+        'name' => 'Existing site store',
+        'type' => 'site_store',
+        'is_active' => true,
+    ]);
+    $movementCount = InventoryStockMovement::query()->count();
+
+    $migration = require database_path('migrations/2026_10_19_120000_ensure_branch_main_stores.php');
+    $migration->up();
+
+    expect($siteStore->fresh()?->is_active)->toBeTrue()
+        ->and(InventoryStore::query()->where('branch_id', $branch->id)->where('code', 'TEST-SITE-MAIN')->exists())->toBeTrue()
+        ->and(InventoryStockMovement::query()->count())->toBe($movementCount);
 });
 
 it('requires expiry tracking for batch items and can generate a code from the name', function (): void {

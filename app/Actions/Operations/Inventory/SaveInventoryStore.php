@@ -24,7 +24,9 @@ final readonly class SaveInventoryStore
         $willBeActive = (bool) $data['is_active'];
 
         if (! $tenant->multi_store_enabled && $willBeActive) {
-            $activeStoreQuery = InventoryStore::query()->where('is_active', true);
+            $activeStoreQuery = InventoryStore::query()
+                ->where('branch_id', $data['branch_id'])
+                ->where('is_active', true);
             if ($store instanceof InventoryStore) {
                 $activeStoreQuery->whereKeyNot($store->id);
             }
@@ -33,7 +35,7 @@ final readonly class SaveInventoryStore
 
             if ($hasAnotherActiveStore) {
                 throw ValidationException::withMessages([
-                    'store' => 'Multi-store is turned off for this company. Deactivate the current store or enable multi-store before adding another active store.',
+                    'store' => 'Multi-store is turned off. Each branch can have one active store; deactivate its current store or enable multi-store.',
                 ]);
             }
         }

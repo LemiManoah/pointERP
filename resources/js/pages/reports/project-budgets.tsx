@@ -11,7 +11,8 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
-import { formatCurrencyAmount, formatNumber } from '@/lib/utils';
+import { compactMoney, exactMoney } from '@/lib/money-display';
+import { formatNumber } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { show as projectShow } from '@/routes/projects';
 import { projectBudgets } from '@/routes/reports';
@@ -53,7 +54,7 @@ export default function ProjectBudgets({
     const amount = (value: string | null) =>
         value === null
             ? '—'
-            : formatCurrencyAmount(report.currency, value);
+            : `${report.currency} ${exactMoney(value)}`;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -82,9 +83,9 @@ export default function ProjectBudgets({
                 )}
 
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <Summary title="Total budgets" value={amount(report.total_budget)} />
-                    <Summary title="Recorded spend" value={amount(report.total_spent)} />
-                    <Summary title="Remaining budget" value={amount(report.total_remaining)} />
+                    <Summary title="Total budgets" value={report.total_budget} currency={report.currency} />
+                    <Summary title="Incurred project cost" value={report.total_spent} currency={report.currency} />
+                    <Summary title="Remaining budget" value={report.total_remaining} currency={report.currency} />
                     <Summary title="Projects" value={formatNumber(report.project_count)} />
                 </div>
 
@@ -104,7 +105,7 @@ export default function ProjectBudgets({
                                         <TableHead>Branch</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead className="text-right">Budget</TableHead>
-                                        <TableHead className="text-right">Spent</TableHead>
+                                        <TableHead className="text-right">Incurred cost</TableHead>
                                         <TableHead className="text-right">Remaining</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -129,7 +130,7 @@ export default function ProjectBudgets({
                             </Table>
                         </div>
                         <p className="mt-4 text-xs text-muted-foreground">
-                            Spend includes approved site-report input costs and approved project expenses. It excludes purchase orders until their costs are recorded. Projects whose budget currency differs from their branch cost currency show no spend or remaining figure.
+                            Incurred cost includes approved site-report input costs and approved project expenses. Purchase orders are commitments, and payments are cash outflows; neither is added here. Projects whose budget currency differs from their branch cost currency show no cost or remaining figure.
                         </p>
                     </CardContent>
                 </Card>
@@ -138,12 +139,15 @@ export default function ProjectBudgets({
     );
 }
 
-function Summary({ title, value }: { title: string; value: string }) {
+function Summary({ title, value, currency }: { title: string; value: string | null; currency?: string }) {
+    const exact = currency && value !== null ? `${currency} ${exactMoney(value)}` : undefined;
     return (
         <Card>
             <CardContent className="space-y-2 py-5">
                 <p className="text-sm text-muted-foreground">{title}</p>
-                <p className="text-xl font-semibold tabular-nums">{value}</p>
+                <p className="break-words text-xl font-semibold tabular-nums" title={exact} aria-label={exact}>
+                    {currency ? (value === null ? '—' : `${currency} ${compactMoney(value)}`) : value}
+                </p>
             </CardContent>
         </Card>
     );

@@ -62,6 +62,12 @@ final class InventoryDirectReceiptController
         $branchContext = resolve(BranchContext::class);
         $defaultBranch = $branchContext->current($actor) ?? $branchContext->operationalDefault($actor);
         $defaultStore = $defaultBranch instanceof Branch
+            ? $stores->first(fn (array $store): bool => $store['branch_id'] === $defaultBranch->id && $store['code'] === $defaultBranch->code.'-MAIN')
+            : null;
+        $defaultStore ??= $defaultBranch instanceof Branch
+            ? $stores->first(fn (array $store): bool => $store['branch_id'] === $defaultBranch->id && in_array($store['type'], ['depot', 'warehouse'], true))
+            : null;
+        $defaultStore ??= $defaultBranch instanceof Branch
             ? $stores->first(fn (array $store): bool => $store['branch_id'] === $defaultBranch->id)
             : null;
         $defaultStore ??= $stores->first();

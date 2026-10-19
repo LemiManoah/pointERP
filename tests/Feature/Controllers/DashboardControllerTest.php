@@ -227,6 +227,43 @@ it('links an owner budget card to a currency-safe project report', function (): 
     $this->get(route('reports.index'))->assertForbidden();
 });
 
+it('shows an owner report with dated source records and current project snapshots', function (): void {
+    $this->dashboardUser->givePermissionTo('dashboards.projects.view');
+    $expense = Expense::factory()->create([
+        'branch_id' => $this->dashboardBranch, 'status' => 'approved', 'currency_code' => 'UGX',
+        'expense_date' => now(), 'total_amount' => '1000',
+    ]);
+    $sale = dashboardSale($this->dashboardUser);
+    dashboardReceipt($sale, ['amount' => '200']);
+    ExpensePayment::factory()->create([
+        'branch_id' => $this->dashboardBranch, 'expense_id' => $expense->id,
+        'currency_code' => 'UGX', 'amount' => '300', 'paid_at' => now(),
+    ]);
+    $otherBranch = Branch::query()->create([
+        'tenant_id' => $this->dashboardUser->tenant_id, 'code' => 'REPORT-OTHER',
+        'name' => 'Other branch', 'country_code' => 'UG', 'default_currency_code' => 'UGX', 'status' => 'active',
+    ]);
+    Expense::factory()->create([
+        'branch_id' => $otherBranch->id, 'status' => 'approved', 'currency_code' => 'UGX',
+        'expense_date' => now(), 'total_amount' => '999',
+    ]);
+
+    $this->get(route('reports.owner-overview', ['period' => 'today', 'currency' => 'UGX']))
+        ->assertOk()->assertInertia(fn (Assert $page): Assert => $page
+            ->component('reports/owner-overview')
+            ->where('report.summary.approvedExpenses', '1000.0000')
+            ->where('report.summary.moneyIn', '200.0000')
+            ->where('report.summary.moneyOut', '300.0000')
+            ->has('report.sources.expenses.rows', 1)
+            ->has('report.sources.receipts.rows', 1)
+            ->has('report.sources.payments.rows', 1));
+
+    $this->get(route('reports.index'))->assertOk()->assertInertia(fn (Assert $page): Assert => $page
+        ->where('reports.0.title', 'Owner overview'));
+    $this->dashboardUser->revokePermissionTo('expense-payments.view');
+    $this->get(route('reports.owner-overview'))->assertForbidden();
+});
+
 it('exposes inventory alert counts only with stock permission', function (): void {
     $this->dashboardUser->syncPermissions(['inventory.stock.view', 'branches.view-all']);
     InventoryItem::query()->firstOrFail()->update(['minimum_stock' => '999999']);

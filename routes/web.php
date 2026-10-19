@@ -130,6 +130,7 @@ use App\Http\Controllers\Operations\WorkItemCategoryController;
 use App\Http\Controllers\Operations\WorkItemTemplateController;
 use App\Http\Controllers\Operations\WorkItemTemplateDownloadController;
 use App\Http\Controllers\Operations\WorkItemTemplateImportController;
+use App\Http\Controllers\Reports\OwnerOverviewReportController;
 use App\Http\Controllers\Reports\ProjectBudgetReportController;
 use App\Http\Controllers\Reports\ReportIndexController;
 use App\Http\Controllers\Resources\StaffController;
@@ -159,6 +160,7 @@ Route::get('/', fn (): RedirectResponse => auth()->check()
 Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('reports', ReportIndexController::class)->name('reports.index');
+    Route::get('reports/owner-overview', OwnerOverviewReportController::class)->name('reports.owner-overview');
     Route::get('reports/project-budgets', ProjectBudgetReportController::class)->name('reports.project-budgets');
     Route::get('operations-dashboard', OperationsDashboardController::class)->name('operations-dashboard.index');
     Route::get('operations-dashboard/export', DsrExceptionExportController::class)->name('operations-dashboard.export');

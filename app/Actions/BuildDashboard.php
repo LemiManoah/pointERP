@@ -158,7 +158,7 @@ final readonly class BuildDashboard
             if ($user->can('projects.view-all')) {
                 $budget = $this->projectBudgets->for($user, $currency);
                 $cards[] = [
-                    ...$this->card('project-budgets', 'Project budgets', $budget['total_budget'], $budget['budgeted_count'], 'Total budgets across accessible projects in the selected currency. Recorded spend uses approved site reports and approved project expenses.', route('reports.project-budgets', ['currency' => $currency]), true),
+                    ...$this->card('project-budgets', 'Project budgets', $budget['total_budget'], $budget['budgeted_count'], 'Total budgets across accessible projects in the selected currency. Incurred cost uses approved site reports and approved project expenses; it is not cash paid.', route('reports.project-budgets', ['currency' => $currency]), true),
                     'budgetSummary' => [
                         'spent' => $budget['total_spent'],
                         'remaining' => $budget['total_remaining'],

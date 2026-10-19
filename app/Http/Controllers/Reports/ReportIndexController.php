@@ -17,6 +17,10 @@ final class ReportIndexController
         abort_unless($user instanceof User, 403);
 
         $reports = [];
+        if (self::canViewOwnerOverview($user)) {
+            $reports[] = ['title' => 'Owner overview', 'description' => 'Review approved expenses, recorded payments, active project budgets, and current exceptions.', 'href' => route('reports.owner-overview')];
+        }
+
         if ($user->can('projects.view-all')) {
             $reports[] = ['title' => 'Project budgets', 'description' => 'Compare project budgets with recorded spend and remaining budget.', 'href' => route('reports.project-budgets')];
         }
@@ -40,5 +44,16 @@ final class ReportIndexController
         abort_if($reports === [], 403);
 
         return Inertia::render('reports/index', ['reports' => $reports]);
+    }
+
+    public static function canViewOwnerOverview(User $user): bool
+    {
+        foreach (['projects.view', 'projects.view-all', 'dashboards.projects.view', 'pos.view', 'pos.view-all-sales', 'pos.view-payments', 'expenses.view', 'expenses.view-costs', 'expense-payments.view'] as $permission) {
+            if (! $user->can($permission)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

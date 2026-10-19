@@ -17,7 +17,7 @@ final readonly class ProjectBudgetReport
 {
     public function __construct(private BranchContext $branches) {}
 
-    /** @return array<string, mixed> */
+    /** @return array{currency: string, total_budget: string, total_spent: string|null, total_remaining: string|null, project_count: int, budgeted_count: int, unbudgeted_count: int, uncomparable_count: int, rows: list<array{id: string, reference: string, name: string, branch: string, status: string, budget: string|null, spent: string|null, remaining: string|null}>} */
     public function for(User $user, string $currencyCode): array
     {
         $currentBranch = $this->branches->current($user);

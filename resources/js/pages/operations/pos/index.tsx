@@ -192,7 +192,7 @@ export default function PosIndex(props: Props) {
             {
                 branch_id:
                     key === 'branch_id' ? value : props.selected.branch_id,
-                store_id: key === 'store_id' ? value : props.selected.store_id,
+                store_id: key === 'branch_id' ? null : key === 'store_id' ? value : props.selected.store_id,
                 price_list_id:
                     key === 'price_list_id'
                         ? value

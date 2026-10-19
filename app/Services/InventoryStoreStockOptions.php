@@ -67,6 +67,7 @@ final readonly class InventoryStoreStockOptions
                 'branch_id' => $store->branch_id,
                 'name' => $store->name,
                 'code' => $store->code,
+                'type' => $store->type->value,
                 'branch_name' => $store->branch->name,
                 'items' => $items
                     ->map(fn (InventoryItem $item): array => [
